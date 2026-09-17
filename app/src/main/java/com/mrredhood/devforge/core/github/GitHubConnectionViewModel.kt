@@ -1,6 +1,9 @@
 package com.mrredhood.devforge.core.github
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.mrredhood.devforge.core.security.AndroidSecretStore
 import com.mrredhood.devforge.core.security.SecretStore
@@ -8,7 +11,7 @@ import com.mrredhood.devforge.core.security.SecretStore
 class GitHubConnectionViewModel(application: Application) : AndroidViewModel(application) {
     private val secretStore: SecretStore = AndroidSecretStore(application)
 
-    var snapshot: GitHubConnectionSnapshot = initialSnapshot()
+    var snapshot: GitHubConnectionSnapshot by mutableStateOf(initialSnapshot())
         private set
 
     fun connectWithToken(token: String) {
@@ -22,7 +25,7 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
         snapshot = GitHubConnectionSnapshot(
             state = GitHubConnectionState.Connected(),
             credentialMode = GitHubCredentialMode.ManualToken,
-            message = "Token stored securely on this device. Account verification is not connected yet.",
+            message = "Token stored securely on this device. Account verification is ready from the repository picker.",
         )
     }
 
