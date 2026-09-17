@@ -26,6 +26,8 @@ import com.mrredhood.devforge.core.security.AndroidSecretStore
 import com.mrredhood.devforge.core.security.SecretStore
 import com.mrredhood.devforge.core.storage.BuildReceiptEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
+import com.mrredhood.devforge.core.storage.toDomain
+import com.mrredhood.devforge.core.storage.toEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
