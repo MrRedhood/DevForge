@@ -99,6 +99,12 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Delayed recovery snapshot after edits
 - [x] Mobile editor surface with monospace editing
 - [x] Editor mode hides primary navigation for focused phone editing
+- [x] Content SHA-256 hashing utility
+- [x] Immutable content snapshot model
+- [x] Bounded per-file snapshot persistence
+- [x] Snapshot state ViewModel
+- [x] Lightweight line-oriented diff engine
+- [x] Shared diff model suitable for editor review and future Git/AI patch tooling
 
 ### Domain / Safety Foundation
 
@@ -130,14 +136,13 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 ### Next implementation slice
 
-1. Content hashing and snapshot model
-2. Diff engine foundation
-3. Recursive folder navigation
-4. File preview/search safeguards
-5. Durable multi-workspace database strategy (Room after the state model stabilizes)
-6. Git repository state model and status UI
-7. Build configuration/state model
-8. Approval UI connected to actual action requests
+1. Connect snapshot creation to editor save/open/recovery lifecycle
+2. Recursive folder navigation and workspace breadcrumbs
+3. File preview/search safeguards
+4. Durable multi-workspace database strategy (Room after the state model stabilizes)
+5. Git repository state model and status UI
+6. Build configuration/state model
+7. Approval UI connected to actual action requests
 
 ### Workspace persistence decision
 
@@ -148,7 +153,7 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 - Recovery drafts currently use a small local SharedPreferences store keyed by document URI.
 - Recovery is deliberately separate from normal save state: editing a document never silently overwrites the selected workspace file.
-- The next editor hardening step is content hashing/snapshots so recovery, AI patches, and Git diffs can share one consistent change model.
+- Content hashes and snapshots are now available as a common identity/checkpoint layer for recovery, AI patches, and Git diffs.
 
 ## Planned — AI & Agent
 
@@ -185,9 +190,11 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [ ] Undo/redo
 - [x] Autosave/recovery draft hook
 - [x] Crash-recovery draft storage foundation
-- [ ] Snapshots
-- [ ] Restore points
-- [ ] Diff viewer
+- [x] Content hashing
+- [x] Snapshot model and bounded store
+- [x] Diff engine foundation
+- [ ] Diff viewer UI
+- [ ] Restore points UI
 - [ ] Symbol navigation
 - [ ] Large-file safeguards
 
@@ -296,6 +303,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Workspace root browser state
 - [x] Editor workspace chrome foundation
 - [x] Unsaved-change confirmation
+- [ ] Diff viewer surface
+- [ ] Snapshot/recovery history surface
 - [ ] Error/recovery states
 - [ ] Approval bottom sheets/dialogs
 - [ ] Command palette
@@ -316,6 +325,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [ ] Unit test suite
 - [ ] Repository/data tests
 - [ ] Editor recovery tests
+- [ ] Snapshot/hash tests
+- [ ] Diff engine tests
 - [ ] Agent/tool contract tests
 - [ ] Policy tests
 - [ ] UI tests
@@ -341,6 +352,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 11. Keep the first persistence layer minimal; introduce Room when the product has enough durable relational state to justify it.
 12. Workspace access must use least-privilege Android storage APIs; do not request broad storage permissions for the core workspace flow.
 13. File editing must separate in-memory buffers, persisted file state, and recovery drafts so AI/automation features can later add reviewable patches without bypassing user control.
+14. Content identity should be content-based rather than timestamp-based where correctness matters, so snapshots, diffs, recovery, and future agent patches can detect actual changes.
+15. Keep snapshot storage bounded per file until a proper database-backed history layer is introduced.
 
 ## Change Log
 
@@ -374,6 +387,17 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - Connected workspace file rows to the editor so real files open from the Files screen.
 - Added a focused mobile editor surface with tab chrome, save control, monospace editing, and error presentation.
 - Hid primary navigation while editing on compact screens to maximize editor space.
+- CI validation of this implementation is pending.
+
+### 2026-09-17 — Content identity, snapshots, and diff foundation
+
+- Added SHA-256 content hashing for stable file content identity.
+- Added immutable `ContentSnapshot` and snapshot-reason models.
+- Added bounded local snapshot storage with de-duplication by content hash and a per-file history limit.
+- Added `SnapshotViewModel` for snapshot loading, creation, and diff state.
+- Added a lightweight line-oriented `DiffEngine` with context, added, and removed line entries.
+- Established a common foundation for future editor review, Git status/diffs, AI patch preparation, recovery checkpoints, and rollback workflows.
+- Deliberately kept the snapshot layer lightweight until Room becomes justified by broader relational state.
 - CI validation of this implementation is pending.
 
 ### Future entries
