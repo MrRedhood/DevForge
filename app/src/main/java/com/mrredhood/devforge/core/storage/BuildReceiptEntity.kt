@@ -3,8 +3,8 @@ package com.mrredhood.devforge.core.storage
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.mrredhood.devforge.core.build.BuildConfiguration
-import com.mrredhood.devforge.core.build.BuildHistoryEntry
 import com.mrredhood.devforge.core.build.BuildTarget
+import com.mrredhood.devforge.core.github.BuildHistoryEntry
 
 @Entity(tableName = "build_receipts")
 data class BuildReceiptEntity(
