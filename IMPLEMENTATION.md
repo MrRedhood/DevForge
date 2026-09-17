@@ -169,6 +169,9 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - CI requests `platform-tools` and `platforms;android-36` and is intended to reach real Gradle/Kotlin compilation.
 - CI run #86 reached Gradle compilation but failed AAR metadata validation because the Compose BOM and related AndroidX dependencies pulled versions requiring compileSdk 37.
 - The dependency set was aligned back to an API-36-compatible line without changing the app's stable SDK target.
+- CI run #96 reached Kotlin compilation and exposed an experimental Material3 API usage in `MainActivity.kt` at the expanded navigation rail.
+- The navigation rail call was explicitly opted into with `ExperimentalMaterial3Api`; the earlier Compose compatibility fixes remain intact.
+- A fresh CI run is required to validate the fix; the implementation commit is not marked validated until the build completes successfully.
 
 ## In Progress / Next
 
@@ -475,7 +478,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 - Added `BuildConfiguration` with workflow, branch, Gradle task, artifact, and target metadata.
 - Added build targets for debug APK, release APK, and release AAB.
-- Added explicit lifecycle states for ready, dispatching, running, succeeded, failed, and cancelled builds.
+- Added explicit lifecycle states for ready, dispatching, running, succeeded, and cancelled builds.
 - Added capability availability states for remote dispatch, live logs, and artifact discovery.
 - Added `BuildViewModel` for target/configuration selection and explicit dispatch gating.
 
@@ -505,3 +508,16 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Aligned the Compose BOM to `2026.06.01`, Activity Compose to `1.12.4`, Material3 Adaptive to `1.2.0`, and Navigation Compose to `2.9.8`.
 - Kept Material3 `1.4.0`, Room `2.8.5`, Java 17, and the API 36 compile/target configuration unchanged.
 - Preserved the remote-build architecture; this change only restores dependency/SDK compatibility for CI.
+
+### 2026-09-17 — MainActivity Compose compatibility and Git dashboard wiring
+
+- Reworked `MainActivity.kt` to use current Compose API signatures for cards and to connect the Git destination to `GitDashboardScreen`.
+- Restored the existing editor ViewModel save semantics and fixed the workspace observation hashing input type.
+- Updated the GitHub connection layout to use supported Compose layout APIs.
+
+### 2026-09-17 — Material3 NavigationRail opt-in fix
+
+- CI run #96 reached Kotlin compilation and reported an experimental Material3 API usage at the expanded `NavigationRail` surface in `MainActivity.kt`.
+- Added the explicit `ExperimentalMaterial3Api` opt-in only to the navigation-rail composable, preserving the existing window-size opt-in and avoiding a broader global opt-in.
+- Corrected the `BackHandler` import while applying the fix.
+- Fresh CI validation remains pending.
