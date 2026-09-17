@@ -153,7 +153,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
             capability = Capability.DISPATCH_BUILD,
             risk = RiskLevel.R2,
             workspaceId = "github:${configuration.githubOwner}/${configuration.githubRepository}",
-            summary = "Dispatch ${configuration.workflowFile} on ${configuration.branch}",
+            summary = "Dispatch ${configuration.workflowFile} on ${configuration.branch} (${configuration.target.workflowInput})",
             parametersHash = configurationHash(configuration),
             preconditionHash = configurationHash(configuration),
         )
@@ -288,13 +288,14 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
             configuration.githubRepository.isNotBlank() &&
             configuration.workflowFile.isNotBlank()
         val credentialAvailable = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) != null
-        val supportedTarget = configuration.target == BuildTarget.DebugApk
+        val workflowContractSelected = configuration.workflowFile.trim().substringAfterLast('/') ==
+            GitHubActionsGateway.TARGET_CONTRACT_WORKFLOW
 
         capabilities = capabilities.copy(
             githubDispatch = when {
                 !repositorySelected -> CapabilityAvailability.NotConfigured
                 !credentialAvailable -> CapabilityAvailability.Unavailable
-                !supportedTarget -> CapabilityAvailability.NotConfigured
+                !workflowContractSelected -> CapabilityAvailability.NotConfigured
                 else -> CapabilityAvailability.Available
             },
             liveLogs = if (credentialAvailable && repositorySelected && runSnapshot != null) {
@@ -323,8 +324,8 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
             "Select and validate a GitHub repository before starting a remote build."
         secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) == null ->
             "Connect GitHub before starting a remote build."
-        configuration.target != BuildTarget.DebugApk ->
-            "The selected workflow currently supports the debug APK target only. Release dispatch inputs will be added with release workflow support."
+        configuration.workflowFile.trim().substringAfterLast('/') != GitHubActionsGateway.TARGET_CONTRACT_WORKFLOW ->
+            "Select the DevForge Android workflow that declares the fixed debug/release target contract."
         else -> "Remote workflow dispatch is not available for this configuration."
     }
 
