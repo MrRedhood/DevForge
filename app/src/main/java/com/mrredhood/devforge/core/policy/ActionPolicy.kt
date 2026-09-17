@@ -58,4 +58,26 @@ object DefaultPolicy {
             Capability.REBASE_BRANCH,
         )
     }
+
+    /** A persistent grant can only relax the normal approval gate for explicitly grantable capabilities. */
+    fun requiresApprovalWithGrant(
+        request: ActionRequest,
+        mode: PermissionMode,
+        grantActive: Boolean,
+        grantRiskCeiling: RiskLevel? = null,
+    ): Boolean {
+        if (!requiresApproval(request, mode)) return false
+        if (!grantActive || !isGrantable(request.capability)) return true
+        val ceiling = grantRiskCeiling ?: return true
+        return request.risk.ordinal > ceiling.ordinal
+    }
+
+    fun isGrantable(capability: Capability): Boolean = capability !in setOf(
+        Capability.DELETE_FILES,
+        Capability.DELETE_BRANCH,
+        Capability.PUSH_REMOTE,
+        Capability.MANAGE_RELEASE,
+        Capability.ACCESS_SECRET,
+        Capability.REBASE_BRANCH,
+    )
 }
