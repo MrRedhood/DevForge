@@ -79,15 +79,23 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun saveActive() {
-        saveAndClose(uri = null)
+        val tab = activeTab ?: return
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
+            result.onSuccess {
+                val saved = tab.content
+                tabs = tabs.map { if (it.uri == tab.uri) it.copy(savedContent = saved, updatedAt = System.currentTimeMillis()) else it }
+                withContext(Dispatchers.IO) {
+                    saveSnapshotIfChanged(tab.uri, tab.name, saved, SnapshotReason.MANUAL)
+                    repository.clearRecoveryDraft(tab.uri)
+                }
+                recoveryJobs.remove(tab.uri)?.cancel()
+            }.onFailure { throwable -> error = throwable.message ?: "Unable to save file" }
+        }
     }
 
     fun saveAndCloseActive() {
-        saveAndClose(uri = activeUri)
-    }
-
-    private fun saveAndClose(uri: Uri?) {
-        val tab = uri?.let { target -> tabs.firstOrNull { it.uri == target } } ?: activeTab ?: return
+        val tab = activeTab ?: return
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
             result.onSuccess {
