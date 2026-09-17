@@ -110,16 +110,20 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [x] Build ViewModel with target selection and configuration updates
 - [x] Build Center UI connected to the Build destination
 - [x] Explicit dispatch-unavailable state instead of pretending a remote run started
-- [ ] GitHub authentication
+- [x] GitHub credential storage boundary
+- [x] GitHub Actions REST dispatch gateway foundation
+- [ ] GitHub account identity verification
+- [ ] OAuth / GitHub App authentication
+- [ ] Repository selection
 - [ ] Workflow discovery
-- [ ] Workflow dispatch execution
+- [ ] Workflow dispatch UI execution
 - [ ] Live run status
 - [ ] Logs
 - [ ] Artifact discovery/download
 - [ ] Build history
 - [ ] Failure diagnostics
 
-### Domain / Safety
+### Security / Domain Foundation
 
 - [x] Capability model
 - [x] Risk classification
@@ -127,6 +131,9 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [x] Action request model
 - [x] Approval state foundation
 - [x] Foundation for policy-gated AI tool execution
+- [x] `SecretStore` abstraction
+- [x] Android Keystore-backed AES/GCM secret storage
+- [x] Secret redaction boundary for GitHub API errors
 
 ## Persistence Architecture
 
@@ -157,18 +164,20 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ### Latest CI findings
 
-- The dashboard CI run failed before Gradle because the GitHub runner could not resolve `platforms;android-37`, even when requested through the preview channel.
-- The app was therefore moved from preview API 37 to stable API 36 for both `compileSdk` and `targetSdk`, and CI now requests `platforms;android-36`.
-- A fresh workflow run is required to validate the stable Android SDK path and then expose any real Kotlin/Compose compiler issues.
+- API 37 was not resolvable on the GitHub runner, including the preview-channel installation path.
+- The app therefore uses stable API 36 for `compileSdk` and `targetSdk`.
+- CI requests `platform-tools` and `platforms;android-36` and is intended to reach real Gradle/Kotlin compilation.
+- Build validation is still pending for the newest GitHub/security implementation commits.
 
 ## In Progress / Next
 
-1. Native Git execution/index-aware status capability
-2. GitHub authentication + workflow dispatch execution for Build Center
-3. Approval UI connected to real action requests
-4. Diff viewer and snapshot/recovery history UI
-5. Workspace switcher UI for selecting among persisted workspaces
-6. Richer Room entities after Git/agent/build models stabilize
+1. Wire authenticated GitHub repository selection and workflow discovery into Build Center.
+2. Complete workflow dispatch execution with explicit repository/ref selection.
+3. Add live run status, logs, and artifact handling.
+4. Native Git execution/index-aware status capability.
+5. Approval UI connected to real action requests.
+6. Diff viewer and snapshot/recovery history UI.
+7. Workspace switcher UI and richer Room entities after core models stabilize.
 
 ## Planned — AI & Agent
 
@@ -241,7 +250,10 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [x] Build target selection model
 - [x] Build lifecycle state model
 - [x] Build Center presentation
-- [ ] GitHub account connection
+- [x] Secure credential-storage foundation
+- [x] GitHub Actions API gateway foundation
+- [ ] GitHub account verification
+- [ ] OAuth/GitHub App connection
 - [ ] Repository selection
 - [ ] Workflow discovery
 - [ ] Workflow dispatch
@@ -281,9 +293,10 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ## Planned — Security & Privacy
 
-- [ ] Android Keystore
-- [ ] Encrypted secrets
-- [ ] Secret redaction
+- [x] Android Keystore foundation
+- [x] Encrypted secret storage foundation
+- [x] GitHub error secret-redaction boundary
+- [ ] Secret redaction across all logs/UI
 - [ ] API-key lifecycle
 - [ ] OAuth/token lifecycle
 - [ ] Capability registry
@@ -301,6 +314,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [ ] Workspace
 - [ ] Git
 - [ ] Build
+- [ ] GitHub connection
 - [ ] AI providers/models
 - [ ] Agent behavior
 - [ ] Permissions/security
@@ -385,6 +399,9 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 14. Use Room for durable relational state once the model warrants it; do not prematurely persist every transient UI state.
 15. Treat SAF Git metadata as capability-dependent: absence of `.git` visibility or worktree indirection must surface as an explicit unsupported/unknown state rather than a false repository state.
 16. Keep Git metadata and workspace observation scanning bounded; native Git mutation/status requires a dedicated execution layer rather than unsafe ad-hoc file manipulation.
+17. Never store GitHub or AI secrets in source-controlled configuration.
+18. Runtime credentials must stay behind `SecretStore` and must never be rendered, logged, or exposed through general UI state.
+19. Remote actions remain capability-gated until repository/ref/permission requirements are verified.
 
 ## Change Log
 
@@ -447,13 +464,11 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Added local branch list presentation with current-branch emphasis.
 - Added workspace observation metrics and explicit scan-confidence messaging.
 - Added disabled native-Git action affordances explaining why status/diff/commit remain unavailable until an index-aware execution layer is implemented.
-- Marked Git repository state and branch-list UI as implemented without mislabeling workspace observation as native Git status.
 
 ### 2026-09-17 — Stable Android CI target
 
 - Reverted the app build target from preview API 37 to stable API 36 because the GitHub runner could not resolve Android 17/API 37 even on the preview SDK channel.
 - Updated CI to install `platform-tools` and `platforms;android-36` through `android-actions/setup-android@v3`.
-- Kept the mobile app on a stable SDK baseline so future CI failures can reach the actual Gradle/Kotlin compilation stage.
 
 ### 2026-09-17 — Build configuration/state foundation
 
@@ -468,3 +483,17 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Added the Build Center UI and connected the existing Build destination to it.
 - Added target selection, execution-plan presentation, remote capability status, and build lifecycle messaging.
 - Kept "Start remote build" explicitly blocked until GitHub authentication and workflow dispatch are implemented.
+
+### 2026-09-17 — GitHub credential security foundation
+
+- Added `SecretStore` as the runtime secret boundary.
+- Added Android Keystore-backed AES/GCM storage using encrypted SharedPreferences ciphertext and a non-exportable Keystore key.
+- Added GitHub connection state and a ViewModel for secure manual credential storage/removal.
+- Added a dedicated GitHub connection screen as the current manual credential setup surface; OAuth/GitHub App authentication remains the future connection path.
+
+### 2026-09-17 — GitHub Actions API gateway foundation
+
+- Added `GitHubActionsGateway` for `workflow_dispatch` requests.
+- Added Bearer-token handling behind `SecretStore`, GitHub API version header, explicit repository/workflow/ref inputs, and bounded error-message redaction.
+- Added Android INTERNET permission for the future authenticated GitHub API path.
+- Kept the Build Center capability gate closed until repository selection, credential verification, and end-to-end dispatch wiring are implemented.
