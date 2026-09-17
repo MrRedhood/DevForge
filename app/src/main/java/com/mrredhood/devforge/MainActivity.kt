@@ -233,7 +233,7 @@ private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDe
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NavigationSide(current: DevForgeDestination, onSelect: (DevForgeDestination) -> Unit) {
-    NavigationRail(Modifier.fillMaxHeight().width(88.dp).verticalScroll(rememberScrollState())) {
+    NavigationRail(Modifier.fillMaxHeight().width(88.dp)) {
         Spacer(Modifier.height(18.dp))
         DevForgeDestination.entries.forEach { item ->
             NavigationRailItem(
