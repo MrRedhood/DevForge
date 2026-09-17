@@ -16,6 +16,9 @@ enum class Capability {
     FETCH_REMOTE,
     PULL_REMOTE,
     PUSH_REMOTE,
+    MERGE_BRANCH,
+    REBASE_BRANCH,
+    CHERRY_PICK,
     DISPATCH_BUILD,
     MANAGE_RELEASE,
     ACCESS_SECRET,
@@ -52,6 +55,7 @@ object DefaultPolicy {
             Capability.PUSH_REMOTE,
             Capability.MANAGE_RELEASE,
             Capability.ACCESS_SECRET,
+            Capability.REBASE_BRANCH,
         )
     }
 }
