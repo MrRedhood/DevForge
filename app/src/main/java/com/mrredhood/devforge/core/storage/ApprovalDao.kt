@@ -12,6 +12,9 @@ interface ApprovalDao {
     @Query("SELECT * FROM approval_actions WHERE status = 'PENDING' ORDER BY createdAtEpochMs DESC LIMIT :limit")
     fun observePending(limit: Int): Flow<List<ApprovalEntity>>
 
+    @Query("SELECT * FROM approval_actions WHERE status = 'APPROVED' AND actionId LIKE :actionPrefix ORDER BY createdAtEpochMs ASC LIMIT :limit")
+    fun observeApproved(actionPrefix: String, limit: Int): Flow<List<ApprovalEntity>>
+
     @Query("SELECT * FROM approval_actions WHERE approvalId = :approvalId LIMIT 1")
     fun observeById(approvalId: String): Flow<ApprovalEntity?>
 
@@ -21,10 +24,16 @@ interface ApprovalDao {
     @Query("UPDATE approval_actions SET status = :status, resolvedAtEpochMs = :resolvedAt WHERE approvalId = :approvalId AND status = 'PENDING'")
     suspend fun resolve(approvalId: String, status: String, resolvedAt: Long): Int
 
-    @Query("UPDATE approval_actions SET status = 'EXPIRED', resolvedAtEpochMs = :now WHERE status = 'PENDING' AND expiresAtEpochMs <= :now")
+    @Query("UPDATE approval_actions SET status = 'EXECUTING', resolvedAtEpochMs = :now WHERE approvalId = :approvalId AND status = 'APPROVED' AND expiresAtEpochMs > :now")
+    suspend fun claimApproved(approvalId: String, now: Long): Int
+
+    @Query("UPDATE approval_actions SET status = :status, resolvedAtEpochMs = :resolvedAt WHERE approvalId = :approvalId AND status = 'EXECUTING'")
+    suspend fun finishExecution(approvalId: String, status: String, resolvedAt: Long): Int
+
+    @Query("UPDATE approval_actions SET status = 'EXPIRED', resolvedAtEpochMs = :now WHERE status IN ('PENDING', 'APPROVED') AND expiresAtEpochMs <= :now")
     suspend fun expire(now: Long): Int
 
-    @Query("DELETE FROM approval_actions WHERE status != 'PENDING' AND resolvedAtEpochMs IS NOT NULL AND resolvedAtEpochMs < :cutoff")
+    @Query("DELETE FROM approval_actions WHERE status NOT IN ('PENDING', 'APPROVED', 'EXECUTING') AND resolvedAtEpochMs IS NOT NULL AND resolvedAtEpochMs < :cutoff")
     suspend fun pruneResolved(cutoff: Long): Int
 
     @Transaction
