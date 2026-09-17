@@ -89,6 +89,13 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Workspace refresh action
 - [x] Lightweight file metadata presentation
 - [x] Background file-tree loading with bounded enumeration per folder
+- [x] Recursive filename search
+- [x] Bounded search result limit
+- [x] Safe text-preview policy
+- [x] Oversized-file preview refusal
+- [x] Basic binary-content detection for preview
+- [x] Search results connected to folder navigation and editor opening
+- [x] Preview can hand a supported file off to the editor
 
 ### Editor Foundation
 
@@ -145,11 +152,11 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 ### Next implementation slice
 
-1. File preview/search safeguards
-2. Durable multi-workspace database strategy (Room after the state model stabilizes)
-3. Git repository state model and status UI
-4. Build configuration/state model
-5. Approval UI connected to actual action requests
+1. Durable multi-workspace database strategy (Room after the state model stabilizes)
+2. Git repository state model and status UI
+3. Build configuration/state model
+4. Approval UI connected to actual action requests
+5. Diff viewer and snapshot/recovery history UI
 
 ### Workspace persistence decision
 
@@ -161,6 +168,12 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - Recovery drafts currently use a small local SharedPreferences store keyed by document URI.
 - Recovery is deliberately separate from normal save state: editing a document never silently overwrites the selected workspace file.
 - Content hashes and snapshots now form a common identity/checkpoint layer for recovery, AI patches, Git diffs, and future rollback workflows.
+
+### Workspace search/preview decision
+
+- Search is intentionally filename-first and bounded rather than doing unrestricted full-content indexing on every keystroke.
+- Preview is capped at 512 KiB and refuses obvious binary content to protect mobile memory and responsiveness.
+- Full workspace indexing/content search will be introduced later as a dedicated indexing subsystem for AI context and global search.
 
 ## Planned — AI & Agent
 
@@ -189,8 +202,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] File tree root enumeration
 - [x] Recursive folder navigation
 - [x] Breadcrumb navigation
-- [ ] Search
-- [ ] File preview
+- [x] Filename search
+- [x] Safe file preview foundation
 - [x] File open/read/write pipeline
 - [x] Editor tabs
 - [ ] Syntax highlighting
@@ -203,8 +216,10 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Diff engine foundation
 - [ ] Diff viewer UI
 - [ ] Restore points UI
+- [ ] Content indexing/full-text search
 - [ ] Symbol navigation
-- [ ] Large-file safeguards
+- [x] Large-file preview safeguard
+- [ ] Large-file editor safeguard
 
 ## Planned — Git
 
@@ -311,6 +326,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Workspace root browser state
 - [x] Recursive folder browser surface
 - [x] Workspace breadcrumb surface
+- [x] Workspace search surface foundation
+- [x] Safe preview dialog foundation
 - [x] Editor workspace chrome foundation
 - [x] Unsaved-change confirmation
 - [ ] Diff viewer surface
@@ -337,6 +354,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [ ] Editor recovery tests
 - [ ] Snapshot/hash tests
 - [ ] Diff engine tests
+- [ ] Workspace search tests
+- [ ] Preview policy tests
 - [ ] Agent/tool contract tests
 - [ ] Policy tests
 - [ ] UI tests
@@ -365,6 +384,7 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 14. Content identity should be content-based rather than timestamp-based where correctness matters, so snapshots, diffs, recovery, and future agent patches can detect actual changes.
 15. Keep snapshot storage bounded per file until a proper database-backed history layer is introduced.
 16. Recursive workspace browsing must operate through the selected SAF tree permission; do not expand storage scope just to traverse nested folders.
+17. Search/preview must stay bounded and fail safely on large or binary content rather than trading responsiveness for broad local scanning.
 
 ## Change Log
 
@@ -428,6 +448,17 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - Updated the Files UI so folder rows navigate deeper while file rows continue opening in the editor.
 - Added horizontally scrollable breadcrumb chips for phone-sized layouts.
 - Kept enumeration bounded per folder to avoid unbounded reads on-device.
+- CI validation of this implementation is pending.
+
+### 2026-09-17 — Workspace search and safe preview
+
+- Added bounded recursive filename search across the selected SAF workspace.
+- Connected search state and results to the Files UI.
+- Added a 512 KiB preview limit to avoid excessive memory use on mobile devices.
+- Added a simple binary-content guard that refuses obvious binary files in the text preview path.
+- Added a preview dialog with a safe handoff into the editor for supported text files.
+- Kept full-text/global indexing deferred to a dedicated indexing subsystem for later AI context and global search use.
+- Added search, preview, and large-file safeguards to the implementation tracker.
 - CI validation of this implementation is pending.
 
 ### Future entries
