@@ -137,9 +137,10 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ### Latest CI findings
 
-- The earlier Room implementation run failed during Android SDK setup because the workflow attempted to install the removed `tools` SDK package.
-- The workflow was hardened to use `actions/setup-java@v5` and explicitly request `platform-tools` plus `platforms;android-37` through `android-actions/setup-android@v3`.
-- Post-fix CI must complete successfully before Android build validation is marked complete.
+- A post-dashboard CI run reached Android SDK setup but failed because the stable SDK repository could not resolve `platforms;android-37`.
+- Android 17/API 37 is currently a preview platform, while the app intentionally uses `compileSdk = 37` and `targetSdk = 37`.
+- CI was updated to install `platform-tools` with the setup action and then install the Android 17 preview platform through `sdkmanager --channel=1 'platforms;android-37'`.
+- A fresh CI run is required to validate the corrected preview-SDK installation before Android build validation is marked complete.
 
 ## In Progress / Next
 
@@ -408,8 +409,8 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ### 2026-09-17 — CI workflow hardening
 
-- Updated Java setup to v5 and Android SDK setup to avoid the obsolete `tools` package while requesting `platform-tools` and `platforms;android-37`.
-- Validation remains pending on a successful post-fix CI run.
+- Updated Java setup to v5 and Android SDK setup to avoid the obsolete `tools` package.
+- Follow-up CI showed API 37 must be installed from the preview channel rather than the stable package channel.
 
 ### 2026-09-17 — Workspace observation status foundation
 
@@ -424,3 +425,10 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Added workspace observation metrics and explicit scan-confidence messaging.
 - Added disabled native-Git action affordances explaining why status/diff/commit remain unavailable until an index-aware execution layer is implemented.
 - Marked Git repository state and branch-list UI as implemented without mislabeling workspace observation as native Git status.
+
+### 2026-09-17 — CI Android 17 preview installation fix
+
+- Changed Android SDK setup to install only `platform-tools` through `android-actions/setup-android@v3`.
+- Added a dedicated `sdkmanager --channel=1 'platforms;android-37'` step because API 37 is currently a preview platform.
+- Kept `compileSdk = 37` and `targetSdk = 37` unchanged.
+- A fresh workflow run is required to validate this corrected setup.
