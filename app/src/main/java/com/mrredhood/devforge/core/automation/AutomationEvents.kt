@@ -142,10 +142,11 @@ object AutomationTriggerCodec {
             expected == "*" || actual.equals(expected, true) || (key == "paths" && actual.split(',').any { it == expected })
         }
 
-    fun eventFingerprint(workspaceId: String, branch: String?, paths: List<String>): String {
+    /** Fingerprint includes bounded state descriptors so content/status changes on the same path are observable. */
+    fun eventFingerprint(workspaceId: String, branch: String?, stateParts: List<String>): String {
         val input = buildString {
             append(workspaceId).append('\u0000').append(branch.orEmpty()).append('\u0000')
-            paths.sorted().take(500).forEach { append(it).append('\u0000') }
+            stateParts.sorted().take(MAX_STATE_PARTS).forEach { append(it).append('\u0000') }
         }
         return sha256(input)
     }
@@ -160,4 +161,5 @@ object AutomationTriggerCodec {
     private const val MAX_FIELD = 120
     private const val MAX_PATHS = 40
     private const val MAX_CONDITIONS = 16
+    private const val MAX_STATE_PARTS = 600
 }
