@@ -16,7 +16,7 @@ class WorkspaceDatabaseRepository(context: Context) {
     val activeWorkspace: Flow<Workspace?> = dao.observeActive().map { it?.toDomain() }
 
     suspend fun ensureLegacyWorkspaceMigrated() {
-        if (dao.observeAllOnceIsEmpty().not()) return
+        if (dao.count() > 0) return
         val raw = legacyPreferences.getString("current_workspace", null) ?: return
         runCatching {
             val json = JSONObject(raw)
@@ -30,6 +30,7 @@ class WorkspaceDatabaseRepository(context: Context) {
                 dao.clearActive()
                 dao.upsert(workspace.toEntity(isActive = true))
             }
+            legacyPreferences.edit().remove("current_workspace").apply()
         }
     }
 
@@ -51,7 +52,4 @@ class WorkspaceDatabaseRepository(context: Context) {
     suspend fun delete(workspaceId: String) {
         dao.delete(workspaceId)
     }
-
-    private suspend fun WorkspaceDao.observeAllOnceIsEmpty(): Boolean =
-        findById("__probe__") == null && runCatching { kotlinx.coroutines.flow.first(observeAll()) }.getOrDefault(emptyList()).isEmpty()
 }
