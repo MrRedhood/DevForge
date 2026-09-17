@@ -23,10 +23,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
+      - name: Set up Android SDK tools
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-37'
+          packages: 'platform-tools'
+
+      - name: Install Android 17 preview platform
+        run: sdkmanager --channel=1 'platforms;android-37'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
