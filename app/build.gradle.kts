@@ -35,9 +35,9 @@ android {
         signingConfigs {
             create("devforgeRelease") {
                 storeFile = file(releaseKeystoreFile!!)
-                storePassword = releaseKeystorePassword
-                keyAlias = releaseKeyAlias
-                keyPassword = releaseKeyPassword
+                storePassword = releaseKeystorePassword!!
+                keyAlias = releaseKeyAlias!!
+                keyPassword = releaseKeyPassword!!
             }
         }
     }
