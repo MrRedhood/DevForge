@@ -31,7 +31,8 @@ class GitHubActionsGateway(
         val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
             ?: return GitHubDispatchResult.Failure("GitHub is not connected on this device.")
 
-        val endpoint = "https://api.github.com/repos/$owner/$repository/actions/workflows/${configuration.workflowFile}/dispatches"
+        val workflowId = configuration.workflowFile.substringAfterLast('/')
+        val endpoint = "https://api.github.com/repos/$owner/$repository/actions/workflows/$workflowId/dispatches"
         val payload = JSONObject().apply {
             put("ref", configuration.branch)
         }.toString()
