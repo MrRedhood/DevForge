@@ -152,7 +152,12 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private fun selectModelInternal(model: AIModelInfo) {
         val scope = workspaceId ?: ChatRepository.GLOBAL_SCOPE
         viewModelScope.launch(Dispatchers.IO) {
-            val session = chatRepository.getOrCreateSession(scope, model)
+            val enriched = catalogService.resolveMissingContext(model)
+            launch(Dispatchers.Main.immediate) {
+                selectedModel = enriched
+                models = models.map { if (it.provider == enriched.provider && it.id == enriched.id) enriched else it }
+            }
+            val session = chatRepository.getOrCreateSession(scope, enriched)
             messageJob?.cancel()
             messageJob = launch {
                 chatRepository.observeMessages(session.sessionId).collectLatest { values ->
