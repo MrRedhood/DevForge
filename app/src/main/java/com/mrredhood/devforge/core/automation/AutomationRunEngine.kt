@@ -17,7 +17,7 @@ class AutomationRunEngine(
     private val durable: DurableStateRepository,
     private val agent: AgentTaskEngine,
 ) {
-    suspend fun execute(automationId: String, attempt: Int): AutomationExecutionOutcome {
+    suspend fun execute(automationId: String, attempt: Int, triggerPayload: String? = null): AutomationExecutionOutcome {
         val automation = durable.getAutomation(automationId)
             ?: return AutomationExecutionOutcome(AutomationRunStatus.FAILED, false, 0L)
         if (automation.status != AutomationStatus.ENABLED.name) {
@@ -38,14 +38,14 @@ class AutomationRunEngine(
                     ),
                 )
             } else {
-                val skipped = createRun(automation, AutomationRunStatus.SKIPPED, attempt, error = "An earlier automation run is still active.")
+                val skipped = createRun(automation, AutomationRunStatus.SKIPPED, attempt, error = "An earlier automation run is still active.", triggerPayload = triggerPayload)
                 durable.saveAutomationRun(skipped)
                 return AutomationExecutionOutcome(AutomationRunStatus.SKIPPED, false, 0L)
             }
         }
 
         val startedAt = now
-        var run = createRun(automation, AutomationRunStatus.RUNNING, attempt, startedAt)
+        var run = createRun(automation, AutomationRunStatus.RUNNING, attempt, startedAt, triggerPayload = triggerPayload)
         durable.saveAutomationRun(run)
         audit(automation, run, "AUTOMATION_STARTED", "Automation '${automation.name}' started.")
 
@@ -105,10 +105,10 @@ class AutomationRunEngine(
         val automation = durable.getAutomation(run.automationId)
         val now = System.currentTimeMillis()
         val updated = when (task?.status) {
-            AgentTaskStatus.COMPLETED.name -> finish(run, AutomationRunStatus.COMPLETED, null, receipt(taskId, task.approvalId, task.result), now)
-            AgentTaskStatus.WAITING_APPROVAL.name -> run.copy(receiptJson = receipt(taskId, task.approvalId, task.result))
-            AgentTaskStatus.CANCELLED.name -> finish(run, AutomationRunStatus.CANCELLED, "Agent task was cancelled.", receipt(taskId, null, task.result), now)
-            else -> finish(run, AutomationRunStatus.FAILED, task?.errorMessage ?: "Approved automation task failed.", receipt(taskId, task?.approvalId, task?.result), now)
+            AgentTaskStatus.COMPLETED.name -> finish(run, AutomationRunStatus.COMPLETED, null, receipt(taskId, task.approvalId, task.result, receipt.optString("triggerPayload")), now)
+            AgentTaskStatus.WAITING_APPROVAL.name -> run.copy(receiptJson = receipt(taskId, task.approvalId, task.result, receipt.optString("triggerPayload")))
+            AgentTaskStatus.CANCELLED.name -> finish(run, AutomationRunStatus.CANCELLED, "Agent task was cancelled.", receipt(taskId, null, task.result, receipt.optString("triggerPayload")), now)
+            else -> finish(run, AutomationRunStatus.FAILED, task?.errorMessage ?: "Approved automation task failed.", receipt(taskId, task?.approvalId, task?.result, receipt.optString("triggerPayload")), now)
         }
         durable.saveAutomationRun(updated)
         automation?.let {
@@ -135,31 +135,40 @@ class AutomationRunEngine(
             AutomationExecutionOutcome(AutomationRunStatus.FAILED, true, (60_000L * multiplier).coerceAtMost(15L * 60L * 1000L))
         } else AutomationExecutionOutcome(AutomationRunStatus.FAILED, false, 0L)
 
-    private fun createRun(automation: AutomationEntity, status: AutomationRunStatus, attempt: Int, startedAt: Long = System.currentTimeMillis(), error: String? = null) = AutomationRunEntity(
+    private fun createRun(
+        automation: AutomationEntity,
+        status: AutomationRunStatus,
+        attempt: Int,
+        startedAt: Long = System.currentTimeMillis(),
+        error: String? = null,
+        triggerPayload: String? = null,
+    ) = AutomationRunEntity(
         runId = UUID.randomUUID().toString(),
         automationId = automation.automationId,
         status = status.name,
         startedAtEpochMs = startedAt,
         completedAtEpochMs = if (status == AutomationRunStatus.RUNNING) null else startedAt,
         errorMessage = error,
-        receiptJson = JSONObject().put("attempt", attempt).put("automationId", automation.automationId).toString(),
+        receiptJson = JSONObject()
+            .put("attempt", attempt)
+            .put("automationId", automation.automationId)
+            .put("triggerPayload", triggerPayload?.take(AutomationScheduler.MAX_EVENT_PAYLOAD_BYTES))
+            .toString(),
     )
 
     private fun finish(run: AutomationRunEntity, status: AutomationRunStatus, error: String?, receipt: String? = run.receiptJson, completedAt: Long = System.currentTimeMillis()) =
         run.copy(status = status.name, errorMessage = error?.take(600), completedAtEpochMs = completedAt, receiptJson = receipt)
 
-    private fun receipt(run: AutomationRunEntity, taskId: String, approvalId: String?, result: String?): String = JSONObject()
-        .put("automationId", run.automationId)
-        .put("runId", run.runId)
+    private fun receipt(run: AutomationRunEntity, taskId: String, approvalId: String?, result: String?): String =
+        receipt(taskId, approvalId, result, JSONObject(run.receiptJson ?: "{}").optString("triggerPayload").takeIf(String::isNotBlank))
+
+    private fun receipt(taskId: String, approvalId: String?, result: String?, triggerPayload: String?): String = JSONObject()
         .put("taskId", taskId)
-        .put("attempt", JSONObject(run.receiptJson ?: "{}").optInt("attempt", 1))
         .put("approvalId", approvalId)
         .put("result", result?.take(60_000))
+        .put("triggerPayload", triggerPayload?.take(AutomationScheduler.MAX_EVENT_PAYLOAD_BYTES))
         .toString()
         .take(60_000)
-
-    private fun receipt(taskId: String, approvalId: String?, result: String?): String =
-        JSONObject().put("taskId", taskId).put("approvalId", approvalId).put("result", result?.take(60_000)).toString().take(60_000)
 
     private suspend fun audit(automation: AutomationEntity, run: AutomationRunEntity, eventType: String, summary: String) {
         durable.recordAudit(
