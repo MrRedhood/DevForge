@@ -100,6 +100,25 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [ ] Local mutation operations
 - [ ] GitHub remote integration
 
+### Remote Build / CI Foundation
+
+- [x] Declarative build configuration model
+- [x] Debug APK / release APK / release AAB target model
+- [x] Workflow-file, branch, Gradle-task, and artifact-name configuration
+- [x] Explicit build lifecycle state model
+- [x] Remote capability availability model
+- [x] Build ViewModel with target selection and configuration updates
+- [x] Build Center UI connected to the Build destination
+- [x] Explicit dispatch-unavailable state instead of pretending a remote run started
+- [ ] GitHub authentication
+- [ ] Workflow discovery
+- [ ] Workflow dispatch execution
+- [ ] Live run status
+- [ ] Logs
+- [ ] Artifact discovery/download
+- [ ] Build history
+- [ ] Failure diagnostics
+
 ### Domain / Safety
 
 - [x] Capability model
@@ -144,8 +163,8 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ## In Progress / Next
 
-1. Build configuration/state model
-2. Native Git execution/index-aware status capability
+1. Native Git execution/index-aware status capability
+2. GitHub authentication + workflow dispatch execution for Build Center
 3. Approval UI connected to real action requests
 4. Diff viewer and snapshot/recovery history UI
 5. Workspace switcher UI for selecting among persisted workspaces
@@ -218,10 +237,13 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ## Planned — Remote Build / CI
 
+- [x] Build configuration model
+- [x] Build target selection model
+- [x] Build lifecycle state model
+- [x] Build Center presentation
 - [ ] GitHub account connection
 - [ ] Repository selection
 - [ ] Workflow discovery
-- [ ] Build configuration
 - [ ] Workflow dispatch
 - [ ] Live status
 - [ ] Logs
@@ -314,6 +336,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [ ] Quick actions
 - [ ] Activity center
 - [ ] Agent timeline
+- [x] Build Center surface
 - [ ] Build detail
 - [ ] Git detail screens
 - [ ] Full editor chrome
@@ -431,3 +454,17 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Reverted the app build target from preview API 37 to stable API 36 because the GitHub runner could not resolve Android 17/API 37 even on the preview SDK channel.
 - Updated CI to install `platform-tools` and `platforms;android-36` through `android-actions/setup-android@v3`.
 - Kept the mobile app on a stable SDK baseline so future CI failures can reach the actual Gradle/Kotlin compilation stage.
+
+### 2026-09-17 — Build configuration/state foundation
+
+- Added `BuildConfiguration` with workflow, branch, Gradle task, artifact, and target metadata.
+- Added build targets for debug APK, release APK, and release AAB.
+- Added explicit lifecycle states for ready, dispatching, running, succeeded, failed, and cancelled builds.
+- Added capability availability states for remote dispatch, live logs, and artifact discovery.
+- Added `BuildViewModel` for target/configuration selection and explicit dispatch gating.
+
+### 2026-09-17 — Build Center surface
+
+- Added the Build Center UI and connected the existing Build destination to it.
+- Added target selection, execution-plan presentation, remote capability status, and build lifecycle messaging.
+- Kept "Start remote build" explicitly blocked until GitHub authentication and workflow dispatch are implemented.
