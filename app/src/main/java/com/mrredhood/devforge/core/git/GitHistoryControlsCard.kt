@@ -45,7 +45,7 @@ fun GitHistoryControlsCard(viewModel: GitHistoryViewModel = viewModel()) {
     val repository = viewModel.repository
     val branches = repository?.branches.orEmpty()
     val selected = viewModel.selectedBranch
-    val canRun = selected != null && !viewModel.isExecuting
+    val canRun = selected != null && !viewModel.isExecuting && viewModel.conflictSession == null
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -67,7 +67,7 @@ fun GitHistoryControlsCard(viewModel: GitHistoryViewModel = viewModel()) {
                 Text("Target branch", style = MaterialTheme.typography.labelLarge)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(branches.filter { !it.isCurrent }.take(MAX_HISTORY_BRANCHES), key = { it.name }) { branch ->
-                        FilterChip(selected = branch.name == selected, onClick = { viewModel.selectBranch(branch.name) }, label = { Text(branch.name) })
+                        FilterChip(selected = branch.name == selected, onClick = { viewModel.selectBranch(branch.name) }, label = { Text(branch.name) }, enabled = viewModel.conflictSession == null)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -79,8 +79,8 @@ fun GitHistoryControlsCard(viewModel: GitHistoryViewModel = viewModel()) {
 
             Spacer(Modifier.height(2.dp))
             Text("Cherry-pick commit", style = MaterialTheme.typography.labelLarge)
-            OutlinedTextField(value = cherryPickRevision, onValueChange = { cherryPickRevision = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("40-character commit SHA") })
-            Button(onClick = { viewModel.cherryPick(cherryPickRevision); cherryPickRevision = "" }, enabled = cherryPickRevision.trim().length == 40 && !viewModel.isExecuting) {
+            OutlinedTextField(value = cherryPickRevision, onValueChange = { cherryPickRevision = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("40-character commit SHA") }, enabled = viewModel.conflictSession == null)
+            Button(onClick = { viewModel.cherryPick(cherryPickRevision); cherryPickRevision = "" }, enabled = cherryPickRevision.trim().length == 40 && !viewModel.isExecuting && viewModel.conflictSession == null) {
                 IconText(Icons.Default.Check, "Cherry-pick")
             }
 
@@ -89,15 +89,9 @@ fun GitHistoryControlsCard(viewModel: GitHistoryViewModel = viewModel()) {
                 Text("No readable commit history is available through the selected workspace access path.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 viewModel.commits.take(MAX_HISTORY_COMMITS).forEach { commit ->
-                    CommitHistoryRow(
-                        commit = commit,
-                        selected = commit.commitId == viewModel.selectedCommit?.commitId,
-                        onClick = { viewModel.selectCommit(commit) },
-                    )
+                    CommitHistoryRow(commit = commit, selected = commit.commitId == viewModel.selectedCommit?.commitId, onClick = { viewModel.selectCommit(commit) })
                 }
-                if (viewModel.commits.size > MAX_HISTORY_COMMITS) {
-                    Text("Showing the newest $MAX_HISTORY_COMMITS commits; history is bounded for mobile performance.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                if (viewModel.commits.size > MAX_HISTORY_COMMITS) Text("Showing the newest $MAX_HISTORY_COMMITS commits; history is bounded for mobile performance.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             viewModel.selectedCommit?.let { commit ->
@@ -105,9 +99,7 @@ fun GitHistoryControlsCard(viewModel: GitHistoryViewModel = viewModel()) {
                 if (viewModel.selectedCommitFiles.isEmpty()) {
                     Text("No changed files could be resolved for this commit.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    viewModel.selectedCommitFiles.take(MAX_CHANGED_FILES_VISIBLE).forEach { file ->
-                        ChangedFileRow(file) { viewModel.selectFile(file.path) }
-                    }
+                    viewModel.selectedCommitFiles.take(MAX_CHANGED_FILES_VISIBLE).forEach { file -> ChangedFileRow(file) { viewModel.selectFile(file.path) } }
                     if (viewModel.selectedCommitFiles.size > MAX_CHANGED_FILES_VISIBLE) Text("Only the first $MAX_CHANGED_FILES_VISIBLE changed paths are shown.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -130,7 +122,7 @@ fun GitHistoryControlsCard(viewModel: GitHistoryViewModel = viewModel()) {
             }
 
             viewModel.message?.let { message -> Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Text("Conflicts are detected before anything is copied back to the workspace. DevForge discards conflicted temporary state instead of silently leaving a partial merge or rebase.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            Text("When Git reports conflicts, DevForge keeps them inside a bounded isolated session. Nothing is copied back to the workspace until the conflicts are resolved and the final state is revalidated.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
         }
     }
 }
