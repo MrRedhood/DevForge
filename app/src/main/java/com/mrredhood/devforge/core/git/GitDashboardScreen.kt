@@ -21,7 +21,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Source
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -216,9 +217,7 @@ private fun GitOperationsCard() {
             if (changed.isEmpty()) {
                 Text("No pending file changes were observed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                changed.forEach { file ->
-                    GitChangeRow(file, model)
-                }
+                changed.forEach { file -> GitChangeRow(file, model) }
                 if ((model.workspaceStatus?.files?.count { it.gitStatus !in setOf(GitFileStatus.Clean, GitFileStatus.Unchecked) } ?: 0) > MAX_CHANGE_ROWS) {
                     Text("Only the first $MAX_CHANGE_ROWS changes are shown; mutation remains bounded.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                 }
@@ -243,18 +242,50 @@ private fun GitOperationsCard() {
                 }
             }
 
+            Text("Remote Git", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(
+                "HTTPS GitHub transport uses the connected Keystore credential, validates origin access before each operation, and never force-pushes.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { model.fetchRemote() },
+                    enabled = model.capabilities.fetchRemote == CapabilityAvailability.Available && !model.isExecuting,
+                ) {
+                    Icon(Icons.Default.Refresh, null)
+                    Spacer(Modifier.size(6.dp))
+                    Text("Fetch")
+                }
+                OutlinedButton(
+                    onClick = { model.pullRemote() },
+                    enabled = model.capabilities.pullRemote == CapabilityAvailability.Available && !model.isExecuting,
+                ) {
+                    Icon(Icons.Default.Sync, null)
+                    Spacer(Modifier.size(6.dp))
+                    Text("Pull")
+                }
+                Button(
+                    onClick = { model.pushRemote() },
+                    enabled = model.capabilities.pushRemote == CapabilityAvailability.Available && !model.isExecuting,
+                ) {
+                    Icon(Icons.Default.Upload, null)
+                    Spacer(Modifier.size(6.dp))
+                    Text("Push")
+                }
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CapabilityChip("Stage", model.capabilities.stage)
                 CapabilityChip("Unstage", model.capabilities.unstage)
                 CapabilityChip("Commit", model.capabilities.commit)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CapabilityChip("Fetch", model.capabilities.fetchRemote)
+                CapabilityChip("Pull", model.capabilities.pullRemote)
                 CapabilityChip("Push", model.capabilities.pushRemote)
             }
 
-            Text(
-                "Fetch, pull, and push are not configured yet; DevForge keeps those remote mutations unavailable instead of simulating them.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             model.operationMessage?.let { message ->
                 Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
