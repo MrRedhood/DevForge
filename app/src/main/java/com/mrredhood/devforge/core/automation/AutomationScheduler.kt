@@ -60,6 +60,8 @@ object AutomationScheduler {
 
     suspend fun scheduleNext(context: Context, automation: AutomationEntity) {
         if (automation.status != AutomationStatus.ENABLED.name) return
+        val trigger = runCatching { AutomationTriggerType.valueOf(automation.triggerType) }.getOrNull() ?: return
+        if (trigger != AutomationTriggerType.SCHEDULE) return
         val due = AutomationScheduleParser.nextEpochMs(automation.schedule) ?: return
         enqueueAt(context.applicationContext, automation.automationId, attempt = 1, dueEpochMs = due, triggerKey = null, triggerPayload = null)
     }
