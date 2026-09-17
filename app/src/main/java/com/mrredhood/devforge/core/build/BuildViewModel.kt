@@ -11,11 +11,11 @@ import com.mrredhood.devforge.core.github.GitHubActionsGateway
 import com.mrredhood.devforge.core.github.GitHubArtifactsResult
 import com.mrredhood.devforge.core.github.GitHubConnectionViewModel
 import com.mrredhood.devforge.core.github.GitHubDispatchResult
+import com.mrredhood.devforge.core.github.GitHubJobLog
 import com.mrredhood.devforge.core.github.GitHubLogsResult
 import com.mrredhood.devforge.core.github.GitHubRunResult
 import com.mrredhood.devforge.core.github.GitHubRunSnapshot
 import com.mrredhood.devforge.core.github.GitHubArtifact
-import com.mrredhood.devforge.core.github.GitHubJobLog
 import com.mrredhood.devforge.core.policy.ActionRequest
 import com.mrredhood.devforge.core.policy.Approval
 import com.mrredhood.devforge.core.policy.Capability
@@ -24,9 +24,12 @@ import com.mrredhood.devforge.core.policy.PermissionMode
 import com.mrredhood.devforge.core.policy.RiskLevel
 import com.mrredhood.devforge.core.security.AndroidSecretStore
 import com.mrredhood.devforge.core.security.SecretStore
+import com.mrredhood.devforge.core.storage.BuildReceiptEntity
+import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,6 +38,7 @@ import java.security.MessageDigest
 class BuildViewModel(application: Application) : AndroidViewModel(application) {
     private val secretStore: SecretStore = AndroidSecretStore(application)
     private val githubGateway = GitHubActionsGateway.forBuildStore(secretStore)
+    private val buildReceiptDao = DevForgeDatabase.get(application).buildReceiptDao()
     private var monitorJob: Job? = null
 
     var configuration by mutableStateOf(BuildConfiguration())
@@ -63,6 +67,14 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     var history by mutableStateOf<List<BuildHistoryEntry>>(emptyList())
         private set
+
+    init {
+        viewModelScope.launch {
+            buildReceiptDao.observeRecent(MAX_HISTORY).collect { receipts ->
+                history = receipts.map(BuildReceiptEntity::toDomain)
+            }
+        }
+    }
 
     fun selectTarget(target: BuildTarget) {
         if (state is BuildState.Dispatching || state is BuildState.Running) return
@@ -252,23 +264,21 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                         "GitHub Actions run #${snapshot.runNumber} finished with ${snapshot.conclusion ?: "an unknown conclusion"}.",
                     )
                 }
-                prependHistory(
-                    BuildHistoryEntry(
-                        runId = snapshot.id,
-                        runNumber = snapshot.runNumber,
-                        configuration = buildConfiguration,
-                        state = snapshot.status,
-                        conclusion = snapshot.conclusion,
-                        htmlUrl = snapshot.htmlUrl,
-                        updatedAt = snapshot.updatedAt,
-                    ),
+                val entry = BuildHistoryEntry(
+                    runId = snapshot.id,
+                    runNumber = snapshot.runNumber,
+                    configuration = buildConfiguration,
+                    state = snapshot.status,
+                    conclusion = snapshot.conclusion,
+                    htmlUrl = snapshot.htmlUrl,
+                    updatedAt = snapshot.updatedAt,
+                    recordedAtEpochMs = System.currentTimeMillis(),
                 )
+                viewModelScope.launch(Dispatchers.IO) {
+                    buildReceiptDao.record(entry.toEntity(), MAX_HISTORY)
+                }
             }
         }
-    }
-
-    private fun prependHistory(entry: BuildHistoryEntry) {
-        history = listOf(entry) + history.filterNot { it.runId == entry.runId }.take(MAX_HISTORY - 1)
     }
 
     private fun refreshDispatchCapability() {
