@@ -18,6 +18,7 @@ import com.mrredhood.devforge.core.security.AndroidSecretStore
 import com.mrredhood.devforge.core.security.SecretStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 
 class BuildViewModel(application: Application) : AndroidViewModel(application) {
@@ -120,13 +121,16 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
         val request = configuration
         state = BuildState.Dispatching(request)
         viewModelScope.launch(Dispatchers.IO) {
-            when (val result = githubGateway.dispatch(request.githubOwner, request.githubRepository, request)) {
+            val nextState = when (val result = githubGateway.dispatch(request.githubOwner, request.githubRepository, request)) {
                 is com.mrredhood.devforge.core.github.GitHubDispatchResult.Started -> {
-                    state = BuildState.Running(result.runId, request)
+                    BuildState.Running(result.runId, request)
                 }
                 is com.mrredhood.devforge.core.github.GitHubDispatchResult.Failure -> {
-                    state = BuildState.Failed(result.message)
+                    BuildState.Failed(result.message)
                 }
+            }
+            withContext(Dispatchers.Main.immediate) {
+                state = nextState
             }
         }
     }
