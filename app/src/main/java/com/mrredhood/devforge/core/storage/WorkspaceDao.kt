@@ -14,6 +14,9 @@ interface WorkspaceDao {
     @Query("SELECT * FROM workspaces WHERE isActive = 1 LIMIT 1")
     fun observeActive(): Flow<WorkspaceEntity?>
 
+    @Query("SELECT COUNT(*) FROM workspaces")
+    suspend fun count(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(workspace: WorkspaceEntity)
 
