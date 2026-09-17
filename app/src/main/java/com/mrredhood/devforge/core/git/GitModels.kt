@@ -45,3 +45,20 @@ enum class GitFileStatus {
     Conflict,
     Unchecked,
 }
+
+data class GitCapabilityState(
+    val stage: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val unstage: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val commit: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val createBranch: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val deleteBranch: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val fetchRemote: CapabilityAvailability = CapabilityAvailability.NotConfigured,
+    val pullRemote: CapabilityAvailability = CapabilityAvailability.NotConfigured,
+    val pushRemote: CapabilityAvailability = CapabilityAvailability.NotConfigured,
+)
+
+enum class CapabilityAvailability {
+    Available,
+    Unavailable,
+    NotConfigured,
+}
