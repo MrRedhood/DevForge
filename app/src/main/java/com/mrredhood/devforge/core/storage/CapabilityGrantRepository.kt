@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.storage
 
 import com.mrredhood.devforge.core.policy.Capability
+import com.mrredhood.devforge.core.policy.CapabilityGrantRegistry
 import com.mrredhood.devforge.core.policy.RiskLevel
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +41,7 @@ class CapabilityGrantRepository(
             enabled = true,
         )
         dao.upsert(entity)
+        CapabilityGrantRegistry.put(workspaceId, capability, maxRisk, expiresAtEpochMs)
         audit?.record(
             eventType = "GRANT_CREATED",
             summary = "Persistent grant enabled for ${capability.name}",
@@ -53,6 +55,7 @@ class CapabilityGrantRepository(
     suspend fun revoke(workspaceId: String, capability: Capability): Boolean {
         val changed = dao.revoke(workspaceId, capability.name) > 0
         if (changed) {
+            CapabilityGrantRegistry.remove(workspaceId, capability)
             audit?.record(
                 eventType = "GRANT_REVOKED",
                 summary = "Persistent grant revoked for ${capability.name}",
