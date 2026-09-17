@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.git
 
 import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -16,6 +17,7 @@ class GitDiffViewModel(application: Application) : AndroidViewModel(application)
     private val repositoryService = GitRepositoryService(application.contentResolver)
     private val diffService = GitDiffService(application.contentResolver)
     private var loadJob: Job? = null
+    private var activeRoot: Uri? = null
 
     var documents by mutableStateOf<List<GitDiffDocument>>(emptyList())
         private set
@@ -27,20 +29,17 @@ class GitDiffViewModel(application: Application) : AndroidViewModel(application)
     init {
         viewModelScope.launch {
             workspaces.activeWorkspace.collectLatest { workspace ->
-                load(workspace?.treeUri)
+                activeRoot = workspace?.treeUri
+                load(activeRoot)
             }
         }
     }
 
     fun refresh() {
-        loadJob?.cancel()
-        viewModelScope.launch {
-            val workspace = workspaces.activeWorkspace.value
-            load(workspace?.treeUri)
-        }
+        load(activeRoot)
     }
 
-    private fun load(root: android.net.Uri?) {
+    private fun load(root: Uri?) {
         loadJob?.cancel()
         documents = emptyList()
         message = null
