@@ -21,12 +21,13 @@ import com.mrredhood.devforge.core.policy.RiskLevel
         AgentTaskEntity::class,
         AutomationEntity::class,
         AutomationRunEntity::class,
+        AutomationTriggerStateEntity::class,
         AuditEventEntity::class,
         CapabilityGrantEntity::class,
         ChatSessionEntity::class,
         ChatMessageEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class DevForgeDatabase : RoomDatabase() {
@@ -37,6 +38,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
     abstract fun editorSnapshotDao(): EditorSnapshotDao
     abstract fun agentTaskDao(): AgentTaskDao
     abstract fun automationDao(): AutomationDao
+    abstract fun automationTriggerStateDao(): AutomationTriggerStateDao
     abstract fun auditEventDao(): AuditEventDao
     abstract fun capabilityGrantDao(): CapabilityGrantDao
     abstract fun chatSessionDao(): ChatSessionDao
@@ -87,7 +89,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         PRIMARY KEY(`approvalId`)
                     )
                 """.trimIndent())
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_approval_actions_status_createdAtEpochMs` ON `approval_actions` (`status`, `createdAtEpochMs`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_approval_actions_status_createdAtEpochMs` ON approval_actions(status, createdAtEpochMs)")
             }
         }
 
@@ -116,7 +118,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         PRIMARY KEY(`snapshotId`)
                     )
                 """.trimIndent())
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_editor_snapshots_uri_createdAtEpochMs` ON `editor_snapshots` (`uri`, `createdAtEpochMs`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_editor_snapshots_uri_createdAtEpochMs` ON editor_snapshots(uri, createdAtEpochMs)")
                 database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `agent_tasks` (
                         `taskId` TEXT NOT NULL,
@@ -131,7 +133,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         PRIMARY KEY(`taskId`)
                     )
                 """.trimIndent())
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_agent_tasks_workspaceId_updatedAtEpochMs` ON `agent_tasks` (`workspaceId`, `updatedAtEpochMs`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_agent_tasks_workspaceId_updatedAtEpochMs` ON agent_tasks(workspaceId, updatedAtEpochMs)")
                 database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `automation_definitions` (
                         `automationId` TEXT NOT NULL,
@@ -158,7 +160,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         PRIMARY KEY(`runId`)
                     )
                 """.trimIndent())
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_automation_runs_automationId_startedAtEpochMs` ON `automation_runs` (`automationId`, `startedAtEpochMs`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_automation_runs_automationId_startedAtEpochMs` ON automation_runs(automationId, startedAtEpochMs)")
                 database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `audit_events` (
                         `eventId` TEXT NOT NULL,
@@ -173,8 +175,8 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         PRIMARY KEY(`eventId`)
                     )
                 """.trimIndent())
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_events_createdAtEpochMs` ON `audit_events` (`createdAtEpochMs`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_events_workspaceId_createdAtEpochMs` ON `audit_events` (`workspaceId`, `createdAtEpochMs`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_events_createdAtEpochMs` ON audit_events(createdAtEpochMs)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_events_workspaceId_createdAtEpochMs` ON audit_events(workspaceId, createdAtEpochMs)")
             }
         }
 
@@ -192,8 +194,8 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         PRIMARY KEY(`grantId`)
                     )
                 """.trimIndent())
-                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_capability_grants_workspaceId_capability` ON `capability_grants` (`workspaceId`, `capability`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_capability_grants_expiresAtEpochMs` ON `capability_grants` (`expiresAtEpochMs`)")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_capability_grants_workspaceId_capability` ON capability_grants(workspaceId, capability)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_capability_grants_expiresAtEpochMs` ON capability_grants(expiresAtEpochMs)")
             }
         }
 
@@ -213,7 +215,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         PRIMARY KEY(`sessionId`)
                     )
                 """.trimIndent())
-                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_chat_sessions_scopeId_providerId_modelId` ON `chat_sessions` (`scopeId`, `providerId`, `modelId`)")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_chat_sessions_scopeId_providerId_modelId` ON chat_sessions(scopeId, providerId, modelId)")
                 database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `chat_messages` (
                         `messageId` TEXT NOT NULL,
@@ -225,19 +227,33 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         PRIMARY KEY(`messageId`)
                     )
                 """.trimIndent())
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_chat_messages_sessionId_createdAtEpochMs` ON `chat_messages` (`sessionId`, `createdAtEpochMs`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_chat_messages_sessionId_createdAtEpochMs` ON chat_messages(sessionId, createdAtEpochMs)")
             }
         }
 
         private val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `currentStep` INTEGER NOT NULL DEFAULT 0")
-                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `stepCount` INTEGER NOT NULL DEFAULT 0")
-                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `result` TEXT")
-                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `approvalId` TEXT")
-                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `lastToolId` TEXT")
-                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `startedAtEpochMs` INTEGER")
-                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `completedAtEpochMs` INTEGER")
+                database.execSQL("ALTER TABLE agent_tasks ADD COLUMN currentStep INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE agent_tasks ADD COLUMN stepCount INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE agent_tasks ADD COLUMN result TEXT")
+                database.execSQL("ALTER TABLE agent_tasks ADD COLUMN approvalId TEXT")
+                database.execSQL("ALTER TABLE agent_tasks ADD COLUMN lastToolId TEXT")
+                database.execSQL("ALTER TABLE agent_tasks ADD COLUMN startedAtEpochMs INTEGER")
+                database.execSQL("ALTER TABLE agent_tasks ADD COLUMN completedAtEpochMs INTEGER")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `automation_trigger_state` (
+                        `automationId` TEXT NOT NULL,
+                        `lastRepositoryFingerprint` TEXT,
+                        `lastBuildRunId` INTEGER,
+                        `lastEvaluatedAtEpochMs` INTEGER NOT NULL,
+                        PRIMARY KEY(`automationId`)
+                    )
+                """.trimIndent())
             }
         }
 
@@ -250,7 +266,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     DevForgeDatabase::class.java,
                     "devforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
