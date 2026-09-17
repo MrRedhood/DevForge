@@ -10,11 +10,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.policy.ActionRequest
 import com.mrredhood.devforge.core.policy.Capability
-import com.mredhood.devforge.core.policy.DefaultPolicy
-import com.mredhood.devforge.core.policy.PermissionMode
+import com.mrredhood.devforge.core.policy.DefaultPolicy
+import com.mrredhood.devforge.core.policy.PermissionMode
 import com.mrredhood.devforge.core.policy.RiskLevel
 import com.mrredhood.devforge.core.storage.ApprovalEntity
 import com.mrredhood.devforge.core.storage.ApprovalRepository
+import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,7 +30,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
     private val statusService = GitWorkspaceStatusService(resolver)
     private val executionService = GitExecutionService(resolver)
     private val workspaces = WorkspaceDatabaseRepository(application)
-    private val approvalRepository = ApprovalRepository(com.mrredhood.devforge.core.storage.DevForgeDatabase.get(application).approvalDao())
+    private val approvalRepository = ApprovalRepository(DevForgeDatabase.get(application).approvalDao())
     private var detectionJob: Job? = null
     private var statusJob: Job? = null
     private var mutationJob: Job? = null
@@ -227,11 +228,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun runMutation(
-        repository: GitRepositoryState,
-        block: suspend (GitRepositoryState) -> GitExecutionResult,
-        approvalId: String?,
-    ) {
+    private fun runMutation(repository: GitRepositoryState, block: suspend (GitRepositoryState) -> GitExecutionResult, approvalId: String?) {
         mutationJob?.cancel()
         isExecuting = true
         operationMessage = null
