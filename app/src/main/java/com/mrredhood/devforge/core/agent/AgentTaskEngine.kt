@@ -125,17 +125,16 @@ class AgentTaskEngine(
                     task = stepTask
 
                     val request = step.toRequest(task.workspaceId, task.taskId, index)
+                    val toolContext = AgentToolContext(
+                        workspaceId = task.workspaceId,
+                        taskId = task.taskId,
+                        stepIndex = index,
+                        pathScope = plan.pathScope,
+                    )
                     val result = if (approvalId != null && index == task.currentStep) {
-                        gateway.executeApproved(
-                            AgentToolContext(task.workspaceId, task.taskId, index),
-                            request,
-                            approvalId,
-                        )
+                        gateway.executeApproved(toolContext, request, approvalId)
                     } else {
-                        gateway.execute(
-                            AgentToolContext(task.workspaceId, task.taskId, index),
-                            request,
-                        )
+                        gateway.execute(toolContext, request)
                     }
 
                     when (result) {
@@ -145,7 +144,7 @@ class AgentTaskEngine(
                                 status = AgentTaskStatus.RUNNING.name,
                                 currentStep = nextStep,
                                 approvalId = null,
-                                result = appendResult(task.result, step.label, result.summary, result.output),
+                                result = appendResult(task.result, step.label, result.summary, result.output, result.receiptJson),
                                 updatedAtEpochMs = System.currentTimeMillis(),
                             )
                             durableState.saveAgentTask(task)
@@ -178,7 +177,7 @@ class AgentTaskEngine(
                     approvalId = null,
                     updatedAtEpochMs = System.currentTimeMillis(),
                     completedAtEpochMs = System.currentTimeMillis(),
-                    result = appendResult(task.result, "complete", "Agent task completed.", ""),
+                    result = appendResult(task.result, "complete", "Agent task completed.", "", null),
                 )
                 durableState.saveAgentTask(task)
             }
@@ -197,10 +196,17 @@ class AgentTaskEngine(
         task
     }
 
-    private fun appendResult(existing: String?, label: String, summary: String, output: String): String {
+    private fun appendResult(
+        existing: String?,
+        label: String,
+        summary: String,
+        output: String,
+        receiptJson: String?,
+    ): String {
         val entry = buildString {
             append(label.take(100)).append(": ").append(summary.take(500))
             if (output.isNotBlank()) append("\n").append(output.take(3000))
+            if (!receiptJson.isNullOrBlank()) append("\nreceipt=").append(receiptJson.take(MAX_RECEIPT_BYTES))
         }
         val combined = listOfNotNull(existing?.take(MAX_RESULT_BYTES), entry).joinToString("\n\n")
         return combined.take(MAX_RESULT_BYTES)
@@ -209,6 +215,7 @@ class AgentTaskEngine(
     companion object {
         private const val MAX_EXECUTION_MS = 60_000L
         private const val MAX_RESULT_BYTES = 64 * 1024
+        private const val MAX_RECEIPT_BYTES = 4 * 1024
         private val TERMINAL_STATUSES = setOf(
             AgentTaskStatus.COMPLETED.name,
             AgentTaskStatus.FAILED.name,
