@@ -55,7 +55,7 @@
 - [x] Git dashboard status presentation
 
 ### Capability-Controlled Git Execution
-- [x] Typed `STAGE_FILES`, `CREATE_COMMIT`, `CREATE_BRANCH`, `DELETE_BRANCH`, `SWITCH_BRANCH`, `FETCH_REMOTE`, `PULL_REMOTE`, and `PUSH_REMOTE` capability definitions
+- [x] Typed `STAGE_FILES`, `CREATE_COMMIT`, `CREATE_BRANCH`, `DELETE_BRANCH`, `SWITCH_BRANCH`, `FETCH_REMOTE`, `PULL_REMOTE`, `PUSH_REMOTE`, `MERGE_BRANCH`, `REBASE_BRANCH`, and `CHERRY_PICK` capability definitions
 - [x] Policy integration for Git mutations with R1/R2/R3 risk levels
 - [x] Bounded native Git mutation service implemented without shell commands
 - [x] Stage files into the real Git index through SAF
@@ -77,6 +77,11 @@
 - [x] Just-in-time Android Keystore credential retrieval and remote access validation
 - [x] Remote fetch/pull/push approval routing through typed capabilities and Approval Center
 - [x] Remote action payloads contain no credentials or secrets
+- [x] Conflict-safe branch/history operation engine using an ephemeral JGit workspace mirror
+- [x] Clean-worktree enforcement for checkout, merge, rebase and cherry-pick
+- [x] Conflict detection with bounded conflict-path reporting
+- [x] Conflicted temporary state is discarded instead of copied into the canonical workspace
+- [x] Approval-backed history ViewModel and modern Git history controls
 
 Current Git mutation and transport limits:
 - 8 MiB maximum staged file size
@@ -91,7 +96,10 @@ Current Git mutation and transport limits:
 - Remote mirror is bounded to 8,000 files / 256 MiB total / 64 MiB per file
 - Pull is blocked on dirty worktrees and refuses non-fast-forward/merge operations
 - Push is non-force and rejects remote non-fast-forward updates
-- Remote transport workspaces are ephemeral cache mirrors and are deleted after execution
+- Branch/history mirror is bounded to 5,000 files / 64 MiB total / 8 MiB per file
+- Checkout/merge/rebase/cherry-pick require a fully readable clean worktree
+- Conflicted history operations are discarded from the ephemeral mirror; dedicated conflict resolution remains separate work
+- Remote/history transport workspaces are ephemeral cache mirrors and are deleted after execution
 
 ### Git Diff / Review
 - [x] Structured HEAD/index/worktree diff models
@@ -127,6 +135,7 @@ Current Git mutation and transport limits:
 - [x] Build dispatch creates a reviewed action before execution
 - [x] Git commit and branch-delete actions create reviewed actions before execution
 - [x] Remote Git pull/push actions create reviewed actions before execution
+- [x] Git branch/history actions create reviewed actions before execution
 - [x] Approved actions have an execution lifecycle: approved → executing → completed/failed
 - [x] Approved Git actions re-check repository preconditions before execution
 - [x] Approved Git actions can resume by re-detecting the persisted repository URI
@@ -158,7 +167,7 @@ Current Git mutation and transport limits:
 
 ## In Progress / Next Sequence
 
-1. Branch switch/checkout, conflict handling, merge/rebase/cherry-pick.
+1. Complete CI/runtime validation of the branch/history engine, then expand dedicated conflict resolution UX.
 2. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
 3. Approval history/audit expansion and per-capability grant controls.
 4. Commit/file history and richer Git review surfaces.
@@ -190,10 +199,11 @@ Current Git mutation and transport limits:
 - [x] Branch create/delete
 - [x] HEAD/index/worktree structured diff viewer
 - [x] Fetch/pull/push through capability gateway for validated GitHub HTTPS remotes
-- [ ] Branch switch/checkout
+- [x] Branch switch/checkout engine and dashboard controls
+- [x] Merge/rebase/cherry-pick engine and dashboard controls
+- [x] Conflict detection and safe discard of conflicted temporary state
+- [ ] Dedicated interactive conflict resolution/editor
 - [ ] Commit/file history
-- [ ] Merge/rebase/cherry-pick
-- [ ] Conflict resolution
 - [ ] Additional remote providers/protocols
 
 ### Terminal / Execution
@@ -260,7 +270,7 @@ Current Git mutation and transport limits:
 - [x] CI #117 passed the Android pipeline after repository/workflow discovery.
 - [x] CI #122 passed after authenticated debug workflow dispatch.
 - [x] CI #127 was cancelled by workflow concurrency and is not treated as a build failure.
-- [ ] Current remote transport JGit compilation/CI validation
+- [ ] Current branch/history JGit compilation/CI validation
 - [ ] Current structured Git diff / Approval Center integration CI validation
 - [ ] Release APK validation with configured signing secrets
 - [ ] Maintained unit-test suite
@@ -320,3 +330,10 @@ Current Git mutation and transport limits:
 - Added fetch, fast-forward-only pull, and non-force push with bounded mirror/file/byte limits.
 - Added Fetch/Pull/Push capability states and explicit dashboard controls.
 - Routed pull/push through Approval Center and kept credentials out of persisted approval payloads.
+
+### 2026-09-17 — Branch/history execution layer
+- Added JGit-based ephemeral checkout/merge/rebase/cherry-pick execution with clean-worktree preconditions.
+- Added typed merge/rebase/cherry-pick capabilities and Approval Center-backed history actions.
+- Added bounded conflict-path reporting and safe discard of conflicted temporary state so a partial history operation is never silently copied to the canonical workspace.
+- Added a dedicated mobile Git history control card for branch selection, checkout, merge, rebase and cherry-pick.
+- CI validation for this milestone remains pending.
