@@ -175,6 +175,7 @@
 - [x] Security hardening changes triggered a fresh Android CI run after commit
 - [ ] Interactive conflict editor CI result verification
 - [ ] Current automation event-trigger/UI CI result verification
+- [x] Fixed CI-reported Kotlin compile errors in navigation, automation scrolling/model syntax and Git history parser
 - [ ] Security hardening CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
@@ -252,3 +253,11 @@
 - Added first-run baseline seeding, periodic WorkManager event monitoring, unique-event scheduling and bounded trigger payloads carried into run receipts.
 - Added a dedicated Automation destination with rich trigger/action editing, explicit agent path scopes, run-now, enable/disable, delete and run-history controls.
 - Added focused regression coverage for repository/build/condition matching and repository fingerprint changes.
+
+
+### 2026-09-18 — CI compile failure repair
+- Fixed invalid NavigationRail `verticalScroll` usage/import in `MainActivity.kt`; the navigation rail now relies on its bounded destination set without the unavailable modifier.
+- Added the missing `horizontalScroll` import to the automation editor.
+- Removed the stray Kotlin token in `AutomationModels.kt` that caused a top-level syntax error.
+- Renamed the `object` local variable in `GitCommitHistoryService.kt` to `gitObject` to avoid the reserved Kotlin keyword collision.
+- Triggered a fresh Android CI run from the repaired `main` state.
