@@ -19,6 +19,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         application.contentResolver,
         application.getSharedPreferences(PREFERENCES, 0),
     )
+    private val snapshots = SnapshotStore(application)
 
     var tabs by mutableStateOf<List<EditorTab>>(emptyList())
         private set
@@ -51,6 +52,17 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 tabs = tabs + EditorTab(entry.uri, entry.name, initial, content)
                 activeUri = entry.uri
                 isLoading = false
+                withContext(Dispatchers.IO) {
+                    ensureBaselineSnapshot(entry.uri, entry.name, content)
+                    if (recovery != null && recovery.content != content) {
+                        saveSnapshotIfChanged(
+                            entry.uri,
+                            entry.name,
+                            recovery.content,
+                            SnapshotReason.RECOVERY,
+                        )
+                    }
+                }
             }.onFailure { throwable ->
                 error = throwable.message ?: "Unable to open file"
                 isLoading = false
@@ -71,8 +83,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
             result.onSuccess {
-                tabs = tabs.map { if (it.uri == tab.uri) it.copy(savedContent = it.content, updatedAt = System.currentTimeMillis()) else it }
-                withContext(Dispatchers.IO) { repository.clearRecoveryDraft(tab.uri) }
+                val saved = tab.content
+                tabs = tabs.map { if (it.uri == tab.uri) it.copy(savedContent = saved, updatedAt = System.currentTimeMillis()) else it }
+                withContext(Dispatchers.IO) {
+                    saveSnapshotIfChanged(tab.uri, tab.name, saved, SnapshotReason.SAVE)
+                    repository.clearRecoveryDraft(tab.uri)
+                }
                 recoveryJobs.remove(tab.uri)?.cancel()
             }.onFailure { throwable -> error = throwable.message ?: "Unable to save file" }
         }
@@ -96,9 +112,26 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             val tab = tabs.firstOrNull { it.uri == uri } ?: return@launch
             if (tab.isDirty) {
                 withContext(Dispatchers.IO) {
-                    repository.saveRecoveryDraft(RecoveryDraft(tab.uri, tab.name, tab.content, System.currentTimeMillis()))
+                    repository.saveRecoveryDraft(
+                        RecoveryDraft(tab.uri, tab.name, tab.content, System.currentTimeMillis()),
+                    )
+                    saveSnapshotIfChanged(tab.uri, tab.name, tab.content, SnapshotReason.RECOVERY)
                 }
             }
+        }
+    }
+
+    private fun ensureBaselineSnapshot(uri: Uri, name: String, content: String) {
+        val latest = snapshots.latest(uri)
+        if (latest == null || latest.contentHash != ContentHasher.sha256(content)) {
+            snapshots.save(snapshots.create(uri, name, content, SnapshotReason.OPEN))
+        }
+    }
+
+    private fun saveSnapshotIfChanged(uri: Uri, name: String, content: String, reason: SnapshotReason) {
+        val hash = ContentHasher.sha256(content)
+        if (snapshots.latest(uri)?.contentHash != hash) {
+            snapshots.save(snapshots.create(uri, name, content, reason))
         }
     }
 
