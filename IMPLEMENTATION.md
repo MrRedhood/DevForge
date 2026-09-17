@@ -113,9 +113,10 @@ Still not implemented: stage/unstage, commit, branch mutation, fetch/pull/push, 
 - [x] Build Center source/repository/target/execution UI
 - [x] GitHub workflow discovery integration
 - [x] Authenticated debug APK workflow dispatch
+- [x] Authenticated release APK/AAB dispatch through the fixed target contract
 - [x] Dispatch capability/policy gate
 - [x] Explicit one-shot user confirmation before dispatch
-- [x] Run ID capture
+- [x] Run ID capture after GitHub's workflow_dispatch HTTP 204 response
 - [x] Five-second bounded run polling
 - [x] Queued/in-progress/waiting/requested/pending handling
 - [x] Terminal state mapping
@@ -134,8 +135,11 @@ Still not implemented: stage/unstage, commit, branch mutation, fetch/pull/push, 
 - [x] Fixed target-to-Gradle-task mapping inside CI
 - [x] Fixed target-to-artifact mapping inside CI
 - [x] CI rejects unsupported target values instead of accepting arbitrary Gradle commands
+- [x] Release signing configuration through repository-managed secrets
+- [x] Release signing preflight blocks release builds when signing secrets are missing
+- [x] Temporary release keystore cleanup after the CI job
 
-Not implemented yet: release dispatch wiring in DevForge, signing-specific release policy, cancellation, and runtime validation with a live user credential.
+Not implemented yet: build cancellation and runtime validation with a live user credential.
 
 ### Chat / UX
 
@@ -170,11 +174,10 @@ Not implemented yet: release dispatch wiring in DevForge, signing-specific relea
 
 ## In Progress / Next Sequence
 
-1. Release dispatch wiring against the explicit workflow target inputs and signing-safe release contract.
-2. Capability-controlled Git execution: stage/unstage, commit, branch mutation, and remote operations.
-3. Approval Center and action-review UI.
-4. Snapshot/history and structured diff viewer UI.
-5. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
+1. Capability-controlled Git execution: stage/unstage, commit, branch mutation, and remote operations.
+2. Approval Center and action-review UI.
+3. Snapshot/history and structured diff viewer UI.
+4. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
 
 ## Planned
 
@@ -228,14 +231,14 @@ Not implemented yet: release dispatch wiring in DevForge, signing-specific relea
 - [x] Repository validation
 - [x] Workflow/ref validation for selected repository/default branch
 - [x] Debug workflow dispatch
+- [x] Release APK/AAB workflow dispatch through explicit target inputs
 - [x] Run polling
 - [x] Live logs
 - [x] Artifact metadata
 - [x] Durable build receipts/history
 - [x] Explicit workflow_dispatch target contract for debug/release APK/release AAB
+- [x] Signing-safe release configuration and validation contract
 - [ ] OAuth/GitHub App authentication
-- [ ] DevForge release dispatch wiring
-- [ ] Signing-safe release configuration and validation
 - [ ] Build cancellation
 - [ ] Runtime dispatch validation with live credential
 
@@ -321,16 +324,15 @@ Not implemented yet: release dispatch wiring in DevForge, signing-specific relea
 ## Validation
 
 - [x] GitHub Actions workflow configured
-- [x] CI triggered by implementation commits
 - [x] CI #103 passed toolchain verification, debug build, unit-test task, APK verification, and artifact upload
 - [x] CI #117 passed the Android pipeline after repository/workflow discovery
 - [x] CI #122 passed the Android pipeline after authenticated debug workflow dispatch
 - [x] CI #127 recorded as cancelled by concurrency, not a build failure
-- [ ] Current navigation/chat/release-workflow changes final CI validation
+- [ ] Current release-dispatch/signing implementation final CI validation
 - [ ] Maintained unit-test suite
 - [ ] UI tests
 - [ ] Static analysis/lint
-- [ ] Release APK validation
+- [ ] Release APK validation with configured signing secrets
 - [ ] Live authenticated dispatch/runtime validation
 
 ### CI Findings
@@ -404,4 +406,13 @@ Not implemented yet: release dispatch wiring in DevForge, signing-specific relea
 - Added workflow_dispatch target inputs for debug APK, release APK, and release AAB.
 - Added fixed target-to-task and target-to-artifact mappings in CI.
 - Rejected arbitrary or unknown build target values in the workflow.
-- Kept DevForge release dispatch gated until the app-side dispatch payload and signing-safe release policy are wired to this contract.
+- Kept DevForge release dispatch gated until the app-side dispatch payload and signing-safe release policy were wired to this contract.
+
+### 2026-09-17 — Release dispatch and signing-safe contract
+
+- Updated DevForge to send the fixed `target` workflow input for debug APK, release APK, and release AAB.
+- Accounted for GitHub's normal `workflow_dispatch` HTTP 204 response by locating the newly created `workflow_dispatch` run through a bounded workflow-run lookup before monitoring it.
+- Restricted Build Center dispatch to the `android.yml` workflow that declares DevForge's fixed target contract.
+- Added environment-backed Android release signing configuration without persisting secrets in the app.
+- Added CI preflight requiring repository-managed `DEVFORGE_RELEASE_KEYSTORE_BASE64`, `DEVFORGE_RELEASE_KEYSTORE_PASSWORD`, `DEVFORGE_RELEASE_KEY_ALIAS`, and `DEVFORGE_RELEASE_KEY_PASSWORD` secrets for release targets.
+- Added temporary keystore cleanup after release CI execution.
