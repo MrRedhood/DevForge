@@ -101,6 +101,34 @@ jobs:
             echo "artifact_path=$ARTIFACT_PATH"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Prepare release signing
+        if: ${{ steps.target.outputs.target == 'release_apk' || steps.target.outputs.target == 'release_aab' }}
+        shell: bash
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.DEVFORGE_RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.DEVFORGE_RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.DEVFORGE_RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.DEVFORGE_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "Release signing is not configured. Set the repository secrets required for DevForge release builds." >&2
+              exit 1
+            fi
+          done
+
+          KEYSTORE_FILE="${RUNNER_TEMP}/devforge-release.keystore"
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          test -s "$KEYSTORE_FILE"
+
+          {
+            echo "DEVFORGE_RELEASE_KEYSTORE_FILE=$KEYSTORE_FILE"
+            echo "DEVFORGE_RELEASE_KEYSTORE_PASSWORD=$RELEASE_KEYSTORE_PASSWORD"
+            echo "DEVFORGE_RELEASE_KEY_ALIAS=$RELEASE_KEY_ALIAS"
+            echo "DEVFORGE_RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
       - name: Verify toolchain
         shell: bash
         run: |
@@ -139,3 +167,10 @@ jobs:
           path: ${{ steps.target.outputs.artifact_path }}
           if-no-files-found: error
           retention-days: 14
+
+      - name: Remove temporary release signing material
+        if: ${{ always() && (steps.target.outputs.target == 'release_apk' || steps.target.outputs.target == 'release_aab') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "${RUNNER_TEMP}/devforge-release.keystore"
