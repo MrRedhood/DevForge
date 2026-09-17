@@ -104,6 +104,11 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [x] Authenticated debug-APK workflow dispatch path
 - [x] One-shot user confirmation tied to the typed build-dispatch capability/policy boundary
 - [x] Remote run ID captured from GitHub's current workflow-dispatch response
+- [x] Live workflow-run polling with bounded mobile refresh cadence
+- [x] Workflow job log retrieval with a bounded output ceiling
+- [x] Run artifact discovery
+- [x] Run summary and remote GitHub run-link surface
+- [x] Session-scoped build history surface
 
 ### Security / Policy Foundation
 
@@ -133,12 +138,11 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 
 ## In Progress / Next Implementation Sequence
 
-1. Live run status, logs, artifacts, and build-history surfaces.
-2. Release workflow inputs and signing-safe release dispatch.
-3. Native/index-aware Git execution and status.
-4. Approval center and action review UI.
-5. Snapshot/history and structured diff viewer UI.
-6. Richer Room entities for workspaces, tabs, snapshots, builds, agent tasks, and automation state.
+1. Durable build history / receipts and release-safe workflow inputs.
+2. Native/index-aware Git execution and status.
+3. Approval center and action review UI.
+4. Snapshot/history and structured diff viewer UI.
+5. Richer Room entities for workspaces, tabs, snapshots, builds, agent tasks, and automation state.
 
 ## Planned
 
@@ -193,10 +197,11 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [ ] OAuth/GitHub App authentication
 - [x] Workflow/ref validation for the selected active workflow and repository default branch
 - [x] Dispatch execution for the debug APK path
-- [ ] Run polling/state updates
-- [ ] Live logs
-- [ ] Artifact listing/download
-- [ ] Build history and receipts
+- [x] Run polling/state updates
+- [x] Live logs
+- [x] Artifact listing/download metadata
+- [x] Session build-history surface
+- [ ] Durable build receipts/history
 - [ ] Cancellation
 - [ ] Release build workflow support
 
@@ -283,8 +288,8 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 
 - [x] GitHub Actions workflow configured
 - [x] CI triggered by implementation commits
-- [x] Previous application implementation passed Android build and unit-test task in CI #103
-- [ ] Current dispatch implementation passes final CI validation
+- [x] CI #122 passed Android build, unit-test task, APK verification, and artifact upload after authenticated workflow-dispatch wiring
+- [ ] Current run-monitoring implementation passes final CI validation
 - [ ] Unit tests established as a maintained suite
 - [ ] UI tests established
 - [ ] Static analysis/lint established
@@ -302,7 +307,8 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - CI run #102 reached toolchain verification but failed because `sdkmanager` was not on PATH during verification.
 - CI run #103 passed toolchain verification, debug APK assembly, the unit-test task, APK verification, and artifact upload after the resolved `sdkmanager` path was reused.
 - CI run #117 passed the complete Android build pipeline after repository/workflow discovery was implemented.
-- GitHub REST API version `2026-03-10` is the current supported version used by the dispatch gateway; its workflow-dispatch endpoint returns the created workflow run ID on HTTP 200. citeturn576351search0turn576351search2
+- CI run #122 passed the complete Android build pipeline after authenticated debug workflow dispatch was implemented.
+- The monitoring implementation intentionally bounds log collection and keeps build history session-scoped until Room-backed durable build receipts are added.
 
 ## Implementation Rules
 
@@ -375,4 +381,13 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - Treated the explicit Build Center start action as the user's one-shot confirmation until a dedicated Approval Center exists.
 - Captured GitHub's returned workflow run ID and transitioned Build Center into a Running state.
 - Intentionally kept release dispatch disabled because the current workflow has no explicit release-target inputs or signing-safe release contract.
-- Runtime dispatch against a live user credential remains unvalidated in CI; the code path is compile-validated and ready for the run-monitoring milestone.
+- CI #122 validated this implementation path through Android build, unit-test task, APK verification, and artifact upload.
+
+### 2026-09-17 — Live GitHub Actions run monitoring and build history
+
+- Added typed GitHub Actions run, artifact, and job-log models.
+- Added authenticated run polling with a five-second cadence and explicit terminal-state mapping.
+- Added bounded job-log collection to protect mobile memory/UI performance.
+- Added artifact metadata discovery and run links back to GitHub.
+- Added session-scoped build history capped to 20 runs; durable Room-backed receipts remain a later persistence milestone.
+- Added Build Center surfaces for live status, refresh, bounded logs, artifacts, and current-session history.
