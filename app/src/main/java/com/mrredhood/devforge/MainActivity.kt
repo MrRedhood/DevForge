@@ -75,6 +75,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.git.GitDashboardScreen
+import com.mrredhood.devforge.core.git.GitDiffScreen
 import com.mrredhood.devforge.core.model.DevForgeDestination
 import com.mrredhood.devforge.core.policy.ApprovalCenterScreen
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
@@ -241,6 +242,7 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
         DevForgeDestination.Chat -> ChatScreen()
         DevForgeDestination.Files -> FilesScreen(workspace, editor)
         DevForgeDestination.Git -> GitDashboardScreen()
+        DevForgeDestination.Diffs -> GitDiffScreen()
         DevForgeDestination.Build -> BuildCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
         DevForgeDestination.Settings -> SettingsScreen()
