@@ -85,6 +85,25 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [x] Recovery snapshots connected to delayed recovery drafts
 - [x] Hash-based duplicate checkpoint suppression
 
+### Git Foundation
+
+- [x] Git repository state domain model
+- [x] SAF-based `.git` directory detection
+- [x] HEAD metadata reading
+- [x] Branch-name extraction from `refs/heads/*`
+- [x] Detached-HEAD recognition
+- [x] Basic HEAD revision capture for detached HEADs
+- [x] `origin` remote URL extraction from `.git/config`
+- [x] Explicit unsupported-state reporting for linked/worktree `.git` files
+- [x] Git detection automatically follows the active Room workspace
+- [ ] Working-tree status inspection
+- [ ] Staged/unstaged file model
+- [ ] Branch list / switching
+- [ ] Commit history
+- [ ] Git diff UI
+- [ ] Local mutation operations
+- [ ] GitHub remote integration
+
 ### Domain / Safety
 
 - [x] Capability model
@@ -124,15 +143,20 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [ ] Static analysis/lint established
 - [ ] Release APK build validated
 
+### Latest CI finding
+
+- The Room implementation commit reached GitHub Actions, but the run failed during Android SDK setup before Gradle execution because the workflow attempted to install the removed `tools` SDK package.
+- The CI workflow was updated to use `actions/setup-java@v5` and explicitly install `platform-tools` plus `platforms;android-37` through `android-actions/setup-android@v3`.
+- A new post-fix CI run is required before marking the Android build as validated.
+
 ## In Progress / Next
 
-1. Git repository detection and repository state model
-2. Git status/diff/branch presentation
-3. Build configuration/state model
-4. Approval UI connected to real action requests
-5. Diff viewer and snapshot/recovery history UI
-6. Workspace switcher UI for selecting among persisted workspaces
-7. Richer Room entities after Git/agent/build models stabilize
+1. Git status/diff/branch presentation
+2. Build configuration/state model
+3. Approval UI connected to real action requests
+4. Diff viewer and snapshot/recovery history UI
+5. Workspace switcher UI for selecting among persisted workspaces
+6. Richer Room entities after Git/agent/build models stabilize
 
 ## Planned — AI & Agent
 
@@ -178,7 +202,9 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ## Planned — Git
 
-- [ ] Repository detection
+- [x] Repository detection foundation
+- [x] Basic branch/HEAD metadata model
+- [x] Basic remote-origin metadata model
 - [ ] Branch list
 - [ ] Commit history
 - [ ] Status/diff view
@@ -277,6 +303,8 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [x] Editor workspace chrome foundation
 - [x] Unsaved-change confirmation
 - [ ] Workspace switcher surface
+- [ ] Git repository state surface
+- [ ] Git status/diff surface
 - [ ] Diff viewer
 - [ ] Snapshot/recovery history
 - [ ] Error/recovery states
@@ -303,6 +331,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [ ] Diff tests
 - [ ] Workspace search tests
 - [ ] Preview-policy tests
+- [ ] Git metadata tests
 - [ ] Agent/tool contract tests
 - [ ] Policy tests
 - [ ] UI tests
@@ -329,6 +358,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 12. Keep local snapshot/history stores bounded until richer database models stabilize.
 13. Keep workspace search/preview bounded and fail safely on large/binary content.
 14. Use Room for durable relational state once the model warrants it; do not prematurely persist every transient UI state.
+15. Treat SAF Git metadata as capability-dependent: absence of `.git` visibility or worktree indirection must surface as an explicit unsupported/unknown state rather than a false repository state.
 
 ## Change Log
 
@@ -373,4 +403,20 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Removed the superseded single-workspace preference repository.
 - Configured Room schema generation under `app/schemas`.
 - Kept richer entities such as snapshots, Git, agent tasks, builds, and automations for later model stabilization.
-- CI validation of this implementation is pending.
+- CI initially failed before Gradle during Android SDK setup; the workflow fix is tracked separately.
+
+### 2026-09-17 — Git repository detection foundation
+
+- Added `GitRepositoryState` and explicit detection states.
+- Added SAF-based `.git` directory detection without requesting broader storage permissions.
+- Added HEAD parsing for normal branches and detached HEADs.
+- Added basic `origin` URL extraction from `.git/config`.
+- Added explicit unsupported handling for `.git` files/worktree-style indirection that the current SAF metadata reader does not yet support.
+- Added `GitViewModel` that follows the active Room workspace and refreshes Git detection when the workspace changes.
+- Deferred working-tree status, stage/unstage, mutation operations, and GitHub remote actions until a dedicated Git operation layer exists.
+
+### 2026-09-17 — CI workflow hardening
+
+- Updated `actions/setup-java` from v4 to v5.
+- Updated Android SDK setup to avoid the obsolete `tools` package and explicitly request `platform-tools` and `platforms;android-37`.
+- A fresh CI run is required to validate the workflow and the current application code together.
