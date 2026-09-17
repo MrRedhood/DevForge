@@ -2,17 +2,19 @@ package com.mrredhood.devforge.core.git
 
 import android.app.Application
 import android.net.Uri
+import org.json.JSONObject
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.policy.ActionRequest
-import com.mrredhood.devforge.core.policy.Approval
 import com.mrredhood.devforge.core.policy.Capability
-import com.mrredhood.devforge.core.policy.DefaultPolicy
-import com.mrredhood.devforge.core.policy.PermissionMode
+import com.mredhood.devforge.core.policy.DefaultPolicy
+import com.mredhood.devforge.core.policy.PermissionMode
 import com.mrredhood.devforge.core.policy.RiskLevel
+import com.mrredhood.devforge.core.storage.ApprovalEntity
+import com.mrredhood.devforge.core.storage.ApprovalRepository
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,9 +29,11 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
     private val statusService = GitWorkspaceStatusService(resolver)
     private val executionService = GitExecutionService(resolver)
     private val workspaces = WorkspaceDatabaseRepository(application)
+    private val approvalRepository = ApprovalRepository(com.mrredhood.devforge.core.storage.DevForgeDatabase.get(application).approvalDao())
     private var detectionJob: Job? = null
     private var statusJob: Job? = null
     private var mutationJob: Job? = null
+    private var approvalJob: Job? = null
 
     var state by mutableStateOf<GitDetectionState>(GitDetectionState.NotDetected)
         private set
@@ -48,6 +52,11 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             workspaces.activeWorkspace.collectLatest { workspace -> detect(workspace?.treeUri) }
         }
+        approvalJob = viewModelScope.launch(Dispatchers.IO) {
+            approvalRepository.observeApproved("git-").collect { approvals ->
+                approvals.forEach { executeApprovedMutation(it) }
+            }
+        }
     }
 
     fun detect(root: Uri?) {
@@ -65,19 +74,12 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         detectionJob = viewModelScope.launch {
             val detected = repositoryService.detect(root)
             state = detected
-            if (detected is GitDetectionState.Detected) {
-                inspectWorkspace(root, detected.repository.gitDirectoryUri, detected.repository.headRevision)
-            } else {
-                refreshCapabilities()
-            }
+            if (detected is GitDetectionState.Detected) inspectWorkspace(root, detected.repository.gitDirectoryUri, detected.repository.headRevision)
+            else refreshCapabilities()
         }
     }
 
-    fun inspectWorkspace(
-        root: Uri? = activeRoot(),
-        gitDirectory: Uri? = activeGitDirectory(),
-        headRevision: String? = activeHeadRevision(),
-    ) {
+    fun inspectWorkspace(root: Uri? = activeRoot(), gitDirectory: Uri? = activeGitDirectory(), headRevision: String? = activeHeadRevision()) {
         statusJob?.cancel()
         if (root == null) {
             workspaceStatus = null
@@ -89,66 +91,34 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             val status = statusService.inspect(root, gitDirectory, headRevision)
             workspaceStatus = status
             val detected = state as? GitDetectionState.Detected
-            if (detected != null) {
-                state = detected.copy(repository = detected.repository.copy(statusAvailability = status.mode))
-            }
+            if (detected != null) state = detected.copy(repository = detected.repository.copy(statusAvailability = status.mode))
             isInspectingStatus = false
             refreshCapabilities()
         }
     }
 
-    fun stage(path: String) = executeMutation(
-        actionId = "git-stage",
-        capability = Capability.STAGE_FILES,
-        risk = RiskLevel.R1,
-        summary = "Stage $path",
-        parameters = path,
-    ) { repository ->
+    fun stage(path: String) = executeMutation("git-stage", Capability.STAGE_FILES, RiskLevel.R1, "Stage $path", path) { repository ->
         executionService.stage(repository.rootUri, repository.gitDirectoryUri, listOf(path))
     }
 
-    fun unstage(path: String) = executeMutation(
-        actionId = "git-unstage",
-        capability = Capability.STAGE_FILES,
-        risk = RiskLevel.R1,
-        summary = "Unstage $path",
-        parameters = path,
-    ) { repository ->
+    fun unstage(path: String) = executeMutation("git-unstage", Capability.STAGE_FILES, RiskLevel.R1, "Unstage $path", path) { repository ->
         executionService.unstage(repository.gitDirectoryUri, repository.headRevision, listOf(path))
     }
 
-    fun commit(message: String) = executeMutation(
-        actionId = "git-commit",
-        capability = Capability.CREATE_COMMIT,
-        risk = RiskLevel.R2,
-        summary = "Create Git commit",
-        parameters = message.trim(),
-    ) { repository ->
+    fun commit(message: String) = executeMutation("git-commit", Capability.CREATE_COMMIT, RiskLevel.R2, "Create Git commit", message.trim()) { repository ->
         executionService.commit(repository.gitDirectoryUri, repository.headRevision, message)
     }
 
-    fun createBranch(name: String) = executeMutation(
-        actionId = "git-create-branch",
-        capability = Capability.CREATE_BRANCH,
-        risk = RiskLevel.R2,
-        summary = "Create branch $name",
-        parameters = name.trim(),
-    ) { repository ->
+    fun createBranch(name: String) = executeMutation("git-create-branch", Capability.CREATE_BRANCH, RiskLevel.R1, "Create branch ${name.trim()}", name.trim()) { repository ->
         executionService.createBranch(repository.gitDirectoryUri, repository.headRevision, name)
     }
 
-    fun deleteBranch(name: String) = executeMutation(
-        actionId = "git-delete-branch",
-        capability = Capability.DELETE_BRANCH,
-        risk = RiskLevel.R2,
-        summary = "Delete branch $name",
-        parameters = name.trim(),
-    ) { repository ->
+    fun deleteBranch(name: String) = executeMutation("git-delete-branch", Capability.DELETE_BRANCH, RiskLevel.R2, "Delete branch ${name.trim()}", name.trim()) { repository ->
         executionService.deleteBranch(repository.gitDirectoryUri, repository.branchName, name)
     }
 
     private fun executeMutation(
-        actionId: String,
+        actionType: String,
         capability: Capability,
         risk: RiskLevel,
         summary: String,
@@ -165,46 +135,118 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        val precondition = hash("${repository.headRevision.orEmpty()}|${workspaceStatus?.files?.joinToString { it.path + ":" + it.gitStatus.name }}")
         val action = ActionRequest(
-            actionId = actionId,
+            actionId = "$actionType:${System.currentTimeMillis()}",
             capability = capability,
             risk = risk,
             workspaceId = repository.rootUri.toString(),
             summary = summary,
             parametersHash = hash(parameters),
-            preconditionHash = hash("${repository.headRevision.orEmpty()}|${workspaceStatus?.files?.joinToString { it.path + ":" + it.gitStatus.name }}"),
+            preconditionHash = precondition,
         )
+
         if (DefaultPolicy.requiresApproval(action, PermissionMode.SOME)) {
-            val approval = Approval(
-                approvalId = "direct:$actionId:${System.currentTimeMillis()}",
-                actionId = action.actionId,
-                parametersHash = action.parametersHash,
-                workspaceRevision = action.preconditionHash.orEmpty(),
-                policyVersion = "v1",
-                expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_WINDOW_MS,
-            )
-            if (approval.parametersHash != action.parametersHash || approval.expiresAtEpochMs <= System.currentTimeMillis()) {
-                operationMessage = "Git action approval is no longer valid. Refresh the repository state and try again."
-                return
+            viewModelScope.launch(Dispatchers.IO) {
+                runCatching {
+                    approvalRepository.createPending(
+                        approvalId = action.actionId,
+                        actionId = action.actionId,
+                        capability = capability,
+                        risk = risk,
+                        workspaceId = action.workspaceId,
+                        summary = summary,
+                        parametersHash = action.parametersHash,
+                        preconditionHash = precondition,
+                        payload = encodeGitAction(actionType, repository, parameters),
+                        expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_WINDOW_MS,
+                    )
+                }.onSuccess {
+                    withContext(Dispatchers.Main.immediate) {
+                        operationMessage = "${summary} is waiting for approval in Approval Center."
+                    }
+                }.onFailure { error ->
+                    withContext(Dispatchers.Main.immediate) {
+                        operationMessage = error.message ?: "Unable to create the Git approval request."
+                    }
+                }
             }
+            return
         }
 
+        runMutation(repository, block, null)
+    }
+
+    private suspend fun executeApprovedMutation(approval: ApprovalEntity) {
+        if (approval.expiresAtEpochMs <= System.currentTimeMillis()) {
+            approvalRepository.expireDue()
+            return
+        }
+        if (!approvalRepository.claimApproved(approval.approvalId)) return
+        val action = decodeGitAction(approval.payload) ?: run {
+            approvalRepository.finishFailure(approval.approvalId)
+            return
+        }
+        val current = (state as? GitDetectionState.Detected)?.repository
+        if (current == null || current.rootUri.toString() != action.repository.rootUri.toString()) {
+            approvalRepository.finishFailure(approval.approvalId)
+            return
+        }
+        val freshStatus = statusService.inspect(current.rootUri, current.gitDirectoryUri, current.headRevision)
+        val freshPrecondition = hash("${current.headRevision.orEmpty()}|${freshStatus.files.joinToString { it.path + ":" + it.gitStatus.name }}")
+        if (freshPrecondition != approval.preconditionHash || freshStatus.truncated) {
+            approvalRepository.finishFailure(approval.approvalId)
+            withContext(Dispatchers.Main.immediate) {
+                operationMessage = "Approved Git action was blocked because the repository changed. Review the action again."
+            }
+            return
+        }
+
+        withContext(Dispatchers.Main.immediate) {
+            isExecuting = true
+            operationMessage = "Executing approved Git action…"
+        }
+        val result = when (action.type) {
+            "git-commit" -> executionService.commit(action.repository.gitDirectoryUri, current.headRevision, action.parameters)
+            "git-delete-branch" -> executionService.deleteBranch(action.repository.gitDirectoryUri, current.branchName, action.parameters)
+            else -> GitExecutionResult.Failure("Unsupported approved Git action.")
+        }
+        withContext(Dispatchers.Main.immediate) {
+            isExecuting = false
+            operationMessage = when (result) {
+                is GitExecutionResult.Success -> result.message
+                is GitExecutionResult.Failure -> result.message
+            }
+        }
+        if (result is GitExecutionResult.Success) {
+            approvalRepository.finishSuccess(approval.approvalId)
+            withContext(Dispatchers.Main.immediate) { refreshAfterMutation(current.rootUri) }
+        } else {
+            approvalRepository.finishFailure(approval.approvalId)
+            refreshCapabilities()
+        }
+    }
+
+    private fun runMutation(
+        repository: GitRepositoryState,
+        block: suspend (GitRepositoryState) -> GitExecutionResult,
+        approvalId: String?,
+    ) {
         mutationJob?.cancel()
         isExecuting = true
         operationMessage = null
         mutationJob = viewModelScope.launch(Dispatchers.IO) {
             val result = block(repository)
-            withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            if (approvalId != null) {
+                if (result is GitExecutionResult.Success) approvalRepository.finishSuccess(approvalId) else approvalRepository.finishFailure(approvalId)
+            }
+            withContext(Dispatchers.Main.immediate) {
                 isExecuting = false
                 operationMessage = when (result) {
                     is GitExecutionResult.Success -> result.message
                     is GitExecutionResult.Failure -> result.message
                 }
-                if (result is GitExecutionResult.Success) {
-                    refreshAfterMutation(repository.rootUri)
-                } else {
-                    refreshCapabilities()
-                }
+                if (result is GitExecutionResult.Success) refreshAfterMutation(repository.rootUri) else refreshCapabilities()
             }
         }
     }
@@ -215,11 +257,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         detectionJob = viewModelScope.launch {
             val detected = repositoryService.detect(root)
             state = detected
-            if (detected is GitDetectionState.Detected) {
-                inspectWorkspace(root, detected.repository.gitDirectoryUri, detected.repository.headRevision)
-            } else {
-                refreshCapabilities()
-            }
+            if (detected is GitDetectionState.Detected) inspectWorkspace(root, detected.repository.gitDirectoryUri, detected.repository.headRevision) else refreshCapabilities()
         }
     }
 
@@ -239,9 +277,32 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    private fun hash(value: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray(Charsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
+    private fun encodeGitAction(type: String, repository: GitRepositoryState, parameters: String): String = JSONObject()
+        .put("type", type)
+        .put("root", repository.rootUri.toString())
+        .put("git", repository.gitDirectoryUri.toString())
+        .put("head", repository.headRevision.orEmpty())
+        .put("branch", repository.branchName.orEmpty())
+        .put("parameters", parameters)
+        .toString()
+
+    private fun decodeGitAction(payload: String): DecodedGitAction? = runCatching {
+        val json = JSONObject(payload)
+        DecodedGitAction(
+            type = json.getString("type"),
+            repository = GitRepositoryState(
+                rootUri = Uri.parse(json.getString("root")),
+                gitDirectoryUri = Uri.parse(json.getString("git")),
+                branchName = json.optString("branch").ifBlank { null },
+                headRevision = json.optString("head").ifBlank { null },
+                remoteUrl = null,
+                detachedHead = json.optString("branch").isBlank(),
+            ),
+            parameters = json.getString("parameters"),
+        )
+    }.getOrNull()
+
+    private fun hash(value: String): String = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
     private fun activeRoot(): Uri? = (state as? GitDetectionState.Detected)?.repository?.rootUri
     private fun activeGitDirectory(): Uri? = (state as? GitDetectionState.Detected)?.repository?.gitDirectoryUri
@@ -251,8 +312,11 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         detectionJob?.cancel()
         statusJob?.cancel()
         mutationJob?.cancel()
+        approvalJob?.cancel()
         super.onCleared()
     }
+
+    private data class DecodedGitAction(val type: String, val repository: GitRepositoryState, val parameters: String)
 
     companion object {
         private const val APPROVAL_WINDOW_MS = 120_000L
