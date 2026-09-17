@@ -18,8 +18,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AutomationEntity::class,
         AutomationRunEntity::class,
         AuditEventEntity::class,
+        CapabilityGrantEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class DevForgeDatabase : RoomDatabase() {
@@ -31,6 +32,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
     abstract fun agentTaskDao(): AgentTaskDao
     abstract fun automationDao(): AutomationDao
     abstract fun auditEventDao(): AuditEventDao
+    abstract fun capabilityGrantDao(): CapabilityGrantDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -172,6 +174,25 @@ abstract class DevForgeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `capability_grants` (
+                        `grantId` TEXT NOT NULL,
+                        `workspaceId` TEXT NOT NULL,
+                        `capability` TEXT NOT NULL,
+                        `maxRisk` TEXT NOT NULL,
+                        `createdAtEpochMs` INTEGER NOT NULL,
+                        `expiresAtEpochMs` INTEGER,
+                        `enabled` INTEGER NOT NULL,
+                        PRIMARY KEY(`grantId`)
+                    )
+                """.trimIndent())
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_capability_grants_workspaceId_capability` ON `capability_grants` (`workspaceId`, `capability`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_capability_grants_expiresAtEpochMs` ON `capability_grants` (`expiresAtEpochMs`)")
+            }
+        }
+
         @Volatile private var INSTANCE: DevForgeDatabase? = null
 
         fun get(context: Context): DevForgeDatabase =
@@ -181,7 +202,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     DevForgeDatabase::class.java,
                     "devforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { INSTANCE = it }
             }
