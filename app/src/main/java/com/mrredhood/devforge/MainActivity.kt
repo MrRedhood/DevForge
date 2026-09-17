@@ -2,7 +2,7 @@ package com.mrredhood.devforge
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
+import androidx.activity.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,7 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Folder
@@ -40,6 +39,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,7 +48,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -124,6 +123,7 @@ private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDe
     NavigationBar { DevForgeDestination.entries.forEach { item -> NavigationBarItem(selected = current == item, onClick = { onSelect(item) }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) } }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NavigationSide(current: DevForgeDestination, onSelect: (DevForgeDestination) -> Unit) {
     NavigationRail(Modifier.fillMaxHeight().width(88.dp)) { Spacer(Modifier.height(18.dp)); DevForgeDestination.entries.forEach { item -> NavigationRailItem(selected = current == item, onClick = { onSelect(item) }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) } }
