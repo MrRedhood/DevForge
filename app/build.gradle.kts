@@ -30,6 +30,10 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.08.00"))
     androidTestImplementation(platform("androidx.compose:compose-bom:2026.08.00"))
