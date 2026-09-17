@@ -33,7 +33,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -60,11 +60,13 @@ import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -88,23 +90,88 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 private fun DevForgeApp() {
-    val windowSize = calculateWindowSizeClass(androidx.compose.ui.platform.LocalContext.current as ComponentActivity)
+    val context = LocalContext.current
+    val windowSize = calculateWindowSizeClass(context as ComponentActivity)
     var destinationName by rememberSaveable { mutableStateOf(DevForgeDestination.Chat.name) }
+    var destinationHistory by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var showExitDialog by rememberSaveable { mutableStateOf(false) }
+    var unsavedEditorUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
     val destination = DevForgeDestination.valueOf(destinationName)
     val expanded = windowSize.widthSizeClass != WindowWidthSizeClass.Compact
     val workspace: WorkspaceViewModel = viewModel()
     val editor: EditorViewModel = viewModel()
     val editing = editor.activeTab != null || editor.isLoading
 
+    fun navigateTo(next: DevForgeDestination) {
+        if (next.name == destinationName) return
+        destinationHistory = destinationHistory + destinationName
+        destinationName = next.name
+    }
+
+    BackHandler(enabled = true) {
+        val activeEditorTab = editor.activeTab
+        when {
+            activeEditorTab != null -> {
+                if (activeEditorTab.isDirty) unsavedEditorUri = activeEditorTab.uri
+                else editor.close(activeEditorTab.uri)
+            }
+            destinationHistory.isNotEmpty() -> {
+                val previous = destinationHistory.last()
+                destinationHistory = destinationHistory.dropLast(1)
+                destinationName = previous
+            }
+            else -> showExitDialog = true
+        }
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = { DevForgeTopBar(workspace.workspace?.name ?: "No workspace", editing) },
-        bottomBar = { if (!expanded && !editing) NavigationBottom(destination) { destinationName = it.name } },
+        bottomBar = { if (!expanded && !editing) NavigationBottom(destination, ::navigateTo) },
     ) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
-            if (expanded && !editing) NavigationSide(destination) { destinationName = it.name }
+            if (expanded && !editing) NavigationSide(destination, ::navigateTo)
             if (editing) EditorScreen(editor) else DestinationScreen(destination, workspace, editor)
         }
+    }
+
+    unsavedEditorUri?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { unsavedEditorUri = null },
+            title = { Text("Unsaved changes") },
+            text = { Text("This file has changes that have not been saved. What should happen before going back?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    unsavedEditorUri = null
+                    editor.saveAndCloseActive()
+                }) { Text("Save & go back") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        unsavedEditorUri = null
+                        editor.close(uri, discard = true)
+                    }) { Text("Discard") }
+                    TextButton(onClick = { unsavedEditorUri = null }) { Text("Cancel") }
+                }
+            },
+        )
+    }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("Exit DevForge?") },
+            text = { Text("You are already at the first screen. Do you want to exit the app?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showExitDialog = false
+                    (context as? ComponentActivity)?.finish()
+                }) { Text("Exit") }
+            },
+            dismissButton = { TextButton(onClick = { showExitDialog = false }) { Text("Cancel") } },
+        )
     }
 }
 
@@ -112,22 +179,59 @@ private fun DevForgeApp() {
 @Composable
 private fun DevForgeTopBar(workspaceName: String, editing: Boolean) {
     TopAppBar(
-        title = { Column { Text("DevForge", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp); Text(if (editing) "Editor / $workspaceName" else workspaceName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } },
-        navigationIcon = { Surface(modifier = Modifier.padding(start = 10.dp).size(38.dp), shape = RoundedCornerShape(13.dp), color = MaterialTheme.colorScheme.primaryContainer) { Icon(Icons.Default.Code, "DevForge", Modifier.padding(9.dp)) } },
-        actions = { IconButton(onClick = {}) { Icon(Icons.Default.Search, "Search") }; IconButton(onClick = {}) { Icon(Icons.Default.Security, "Security") } },
+        title = {
+            Column {
+                Text("DevForge", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                Text(
+                    if (editing) "Editor / $workspaceName" else workspaceName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        navigationIcon = {
+            Surface(
+                modifier = Modifier.padding(start = 10.dp).size(38.dp),
+                shape = RoundedCornerShape(13.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) { Icon(Icons.Default.Code, "DevForge", Modifier.padding(9.dp)) }
+        },
+        actions = {
+            IconButton(onClick = {}) { Icon(Icons.Default.Search, "Search") }
+            IconButton(onClick = {}) { Icon(Icons.Default.Security, "Security") }
+        },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
     )
 }
 
 @Composable
 private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDestination) -> Unit) {
-    NavigationBar { DevForgeDestination.entries.forEach { item -> NavigationBarItem(selected = current == item, onClick = { onSelect(item) }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) } }
+    NavigationBar {
+        DevForgeDestination.entries.forEach { item ->
+            NavigationBarItem(
+                selected = current == item,
+                onClick = { onSelect(item) },
+                icon = { Icon(item.icon, item.label) },
+                label = { Text(item.label) },
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NavigationSide(current: DevForgeDestination, onSelect: (DevForgeDestination) -> Unit) {
-    NavigationRail(Modifier.fillMaxHeight().width(88.dp)) { Spacer(Modifier.height(18.dp)); DevForgeDestination.entries.forEach { item -> NavigationRailItem(selected = current == item, onClick = { onSelect(item) }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) } }
+    NavigationRail(Modifier.fillMaxHeight().width(88.dp)) {
+        Spacer(Modifier.height(18.dp))
+        DevForgeDestination.entries.forEach { item ->
+            NavigationRailItem(
+                selected = current == item,
+                onClick = { onSelect(item) },
+                icon = { Icon(item.icon, item.label) },
+                label = { Text(item.label) },
+            )
+        }
+    }
 }
 
 @Composable
@@ -143,12 +247,36 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
 
 @Composable
 private fun ChatScreen() {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.padding(24.dp)) { Text("Build. Review. Ship.", fontSize = 32.sp, fontWeight = FontWeight.Black); Text("A mobile engineering cockpit where AI proposes changes and every action leaves a trail.", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(18.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { StatusPill("Online", Icons.Default.Wifi); StatusPill("Protected", Icons.Default.Security) } } } }
-        item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(selected = true, onClick = {}, label = { Text("@workspace") }); FilterChip(selected = true, onClick = {}, label = { Text("@git-diff") }) } }
-        item { PulseCard("Git", "Repository-aware workflow is next", "Review") }
-        item { PulseCard("Build", "Cloud build center ready", "Open") }
-        item { PulseCard("Agent", "No pending approvals", "Activity") }
+    Column(
+        Modifier.fillMaxSize().padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Card(
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(24.dp)) {
+                Text("Build. Review. Ship.", fontSize = 32.sp, fontWeight = FontWeight.Black)
+                Text(
+                    "Ask questions, describe a change, or plan the next step in your project.",
+                    Modifier.padding(top = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Card(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                Text("Start a conversation", fontWeight = FontWeight.Bold)
+                Text(
+                    "Your project context and actions will appear here as the AI assistant is implemented.",
+                    Modifier.padding(top = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -156,23 +284,83 @@ private fun ChatScreen() {
 private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(workspace::openWorkspace) }
     BackHandler(enabled = workspace.breadcrumbs.size > 1) { workspace.goUp() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Files", fontSize = 30.sp, fontWeight = FontWeight.Black); Text(if (workspace.workspace == null) "Choose a workspace to begin" else "Workspace browser", color = MaterialTheme.colorScheme.onSurfaceVariant) }; Button(onClick = { picker.launch(null) }) { Icon(Icons.Default.Folder, null); Spacer(Modifier.width(6.dp)); Text(if (workspace.workspace == null) "Choose" else "Change") }; if (workspace.workspace != null) IconButton(onClick = workspace::refresh) { Icon(Icons.Default.Refresh, "Refresh") } } }
-        if (workspace.workspace == null) item { InfoCard("Bring your code into DevForge", "DevForge uses an Android document-tree permission for the folder you explicitly choose.") }
-        else {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Files", fontSize = 30.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        if (workspace.workspace == null) "Choose a workspace to begin" else "Workspace browser",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Button(onClick = { picker.launch(null) }) {
+                    Icon(Icons.Default.Folder, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (workspace.workspace == null) "Choose" else "Change")
+                }
+                if (workspace.workspace != null) {
+                    IconButton(onClick = workspace::refresh) { Icon(Icons.Default.Refresh, "Refresh") }
+                }
+            }
+        }
+        if (workspace.workspace == null) {
+            item { InfoCard("Bring your code into DevForge", "DevForge uses an Android document-tree permission for the folder you explicitly choose.") }
+        } else {
             item { Breadcrumbs(workspace) }
             if (workspace.isLoading) item { LoadingCard("Reading folder…") }
             else if (workspace.entries.isEmpty()) item { InfoCard("Nothing in this folder", "Create a file here and refresh.") }
-            else items(workspace.entries, key = { it.uri.toString() }) { entry -> FileRow(entry) { if (entry.isDirectory) workspace.openDirectory(entry) else editor.open(entry) } }
+            else items(workspace.entries, key = { it.uri.toString() }) { entry ->
+                FileRow(entry) { if (entry.isDirectory) workspace.openDirectory(entry) else editor.open(entry) }
+            }
         }
     }
 }
 
 @Composable
-private fun Breadcrumbs(workspace: WorkspaceViewModel) { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { workspace.breadcrumbs.forEachIndexed { index, crumb -> if (index > 0) Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp).alpha(.45f)); FilterChip(selected = index == workspace.breadcrumbs.lastIndex, onClick = { workspace.goToBreadcrumb(index) }, label = { Text(crumb.name, maxLines = 1) }) } } }
+private fun Breadcrumbs(workspace: WorkspaceViewModel) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        workspace.breadcrumbs.forEachIndexed { index, crumb ->
+            if (index > 0) Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp).alpha(.45f))
+            FilterChip(
+                selected = index == workspace.breadcrumbs.lastIndex,
+                onClick = { workspace.goToBreadcrumb(index) },
+                label = { Text(crumb.name, maxLines = 1) },
+            )
+        }
+    }
+}
 
 @Composable
-private fun FileRow(entry: WorkspaceEntry, onOpen: () -> Unit) { Card(onClick = onOpen, shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile, null, Modifier.size(22.dp)); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(entry.name, fontWeight = FontWeight.SemiBold); Text(if (entry.isDirectory) "Folder" else formatBytes(entry.sizeBytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Icon(Icons.Default.ChevronRight, null, Modifier.alpha(.45f)) } } }
+private fun FileRow(entry: WorkspaceEntry, onOpen: () -> Unit) {
+    Card(
+        onClick = onOpen,
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile, null, Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(entry.name, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (entry.isDirectory) "Folder" else formatBytes(entry.sizeBytes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(Icons.Default.ChevronRight, null, Modifier.alpha(.45f))
+        }
+    }
+}
 
 @Composable
 private fun EditorScreen(editor: EditorViewModel) {
@@ -180,26 +368,77 @@ private fun EditorScreen(editor: EditorViewModel) {
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         if (editor.isLoading) LoadingCard("Opening file…")
         active?.let { tab ->
-            Row(verticalAlignment = Alignment.CenterVertically) { Text(tab.name, Modifier.weight(1f), fontWeight = FontWeight.Bold); if (tab.isDirty) Text("Unsaved", color = MaterialTheme.colorScheme.tertiary); IconButton(onClick = editor::saveActive, enabled = tab.isDirty) { Icon(Icons.Default.Save, "Save") } }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tab.name, Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                if (tab.isDirty) Text("Unsaved", color = MaterialTheme.colorScheme.tertiary)
+                IconButton(onClick = editor::saveActive, enabled = tab.isDirty) { Icon(Icons.Default.Save, "Save") }
+            }
             Divider(Modifier.padding(vertical = 8.dp))
-            BasicTextField(value = tab.content, onValueChange = editor::updateContent, modifier = Modifier.fillMaxSize(), textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onBackground))
+            BasicTextField(
+                value = tab.content,
+                onValueChange = editor::updateContent,
+                modifier = Modifier.fillMaxSize(),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onBackground,
+                ),
+            )
         }
     }
 }
 
 @Composable
-private fun SettingsScreen() { LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { item { Text("Settings", fontSize = 30.sp, fontWeight = FontWeight.Black) }; item { PulseCard("AI", "Provider, model, context and memory", "Planned") }; item { PulseCard("Workspace", "Indexing, recovery, snapshots and storage", "Active") }; item { PulseCard("Security", "Approvals, secrets and privacy controls", "Planned") }; item { PulseCard("Appearance", "Theme, density, motion and editor style", "Planned") } } }
+private fun SettingsScreen() {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item { Text("Settings", fontSize = 30.sp, fontWeight = FontWeight.Black) }
+        item { PulseCard("AI", "Provider, model, context and memory", "Planned") }
+        item { PulseCard("Workspace", "Indexing, recovery, snapshots and storage", "Active") }
+        item { PulseCard("Security", "Approvals, secrets and privacy controls", "Planned") }
+        item { PulseCard("Appearance", "Theme, density, motion and editor style", "Planned") }
+    }
+}
 
 @Composable
-private fun StatusPill(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) { Surface(shape = RoundedCornerShape(100.dp), color = MaterialTheme.colorScheme.surface) { Row(Modifier.padding(horizontal = 11.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, Modifier.size(15.dp)); Spacer(Modifier.width(6.dp)); Text(label, style = MaterialTheme.typography.labelMedium) } } }
+private fun PulseCard(title: String, subtitle: String, action: String) {
+    Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextButton(onClick = {}) { Text(action) }
+        }
+    }
+}
 
 @Composable
-private fun PulseCard(title: String, subtitle: String, action: String) { Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) { Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.Bold); Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }; TextButton(onClick = {}) { Text(action) } } } }
+private fun InfoCard(title: String, message: String) {
+    Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.fillMaxWidth().padding(22.dp)) {
+            Text(title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            Text(message, Modifier.padding(top = 6.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
 
 @Composable
-private fun InfoCard(title: String, message: String) { Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.fillMaxWidth().padding(22.dp)) { Text(title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold); Text(message, Modifier.padding(top = 6.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
+private fun LoadingCard(message: String) {
+    Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(Modifier.size(22.dp))
+            Spacer(Modifier.width(14.dp))
+            Text(message)
+        }
+    }
+}
 
-@Composable
-private fun LoadingCard(message: String) { Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) { Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(22.dp)); Spacer(Modifier.width(14.dp)); Text(message) } } }
-
-private fun formatBytes(value: Long?): String = when { value == null || value < 0L -> "File"; value < 1024L -> "$value B"; value < 1024L * 1024L -> "${value / 1024L} KB"; else -> "${value / (1024L * 1024L)} MB" }
+private fun formatBytes(value: Long?): String = when {
+    value == null || value < 0L -> "File"
+    value < 1024L -> "$value B"
+    value < 1024L * 1024L -> "${value / 1024L} KB"
+    else -> "${value / (1024L * 1024L)} MB"
+}
