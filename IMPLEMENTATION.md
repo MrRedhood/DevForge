@@ -16,7 +16,7 @@
 ### App Foundation / UX
 - [x] Kotlin/Compose/Material 3 foundation
 - [x] Adaptive compact/expanded navigation
-- [x] Chat, Files, Git, Diffs, Build, Approvals and Settings destinations
+- [x] Chat, Files, Git, Diffs, Build, Automation, Approvals and Settings destinations
 - [x] Dark-first original DevForge visual direction
 - [x] Destination history/back handling and nested editor/folder behavior
 - [x] Unsaved editor and root-exit confirmations
@@ -63,10 +63,11 @@
 - [x] Expanded bounded agent execution receipts with scope/capability/risk/approval metadata
 
 ### Durable Room State
-- [x] Room v7 schema and migrations
+- [x] Room v8 schema and migrations
 - [x] Durable editor tabs/snapshots
 - [x] Persistent agent-task state and resumable step pointers
 - [x] Automation definition/run persistence foundation
+- [x] Durable automation trigger state for repository/build event deduplication
 - [x] Durable audit-event storage
 - [x] Durable capability-grant storage
 - [x] Model-scoped persistent chat sessions/messages
@@ -105,10 +106,16 @@
 - [x] Run overlap protection and stale-run recovery after process interruption
 - [x] Cancellation path for active automation runs and scheduled work
 - [x] Automation start/wait/complete/fail/cancel audit events
-- [ ] Repository-change triggers
-- [ ] Build-completion triggers
-- [ ] Condition/event graph evaluation
-- [ ] Rich automation UI/editor
+- [x] Repository-change triggers with workspace/branch/path filtering
+- [x] Build-completion triggers with owner/repository/branch/conclusion/target filtering
+- [x] Condition/event matching with bounded wildcard conditions
+- [x] Durable event deduplication and first-run baseline seeding
+- [x] Bounded event payloads carried into durable automation run receipts
+- [x] Periodic background event monitor for repository/build state changes
+- [x] Rich automation editor with trigger selection, typed agent steps and explicit path scopes
+- [x] Automation run history, enable/disable, run-now and delete controls
+- [x] Dedicated Automation primary navigation surface
+- [x] Focused automation trigger regression tests
 
 ### Settings / UX
 - [x] AI provider selection UI
@@ -120,10 +127,10 @@
 - [ ] Theme/density/editor preferences
 
 ## In Progress / Next Sequence
-1. Automation event triggers and richer automation UI.
-2. Terminal capability with strict sandbox/time/argument limits.
-3. Integrate biometric protected secrets into existing credential consumers and security UI.
-4. Maintained unit/UI/security regression suites and broader validation.
+1. Terminal capability with strict sandbox/time/argument limits.
+2. Integrate biometric protected secrets into existing credential consumers and security UI.
+3. Maintained unit/UI/security regression suites and broader validation.
+4. Build cancellation and live credential runtime validation.
 
 ## Planned
 
@@ -142,15 +149,17 @@
 - [ ] No unrestricted arbitrary AI shell access
 
 ### Automation Expansion
-- [ ] Repository-change triggers
-- [ ] Build-completion triggers
-- [ ] Capability-scoped event graphs
-- [ ] Approval checkpoints per action
-- [ ] Idempotency keys and richer recovery semantics
-- [ ] Pause/resume controls and automation editor
+- [x] Repository-change triggers
+- [x] Build-completion triggers
+- [x] Capability-scoped action graphs through typed agent plans
+- [x] Approval checkpoints through the shared agent gateway
+- [x] Initial event idempotency/deduplication guard through durable trigger state and WorkManager unique work
+- [ ] Cross-event orchestration and richer recovery semantics
+- [x] Pause/enable/disable controls and automation editor
 
 ### Quality / Observability
 - [x] Focused agent security regression tests
+- [x] Focused automation trigger regression tests
 - [ ] Maintained unit-test suite
 - [ ] Compose/UI tests
 - [ ] Static analysis/lint pipeline
@@ -165,7 +174,7 @@
 - [x] Current agent milestone triggered a fresh Android CI run after commit
 - [x] Security hardening changes triggered a fresh Android CI run after commit
 - [ ] Interactive conflict editor CI result verification
-- [ ] Current automation scheduler/run engine CI result verification
+- [ ] Current automation event-trigger/UI CI result verification
 - [ ] Security hardening CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
@@ -236,3 +245,10 @@
 - Added bounded ours/base/theirs inspection, manual text resolution, side selection, deletion handling and per-file conflict navigation.
 - Added Continue/Abort controls with a fresh clean-worktree/HEAD validation before any resolved state is copied back to the SAF workspace.
 - Kept conflict sessions approval-aware and bounded by 50 conflict paths, 256 KiB per conflict file and a two-hour session lifetime.
+
+### 2026-09-17 — Automation event triggers and rich automation editor
+- Upgraded Room to v8 with durable automation trigger state for event deduplication.
+- Added repository-change, build-completion and condition trigger matching with bounded branch/path/build filters and wildcard conditions.
+- Added first-run baseline seeding, periodic WorkManager event monitoring, unique-event scheduling and bounded trigger payloads carried into run receipts.
+- Added a dedicated Automation destination with rich trigger/action editing, explicit agent path scopes, run-now, enable/disable, delete and run-history controls.
+- Added focused regression coverage for repository/build/condition matching and repository fingerprint changes.
