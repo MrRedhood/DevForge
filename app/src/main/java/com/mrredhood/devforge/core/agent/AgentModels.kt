@@ -1,5 +1,6 @@
 package com.mrredhood.devforge.core.agent
 
+import com.mrredhood.devforge.core.security.WorkspacePathScope
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -33,6 +34,7 @@ data class AgentToolContext(
     val workspaceId: String,
     val taskId: String,
     val stepIndex: Int,
+    val pathScope: WorkspacePathScope = WorkspacePathScope(),
 )
 
 data class AgentToolRequest(
@@ -50,9 +52,9 @@ data class AgentToolReceipt(
     val capability: String,
     val risk: String,
     val workspaceId: String,
+    val allowedPrefixes: List<String>,
     val affectedPaths: List<String>,
     val summary: String,
-    val output: String,
     val approvalId: String? = null,
     val createdAtEpochMs: Long = System.currentTimeMillis(),
 )
@@ -62,6 +64,7 @@ sealed interface AgentToolResult {
         val summary: String,
         val output: String = "",
         val affectedPaths: List<String> = emptyList(),
+        val receiptJson: String? = null,
     ) : AgentToolResult
 
     data class ApprovalRequired(
@@ -81,7 +84,10 @@ data class AgentTaskStep(
         AgentToolRequest(toolId, workspaceId, argumentsJson, taskId, index)
 }
 
-data class AgentTaskPlan(val steps: List<AgentTaskStep>) {
+data class AgentTaskPlan(
+    val steps: List<AgentTaskStep>,
+    val pathScope: WorkspacePathScope = WorkspacePathScope(),
+) {
     init {
         require(steps.size <= MAX_STEPS) { "Agent plans may contain at most $MAX_STEPS steps." }
     }
@@ -103,7 +109,10 @@ object AgentTaskPlanCodec {
                     .put("label", step.label.take(200)),
             )
         }
-        root.put("version", 1)
+        val scope = JSONArray()
+        plan.pathScope.canonicalPrefixes().forEach(scope::put)
+        root.put("version", 2)
+        root.put("scope", scope)
         root.put("steps", steps)
         return root.toString()
     }
@@ -111,7 +120,17 @@ object AgentTaskPlanCodec {
     fun decode(payload: String?): AgentTaskPlan {
         require(!payload.isNullOrBlank()) { "Agent task plan is missing." }
         val root = JSONObject(payload)
-        require(root.optInt("version", 1) == 1) { "Unsupported agent task plan version." }
+        val version = root.optInt("version", 1)
+        require(version in 1..2) { "Unsupported agent task plan version." }
+        val scope = if (version >= 2) {
+            val scopeArray = root.optJSONArray("scope") ?: JSONArray()
+            require(scopeArray.length() <= WorkspacePathScope.MAX_PREFIXES) { "Agent path scope exceeds the prefix limit." }
+            WorkspacePathScope(buildList(scopeArray.length()) {
+                for (index in 0 until scopeArray.length()) add(scopeArray.optString(index, ""))
+            })
+        } else {
+            WorkspacePathScope()
+        }
         val array = root.optJSONArray("steps") ?: JSONArray()
         require(array.length() <= AgentTaskPlan.MAX_STEPS) { "Agent plan exceeds the step limit." }
         val steps = buildList(array.length()) {
@@ -124,7 +143,7 @@ object AgentTaskPlanCodec {
                 add(AgentTaskStep(tool, arguments, item.optString("label", tool.wireName)))
             }
         }
-        return AgentTaskPlan(steps)
+        return AgentTaskPlan(steps, scope)
     }
 
     const val MAX_TOOL_ARGUMENT_BYTES = 64 * 1024
