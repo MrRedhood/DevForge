@@ -6,6 +6,7 @@ internal data class GitIndexEntry(
     val path: String,
     val objectId: String,
     val mode: Long,
+    val stage: Int,
 )
 
 internal sealed interface GitIndexParseResult {
@@ -29,14 +30,12 @@ internal object GitIndexParser {
             return GitIndexParseResult.Unsupported("Git index version $version is not supported yet; versions 2 and 3 are supported.")
         }
 
-        val entryCountLong = readUInt32(bytes, 8)
-        if (entryCountLong > MAX_ENTRIES) {
-            return GitIndexParseResult.Success(version, emptyList(), truncated = true)
-        }
-
-        val entries = ArrayList<GitIndexEntry>(entryCountLong.toInt())
+        val entryCount = readUInt32(bytes, 8).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val parseCount = minOf(entryCount, MAX_ENTRIES)
+        val entries = ArrayList<GitIndexEntry>(parseCount)
         var offset = HEADER_BYTES
-        repeat(entryCountLong.toInt()) {
+
+        repeat(parseCount) {
             if (offset + ENTRY_FIXED_BYTES > bytes.size) {
                 return GitIndexParseResult.Unsupported("The Git index ended before all entries could be read.")
             }
@@ -44,6 +43,7 @@ internal object GitIndexParser {
             val mode = readUInt32(bytes, offset + 24)
             val objectIdOffset = offset + 40
             val flags = readUInt16(bytes, offset + 60)
+            val stage = (flags ushr 12) and 0x3
             var pathOffset = offset + ENTRY_FIXED_BYTES
 
             if ((flags and 0x4000) != 0) {
@@ -62,7 +62,7 @@ internal object GitIndexParser {
 
             val objectId = bytes.copyOfRange(objectIdOffset, objectIdOffset + 20)
                 .joinToString("") { "%02x".format(it) }
-            entries += GitIndexEntry(path = path, objectId = objectId, mode = mode)
+            entries += GitIndexEntry(path = path, objectId = objectId, mode = mode, stage = stage)
 
             val entryBytes = pathEnd + 1 - offset
             val padding = (8 - (entryBytes % 8)) % 8
@@ -72,7 +72,11 @@ internal object GitIndexParser {
             }
         }
 
-        return GitIndexParseResult.Success(version, entries, truncated = false)
+        return GitIndexParseResult.Success(
+            version = version,
+            entries = entries,
+            truncated = entryCount > MAX_ENTRIES,
+        )
     }
 
     private fun readUInt16(bytes: ByteArray, offset: Int): Int =
