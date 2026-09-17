@@ -45,27 +45,19 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
 
     init {
         pendingJob = viewModelScope.launch {
-            repository.observePending().collectLatest { actions ->
-                pending = actions
-            }
+            repository.observePending().collectLatest { actions -> pending = actions }
         }
         auditJob = viewModelScope.launch {
-            database.auditEventDao().observeRecent(MAX_AUDIT_HISTORY).collectLatest { events ->
-                auditHistory = events
-            }
+            database.auditEventDao().observeRecent(MAX_AUDIT_HISTORY).collectLatest { events -> auditHistory = events }
         }
         viewModelScope.launch {
             workspaces.activeWorkspace.collectLatest { workspace ->
-                activeWorkspaceId = workspace?.id
                 grantsJob?.cancel()
-                grantsJob = if (workspace == null) {
-                    grants = emptyList()
-                    null
-                } else {
-                    launch {
-                        grantRepository.observe(workspace.id).collectLatest { values ->
-                            grants = values
-                        }
+                activeWorkspaceId = workspace?.id
+                grants = emptyList()
+                if (workspace != null) {
+                    grantsJob = viewModelScope.launch {
+                        grantRepository.observe(workspace.id).collectLatest { values -> grants = values }
                     }
                 }
             }
@@ -105,9 +97,8 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
 
     fun revoke(grant: CapabilityGrantEntity) {
         viewModelScope.launch {
-            val capability = grant.capabilityOrNull()
-            val workspace = activeWorkspaceId
-            if (capability == null || workspace == null) return@launch
+            val capability = grant.capabilityOrNull() ?: return@launch
+            val workspace = activeWorkspaceId ?: return@launch
             val changed = grantRepository.revoke(workspace, capability)
             actionMessage = if (changed) "Persistent ${capability.name} grant revoked." else "Grant was already inactive."
         }
