@@ -3,7 +3,6 @@ package com.mrredhood.devforge.core.storage
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.mrredhood.devforge.core.workspace.Workspace
-import java.net.URI
 
 @Entity(tableName = "workspaces")
 data class WorkspaceEntity(
