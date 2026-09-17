@@ -21,7 +21,11 @@ class GitRepositoryService(private val resolver: ContentResolver) {
 
         val detached = !head.startsWith("ref:")
         val branch = if (detached) null else head.removePrefix("ref:").trim().removePrefix("refs/heads/")
-        val headRevision = if (detached) head.takeIf { it.matches(Regex("[0-9a-fA-F]{7,64}")) } else null
+        val headRevision = when {
+            detached -> head.takeIf { it.matches(SHA_PATTERN) }
+            branch != null -> resolveBranchRevision(gitDirectory, branch)
+            else -> null
+        }
         val remoteUrl = findDirectChild(gitDirectory, "config")?.let { readText(it) }?.let(::parseOriginUrl)
         val branches = readBranches(gitDirectory, branch)
 
@@ -37,6 +41,29 @@ class GitRepositoryService(private val resolver: ContentResolver) {
             ),
         )
     }
+
+    private fun resolveBranchRevision(gitDirectory: Uri, branch: String): String? {
+        val refs = findDirectChild(gitDirectory, "refs") ?: return resolvePackedHead(gitDirectory, branch)
+        val heads = findDirectChild(refs, "heads") ?: return resolvePackedHead(gitDirectory, branch)
+        val parts = branch.split('/').filter(String::isNotBlank)
+        var current = heads
+        for (part in parts) {
+            current = findDirectChild(current, part) ?: return resolvePackedHead(gitDirectory, branch)
+        }
+        return readText(current)?.trim()?.takeIf { it.matches(SHA_PATTERN) }
+            ?: resolvePackedHead(gitDirectory, branch)
+    }
+
+    private fun resolvePackedHead(gitDirectory: Uri, branch: String): String? =
+        findDirectChild(gitDirectory, "packed-refs")
+            ?.let { readText(it, 512 * 1024) }
+            ?.lineSequence()
+            ?.map(String::trim)
+            ?.firstOrNull { line ->
+                val parts = line.split(' ', limit = 2)
+                parts.size == 2 && parts[1] == "refs/heads/$branch" && parts[0].matches(SHA_PATTERN)
+            }
+            ?.substringBefore(' ')
 
     private fun readBranches(gitDirectory: Uri, currentBranch: String?): List<GitBranch> {
         val result = linkedMapOf<String, GitBranch>()
@@ -68,7 +95,7 @@ class GitRepositoryService(private val resolver: ContentResolver) {
                 collectLocalBranches(child.uri, if (prefix.isBlank()) child.name else "$prefix/${child.name}", currentBranch, result, depth + 1)
             } else {
                 val name = if (prefix.isBlank()) child.name else "$prefix/${child.name}"
-                val revision = readText(child.uri)?.trim()?.takeIf { it.matches(Regex("[0-9a-fA-F]{7,64}")) }
+                val revision = readText(child.uri)?.trim()?.takeIf { it.matches(SHA_PATTERN) }
                 result.putIfAbsent(name, GitBranch(name, revision, name == currentBranch))
             }
         }
@@ -142,5 +169,6 @@ class GitRepositoryService(private val resolver: ContentResolver) {
     private companion object {
         const val MAX_BRANCHES = 256
         const val MAX_BRANCH_DEPTH = 8
+        val SHA_PATTERN = Regex("^[0-9a-fA-F]{40}$")
     }
 }
