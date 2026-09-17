@@ -1,7 +1,6 @@
 package com.mrredhood.devforge
 
 import android.os.Bundle
-import android.provider.DocumentsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -39,8 +38,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Source
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -73,6 +70,7 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -155,7 +153,7 @@ private fun ForgeContent(destination: DevForgeDestination, workspace: WorkspaceV
     when (destination) {
         DevForgeDestination.Chat -> ChatScreen()
         DevForgeDestination.Files -> FilesScreen(workspace, editor)
-        DevForgeDestination.Git -> GitScreen()
+        DevForgeDestination.Git -> GitDashboardScreen()
         DevForgeDestination.Build -> BuildScreen()
         DevForgeDestination.Settings -> SettingsScreen()
     }
@@ -248,7 +246,7 @@ private fun PreviewDialog(result: WorkspaceSearchResult, editor: EditorViewModel
     val resolver = androidx.compose.ui.platform.LocalContext.current.contentResolver
     var previewText by remember(result.uri) { mutableStateOf<String?>(null) }
     var message by remember(result.uri) { mutableStateOf<String?>(null) }
-    androidx.compose.runtime.LaunchedEffect(result.uri) {
+    LaunchedEffect(result.uri) {
         val size = result.sizeBytes
         if (!FilePreviewPolicy.allowsPreview(size, null)) {
             message = "This file is too large to preview safely on-device."
@@ -286,7 +284,7 @@ private fun EditorScreen(editor: EditorViewModel) {
     if (showDiscard && tab != null) AlertDialog(onDismissRequest = { showDiscard = false }, title = { Text("Discard unsaved changes?") }, text = { Text("Your saved file is unchanged, but the current editing buffer will be removed.") }, confirmButton = { TextButton(onClick = { editor.close(tab.uri, discard = true) }) { Text("Discard") } }, dismissButton = { TextButton(onClick = { showDiscard = false }) { Text("Keep editing") } })
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         if (editor.isLoading) LoadingCard("Opening file…")
-        editor.error?.let { message -> Card(Modifier.fillMaxWidth().padding(top = 10.dp), RoundedCornerShape(16.dp), CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Warning, null); Spacer(Modifier.width(10.dp)); Text(message, Modifier.weight(1f)); TextButton(onClick = editor::dismissError) { Text("Dismiss") } } } }
+        editor.error?.let { message -> Card(Modifier.fillMaxWidth().padding(top = 10.dp), RoundedCornerShape(16.dp), CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Security, null); Spacer(Modifier.width(10.dp)); Text(message, Modifier.weight(1f)); TextButton(onClick = editor::dismissError) { Text("Dismiss") } } } }
         if (editor.tabs.isNotEmpty()) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 editor.tabs.forEach { openTab -> Surface(onClick = { editor.select(openTab.uri) }, shape = RoundedCornerShape(12.dp), color = if (openTab.uri == editor.activeUri) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface) { Row(Modifier.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) { Text(if (openTab.isDirty) "• ${openTab.name}" else openTab.name, style = MaterialTheme.typography.labelLarge); IconButton(onClick = { if (!openTab.isDirty) editor.close(openTab.uri) else if (openTab.uri == editor.activeUri) showDiscard = true }) { Icon(Icons.Default.Close, "Close") } } } }
@@ -296,9 +294,6 @@ private fun EditorScreen(editor: EditorViewModel) {
         }
     }
 }
-
-@Composable
-private fun GitScreen() { ScreenFrame { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp)) { ScreenTitle("Git", "Repository state connects after workspace foundations"); Spacer(Modifier.height(18.dp)); StatusPill("main", Icons.Default.Source); Spacer(Modifier.height(18.dp)); PulseCard("Repository model", "Branch, status, staged changes and remotes are next", "Planned") } } }
 
 @Composable
 private fun BuildScreen() { ScreenFrame { padding -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { item { ScreenTitle("Build", "Cloud builds without bundling the Android toolchain") }; item { PulseCard("Build Center", "GitHub Actions dispatch and artifact flow", "Coming next") }; item { PulseCard("Remote-first", "DevForge stays lightweight on-device", "Protected") } } } }
