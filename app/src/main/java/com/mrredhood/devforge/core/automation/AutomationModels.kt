@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
 enum class AutomationStatus { ENABLED, DISABLED, PAUSED }
-en
+
 enum class AutomationRunStatus { RUNNING, WAITING_APPROVAL, COMPLETED, FAILED, CANCELLED, SKIPPED }
 
 enum class AutomationTriggerType {
