@@ -64,7 +64,7 @@ class GitHistoryOperationService(
         branchName: String,
         approvalId: String? = null,
     ): GitHistoryResult =
-        executeHistory(repository, "merge '$branchName'", "Merge '$branchName'", approvalId) { git ->
+        executeHistory(repository, "merge '$branchName'", OPERATION_MERGE, approvalId) { git ->
             val branch = validateBranchName(branchName)
             requireClean(git)
             require(git.repository.findRef("refs/heads/$branch") != null) {
@@ -81,7 +81,7 @@ class GitHistoryOperationService(
         branchName: String,
         approvalId: String? = null,
     ): GitHistoryResult =
-        executeHistory(repository, "rebase '$branchName'", "Rebase onto '$branchName'", approvalId) { git ->
+        executeHistory(repository, "rebase '$branchName'", OPERATION_REBASE, approvalId) { git ->
             val branch = validateBranchName(branchName)
             requireClean(git)
             require(git.repository.findRef("refs/heads/$branch") != null) {
@@ -104,7 +104,7 @@ class GitHistoryOperationService(
         revision: String,
         approvalId: String? = null,
     ): GitHistoryResult =
-        executeHistory(repository, "cherry-pick", "Cherry-pick", approvalId) { git ->
+        executeHistory(repository, "cherry-pick", OPERATION_CHERRY_PICK, approvalId) { git ->
             val commitId = revision.trim()
             require(commitId.matches(SHA_PATTERN)) { "Cherry-pick requires a 40-character commit SHA." }
             requireClean(git)
@@ -204,7 +204,7 @@ class GitHistoryOperationService(
         val session = conflictSessions.remove(sessionId)
             ?: return@withContext GitHistoryResult.Failure("Conflict session is no longer available.")
         session.workRoot.deleteRecursively()
-        GitHistoryResult.Success("${session.operation.replaceFirstChar { it.uppercase() }} conflict session aborted. The workspace was left unchanged.")
+        GitHistoryResult.Success("${operationLabel(session.operation)} conflict session aborted. The workspace was left unchanged.")
     }
 
     private suspend fun executeHistory(
@@ -352,9 +352,10 @@ class GitHistoryOperationService(
     private fun toBlobContent(bytes: ByteArray): BlobContent {
         if (bytes.size > MAX_CONFLICT_BYTES) return BlobContent(null, binary = false, oversized = true)
         val text = bytes.toString(Charsets.UTF_8)
+        val textBytes = text.toByteArray(Charsets.UTF_8)
         return BlobContent(
-            text = if (text.toByteArray(Charsets.UTF_8).contentEquals(bytes)) text else null,
-            binary = !text.toByteArray(Charsets.UTF_8).contentEquals(bytes),
+            text = if (textBytes.contentEquals(bytes)) text else null,
+            binary = !textBytes.contentEquals(bytes),
             oversized = false,
         )
     }
@@ -387,6 +388,13 @@ class GitHistoryOperationService(
         val root = File(context.cacheDir, "devforge-git-history")
         val cutoff = System.currentTimeMillis() - MAX_SESSION_AGE_MS
         root.listFiles()?.forEach { child -> if (child.lastModified() < cutoff) child.deleteRecursively() }
+    }
+
+    private fun operationLabel(operation: String): String = when (operation) {
+        OPERATION_MERGE -> "Merge"
+        OPERATION_REBASE -> "Rebase"
+        OPERATION_CHERRY_PICK -> "Cherry-pick"
+        else -> operation
     }
 
     private fun requireClean(git: Git) {
