@@ -99,7 +99,11 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [x] Local branch discovery from loose `refs/heads/*`
 - [x] Packed branch discovery from `.git/packed-refs`
 - [x] Bounded branch traversal with branch-count and depth limits
-- [ ] Working-tree status inspection
+- [x] Bounded workspace inventory/status-observation foundation
+- [x] Small-file content hashes for workspace observation
+- [x] Generated-directory exclusions for workspace observation
+- [x] Explicit partial/truncated status observation states
+- [ ] Native working-tree status inspection
 - [ ] Staged/unstaged file model
 - [ ] Branch switching
 - [ ] Commit history
@@ -150,7 +154,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 - The Room implementation run failed during Android SDK setup before Gradle execution because the workflow attempted to install the removed `tools` SDK package.
 - The workflow was hardened to use `actions/setup-java@v5` and explicitly install `platform-tools` plus `platforms;android-37` through `android-actions/setup-android@v3`.
-- A new post-fix CI run exists and was queued after the hardening commit; it must complete successfully before Android build validation can be marked complete.
+- A new post-fix CI run exists and must complete successfully before Android build validation can be marked complete.
 
 ## In Progress / Next
 
@@ -209,7 +213,8 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [x] Basic branch/HEAD metadata model
 - [x] Basic remote-origin metadata model
 - [x] Local branch discovery foundation
-- [ ] Working-tree status
+- [x] Workspace observation/status foundation
+- [ ] Native working-tree status
 - [ ] Staged/unstaged file model
 - [ ] Branch list UI
 - [ ] Branch switching
@@ -340,6 +345,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [ ] Preview-policy tests
 - [ ] Git metadata tests
 - [ ] Git branch discovery tests
+- [ ] Git workspace observation tests
 - [ ] Agent/tool contract tests
 - [ ] Policy tests
 - [ ] UI tests
@@ -367,7 +373,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 13. Keep workspace search/preview bounded and fail safely on large/binary content.
 14. Use Room for durable relational state once the model warrants it; do not prematurely persist every transient UI state.
 15. Treat SAF Git metadata as capability-dependent: absence of `.git` visibility or worktree indirection must surface as an explicit unsupported/unknown state rather than a false repository state.
-16. Keep Git metadata scanning bounded; repository mutation and working-tree status require a dedicated execution layer rather than unsafe ad-hoc file manipulation.
+16. Keep Git metadata and workspace observation scanning bounded; native Git mutation/status requires a dedicated execution layer rather than unsafe ad-hoc file manipulation.
 
 ## Change Log
 
@@ -438,3 +444,13 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Updated `actions/setup-java` from v4 to v5.
 - Updated Android SDK setup to avoid the obsolete `tools` package and explicitly request `platform-tools` and `platforms;android-37`.
 - A fresh CI run is queued for the hardening commit and must pass before build validation is marked complete.
+
+### 2026-09-17 — Workspace observation status foundation
+
+- Added a bounded workspace observation service for Git-aware change inspection.
+- Added file inventory records with relative paths, sizes, optional content hashes, and read-error state.
+- Excluded `.git`, `build`, and `.gradle` directories from observation.
+- Added depth, per-folder entry, file-count, and hash-size limits to protect mobile responsiveness.
+- Added explicit observed/partial and truncated states so incomplete scans cannot be mistaken for complete Git status.
+- Connected observation to `GitViewModel` after repository detection.
+- Deliberately did not label this native Git working-tree status: the real Git index/object comparison remains a separate future execution layer.
