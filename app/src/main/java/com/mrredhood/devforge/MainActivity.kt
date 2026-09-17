@@ -108,6 +108,7 @@ private fun DevForgeApp() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DevForgeTopBar(workspaceName: String, editing: Boolean) {
     TopAppBar(
