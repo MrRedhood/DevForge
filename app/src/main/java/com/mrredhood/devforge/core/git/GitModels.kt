@@ -16,8 +16,16 @@ data class GitRepositoryState(
     val headRevision: String?,
     val remoteUrl: String?,
     val detachedHead: Boolean,
+    val branches: List<GitBranch> = emptyList(),
     val supportsMetadataRead: Boolean = true,
-    val statusAvailability: GitStatusAvailability = GitStatusAvailability.NotImplemented,
+    val statusAvailability: GitStatusAvailability = GitStatusAvailability.MetadataOnly,
+)
+
+data class GitBranch(
+    val name: String,
+    val revision: String? = null,
+    val isCurrent: Boolean = false,
+    val isLocal: Boolean = true,
 )
 
 enum class GitStatusAvailability {
