@@ -9,7 +9,8 @@ import com.mrredhood.devforge.core.security.AndroidSecretStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.lib.RefSpec
+import org.eclipse.jgit.api.MergeCommand
+import org.eclipse.jgit.transport.RefSpec
 import org.eclipse.jgit.transport.CredentialsProvider
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import java.io.File
@@ -29,13 +30,6 @@ data class GitRemoteValidation(
     val reason: String? = null,
 )
 
-/**
- * Bounded HTTPS Git transport for GitHub remotes.
- *
- * SAF remains the canonical workspace boundary. JGit operates only inside a private,
- * ephemeral cache mirror. Credentials are read just-in-time from Android Keystore and
- * never written into action payloads, the mirror, Git config, or receipts.
- */
 class GitRemoteTransportService(
     private val context: Context,
     private val resolver: ContentResolver = context.contentResolver,
@@ -55,8 +49,7 @@ class GitRemoteTransportService(
     suspend fun fetch(repository: GitRepositoryState): GitRemoteResult = withContext(Dispatchers.IO) {
         execute(repository, syncWorktree = false) { git, credentials ->
             validateRemoteAndCredentials(repository.remoteUrl, credentials)
-            val branch = repository.branchName
-                ?: throw IllegalStateException("Fetch requires an attached local branch.")
+            val branch = repository.branchName ?: throw IllegalStateException("Fetch requires an attached local branch.")
             val refSpec = RefSpec("+refs/heads/$branch:refs/remotes/origin/$branch")
             val result = git.fetch()
                 .setRemote("origin")
@@ -73,27 +66,30 @@ class GitRemoteTransportService(
     suspend fun pull(repository: GitRepositoryState): GitRemoteResult = withContext(Dispatchers.IO) {
         execute(repository, syncWorktree = true) { git, credentials ->
             validateRemoteAndCredentials(repository.remoteUrl, credentials)
-            val branch = repository.branchName
-                ?: throw IllegalStateException("Pull requires an attached local branch.")
-            val status = git.status().call()
-            if (!status.isClean) {
+            val branch = repository.branchName ?: throw IllegalStateException("Pull requires an attached local branch.")
+            if (!git.status().call().isClean) {
                 throw IllegalStateException("Pull is blocked while the working tree has local changes. Commit or discard them first.")
             }
 
-            val result = git.pull()
+            val refSpec = RefSpec("+refs/heads/$branch:refs/remotes/origin/$branch")
+            git.fetch()
                 .setRemote("origin")
-                .setRemoteBranchName(branch)
+                .setRefSpecs(refSpec)
                 .setCredentialsProvider(credentials)
-                .setFastForwardMode(org.eclipse.jgit.api.MergeCommand.FastForwardMode.FF_ONLY)
+                .setRemoveDeletedRefs(false)
                 .setTimeout(NETWORK_TIMEOUT_SECONDS)
                 .call()
 
-            val mergeStatus = result.getMergeResult()?.getMergeStatus()
-            if (mergeStatus == null || !mergeStatus.isSuccessful) {
-                val statusText = mergeStatus?.name ?: "unknown"
-                throw IllegalStateException("Pull did not complete as a fast-forward operation (status: $statusText). No merge conflict was applied by DevForge.")
+            val remoteRef = git.repository.findRef("refs/remotes/origin/$branch")
+                ?: throw IllegalStateException("Remote branch origin/$branch was not advertised by GitHub.")
+            val merge = git.merge()
+                .include(remoteRef.objectId)
+                .setFastForward(MergeCommand.FastForwardMode.FF_ONLY)
+                .call()
+            if (!merge.mergeStatus.isSuccessful) {
+                throw IllegalStateException("Pull did not complete as a fast-forward operation (status: ${merge.mergeStatus.name}). No merge conflict was applied by DevForge.")
             }
-            val newHead = result.getNewHead()?.name
+            val newHead = merge.newHead?.name
             if (newHead.isNullOrBlank() || newHead == repository.headRevision) {
                 "Already up to date with origin/$branch."
             } else {
@@ -105,10 +101,8 @@ class GitRemoteTransportService(
     suspend fun push(repository: GitRepositoryState): GitRemoteResult = withContext(Dispatchers.IO) {
         execute(repository, syncWorktree = false) { git, credentials ->
             validateRemoteAndCredentials(repository.remoteUrl, credentials)
-            val branch = repository.branchName
-                ?: throw IllegalStateException("Push requires an attached local branch.")
-            val currentHead = git.getRepository().resolve("HEAD")?.name
-                ?: throw IllegalStateException("A valid local HEAD is required before pushing.")
+            val branch = repository.branchName ?: throw IllegalStateException("Push requires an attached local branch.")
+            val currentHead = git.getRepository().resolve("HEAD")?.name ?: throw IllegalStateException("A valid local HEAD is required before pushing.")
             val pushSpec = RefSpec("refs/heads/$branch:refs/heads/$branch")
             val results = git.push()
                 .setRemote("origin")
@@ -137,23 +131,16 @@ class GitRemoteTransportService(
     ): GitRemoteResult {
         val validation = validateConfigured(repository.remoteUrl)
         if (!validation.available) return GitRemoteResult.Failure(validation.reason ?: "Remote transport is unavailable.")
-
-        val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
-            ?: return GitRemoteResult.Failure("GitHub is not connected on this device.")
+        val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) ?: return GitRemoteResult.Failure("GitHub is not connected on this device.")
         val credentials = UsernamePasswordCredentialsProvider("x-access-token", token)
         val workRoot = File(context.cacheDir, "devforge-git-transport/${UUID.randomUUID()}")
         val repoRoot = File(workRoot, "repo")
-
         return try {
             copySafWorkspaceToFile(repository.rootUri, repoRoot)
             ensureOriginRemote(repoRoot, repository.remoteUrl!!)
             Git.open(repoRoot).use { git ->
                 val message = block(git, credentials)
-                syncFileWorkspaceBack(
-                    sourceRoot = repoRoot,
-                    targetRoot = repository.rootUri,
-                    includeWorktree = syncWorktree,
-                )
+                syncFileWorkspaceBack(sourceRoot = repoRoot, targetRoot = repository.rootUri, includeWorktree = syncWorktree)
                 GitRemoteResult.Success(message)
             }
         } catch (error: Throwable) {
@@ -164,12 +151,9 @@ class GitRemoteTransportService(
     }
 
     private fun validateRemoteAndCredentials(remoteUrl: String?, credentials: CredentialsProvider) {
-        val remote = parseGitHubRemote(remoteUrl)
-            ?: throw IllegalStateException("Only HTTPS GitHub remotes are supported by DevForge's safe remote transport.")
-        val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
-            ?: throw IllegalStateException("GitHub credentials are unavailable.")
+        val remote = parseGitHubRemote(remoteUrl) ?: throw IllegalStateException("Only HTTPS GitHub remotes are supported by DevForge's safe remote transport.")
+        val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) ?: throw IllegalStateException("GitHub credentials are unavailable.")
         if (token.length > MAX_TOKEN_LENGTH) throw IllegalStateException("The stored GitHub credential is invalid.")
-
         try {
             Git.lsRemoteRepository()
                 .setRemote("https://github.com/${remote.owner}/${remote.repository}.git")
@@ -186,17 +170,12 @@ class GitRemoteTransportService(
     private fun ensureOriginRemote(repoRoot: File, remoteUrl: String) {
         val config = File(File(repoRoot, ".git"), "config")
         if (!config.exists()) throw IOException("The mirrored Git repository has no .git/config.")
-        val normalized = parseGitHubRemote(remoteUrl)
-            ?: throw IllegalStateException("Origin remote is outside the supported HTTPS GitHub scope.")
+        val normalized = parseGitHubRemote(remoteUrl) ?: throw IllegalStateException("Origin remote is outside the supported HTTPS GitHub scope.")
         val expected = "https://github.com/${normalized.owner}/${normalized.repository}.git"
         Git.open(repoRoot).use { git ->
-            val existing = git.remoteList().call().firstOrNull { it.getName() == "origin" }
-                ?: throw IllegalStateException("The local repository has no origin remote.")
-            val configured = existing.getURIs().singleOrNull()?.toString()
-                ?: throw IllegalStateException("The origin remote must have exactly one configured URL.")
-            if (configured != expected) {
-                throw IllegalStateException("The mirrored origin remote does not match the validated GitHub remote.")
-            }
+            val existing = git.remoteList().call().firstOrNull { it.getName() == "origin" } ?: throw IllegalStateException("The local repository has no origin remote.")
+            val configured = existing.getURIs().singleOrNull()?.toString() ?: throw IllegalStateException("The origin remote must have exactly one configured URL.")
+            if (configured != expected) throw IllegalStateException("The mirrored origin remote does not match the validated GitHub remote.")
         }
     }
 
@@ -209,42 +188,26 @@ class GitRemoteTransportService(
         val metadata = queryDocument(source) ?: throw IOException("Unable to inspect workspace document.")
         if (metadata.isDirectory) {
             target.mkdirs()
-            listChildren(source).forEach { child ->
-                copySafNode(
-                    child.uri,
-                    File(target, child.name),
-                    budget,
-                    if (relativePath.isBlank()) child.name else "$relativePath/${child.name}",
-                )
-            }
+            listChildren(source).forEach { child -> copySafNode(child.uri, File(target, child.name), budget, if (relativePath.isBlank()) child.name else "$relativePath/${child.name}") }
             return
         }
-
         val length = metadata.size
         if (length > MAX_FILE_BYTES) throw IOException("Remote transport mirror encountered an oversized file: $relativePath")
         budget.consumeFile(length, relativePath)
-        resolver.openInputStream(source)?.use { input ->
-            target.outputStream().use { output -> copyBounded(input, output, length) }
-        } ?: throw IOException("Unable to read workspace file: $relativePath")
+        resolver.openInputStream(source)?.use { input -> target.outputStream().use { output -> copyBounded(input, output, length) } }
+            ?: throw IOException("Unable to read workspace file: $relativePath")
     }
 
     private fun syncFileWorkspaceBack(sourceRoot: File, targetRoot: Uri, includeWorktree: Boolean) {
         val budget = CopyBudget()
         val sourceGit = File(sourceRoot, ".git")
-        val targetGit = findDirectChild(targetRoot, ".git")
-            ?: throw IOException("The selected workspace lost its .git directory during transport.")
+        val targetGit = findDirectChild(targetRoot, ".git") ?: throw IOException("The selected workspace lost its .git directory during transport.")
         syncDirectoryFromFile(sourceGit, targetGit, budget, ".git")
         if (!includeWorktree) return
         syncDirectoryFromFile(sourceRoot, targetRoot, budget, "") { it == ".git" }
     }
 
-    private fun syncDirectoryFromFile(
-        source: File,
-        target: Uri,
-        budget: CopyBudget,
-        relativePath: String,
-        skip: (String) -> Boolean = { false },
-    ) {
+    private fun syncDirectoryFromFile(source: File, target: Uri, budget: CopyBudget, relativePath: String, skip: (String) -> Boolean = { false }) {
         if (!source.exists() || !source.isDirectory) throw IOException("Transport output directory is missing: $relativePath")
         val targetChildren = listChildren(target).associateBy { it.name }.toMutableMap()
         source.listFiles()?.sortedBy { it.name }?.forEach { item ->
@@ -252,31 +215,18 @@ class GitRemoteTransportService(
             val itemPath = if (relativePath.isBlank()) item.name else "$relativePath/${item.name}"
             val existing = targetChildren.remove(item.name)?.uri
             if (item.isDirectory) {
-                val directory = existing ?: DocumentsContract.createDocument(
-                    resolver,
-                    target,
-                    DocumentsContract.Document.MIME_TYPE_DIR,
-                    item.name,
-                ) ?: throw IOException("Unable to create workspace directory: $itemPath")
+                val directory = existing ?: DocumentsContract.createDocument(resolver, target, DocumentsContract.Document.MIME_TYPE_DIR, item.name) ?: throw IOException("Unable to create workspace directory: $itemPath")
                 syncDirectoryFromFile(item, directory, budget, itemPath, skip)
             } else {
                 val bytes = item.length()
                 if (bytes > MAX_FILE_BYTES) throw IOException("Transport output contains an oversized file: $itemPath")
                 budget.consumeFile(bytes, itemPath)
-                val document = existing ?: DocumentsContract.createDocument(
-                    resolver,
-                    target,
-                    "application/octet-stream",
-                    item.name,
-                ) ?: throw IOException("Unable to create workspace file: $itemPath")
-                resolver.openOutputStream(document, "wt")?.use { output ->
-                    item.inputStream().use { input -> copyBounded(input, output, bytes) }
-                } ?: throw IOException("Unable to write workspace file: $itemPath")
+                val document = existing ?: DocumentsContract.createDocument(resolver, target, "application/octet-stream", item.name) ?: throw IOException("Unable to create workspace file: $itemPath")
+                resolver.openOutputStream(document, "wt")?.use { output -> item.inputStream().use { input -> copyBounded(input, output, bytes) } }
+                    ?: throw IOException("Unable to write workspace file: $itemPath")
             }
         }
-        targetChildren.values.forEach { orphan ->
-            if (!skip(orphan.name)) DocumentsContract.deleteDocument(resolver, orphan.uri)
-        }
+        targetChildren.values.forEach { orphan -> if (!skip(orphan.name)) DocumentsContract.deleteDocument(resolver, orphan.uri) }
     }
 
     private fun copyBounded(input: java.io.InputStream, output: java.io.OutputStream, expectedBytes: Long) {
@@ -291,53 +241,24 @@ class GitRemoteTransportService(
     }
 
     private fun listChildren(parent: Uri): List<DocumentRef> = runCatching {
-        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }
-            .getOrElse { DocumentsContract.getTreeDocumentId(parent) }
+        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }.getOrElse { DocumentsContract.getTreeDocumentId(parent) }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
-        resolver.query(
-            childrenUri,
-            arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_SIZE,
-            ),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
+        resolver.query(childrenUri, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { cursor ->
             buildList {
                 while (cursor.moveToNext() && size < MAX_CHILDREN_PER_DIRECTORY) {
                     val id = cursor.getString(0) ?: continue
                     val name = cursor.getString(1) ?: continue
                     val mime = cursor.getString(2).orEmpty()
-                    add(
-                        DocumentRef(
-                            uri = DocumentsContract.buildDocumentUriUsingTree(parent, id),
-                            name = name,
-                            directory = mime == DocumentsContract.Document.MIME_TYPE_DIR,
-                            size = cursor.getLong(3).takeIf { it >= 0L } ?: 0L,
-                        ),
-                    )
+                    add(DocumentRef(DocumentsContract.buildDocumentUriUsingTree(parent, id), name, mime == DocumentsContract.Document.MIME_TYPE_DIR, cursor.getLong(3).takeIf { it >= 0L } ?: 0L))
                 }
             }
         }.orEmpty()
     }.getOrDefault(emptyList())
 
     private fun queryDocument(uri: Uri): DocumentMetadata? = runCatching {
-        resolver.query(
-            uri,
-            arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
+        resolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { cursor ->
             if (!cursor.moveToFirst()) return@use null
-            val mime = cursor.getString(0).orEmpty()
-            DocumentMetadata(
-                isDirectory = mime == DocumentsContract.Document.MIME_TYPE_DIR,
-                size = cursor.getLong(1).takeIf { it >= 0L } ?: 0L,
-            )
+            DocumentMetadata(cursor.getString(0).orEmpty() == DocumentsContract.Document.MIME_TYPE_DIR, cursor.getLong(1).takeIf { it >= 0L } ?: 0L)
         }
     }.getOrNull()
 
@@ -370,7 +291,6 @@ class GitRemoteTransportService(
     private class CopyBudget {
         private var bytes = 0L
         private var files = 0
-
         fun consumeFile(size: Long, path: String) {
             if (size < 0L) throw IOException("Invalid size for $path")
             files += 1
