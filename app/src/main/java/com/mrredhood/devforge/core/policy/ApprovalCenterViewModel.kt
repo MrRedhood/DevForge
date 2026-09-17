@@ -8,20 +8,40 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.storage.ApprovalEntity
 import com.mrredhood.devforge.core.storage.ApprovalRepository
+import com.mrredhood.devforge.core.storage.AuditEventEntity
+import com.mrredhood.devforge.core.storage.CapabilityGrantEntity
+import com.mrredhood.devforge.core.storage.CapabilityGrantRepository
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
+import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class ApprovalCenterViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = ApprovalRepository(DevForgeDatabase.get(application).approvalDao())
+    private val database = DevForgeDatabase.get(application)
+    private val repository = ApprovalRepository(database.approvalDao())
+    private val grantRepository = CapabilityGrantRepository(database.capabilityGrantDao())
+    private val workspaces = WorkspaceDatabaseRepository(application)
     private var pendingJob: Job? = null
+    private var auditJob: Job? = null
+    private var grantsJob: Job? = null
 
     var pending by mutableStateOf<List<ApprovalEntity>>(emptyList())
         private set
 
+    var auditHistory by mutableStateOf<List<AuditEventEntity>>(emptyList())
+        private set
+
+    var grants by mutableStateOf<List<CapabilityGrantEntity>>(emptyList())
+        private set
+
+    var activeWorkspaceId by mutableStateOf<String?>(null)
+        private set
+
     var actionMessage by mutableStateOf<String?>(null)
         private set
+
+    val grantableCapabilities: List<Capability> = Capability.values().filter(CapabilityGrantRepository::isGrantable)
 
     init {
         pendingJob = viewModelScope.launch {
@@ -29,7 +49,29 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
                 pending = actions
             }
         }
+        auditJob = viewModelScope.launch {
+            database.auditEventDao().observeRecent(MAX_AUDIT_HISTORY).collectLatest { events ->
+                auditHistory = events
+            }
+        }
+        viewModelScope.launch {
+            workspaces.activeWorkspace.collectLatest { workspace ->
+                activeWorkspaceId = workspace?.id
+                grantsJob?.cancel()
+                grantsJob = if (workspace == null) {
+                    grants = emptyList()
+                    null
+                } else {
+                    launch {
+                        grantRepository.observe(workspace.id).collectLatest { values ->
+                            grants = values
+                        }
+                    }
+                }
+            }
+        }
         viewModelScope.launch { repository.expireDue() }
+        viewModelScope.launch { grantRepository.pruneExpired() }
     }
 
     fun approve(action: ApprovalEntity) {
@@ -46,12 +88,43 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    fun grant(capability: Capability) {
+        val workspaceId = activeWorkspaceId ?: run {
+            actionMessage = "Open a workspace before creating a persistent capability grant."
+            return
+        }
+        viewModelScope.launch {
+            val result = grantRepository.grant(workspaceId, capability, RiskLevel.R2)
+            actionMessage = if (result == null) {
+                "${capability.name} cannot be persistently granted."
+            } else {
+                "Persistent ${capability.name} grant enabled up to R2."
+            }
+        }
+    }
+
+    fun revoke(grant: CapabilityGrantEntity) {
+        viewModelScope.launch {
+            val capability = grant.capabilityOrNull()
+            val workspace = activeWorkspaceId
+            if (capability == null || workspace == null) return@launch
+            val changed = grantRepository.revoke(workspace, capability)
+            actionMessage = if (changed) "Persistent ${capability.name} grant revoked." else "Grant was already inactive."
+        }
+    }
+
     fun clearMessage() {
         actionMessage = null
     }
 
     override fun onCleared() {
         pendingJob?.cancel()
+        auditJob?.cancel()
+        grantsJob?.cancel()
         super.onCleared()
+    }
+
+    companion object {
+        private const val MAX_AUDIT_HISTORY = 100
     }
 }
