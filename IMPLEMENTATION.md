@@ -93,13 +93,14 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 ### Build Center / Remote CI Foundation
 
 - [x] Build targets for debug APK, release APK, and release AAB
-- [x] Build configuration model with workflow/ref/task/artifact metadata
+- [x] Build configuration model with repository/workflow/ref/task/artifact metadata
 - [x] Build lifecycle state model
 - [x] Remote capability availability model
 - [x] Build Center UI
-- [x] Dispatch capability gating before authentication/workflow wiring
+- [x] Dispatch capability gating before authenticated mutation wiring
 - [x] GitHub Actions API gateway foundation
 - [x] Bounded/redacted GitHub error handling
+- [x] Build Center repository selection entry point
 
 ### Security / Policy Foundation
 
@@ -112,25 +113,29 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [x] Android Keystore-backed AES/GCM secret storage
 - [x] Redacted secret/error handling
 
-### GitHub Connection Foundation
+### GitHub Connection / Repository Discovery
 
 - [x] GitHub connection screen
 - [x] Secure manual credential entry/removal foundation
 - [x] Secret storage through Android Keystore boundary
-- [x] Authenticated GitHub Actions gateway foundation
+- [x] Authenticated GitHub REST boundary
+- [x] Current-account discovery through authenticated API
+- [x] Bounded authenticated repository listing
+- [x] Repository access validation before selection
+- [x] GitHub Actions workflow discovery
+- [x] Active-workflow selection
+- [x] Selected repository/workflow reflected in Build Center configuration
 - [ ] OAuth / GitHub App connection flow
-- [ ] Repository selection and validation
-- [ ] Workflow discovery and dispatch wiring
+- [ ] End-to-end workflow dispatch execution
 
 ## In Progress / Next Implementation Sequence
 
-1. Authenticated GitHub repository selection and workflow discovery.
-2. End-to-end workflow dispatch from Build Center.
-3. Live run status, logs, artifacts, and build-history surfaces.
-4. Native/index-aware Git execution and status.
-5. Approval center and action review UI.
-6. Snapshot/history and structured diff viewer UI.
-7. Richer Room entities for workspaces, tabs, snapshots, builds, agent tasks, and automation state.
+1. End-to-end authenticated `workflow_dispatch` from Build Center.
+2. Live run status, logs, artifacts, and build-history surfaces.
+3. Native/index-aware Git execution and status.
+4. Approval center and action review UI.
+5. Snapshot/history and structured diff viewer UI.
+6. Richer Room entities for workspaces, tabs, snapshots, builds, agent tasks, and automation state.
 
 ## Planned
 
@@ -178,10 +183,12 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 
 ### Remote Build / GitHub
 
+- [x] Repository picker
+- [x] Workflow discovery
+- [x] Repository access validation
+- [x] Active workflow selection
 - [ ] OAuth/GitHub App authentication
-- [ ] Repository picker
-- [ ] Workflow discovery
-- [ ] Workflow/ref validation
+- [ ] Workflow/ref validation beyond repository default branch
 - [ ] Dispatch execution
 - [ ] Run polling/state updates
 - [ ] Live logs
@@ -273,23 +280,23 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 
 - [x] GitHub Actions workflow configured
 - [x] CI triggered by implementation commits
-- [x] Latest implementation-changing commit passes Android build
-- [ ] Unit tests established
+- [x] Previous application implementation passed Android build and unit-test task in CI #103
+- [ ] Current repository/workflow discovery implementation passes final CI validation
+- [ ] Unit tests established as a maintained suite
 - [ ] UI tests established
 - [ ] Static analysis/lint established
 - [ ] Release APK build validated
 
-### Latest CI findings
+### CI findings / history
 
 - API 37 was not resolvable on the GitHub runner, including the preview-channel installation path.
 - The app therefore uses stable API 36 for `compileSdk` and `targetSdk`.
-- CI requests `platform-tools` and `platforms;android-36` and is intended to reach real Gradle/Kotlin compilation.
-- CI run #86 reached Gradle compilation but failed AAR metadata validation because the Compose BOM and related AndroidX dependencies pulled versions requiring compileSdk 37.
-- The dependency set was aligned back to an API-36-compatible line without changing the app's stable SDK target.
-- CI run #96 reached Kotlin compilation and exposed an experimental Material3 API usage in `MainActivity.kt` at the expanded navigation rail.
-- The navigation rail call was explicitly opted into with `ExperimentalMaterial3Api`; the earlier Compose compatibility fixes remain intact.
-- CI run #102 reached toolchain verification but failed because the direct `sdkmanager` installation path was not available through the plain `sdkmanager` command during the verification step.
-- CI run #103 passed the toolchain verification, debug APK build, unit-test task, APK verification, and artifact upload after the workflow reused the resolved `sdkmanager` path.
+- CI requests `platform-tools` and `platforms;android-36` and reaches real Gradle/Kotlin compilation.
+- CI run #86 reached Gradle compilation but failed AAR metadata validation because newer Compose/AndroidX artifacts required compileSdk 37.
+- The dependency set was aligned back to an API-36-compatible line.
+- CI run #96 reached Kotlin compilation and exposed an experimental Material3 API usage in the expanded navigation rail; the call now has a local `ExperimentalMaterial3Api` opt-in.
+- CI run #102 reached toolchain verification but failed because `sdkmanager` was not on PATH during verification.
+- CI run #103 passed toolchain verification, debug APK assembly, the unit-test task, APK verification, and artifact upload after the resolved `sdkmanager` path was reused.
 
 ## Implementation Rules
 
@@ -307,126 +314,49 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 
 ### 2026-09-17 — Initial implementation tracker
 
-- Added `IMPLEMENTATION.md` as the living source of truth for implementation state.
+- Added `IMPLEMENTATION.md` as the durable source of truth for implementation state.
 
 ### 2026-09-17 — Workspace foundation
 
-- Added SAF workspace picker with persistable permissions.
-- Added Room-backed workspace records and active-workspace persistence.
-- Added workspace browser state, bounded enumeration, navigation, refresh, and empty/loading states.
+- Added SAF workspace picker, persistable permissions, Room-backed workspace records, active-workspace persistence, recursive navigation, bounded enumeration, search, and safe previews.
 
-### 2026-09-17 — Editor foundation
+### 2026-09-17 — Editor / recovery foundation
 
-- Added multi-tab editor state, dirty tracking, explicit save, and unsaved-change protection foundation.
-- Added bounded recovery drafts/checkpoints.
+- Added multi-tab editor state, dirty tracking, explicit save, recovery drafts/checkpoints, content hashing, snapshots, and line-oriented diff support.
 
-### 2026-09-17 — Content identity / snapshots / diff foundation
+### 2026-09-17 — Git observation foundation
 
-- Added SHA-256 content hashing.
-- Added immutable bounded snapshots and a line-oriented diff engine.
-- Added duplicate checkpoint suppression.
+- Added repository detection, HEAD/branch/origin parsing, bounded workspace observation, generated-directory exclusions, branch discovery, and Git dashboard presentation.
+- Kept native index-aware Git status/mutations explicitly unavailable.
 
-### 2026-09-17 — Editor snapshot lifecycle
+### 2026-09-17 — Stable API-36 build baseline
 
-- Connected snapshot creation to editor open/save/recovery paths.
-- Added `SnapshotViewModel` foundation.
+- Moved the app and CI to stable API 36 after API 37 was unavailable on the hosted runner.
+- Aligned Compose/AndroidX versions with the API-36-compatible dependency line.
 
-### 2026-09-17 — Recursive workspace navigation
+### 2026-09-17 — Build Center / remote CI foundation
 
-- Added recursive folder navigation, breadcrumbs, root/back/up navigation, and per-folder bounded enumeration.
+- Added build target/configuration models, lifecycle states, capability availability, Build Center UI, and a bounded GitHub Actions gateway.
+- Kept remote mutation gated until authentication and repository/workflow discovery were ready.
 
-### 2026-09-17 — Workspace search / safe preview
+### 2026-09-17 — GitHub secret boundary
 
-- Added bounded recursive filename search.
-- Added binary-content detection and a 512 KiB safe text-preview ceiling.
+- Added the `SecretStore` abstraction and Android Keystore-backed AES/GCM credential storage.
+- Added manual GitHub token connection/removal UI and redacted errors.
 
-### 2026-09-17 — Durable workspace persistence with Room
+### 2026-09-17 — Compose/CI compatibility fixes
 
-- Added Room database, workspace entity/DAO/repository, migration from legacy SharedPreferences workspace state, and active-workspace persistence.
+- Added the required local Material3 experimental opt-in for `NavigationRail`.
+- Hardened the Android CI workflow around JDK 17, Gradle 9.6.0, stable API 36, bounded workers, APK verification, and artifact upload.
+- Fixed the `sdkmanager` verification path after CI #102; CI #103 passed build/test/APK validation.
 
-### 2026-09-17 — Git repository detection foundation
+### 2026-09-17 — Authenticated GitHub repository/workflow discovery
 
-- Added `.git` detection, HEAD parsing, origin URL extraction, unsupported worktree reporting, and active-workspace-aware Git detection.
-
-### 2026-09-17 — Git branch discovery foundation
-
-- Added structured local branch records, loose and packed branch discovery, bounded traversal, and current-branch marking.
-
-### 2026-09-17 — CI workflow hardening
-
-- Updated Java setup to v5 and Android SDK setup to avoid the obsolete `tools` package.
-- Follow-up CI showed API 37 was not resolvable on the runner, including preview-channel installation.
-
-### 2026-09-17 — Workspace observation status foundation
-
-- Added bounded file inventory/observation, optional small-file hashes, generated-directory exclusions, explicit partial/truncated states, and GitViewModel integration.
-- Kept this explicitly separate from native Git working-tree status.
-
-### 2026-09-17 — Git dashboard presentation
-
-- Added `GitDashboardScreen` and connected it to the Git destination.
-- Added repository metadata presentation for branch, HEAD, origin, and root.
-- Added local branch list presentation with current-branch emphasis.
-- Added workspace observation metrics and explicit scan-confidence messaging.
-- Added disabled native-Git action affordances explaining why status/diff/commit remain unavailable until an index-aware execution layer is implemented.
-
-### 2026-09-17 — Stable Android CI target
-
-- Reverted the app build target from preview API 37 to stable API 36 because the GitHub runner could not resolve Android 17/API 37 even on the preview SDK channel.
-- Updated CI to install `platform-tools` and `platforms;android-36` through `android-actions/setup-android@v3`.
-
-### 2026-09-17 — Build configuration/state foundation
-
-- Added `BuildConfiguration` with workflow, branch, Gradle task, artifact, and target metadata.
-- Added build targets for debug APK, release APK, and release AAB.
-- Added explicit lifecycle states for ready, dispatching, running, succeeded, and cancelled builds.
-- Added capability availability states for remote dispatch, live logs, and artifact discovery.
-- Added `BuildViewModel` for target/configuration selection and explicit dispatch gating.
-
-### 2026-09-17 — Build Center surface
-
-- Added the Build Center UI and connected the existing Build destination to it.
-- Added target selection, execution-plan presentation, remote capability status, and build lifecycle messaging.
-- Kept "Start remote build" explicitly blocked until GitHub authentication and workflow dispatch are implemented.
-
-### 2026-09-17 — GitHub credential security foundation
-
-- Added `SecretStore` as the runtime secret boundary.
-- Added Android Keystore-backed AES/GCM storage using encrypted SharedPreferences ciphertext and a non-exportable Keystore key.
-- Added GitHub connection state and a ViewModel for secure manual credential storage/removal.
-- Added a dedicated GitHub connection screen as the current manual credential setup surface; OAuth/GitHub App authentication remains the future connection path.
-
-### 2026-09-17 — GitHub Actions API gateway foundation
-
-- Added `GitHubActionsGateway` for `workflow_dispatch` requests.
-- Added Bearer-token handling behind `SecretStore`, GitHub API version header, explicit repository/workflow/ref inputs, and bounded error-message redaction.
-- Added Android INTERNET permission for the future authenticated GitHub API path.
-- Kept the Build Center capability gate closed until repository selection, credential verification, and end-to-end dispatch wiring are implemented.
-
-### 2026-09-17 — AndroidX dependency alignment for API 36 CI
-
-- CI run #86 exposed 16 AAR metadata failures caused by newer Compose, Navigation, and Adaptive artifacts requiring compileSdk 37 while DevForge intentionally targets stable API 36 on the current runner.
-- Aligned the Compose BOM to `2026.06.01`, Activity Compose to `1.12.4`, Material3 Adaptive to `1.2.0`, and Navigation Compose to `2.9.8`.
-- Kept Material3 `1.4.0`, Room `2.8.5`, Java 17, and the API 36 compile/target configuration unchanged.
-- Preserved the remote-build architecture; this change only restores dependency/SDK compatibility for CI.
-
-### 2026-09-17 — MainActivity Compose compatibility and Git dashboard wiring
-
-- Reworked `MainActivity.kt` to use current Compose API signatures for cards and to connect the Git destination to `GitDashboardScreen`.
-- Restored the existing editor ViewModel save semantics and fixed the workspace observation hashing input type.
-- Updated the GitHub connection layout to use supported Compose layout APIs.
-
-### 2026-09-17 — Material3 NavigationRail opt-in fix
-
-- CI run #96 reached Kotlin compilation and reported an experimental Material3 API usage at the expanded `NavigationRail` surface in `MainActivity.kt`.
-- Added the explicit `ExperimentalMaterial3Api` opt-in only to the navigation-rail composable, preserving the existing window-size opt-in and avoiding a broader global opt-in.
-- Corrected the `BackHandler` import while applying the fix.
-- CI run #103 completed successfully: toolchain verification, debug APK assembly, unit-test task, APK verification, and artifact upload all passed.
-
-### 2026-09-17 — CI sdkmanager verification-path fix
-
-- The attached CI handoff matched the repository application source and tracker; its workflow copy was older than the already-applied CI setup fix.
-- CI run #102 reached toolchain verification but failed because `sdkmanager` was not available on `PATH` even though SDK installation had succeeded.
-- Updated the workflow to persist the resolved `sdkmanager` path and add its directory to `GITHUB_PATH`, then reused that exact path for verification.
-- CI run #103 passed toolchain verification, `:app:assembleDebug`, `:app:testDebugUnitTest`, APK verification, and artifact upload.
-- No application-source changes from the supplied bundle were needed because the bundle's application files matched the repository state.
+- Added typed repository and workflow models.
+- Added a read-only GitHub REST gateway for current-account lookup, bounded repository listing, repository access validation, and Actions workflow discovery.
+- Added a coroutine-backed repository/workflow ViewModel with bounded mobile state and explicit error reporting.
+- Added a repository picker UI with search, private/public visibility, validation status, workflow state, and active-workflow selection.
+- Added Build Center integration so the selected GitHub owner/repository, default branch, and active workflow become the actual build configuration.
+- Preserved the workflow-dispatch capability gate; this implementation performs discovery/validation only and does not start a remote run.
+- Added explicit JSON-array handling for `/user/repos` after validating the GitHub API response shape.
+- Kept API version `2026-03-10`, matching the current GitHub REST documentation used by the gateway.
