@@ -19,26 +19,15 @@ enum class BuildTarget(
     val description: String,
     val workflowInput: String,
 ) {
-    DebugApk(
-        label = "Debug APK",
-        description = "Fast installable debug package",
-        workflowInput = "debug_apk",
-    ),
-    ReleaseApk(
-        label = "Release APK",
-        description = "Signed release package when signing is configured",
-        workflowInput = "release_apk",
-    ),
-    ReleaseBundle(
-        label = "Release AAB",
-        description = "Play-ready bundle when signing is configured",
-        workflowInput = "release_aab",
-    ),
+    DebugApk("Debug APK", "Fast installable debug package", "debug_apk"),
+    ReleaseApk("Release APK", "Signed release package when signing is configured", "release_apk"),
+    ReleaseBundle("Release AAB", "Play-ready bundle when signing is configured", "release_aab"),
 }
 
 sealed interface BuildState {
     data object Idle : BuildState
     data class Ready(val configuration: BuildConfiguration) : BuildState
+    data class AwaitingApproval(val approvalId: String, val configuration: BuildConfiguration) : BuildState
     data class Dispatching(val configuration: BuildConfiguration) : BuildState
     data class Running(val runId: Long, val configuration: BuildConfiguration) : BuildState
     data class Succeeded(val runId: Long, val artifactName: String) : BuildState
