@@ -76,6 +76,7 @@ dependencies {
     androidTestImplementation(platform("androidx.compose:compose-bom:2026.06.01"))
 
     implementation("androidx.activity:activity-compose:1.12.4")
+    implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3:1.4.0")
@@ -97,6 +98,8 @@ dependencies {
     implementation("androidx.room:room-runtime:2.8.5")
     implementation("androidx.room:room-ktx:2.8.5")
     ksp("androidx.room:room-compiler:2.8.5")
+
+    testImplementation("junit:junit:4.13.2")
 
     // Pure-Java Git transport; DevForge still uses SAF as the canonical workspace boundary.
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r")
