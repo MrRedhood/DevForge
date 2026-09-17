@@ -6,10 +6,10 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.eclipse.jgit.api.CherryPickResult
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.MergeResult
 import org.eclipse.jgit.lib.ObjectId
-import org.eclipse.jgit.lib.Repository
 import java.io.File
 import java.io.IOException
 import java.util.UUID
@@ -83,7 +83,7 @@ class GitHistoryOperationService(
             val objectId = ObjectId.fromString(commitId)
             val commit = git.repository.parseCommit(objectId)
             val result = git.cherryPick().include(commit).call()
-            if (result.status.isSuccessful) {
+            if (result.status == CherryPickResult.CherryPickStatus.OK) {
                 GitHistoryResult.Success("Cherry-picked ${commitId.take(12)}.")
             } else {
                 GitHistoryResult.Failure("Cherry-pick did not complete (status: ${result.status.name}). The workspace was not changed.")
