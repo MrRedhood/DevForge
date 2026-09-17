@@ -82,8 +82,8 @@ class GitCommitHistoryService(private val resolver: ContentResolver) {
 
     private fun readCommit(reader: GitObjectReader, id: String): ParsedCommit? {
         if (id.isBlank() || !SHA_PATTERN.matches(id)) return null
-        val object = reader.read(id, MAX_COMMIT_BYTES)
-        val content = (object as? GitObjectResult.Success)?.takeIf { it.type == "commit" }?.content ?: return null
+        val gitObject = reader.read(id, MAX_COMMIT_BYTES)
+        val content = (gitObject as? GitObjectResult.Success)?.takeIf { it.type == "commit" }?.content ?: return null
         val text = content.toString(Charsets.UTF_8)
         val separator = text.indexOf("\n\n")
         if (separator < 0) return null
