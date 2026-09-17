@@ -56,7 +56,7 @@
 
 ### Capability-Controlled Git Execution
 - [x] Typed `STAGE_FILES`, `CREATE_COMMIT`, `CREATE_BRANCH`, `DELETE_BRANCH`, `SWITCH_BRANCH`, `FETCH_REMOTE`, `PULL_REMOTE`, and `PUSH_REMOTE` capability definitions
-- [x] Policy integration for Git mutations with R1/R2 risk levels
+- [x] Policy integration for Git mutations with R1/R2/R3 risk levels
 - [x] Bounded native Git mutation service implemented without shell commands
 - [x] Stage files into the real Git index through SAF
 - [x] Stage deletions by removing paths from the index
@@ -70,9 +70,15 @@
 - [x] Git dashboard per-file Stage/Unstage actions
 - [x] Commit dialog and local branch creation/deletion controls
 - [x] Mutation success/failure feedback and bounded refresh after mutation
-- [x] Remote fetch/pull/push remain explicitly unavailable until a safe transport implementation exists
+- [x] Safe HTTPS GitHub fetch through a bounded JGit cache mirror
+- [x] Safe fast-forward-only GitHub pull through a bounded JGit cache mirror
+- [x] Safe non-force GitHub push through a bounded JGit cache mirror
+- [x] Origin URL/host validation before remote transport
+- [x] Just-in-time Android Keystore credential retrieval and remote access validation
+- [x] Remote fetch/pull/push approval routing through typed capabilities and Approval Center
+- [x] Remote action payloads contain no credentials or secrets
 
-Current Git mutation limits:
+Current Git mutation and transport limits:
 - 8 MiB maximum staged file size
 - 16 MiB maximum Git index input
 - 20,000 maximum index entries
@@ -81,6 +87,11 @@ Current Git mutation limits:
 - Mutation is blocked for truncated/partial status where safety cannot be established
 - Unstage requires readable HEAD objects
 - Commit requires no unresolved index conflict stages and a configured `user.name` / `user.email`
+- Remote transport currently supports HTTPS remotes on `github.com` only
+- Remote mirror is bounded to 8,000 files / 256 MiB total / 64 MiB per file
+- Pull is blocked on dirty worktrees and refuses non-fast-forward/merge operations
+- Push is non-force and rejects remote non-fast-forward updates
+- Remote transport workspaces are ephemeral cache mirrors and are deleted after execution
 
 ### Git Diff / Review
 - [x] Structured HEAD/index/worktree diff models
@@ -115,6 +126,7 @@ Current Git mutation limits:
 - [x] Approval Center primary navigation surface
 - [x] Build dispatch creates a reviewed action before execution
 - [x] Git commit and branch-delete actions create reviewed actions before execution
+- [x] Remote Git pull/push actions create reviewed actions before execution
 - [x] Approved actions have an execution lifecycle: approved → executing → completed/failed
 - [x] Approved Git actions re-check repository preconditions before execution
 - [x] Approved Git actions can resume by re-detecting the persisted repository URI
@@ -146,11 +158,11 @@ Current Git mutation limits:
 
 ## In Progress / Next Sequence
 
-1. Safe remote Git transport: fetch/pull/push with credential/remote validation.
-2. Branch switch/checkout, conflict handling, merge/rebase/cherry-pick.
-3. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
-4. Approval history/audit expansion and per-capability grant controls.
-5. Commit/file history and richer Git review surfaces.
+1. Branch switch/checkout, conflict handling, merge/rebase/cherry-pick.
+2. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
+3. Approval history/audit expansion and per-capability grant controls.
+4. Commit/file history and richer Git review surfaces.
+5. Remote transport expansion beyond GitHub HTTPS once a safe credential/provider contract exists.
 
 ## Planned
 
@@ -177,11 +189,12 @@ Current Git mutation limits:
 - [x] Commit
 - [x] Branch create/delete
 - [x] HEAD/index/worktree structured diff viewer
+- [x] Fetch/pull/push through capability gateway for validated GitHub HTTPS remotes
 - [ ] Branch switch/checkout
-- [ ] Fetch/pull/push through capability gateway
 - [ ] Commit/file history
 - [ ] Merge/rebase/cherry-pick
 - [ ] Conflict resolution
+- [ ] Additional remote providers/protocols
 
 ### Terminal / Execution
 - [ ] Sandboxed terminal capability
@@ -247,12 +260,13 @@ Current Git mutation limits:
 - [x] CI #117 passed the Android pipeline after repository/workflow discovery.
 - [x] CI #122 passed after authenticated debug workflow dispatch.
 - [x] CI #127 was cancelled by workflow concurrency and is not treated as a build failure.
+- [ ] Current remote transport JGit compilation/CI validation
 - [ ] Current structured Git diff / Approval Center integration CI validation
 - [ ] Release APK validation with configured signing secrets
 - [ ] Maintained unit-test suite
 - [ ] UI tests
 - [ ] Static analysis/lint
-- [ ] Live authenticated dispatch/runtime validation
+- [ ] Live authenticated remote fetch/pull/push validation
 
 ## Implementation Rules
 
@@ -285,7 +299,7 @@ Current Git mutation limits:
 - Added a SAF-native Git plumbing mutation service for stage/unstage, commit, and local branch create/delete.
 - Added real index serialization and checksum generation plus loose blob/tree/commit object writing.
 - Added Git dashboard mutation controls with bounded per-file actions, commit dialog, branch controls and explicit unavailable remote operations.
-- Kept remote fetch/pull/push, branch switch, merge/rebase/cherry-pick and conflict resolution out of the implementation until their transport/checkout safety contracts are ready.
+- Kept remote fetch/pull/push, branch switch, merge/rebase/cherry-pick and conflict resolution out of the implementation until their transport/checkout safety contracts were ready.
 
 ### 2026-09-17 — Approval Center and action-review flow
 - Added Room v3 approval persistence with bounded pending queue, expiry and resolved-action pruning.
@@ -299,3 +313,10 @@ Current Git mutation limits:
 - Added structured per-file diff sections for staged, unstaged, staged+unstaged, deleted and untracked states.
 - Added read-only Diffs navigation and line-level structured review UI with explicit unavailable states for conflicts/binary/unreadable files.
 - Kept diff computation bounded for mobile memory and I/O safety.
+
+### 2026-09-17 — Safe remote Git transport
+- Added JGit-based HTTPS transport for GitHub origins using a private ephemeral workspace mirror.
+- Added origin/host/credential validation before each remote operation.
+- Added fetch, fast-forward-only pull, and non-force push with bounded mirror/file/byte limits.
+- Added Fetch/Pull/Push capability states and explicit dashboard controls.
+- Routed pull/push through Approval Center and kept credentials out of persisted approval payloads.
