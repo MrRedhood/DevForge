@@ -49,7 +49,7 @@ fun GitDashboardScreen(viewModel: GitViewModel = viewModel()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Git", fontSize = 30.sp, fontWeight = FontWeight.Black)
-                        Text("Repository metadata and index-aware worktree status", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Repository metadata and staged/worktree status", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { viewModel.inspectWorkspace() }) { Icon(Icons.Default.Refresh, "Refresh Git status") }
                 }
@@ -60,7 +60,7 @@ fun GitDashboardScreen(viewModel: GitViewModel = viewModel()) {
                 is GitDetectionState.Unsupported -> item { GitUnsupportedCard(state.reason) }
                 is GitDetectionState.Detected -> {
                     item { RepositoryCard(state.repository) }
-                    item { WorkspaceObservationCard(viewModel.workspaceStatus, viewModel.isInspectingStatus) }
+                    item { WorkspaceStatusCard(viewModel.workspaceStatus, viewModel.isInspectingStatus) }
                     item { GitOperationsCard() }
                     if (state.repository.branches.isNotEmpty()) {
                         item {
@@ -96,12 +96,13 @@ private fun RepositoryCard(repository: GitRepositoryState) {
             Spacer(Modifier.height(16.dp))
             GitMetadataRow("Root", repository.rootUri.lastPathSegment ?: "Workspace")
             GitMetadataRow("Origin", repository.remoteUrl ?: "Not configured")
-            GitMetadataRow("HEAD", when { repository.detachedHead && repository.headRevision != null -> repository.headRevision.take(12); repository.detachedHead -> "Detached"; else -> repository.branchName ?: "Unavailable" })
+            GitMetadataRow("HEAD", repository.headRevision?.take(12) ?: if (repository.detachedHead) "Detached" else repository.branchName ?: "Unavailable")
         }
     }
 }
 
 private fun statusAvailabilityLabel(availability: GitStatusAvailability): String = when (availability) {
+    GitStatusAvailability.IndexAndHeadAware -> "HEAD + index + worktree status available"
     GitStatusAvailability.IndexAwareWorktree -> "Index/worktree status available"
     GitStatusAvailability.MetadataOnly -> "Repository metadata available"
     GitStatusAvailability.NotImplemented -> "Git status unavailable"
@@ -116,7 +117,7 @@ private fun GitMetadataRow(label: String, value: String) {
 }
 
 @Composable
-private fun WorkspaceObservationCard(status: GitWorkspaceStatus?, inspecting: Boolean) {
+private fun WorkspaceStatusCard(status: GitWorkspaceStatus?, inspecting: Boolean) {
     Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -124,8 +125,9 @@ private fun WorkspaceObservationCard(status: GitWorkspaceStatus?, inspecting: Bo
                     Text("Git status", fontWeight = FontWeight.Bold)
                     Text(
                         when (status?.mode) {
+                            GitStatusAvailability.IndexAndHeadAware -> "Compared HEAD, index, and working tree"
                             GitStatusAvailability.IndexAwareWorktree -> "Working tree compared with the Git index"
-                            GitStatusAvailability.MetadataOnly, null -> "Bounded observation fallback; index status unavailable"
+                            GitStatusAvailability.MetadataOnly, null -> "Bounded observation fallback; Git index status unavailable"
                             GitStatusAvailability.NotImplemented -> "Git status is unavailable"
                         },
                         style = MaterialTheme.typography.bodySmall,
@@ -138,16 +140,18 @@ private fun WorkspaceObservationCard(status: GitWorkspaceStatus?, inspecting: Bo
             if (status == null) {
                 Text("Waiting for repository status…", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     StatusMetric("Clean", status.files.count { it.gitStatus == GitFileStatus.Clean }.toString())
                     StatusMetric("Modified", status.files.count { it.gitStatus == GitFileStatus.Modified }.toString())
+                    StatusMetric("Staged", status.files.count { it.gitStatus == GitFileStatus.Staged }.toString())
+                    StatusMetric("Both", status.files.count { it.gitStatus == GitFileStatus.StagedAndModified }.toString())
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     StatusMetric("Untracked", status.files.count { it.gitStatus == GitFileStatus.Untracked }.toString())
                     StatusMetric("Deleted", status.files.count { it.gitStatus == GitFileStatus.Deleted }.toString())
-                }
-                val unchecked = status.files.count { it.gitStatus == GitFileStatus.Unchecked }
-                if (unchecked > 0) {
-                    Spacer(Modifier.height(10.dp))
-                    Text("$unchecked file(s) could not be verified within the mobile hash/read limits.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    StatusMetric("Conflict", status.files.count { it.gitStatus == GitFileStatus.Conflict }.toString())
+                    StatusMetric("Unchecked", status.files.count { it.gitStatus == GitFileStatus.Unchecked }.toString())
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
@@ -163,7 +167,7 @@ private fun WorkspaceObservationCard(status: GitWorkspaceStatus?, inspecting: Bo
 @Composable
 private fun StatusMetric(label: String, value: String) {
     Column {
-        Text(value, fontWeight = FontWeight.Black, fontSize = 19.sp)
+        Text(value, fontWeight = FontWeight.Black, fontSize = 18.sp)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -187,7 +191,7 @@ private fun GitOperationsCard() {
     Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(18.dp)) {
             Text("Native Git operations", fontWeight = FontWeight.Bold)
-            Text("Index/worktree status is now available. Stage, unstage, commit, branch mutation, fetch, pull and push remain behind the capability-controlled execution layer.", modifier = Modifier.padding(top = 6.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("HEAD/index/worktree status is available when the repository exposes readable objects. Stage, unstage, commit, branch mutation, fetch, pull and push remain behind the capability-controlled execution layer.", modifier = Modifier.padding(top = 6.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = {}, enabled = false) { Text("Stage") }
