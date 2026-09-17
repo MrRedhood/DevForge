@@ -8,7 +8,7 @@ import java.net.URL
 
 sealed interface GitHubDispatchResult {
     data class Started(
-        val runId: Long?,
+        val runId: Long,
         val htmlUrl: String?,
     ) : GitHubDispatchResult
 
@@ -28,13 +28,27 @@ class GitHubActionsGateway(
         repository: String,
         configuration: BuildConfiguration,
     ): GitHubDispatchResult {
+        val normalizedOwner = owner.trim()
+        val normalizedRepository = repository.trim()
+        val workflowId = configuration.workflowFile.trim().substringAfterLast('/')
+        val branch = configuration.branch.trim()
+
+        if (!OWNER_OR_REPOSITORY.matches(normalizedOwner) || !OWNER_OR_REPOSITORY.matches(normalizedRepository)) {
+            return GitHubDispatchResult.Failure("The selected GitHub repository identifier is invalid.")
+        }
+        if (!WORKFLOW_NAME.matches(workflowId)) {
+            return GitHubDispatchResult.Failure("The selected GitHub workflow file is invalid.")
+        }
+        if (branch.isBlank()) {
+            return GitHubDispatchResult.Failure("A Git reference is required before dispatch.")
+        }
+
         val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
             ?: return GitHubDispatchResult.Failure("GitHub is not connected on this device.")
 
-        val workflowId = configuration.workflowFile.substringAfterLast('/')
-        val endpoint = "https://api.github.com/repos/$owner/$repository/actions/workflows/$workflowId/dispatches"
+        val endpoint = "https://api.github.com/repos/$normalizedOwner/$normalizedRepository/actions/workflows/$workflowId/dispatches"
         val payload = JSONObject().apply {
-            put("ref", configuration.branch)
+            put("ref", branch)
         }.toString()
 
         return runCatching {
@@ -42,25 +56,40 @@ class GitHubActionsGateway(
                 requestMethod = "POST"
                 setRequestProperty("Accept", "application/vnd.github+json")
                 setRequestProperty("Authorization", "Bearer $token")
-                setRequestProperty("X-GitHub-Api-Version", "2026-03-10")
+                setRequestProperty("X-GitHub-Api-Version", API_VERSION)
                 setRequestProperty("Content-Type", "application/json")
+                connectTimeout = 15_000
+                readTimeout = 20_000
                 doOutput = true
             }
-            http.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
 
+            http.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
             val code = http.responseCode
-            if (code in 200..299) {
-                val body = http.inputStream.bufferedReader().use { it.readText() }
-                val json = body.takeIf(String::isNotBlank)?.let(::JSONObject)
-                GitHubDispatchResult.Started(
-                    runId = json?.optLong("workflow_run_id")?.takeIf { it > 0 },
-                    htmlUrl = json?.optString("html_url")?.takeIf(String::isNotBlank),
-                )
+            val body = if (code in 200..299) {
+                http.inputStream.bufferedReader().use { it.readText() }
             } else {
-                val errorBody = runCatching {
+                runCatching {
                     (http.errorStream ?: http.inputStream).bufferedReader().use { it.readText() }
                 }.getOrDefault("")
-                GitHubDispatchResult.Failure("GitHub rejected the workflow dispatch (HTTP $code)${if (errorBody.isBlank()) "." else ": ${sanitizeError(errorBody)}"}")
+            }
+            http.disconnect()
+
+            if (code in 200..299) {
+                val json = body.takeIf(String::isNotBlank)?.let(::JSONObject)
+                val runId = json?.optLong("workflow_run_id")?.takeIf { it > 0L }
+                if (runId == null) {
+                    return@runCatching GitHubDispatchResult.Failure(
+                        "GitHub accepted the workflow dispatch but did not return a workflow run ID.",
+                    )
+                }
+                GitHubDispatchResult.Started(
+                    runId = runId,
+                    htmlUrl = json.optString("html_url").takeIf(String::isNotBlank),
+                )
+            } else {
+                GitHubDispatchResult.Failure(
+                    "GitHub rejected the workflow dispatch (HTTP $code)${if (body.isBlank()) "." else ": ${sanitizeError(body)}"}",
+                )
             }
         }.getOrElse { error ->
             GitHubDispatchResult.Failure("Unable to reach GitHub: ${error.message ?: "network error"}")
@@ -72,6 +101,10 @@ class GitHubActionsGateway(
         .take(280)
 
     companion object {
+        const val API_VERSION = "2026-03-10"
+        private val OWNER_OR_REPOSITORY = Regex("^[A-Za-z0-9_.-]+$")
+        private val WORKFLOW_NAME = Regex("^[A-Za-z0-9_.-]+$")
+
         fun forBuildStore(secretStore: SecretStore): GitHubActionsGateway = GitHubActionsGateway(secretStore)
     }
 }
