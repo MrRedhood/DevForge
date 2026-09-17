@@ -31,4 +31,13 @@ data class GitBranch(
 enum class GitStatusAvailability {
     NotImplemented,
     MetadataOnly,
+    IndexAwareWorktree,
+}
+
+enum class GitFileStatus {
+    Clean,
+    Modified,
+    Deleted,
+    Untracked,
+    Unchecked,
 }
