@@ -43,21 +43,15 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 
 ### Workspace
 
-- [x] Android Storage Access Framework workspace selection
-- [x] Persistable URI permission handling
+- [x] SAF workspace selection and persistable URI permission handling
 - [x] Workspace-aware global header
-- [x] Real workspace root enumeration
-- [x] Recursive folder listing
-- [x] Nested folder navigation
-- [x] Breadcrumb hierarchy
-- [x] Back/up/root navigation
+- [x] Real workspace enumeration and recursive folder navigation
+- [x] Breadcrumbs and back/up/root navigation
 - [x] Bounded per-folder enumeration
-- [x] Loading and empty states
-- [x] Filename-first bounded recursive search
-- [x] Safe file preview policy
-- [x] 512 KiB preview ceiling
-- [x] Basic binary-content detection
-- [x] Search result navigation/opening
+- [x] Loading/empty states
+- [x] Bounded recursive filename search
+- [x] Safe text preview policy with 512 KiB ceiling
+- [x] Binary-content detection
 - [x] Multiple workspace records persisted with Room
 - [x] Active workspace state persisted with Room
 - [x] Legacy SharedPreferences workspace migration
@@ -66,43 +60,37 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 ### Editor / Recovery / Change Model
 
 - [x] SAF-backed file read/write
-- [x] Editor tabs
-- [x] Active-tab switching
-- [x] Dirty-state tracking
-- [x] Explicit save
+- [x] Editor tabs and active-tab switching
+- [x] Dirty-state tracking and explicit save
 - [x] Unsaved-change protection
-- [x] Local recovery drafts
-- [x] Delayed recovery checkpointing
+- [x] Local recovery drafts and delayed checkpoints
 - [x] Mobile monospace editor surface
-- [x] Focused editor mode on compact devices
 - [x] SHA-256 content hashing
-- [x] Immutable content snapshots
-- [x] Bounded per-file snapshot history
+- [x] Immutable bounded snapshots
 - [x] Snapshot ViewModel
 - [x] Line-oriented diff engine
-- [x] Snapshots connected to file-open baseline
-- [x] Snapshots connected to successful saves
-- [x] Recovery snapshots connected to delayed recovery drafts
+- [x] Snapshot lifecycle connected to open/save/recovery flows
 - [x] Hash-based duplicate checkpoint suppression
 
 ### Git Foundation
 
 - [x] Git repository state domain model
-- [x] SAF-based `.git` directory detection
-- [x] HEAD metadata reading
-- [x] Branch-name extraction from `refs/heads/*`
-- [x] Detached-HEAD recognition
-- [x] Basic HEAD revision capture for detached HEADs
-- [x] `origin` remote URL extraction from `.git/config`
-- [x] Explicit unsupported-state reporting for linked/worktree `.git` files
-- [x] Git detection automatically follows the active Room workspace
-- [x] Local branch discovery from loose `refs/heads/*`
-- [x] Packed branch discovery from `.git/packed-refs`
-- [x] Bounded branch traversal with branch-count and depth limits
+- [x] SAF `.git` directory detection
+- [x] HEAD metadata and branch-name extraction
+- [x] Detached-HEAD recognition and basic detached revision capture
+- [x] `origin` remote URL extraction
+- [x] Explicit unsupported state for linked/worktree `.git` files
+- [x] Detection automatically follows the active Room workspace
+- [x] Loose local branch discovery
+- [x] Packed branch discovery
+- [x] Bounded branch traversal
 - [x] Bounded workspace inventory/status-observation foundation
-- [x] Small-file content hashes for workspace observation
-- [x] Generated-directory exclusions for workspace observation
-- [x] Explicit partial/truncated status observation states
+- [x] Small-file content hashes for observation
+- [x] Generated-directory exclusions
+- [x] Explicit partial/truncated observation states
+- [x] Git repository state dashboard surface
+- [x] Local branch list presentation
+- [x] Workspace observation dashboard surface
 - [ ] Native working-tree status inspection
 - [ ] Staged/unstaged file model
 - [ ] Branch switching
@@ -127,14 +115,11 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - Database: `devforge.db`
 - Room version: 2.8.5 stable
 - KSP-based Room compiler
-- `WorkspaceEntity`
-- `WorkspaceDao`
-- `DevForgeDatabase`
-- `WorkspaceDatabaseRepository`
+- `WorkspaceEntity`, `WorkspaceDao`, `DevForgeDatabase`, `WorkspaceDatabaseRepository`
 - Flow-based active/all workspace state
 - Transactional activate/save behavior
-- Legacy selected-workspace record migrated once
-- Room schema output configured under `app/schemas`
+- One-time legacy selected-workspace migration
+- Room schema output under `app/schemas`
 
 ### Intentionally not persisted in Room yet
 
@@ -152,14 +137,14 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ### Latest CI findings
 
-- The Room implementation run failed during Android SDK setup before Gradle execution because the workflow attempted to install the removed `tools` SDK package.
-- The workflow was hardened to use `actions/setup-java@v5` and explicitly install `platform-tools` plus `platforms;android-37` through `android-actions/setup-android@v3`.
-- A new post-fix CI run exists and must complete successfully before Android build validation can be marked complete.
+- The earlier Room implementation run failed during Android SDK setup because the workflow attempted to install the removed `tools` SDK package.
+- The workflow was hardened to use `actions/setup-java@v5` and explicitly request `platform-tools` plus `platforms;android-37` through `android-actions/setup-android@v3`.
+- Post-fix CI must complete successfully before Android build validation is marked complete.
 
 ## In Progress / Next
 
-1. Git status/diff/branch presentation
-2. Build configuration/state model
+1. Build configuration/state model
+2. Native Git execution/index-aware status capability
 3. Approval UI connected to real action requests
 4. Diff viewer and snapshot/recovery history UI
 5. Workspace switcher UI for selecting among persisted workspaces
@@ -214,9 +199,11 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [x] Basic remote-origin metadata model
 - [x] Local branch discovery foundation
 - [x] Workspace observation/status foundation
+- [x] Git repository state surface
+- [x] Branch list surface
+- [x] Workspace observation surface
 - [ ] Native working-tree status
 - [ ] Staged/unstaged file model
-- [ ] Branch list UI
 - [ ] Branch switching
 - [ ] Commit history
 - [ ] Status/diff view
@@ -314,8 +301,8 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [x] Editor workspace chrome foundation
 - [x] Unsaved-change confirmation
 - [ ] Workspace switcher surface
-- [ ] Git repository state surface
-- [ ] Git branch list surface
+- [x] Git repository state surface
+- [x] Git branch list surface
 - [ ] Git status/diff surface
 - [ ] Diff viewer
 - [ ] Snapshot/recovery history
@@ -383,14 +370,12 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ### 2026-09-17 — Workspace foundation
 
-- Added SAF workspace selection and persisted selected-workspace metadata.
-- Added real workspace enumeration, loading/empty states, refresh, and workspace-aware header.
-- Recorded Room as intentionally deferred until richer durable state justified it.
+- Added SAF workspace selection, real workspace enumeration, loading/empty states, refresh, and workspace-aware header.
+- Added durable workspace persistence after the Room migration slice.
 
 ### 2026-09-17 — Editor foundation
 
 - Added SAF file read/write, tabs, dirty state, explicit save, unsaved-change protection, and local recovery drafts.
-- Added focused mobile editor UI.
 
 ### 2026-09-17 — Content identity, snapshots, and diff foundation
 
@@ -406,51 +391,36 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ### 2026-09-17 — Workspace search and safe preview
 
-- Added bounded recursive filename search, safe preview handling, 512 KiB preview ceiling, basic binary detection, search-to-editor navigation, and large-preview safeguards.
+- Added bounded recursive filename search, safe preview handling, binary detection, search-to-editor navigation, and large-preview safeguards.
 
 ### 2026-09-17 — Durable workspace persistence with Room
 
-- Added KSP and AndroidX Room 2.8.5 stable dependencies.
-- Added Room database, workspace entity, DAO, and repository layers.
-- Added Flow-based active/all workspace state.
-- Added transactional workspace activation and multi-workspace retention.
-- Added one-time migration from the previous SharedPreferences workspace record.
-- Removed the superseded single-workspace preference repository.
-- Configured Room schema generation under `app/schemas`.
+- Added KSP and AndroidX Room 2.8.5 stable dependencies, Room database/DAO/repository layers, Flow-based active/all workspace state, transactional workspace activation, legacy migration, and schema generation.
 - Kept richer entities such as snapshots, Git, agent tasks, builds, and automations for later model stabilization.
-- CI initially failed before Gradle during Android SDK setup; the workflow fix is tracked separately.
 
 ### 2026-09-17 — Git repository detection foundation
 
-- Added `GitRepositoryState` and explicit detection states.
-- Added SAF-based `.git` directory detection without requesting broader storage permissions.
-- Added HEAD parsing for normal branches and detached HEADs.
-- Added basic `origin` URL extraction from `.git/config`.
-- Added explicit unsupported handling for `.git` files/worktree-style indirection that the current SAF metadata reader does not yet support.
-- Added `GitViewModel` that follows the active Room workspace and refreshes Git detection when the workspace changes.
-- Deferred working-tree status, stage/unstage, mutation operations, and GitHub remote actions until a dedicated Git operation layer exists.
+- Added `GitRepositoryState`, explicit detection states, SAF `.git` detection, HEAD parsing, origin URL extraction, unsupported worktree reporting, and active-workspace-aware Git detection.
 
 ### 2026-09-17 — Git branch discovery foundation
 
-- Expanded the Git repository model with structured local branch records.
-- Added discovery of loose local branches under `.git/refs/heads`.
-- Added discovery of packed local branches from `.git/packed-refs`.
-- Added bounded branch traversal with a maximum of 256 branches and depth 8.
-- Marked the current branch when HEAD points to a local branch.
-- Kept working-tree status and mutations intentionally unimplemented until the execution layer can safely handle Git index/object semantics.
+- Added structured local branch records, loose and packed branch discovery, bounded traversal, and current-branch marking.
 
 ### 2026-09-17 — CI workflow hardening
 
-- Updated `actions/setup-java` from v4 to v5.
-- Updated Android SDK setup to avoid the obsolete `tools` package and explicitly request `platform-tools` and `platforms;android-37`.
-- A fresh CI run is queued for the hardening commit and must pass before build validation is marked complete.
+- Updated Java setup to v5 and Android SDK setup to avoid the obsolete `tools` package while requesting `platform-tools` and `platforms;android-37`.
+- Validation remains pending on a successful post-fix CI run.
 
 ### 2026-09-17 — Workspace observation status foundation
 
-- Added a bounded workspace observation service for Git-aware change inspection.
-- Added file inventory records with relative paths, sizes, optional content hashes, and read-error state.
-- Excluded `.git`, `build`, and `.gradle` directories from observation.
-- Added depth, per-folder entry, file-count, and hash-size limits to protect mobile responsiveness.
-- Added explicit observed/partial and truncated states so incomplete scans cannot be mistaken for complete Git status.
-- Connected observation to `GitViewModel` after repository detection.
-- Deliberately did not label this native Git working-tree status: the real Git index/object comparison remains a separate future execution layer.
+- Added bounded file inventory/observation, optional small-file hashes, generated-directory exclusions, explicit partial/truncated states, and GitViewModel integration.
+- Kept this explicitly separate from native Git working-tree status.
+
+### 2026-09-17 — Git dashboard presentation
+
+- Added `GitDashboardScreen` and connected it to the Git destination.
+- Added repository metadata presentation for branch, HEAD, origin, and root.
+- Added local branch list presentation with current-branch emphasis.
+- Added workspace observation metrics and explicit scan-confidence messaging.
+- Added disabled native-Git action affordances explaining why status/diff/commit remain unavailable until an index-aware execution layer is implemented.
+- Marked Git repository state and branch-list UI as implemented without mislabeling workspace observation as native Git status.
