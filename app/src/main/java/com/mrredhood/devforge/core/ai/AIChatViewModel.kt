@@ -1,0 +1,246 @@
+package com.mrredhood.devforge.core.ai
+
+import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.mrredhood.devforge.core.storage.ChatMessageEntity
+import com.mrredhood.devforge.core.storage.DevForgeDatabase
+import com.mrredhood.devforge.core.workspace.WorkspaceDatabaseRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+
+class AIChatViewModel(application: Application) : AndroidViewModel(application) {
+    private val settings = AISettingsRepository(application)
+    private val catalogService = ModelCatalogService()
+    private val chatGateway = AIChatGateway()
+    private val database = DevForgeDatabase.get(application)
+    private val chatRepository = ChatRepository(database.chatSessionDao(), database.chatMessageDao())
+    private val workspaceRepository = WorkspaceDatabaseRepository(application)
+    private val resolver = application.contentResolver
+    private var messageJob: Job? = null
+    private var workspaceJob: Job? = null
+
+    var provider by mutableStateOf(settings.selectedProvider())
+        private set
+    var models by mutableStateOf<List<AIModelInfo>>(emptyList())
+        private set
+    var isLoadingModels by mutableStateOf(false)
+        private set
+    var modelError by mutableStateOf<String?>(null)
+        private set
+    var selectedModel by mutableStateOf<AIModelInfo?>(null)
+        private set
+    var activeFilter by mutableStateOf(ModelFilter.ALL)
+        private set
+    var modelQuery by mutableStateOf("")
+    var isModelMenuOpen by mutableStateOf(false)
+    var input by mutableStateOf("")
+        private set
+    var isSending by mutableStateOf(false)
+        private set
+    var sendError by mutableStateOf<String?>(null)
+        private set
+    var suggestions by mutableStateOf<List<AICommandDefinition>>(emptyList())
+        private set
+    var messages by mutableStateOf<List<ChatMessageEntity>>(emptyList())
+        private set
+    var activeSessionId by mutableStateOf<String?>(null)
+        private set
+    var workspaceId by mutableStateOf<String?>(null)
+        private set
+    var apiKeyConfigured by mutableStateOf(settings.hasApiKey(provider))
+        private set
+
+    val filteredModels: List<AIModelInfo>
+        get() = models.asSequence()
+            .filter { model ->
+                when (activeFilter) {
+                    ModelFilter.ALL -> true
+                    ModelFilter.FREE -> model.priceClass == ModelPriceClass.FREE
+                    ModelFilter.PAID -> model.priceClass == ModelPriceClass.PAID
+                    ModelFilter.VOICE -> model.isVoiceCapable
+                    ModelFilter.IMAGE -> model.isImageCapable
+                    ModelFilter.VIDEO -> model.isVideoCapable
+                    ModelFilter.AUDIO -> model.inputModalities.contains("audio") || model.outputModalities.contains("audio")
+                    ModelFilter.EMBEDDING -> model.isEmbedding
+                    ModelFilter.TOOLS -> model.supportsTools
+                }
+            }
+            .filter { model ->
+                val query = modelQuery.trim()
+                query.isBlank() || model.displayName.contains(query, true) || model.id.contains(query, true)
+            }
+            .take(MAX_VISIBLE_MODELS)
+            .toList()
+
+    init {
+        workspaceJob = viewModelScope.launch {
+            workspaceRepository.activeWorkspace.collectLatest { workspace ->
+                workspaceId = workspace?.id
+                selectedModel?.let { model -> selectModelInternal(model) }
+            }
+        }
+        val savedId = settings.selectedModelId(provider)
+        if (!savedId.isNullOrBlank()) selectedModel = AIModelInfo(provider, savedId, savedId)
+    }
+
+    fun setProvider(value: AIProvider) {
+        if (provider == value) return
+        provider = value
+        settings.setSelectedProvider(value)
+        apiKeyConfigured = settings.hasApiKey(value)
+        models = emptyList()
+        selectedModel = null
+        modelError = null
+        isModelMenuOpen = false
+        val savedId = settings.selectedModelId(value)
+        if (!savedId.isNullOrBlank()) selectedModel = AIModelInfo(value, savedId, savedId)
+    }
+
+    fun loadModels(force: Boolean = false) {
+        if (isLoadingModels) return
+        val key = settings.getApiKey(provider)
+        apiKeyConfigured = !key.isNullOrBlank()
+        if (key.isNullOrBlank()) {
+            modelError = "Save a ${provider.displayName} API key in Settings before loading models."
+            return
+        }
+        if (!force && models.isNotEmpty()) return
+        isLoadingModels = true
+        modelError = null
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = catalogService.load(provider, key)
+            launch(Dispatchers.Main.immediate) {
+                models = result.models
+                modelError = result.warning
+                isLoadingModels = false
+                selectedModel = result.models.firstOrNull { it.id == settings.selectedModelId(provider) }
+                    ?: selectedModel?.takeIf { it.provider == provider }?.let { saved -> result.models.firstOrNull { it.id == saved.id } }
+                    ?: result.models.firstOrNull()
+                selectedModel?.let { selectModelInternal(it) }
+            }
+        }
+    }
+
+    fun refreshModels() = loadModels(force = true)
+
+    fun setFilter(filter: ModelFilter) { activeFilter = filter }
+
+    fun setModelMenuOpen(open: Boolean) {
+        isModelMenuOpen = open
+        if (open) loadModels()
+    }
+
+    fun selectModel(model: AIModelInfo) {
+        selectedModel = model
+        settings.setSelectedModelId(provider, model.id)
+        isModelMenuOpen = false
+        modelError = null
+        selectModelInternal(model)
+    }
+
+    private fun selectModelInternal(model: AIModelInfo) {
+        val scope = workspaceId ?: ChatRepository.GLOBAL_SCOPE
+        viewModelScope.launch(Dispatchers.IO) {
+            val session = chatRepository.getOrCreateSession(scope, model)
+            messageJob?.cancel()
+            messageJob = launch {
+                chatRepository.observeMessages(session.sessionId).collectLatest { values ->
+                    launch(Dispatchers.Main.immediate) { messages = values }
+                }
+            }
+            launch(Dispatchers.Main.immediate) { activeSessionId = session.sessionId }
+        }
+    }
+
+    fun updateInput(value: String) {
+        input = value
+        suggestions = if (value.trimStart().startsWith("/")) {
+            val token = value.trimStart().substringAfter('/').substringBefore(' ')
+            AICommandRegistry.suggestions(token).take(MAX_COMMAND_SUGGESTIONS)
+        } else emptyList()
+        sendError = null
+    }
+
+    fun selectCommand(command: AICommandDefinition) {
+        updateInput("/${command.name} ")
+        suggestions = emptyList()
+    }
+
+    fun submit() {
+        val model = selectedModel ?: run {
+            sendError = "Select a model first."
+            return
+        }
+        if (isSending) return
+        val raw = input.trim()
+        if (raw.isBlank()) return
+        val sessionId = activeSessionId ?: run {
+            sendError = "Chat session is not ready yet."
+            return
+        }
+        input = ""
+        suggestions = emptyList()
+        isSending = true
+        sendError = null
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val mentions = AICommandRegistry.resolveMentions(resolver, workspaceId?.let { workspaceRepositoryUri(it) }, raw)
+                val parsed = AICommandRegistry.parse(raw)?.let { it.copy(mentions = mentions) }
+                val finalInstruction = if (parsed != null) {
+                    if (parsed.command.name == "help") AgentCommandCatalog.systemSummary() else parsed.toAgentInstruction()
+                } else {
+                    buildString {
+                        append(raw)
+                        if (mentions.isNotEmpty()) {
+                            append("\n\nReferenced file context:\n")
+                            mentions.forEach { mention ->
+                                if (!mention.content.isNullOrBlank()) {
+                                    append("--- @").append(mention.name).append(" ---\n")
+                                    append(mention.content)
+                                    append("\n")
+                                }
+                            }
+                        }
+                    }
+                }
+                val history = messages.takeLast(HISTORY_FOR_REQUEST).map { it.role to it.content }
+                val key = settings.getApiKey(provider) ?: error("API key is not configured.")
+                val response = if (parsed?.command?.name == "help") {
+                    finalInstruction
+                } else {
+                    chatGateway.send(model, key, history, finalInstruction)
+                }
+                chatRepository.addMessage(sessionId, "user", raw, parsed?.command?.name)
+                chatRepository.addMessage(sessionId, "assistant", response)
+            }.onFailure { error ->
+                launch(Dispatchers.Main.immediate) { sendError = error.message ?: "AI request failed." }
+            }
+            launch(Dispatchers.Main.immediate) { isSending = false }
+        }
+    }
+
+    fun dismissError() { sendError = null }
+
+    private suspend fun workspaceRepositoryUri(id: String): android.net.Uri? {
+        val workspace = workspaceRepository.workspaces.firstOrNull()?.firstOrNull { it.id == id }
+        return workspace?.treeUri
+    }
+
+    override fun onCleared() {
+        workspaceJob?.cancel()
+        messageJob?.cancel()
+        super.onCleared()
+    }
+
+    companion object {
+        private const val MAX_VISIBLE_MODELS = 120
+        private const val MAX_COMMAND_SUGGESTIONS = 12
+        private const val HISTORY_FOR_REQUEST = 40
+    }
+}
