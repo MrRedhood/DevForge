@@ -96,9 +96,12 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [x] `origin` remote URL extraction from `.git/config`
 - [x] Explicit unsupported-state reporting for linked/worktree `.git` files
 - [x] Git detection automatically follows the active Room workspace
+- [x] Local branch discovery from loose `refs/heads/*`
+- [x] Packed branch discovery from `.git/packed-refs`
+- [x] Bounded branch traversal with branch-count and depth limits
 - [ ] Working-tree status inspection
 - [ ] Staged/unstaged file model
-- [ ] Branch list / switching
+- [ ] Branch switching
 - [ ] Commit history
 - [ ] Git diff UI
 - [ ] Local mutation operations
@@ -126,7 +129,7 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - `WorkspaceDatabaseRepository`
 - Flow-based active/all workspace state
 - Transactional activate/save behavior
-- Legacy selected-workspace record migrated once into Room
+- Legacy selected-workspace record migrated once
 - Room schema output configured under `app/schemas`
 
 ### Intentionally not persisted in Room yet
@@ -143,11 +146,11 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [ ] Static analysis/lint established
 - [ ] Release APK build validated
 
-### Latest CI finding
+### Latest CI findings
 
-- The Room implementation commit reached GitHub Actions, but the run failed during Android SDK setup before Gradle execution because the workflow attempted to install the removed `tools` SDK package.
-- The CI workflow was updated to use `actions/setup-java@v5` and explicitly install `platform-tools` plus `platforms;android-37` through `android-actions/setup-android@v3`.
-- A new post-fix CI run is required before marking the Android build as validated.
+- The Room implementation run failed during Android SDK setup before Gradle execution because the workflow attempted to install the removed `tools` SDK package.
+- The workflow was hardened to use `actions/setup-java@v5` and explicitly install `platform-tools` plus `platforms;android-37` through `android-actions/setup-android@v3`.
+- A new post-fix CI run exists and was queued after the hardening commit; it must complete successfully before Android build validation can be marked complete.
 
 ## In Progress / Next
 
@@ -205,13 +208,16 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [x] Repository detection foundation
 - [x] Basic branch/HEAD metadata model
 - [x] Basic remote-origin metadata model
-- [ ] Branch list
+- [x] Local branch discovery foundation
+- [ ] Working-tree status
+- [ ] Staged/unstaged file model
+- [ ] Branch list UI
+- [ ] Branch switching
 - [ ] Commit history
 - [ ] Status/diff view
 - [ ] Stage/unstage
 - [ ] Commit flow
 - [ ] Push/pull/fetch
-- [ ] Branch create/switch
 - [ ] Merge/rebase
 - [ ] Conflict UI
 - [ ] Safe-operation confirmation
@@ -304,6 +310,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [x] Unsaved-change confirmation
 - [ ] Workspace switcher surface
 - [ ] Git repository state surface
+- [ ] Git branch list surface
 - [ ] Git status/diff surface
 - [ ] Diff viewer
 - [ ] Snapshot/recovery history
@@ -332,6 +339,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - [ ] Workspace search tests
 - [ ] Preview-policy tests
 - [ ] Git metadata tests
+- [ ] Git branch discovery tests
 - [ ] Agent/tool contract tests
 - [ ] Policy tests
 - [ ] UI tests
@@ -359,6 +367,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 13. Keep workspace search/preview bounded and fail safely on large/binary content.
 14. Use Room for durable relational state once the model warrants it; do not prematurely persist every transient UI state.
 15. Treat SAF Git metadata as capability-dependent: absence of `.git` visibility or worktree indirection must surface as an explicit unsupported/unknown state rather than a false repository state.
+16. Keep Git metadata scanning bounded; repository mutation and working-tree status require a dedicated execution layer rather than unsafe ad-hoc file manipulation.
 
 ## Change Log
 
@@ -415,8 +424,17 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Added `GitViewModel` that follows the active Room workspace and refreshes Git detection when the workspace changes.
 - Deferred working-tree status, stage/unstage, mutation operations, and GitHub remote actions until a dedicated Git operation layer exists.
 
+### 2026-09-17 — Git branch discovery foundation
+
+- Expanded the Git repository model with structured local branch records.
+- Added discovery of loose local branches under `.git/refs/heads`.
+- Added discovery of packed local branches from `.git/packed-refs`.
+- Added bounded branch traversal with a maximum of 256 branches and depth 8.
+- Marked the current branch when HEAD points to a local branch.
+- Kept working-tree status and mutations intentionally unimplemented until the execution layer can safely handle Git index/object semantics.
+
 ### 2026-09-17 — CI workflow hardening
 
 - Updated `actions/setup-java` from v4 to v5.
 - Updated Android SDK setup to avoid the obsolete `tools` package and explicitly request `platform-tools` and `platforms;android-37`.
-- A fresh CI run is required to validate the workflow and the current application code together.
+- A fresh CI run is queued for the hardening commit and must pass before build validation is marked complete.
