@@ -5,11 +5,15 @@ import android.net.Uri
 import android.provider.DocumentsContract
 
 class WorkspaceFileTree(private val resolver: ContentResolver) {
-    fun listRoot(root: Uri, maxEntries: Int = 200): List<WorkspaceEntry> =
-        listChildren(root, maxEntries).sortedWith(compareBy<WorkspaceEntry> { !it.isDirectory }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+    fun listRoot(root: Uri, maxEntries: Int = 200): List<WorkspaceEntry> = list(root, maxEntries)
+
+    fun list(parent: Uri, maxEntries: Int = 200): List<WorkspaceEntry> =
+        listChildren(parent, maxEntries)
+            .sortedWith(compareBy<WorkspaceEntry> { !it.isDirectory }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 
     private fun listChildren(parent: Uri, maxEntries: Int): List<WorkspaceEntry> {
-        val documentId = DocumentsContract.getTreeDocumentId(parent)
+        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }
+            .getOrElse { DocumentsContract.getTreeDocumentId(parent) }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
         val results = mutableListOf<WorkspaceEntry>()
         resolver.query(
