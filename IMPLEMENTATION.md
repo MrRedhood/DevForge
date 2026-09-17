@@ -18,7 +18,7 @@
 ### App Foundation
 - [x] Android/Kotlin/Compose project and Gradle configuration
 - [x] Material 3/adaptive UI foundation
-- [x] Chat, Files, Git, Build, Approvals, Settings destinations
+- [x] Chat, Files, Git, Diffs, Build, Approvals, Settings destinations
 - [x] Modern dark-first DevForge visual direction
 - [x] App-level destination back stack
 - [x] Nested folder/editor back handling
@@ -82,6 +82,16 @@ Current Git mutation limits:
 - Unstage requires readable HEAD objects
 - Commit requires no unresolved index conflict stages and a configured `user.name` / `user.email`
 
+### Git Diff / Review
+- [x] Structured HEAD/index/worktree diff models
+- [x] Bounded diff computation from real Git blob IDs and SAF worktree content
+- [x] Staged, unstaged, staged+unstaged, deleted, and untracked diff sections
+- [x] Read-only structured diff viewer with section labels and line-level +/- presentation
+- [x] Binary/unreadable/conflict-safe unavailable states
+- [x] Bounded diff documents and text sizes for mobile performance
+- [x] Dedicated Diffs navigation surface
+- [ ] Commit/file history viewer
+
 ### Build Center / GitHub Actions
 - [x] Debug APK, release APK and release AAB targets
 - [x] Explicit `workflow_dispatch` target contract
@@ -107,6 +117,7 @@ Current Git mutation limits:
 - [x] Git commit and branch-delete actions create reviewed actions before execution
 - [x] Approved actions have an execution lifecycle: approved → executing → completed/failed
 - [x] Approved Git actions re-check repository preconditions before execution
+- [x] Approved Git actions can resume by re-detecting the persisted repository URI
 - [x] Action payloads contain only execution metadata needed to resume; no credentials or secrets
 
 ### Chat / UX
@@ -135,11 +146,11 @@ Current Git mutation limits:
 
 ## In Progress / Next Sequence
 
-1. Git diff computation and structured diff viewer.
-2. Safe remote Git transport: fetch/pull/push with credential/remote validation.
-3. Branch switch/checkout, conflict handling, merge/rebase/cherry-pick.
-4. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
-5. Approval history/audit expansion and per-capability grant controls.
+1. Safe remote Git transport: fetch/pull/push with credential/remote validation.
+2. Branch switch/checkout, conflict handling, merge/rebase/cherry-pick.
+3. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
+4. Approval history/audit expansion and per-capability grant controls.
+5. Commit/file history and richer Git review surfaces.
 
 ## Planned
 
@@ -165,9 +176,9 @@ Current Git mutation limits:
 - [x] Stage/unstage
 - [x] Commit
 - [x] Branch create/delete
+- [x] HEAD/index/worktree structured diff viewer
 - [ ] Branch switch/checkout
 - [ ] Fetch/pull/push through capability gateway
-- [ ] Git diff computation from HEAD/index/worktree
 - [ ] Commit/file history
 - [ ] Merge/rebase/cherry-pick
 - [ ] Conflict resolution
@@ -236,7 +247,7 @@ Current Git mutation limits:
 - [x] CI #117 passed the Android pipeline after repository/workflow discovery.
 - [x] CI #122 passed after authenticated debug workflow dispatch.
 - [x] CI #127 was cancelled by workflow concurrency and is not treated as a build failure.
-- [ ] Current Approval Center/Git/Build implementation CI validation
+- [ ] Current structured Git diff / Approval Center integration CI validation
 - [ ] Release APK validation with configured signing secrets
 - [ ] Maintained unit-test suite
 - [ ] UI tests
@@ -282,3 +293,9 @@ Current Git mutation limits:
 - Routed remote Build Center dispatch through persisted approval review instead of treating the build button as authorization.
 - Routed Git commit and branch-delete operations through the same approval gate, with repository precondition re-checks before execution.
 - Added approved-action execution lifecycle and safe resumable payloads without storing credentials or secrets.
+
+### 2026-09-17 — Structured Git diff viewer
+- Added bounded HEAD/index/worktree diff computation using real Git blob objects and SAF worktree content.
+- Added structured per-file diff sections for staged, unstaged, staged+unstaged, deleted and untracked states.
+- Added read-only Diffs navigation and line-level structured review UI with explicit unavailable states for conflicts/binary/unreadable files.
+- Kept diff computation bounded for mobile memory and I/O safety.
