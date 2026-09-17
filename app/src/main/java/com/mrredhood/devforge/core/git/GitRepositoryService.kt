@@ -36,43 +36,41 @@ class GitRepositoryService(private val resolver: ContentResolver) {
         )
     }
 
-    private fun findDirectChild(parent: Uri, name: String): Uri? =
-        runCatching {
-            val documentId = runCatching { DocumentsContract.getDocumentId(parent) }
-                .getOrElse { DocumentsContract.getTreeDocumentId(parent) }
-            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
-            resolver.query(
-                childrenUri,
-                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME),
-                null,
-                null,
-                null,
-            )?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    val id = cursor.getString(0) ?: continue
-                    val displayName = cursor.getString(1) ?: continue
-                    if (displayName == name) return@use DocumentsContract.buildDocumentUriUsingTree(parent, id)
-                }
+    private fun findDirectChild(parent: Uri, name: String): Uri? = runCatching {
+        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }
+            .getOrElse { DocumentsContract.getTreeDocumentId(parent) }
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
+        resolver.query(
+            childrenUri,
+            arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            var match: Uri? = null
+            while (cursor.moveToNext() && match == null) {
+                val id = cursor.getString(0) ?: continue
+                val displayName = cursor.getString(1) ?: continue
+                if (displayName == name) match = DocumentsContract.buildDocumentUriUsingTree(parent, id)
             }
-            null
-        }.getOrNull()
+            match
+        }
+    }.getOrNull()
 
-    private fun isDirectory(uri: Uri): Boolean =
-        runCatching {
-            resolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE), null, null, null)?.use { cursor ->
-                cursor.moveToFirst() && cursor.getString(0) == DocumentsContract.Document.MIME_TYPE_DIR
-            } == true
-        }.getOrDefault(false)
+    private fun isDirectory(uri: Uri): Boolean = runCatching {
+        resolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE), null, null, null)?.use { cursor ->
+            cursor.moveToFirst() && cursor.getString(0) == DocumentsContract.Document.MIME_TYPE_DIR
+        } == true
+    }.getOrDefault(false)
 
-    private fun readText(uri: Uri, maxBytes: Int = 64 * 1024): String? =
-        runCatching {
-            resolver.openInputStream(uri)?.use { input ->
-                input.readNBytes(maxBytes + 1).let { bytes ->
-                    if (bytes.size > maxBytes || bytes.any { it == 0.toByte() }) null
-                    else bytes.toString(Charsets.UTF_8)
-                }
+    private fun readText(uri: Uri, maxBytes: Int = 64 * 1024): String? = runCatching {
+        resolver.openInputStream(uri)?.use { input ->
+            input.readNBytes(maxBytes + 1).let { bytes ->
+                if (bytes.size > maxBytes || bytes.any { it == 0.toByte() }) null
+                else bytes.toString(Charsets.UTF_8)
             }
-        }.getOrNull()
+        }
+    }.getOrNull()
 
     private fun parseOriginUrl(config: String): String? {
         var inOrigin = false
@@ -80,9 +78,9 @@ class GitRepositoryService(private val resolver: ContentResolver) {
             val line = raw.trim()
             if (line.startsWith("[remote \"")) {
                 inOrigin = line == "[remote \"origin\"]"
-                return@forEach
+            } else if (inOrigin && line.startsWith("url")) {
+                return line.substringAfter('=').trim()
             }
-            if (inOrigin && line.startsWith("url")) return line.substringAfter('=').trim()
         }
         return null
     }
