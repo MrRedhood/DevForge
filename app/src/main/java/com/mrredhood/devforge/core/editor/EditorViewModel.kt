@@ -79,7 +79,15 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun saveActive() {
-        val tab = activeTab ?: return
+        saveAndClose(uri = null)
+    }
+
+    fun saveAndCloseActive() {
+        saveAndClose(uri = activeUri)
+    }
+
+    private fun saveAndClose(uri: Uri?) {
+        val tab = uri?.let { target -> tabs.firstOrNull { it.uri == target } } ?: activeTab ?: return
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
             result.onSuccess {
@@ -90,6 +98,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                     repository.clearRecoveryDraft(tab.uri)
                 }
                 recoveryJobs.remove(tab.uri)?.cancel()
+                close(tab.uri)
             }.onFailure { throwable -> error = throwable.message ?: "Unable to save file" }
         }
     }
