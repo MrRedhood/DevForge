@@ -54,15 +54,12 @@ class GitHubActionsGateway(
 
         val endpoint = "https://api.github.com/repos/$normalizedOwner/$normalizedRepository/actions/workflows/$workflowId/dispatches"
         val dispatchStartedAt = Instant.now()
-        val payload = JSONObject().apply {
-            put("ref", branch)
-            put(
-                "inputs",
-                JSONObject().apply {
-                    put("target", configuration.target.workflowInput),
-                },
-            )
-        }.toString()
+        val inputs = JSONObject()
+            .put("target", configuration.target.workflowInput)
+        val payload = JSONObject()
+            .put("ref", branch)
+            .put("inputs", inputs)
+            .toString()
 
         return runCatching {
             val http = connection.open(endpoint).apply {
@@ -185,8 +182,9 @@ class GitHubActionsGateway(
         http.disconnect()
 
         if (code !in 200..299) {
+            val detail = if (body.isBlank()) "." else ": ${sanitizeError(body)}"
             throw IllegalStateException(
-                "GitHub run lookup failed (HTTP $code)${if (body.isBlank()) "." else ": ${sanitizeError(body)}"},
+                "GitHub run lookup failed (HTTP $code)$detail",
             )
         }
 

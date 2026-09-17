@@ -108,7 +108,7 @@ internal class GitObjectReader(
     }
 
     private fun inflate(uri: Uri, maxBytes: Int): ByteArray? {
-        resolver.openInputStream(uri)?.use { raw ->
+        return resolver.openInputStream(uri)?.use { raw ->
             InflaterInputStream(raw).use { input ->
                 val out = ByteArrayOutputStream(minOf(maxBytes, 64 * 1024))
                 val buffer = ByteArray(16 * 1024)
