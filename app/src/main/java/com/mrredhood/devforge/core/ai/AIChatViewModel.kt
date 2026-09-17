@@ -9,7 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.storage.ChatMessageEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
-import com.mrredhood.devforge.core.workspace.WorkspaceDatabaseRepository
+import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -133,7 +133,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun refreshModels() = loadModels(force = true)
-
     fun setFilter(filter: ModelFilter) { activeFilter = filter }
 
     fun setModelMenuOpen(open: Boolean) {
