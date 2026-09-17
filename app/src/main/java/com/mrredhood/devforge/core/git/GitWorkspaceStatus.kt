@@ -3,8 +3,6 @@ package com.mrredhood.devforge.core.git
 import android.content.ContentResolver
 import android.net.Uri
 import android.provider.DocumentsContract
-import com.mrredhood.devforge.core.editor.ContentHasher
-import java.io.InputStream
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -56,14 +54,11 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
         resolver.openInputStream(uri)?.use { input ->
             val digest = MessageDigest.getInstance("SHA-256")
             val buffer = ByteArray(16 * 1024)
-            var remaining = MAX_HASH_BYTES
-            while (remaining > 0) {
-                val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+            while (true) {
+                val read = input.read(buffer)
                 if (read <= 0) break
                 digest.update(buffer, 0, read)
-                remaining -= read
             }
-            if (remaining > 0 && resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L > MAX_HASH_BYTES) return@use null
             digest.digest().joinToString("") { "%02x".format(it) }
         }
     }.getOrNull()
