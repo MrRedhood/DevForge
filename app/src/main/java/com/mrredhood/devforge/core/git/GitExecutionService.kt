@@ -7,8 +7,6 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.time.ZonedDateTime
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import java.util.zip.DeflaterOutputStream
 
 sealed interface GitExecutionResult {
@@ -21,11 +19,7 @@ sealed interface GitExecutionResult {
  * No shell, arbitrary command execution, or hidden filesystem access is used.
  */
 class GitExecutionService(private val resolver: ContentResolver) {
-    suspend fun stage(
-        root: Uri,
-        gitDirectory: Uri,
-        paths: List<String>,
-    ): GitExecutionResult = runMutation {
+    suspend fun stage(root: Uri, gitDirectory: Uri, paths: List<String>): GitExecutionResult = runMutation {
         val normalizedPaths = normalizePaths(paths)
         require(normalizedPaths.isNotEmpty()) { "Select at least one workspace path to stage." }
         val index = loadIndex(gitDirectory)
@@ -33,32 +27,23 @@ class GitExecutionService(private val resolver: ContentResolver) {
 
         normalizedPaths.forEach { path ->
             entries.removeAll { it.path == path }
-            val file = findPath(root, path)
-            if (file == null) return@forEach
+            val file = findPath(root, path) ?: return@forEach
             require(!file.directory) { "Cannot stage a directory directly: $path" }
             val bytes = readBytes(file.uri, MAX_STAGE_BYTES)
             val objectId = writeLooseObject(gitDirectory, "blob", bytes)
-            entries += GitIndexEntry(
-                path = path,
-                objectId = objectId,
-                mode = existingMode(index.entries, path) ?: 33188L,
-                stage = 0,
-            )
+            entries += GitIndexEntry(path, objectId, existingMode(index.entries, path) ?: 33188L, 0)
         }
 
         writeIndex(gitDirectory, normalizeIndexEntries(entries))
         "Staged ${normalizedPaths.size} path(s)."
     }
 
-    suspend fun unstage(
-        gitDirectory: Uri,
-        headRevision: String?,
-        paths: List<String>,
-    ): GitExecutionResult = runMutation {
+    suspend fun unstage(gitDirectory: Uri, headRevision: String?, paths: List<String>): GitExecutionResult = runMutation {
         val normalizedPaths = normalizePaths(paths)
         require(normalizedPaths.isNotEmpty()) { "Select at least one workspace path to unstage." }
+        require(headRevision?.matches(SHA_PATTERN) == true) { "HEAD objects are unavailable; unstage is safely disabled." }
         val index = loadIndex(gitDirectory)
-        val restored = headRevision?.let { readHeadFiles(gitDirectory, it) }.orEmpty()
+        val restored = readHeadFiles(gitDirectory, headRevision)
         val entries = index.entries.toMutableList()
         normalizedPaths.forEach { path ->
             entries.removeAll { it.path == path }
@@ -70,11 +55,7 @@ class GitExecutionService(private val resolver: ContentResolver) {
         "Unstaged ${normalizedPaths.size} path(s)."
     }
 
-    suspend fun commit(
-        gitDirectory: Uri,
-        headRevision: String?,
-        message: String,
-    ): GitExecutionResult = runMutation {
+    suspend fun commit(gitDirectory: Uri, headRevision: String?, message: String): GitExecutionResult = runMutation {
         val normalizedMessage = message.trim().take(MAX_COMMIT_MESSAGE)
         require(normalizedMessage.isNotBlank()) { "Commit message cannot be empty." }
         val index = loadIndex(gitDirectory)
@@ -97,39 +78,29 @@ class GitExecutionService(private val resolver: ContentResolver) {
         }.toByteArray(Charsets.UTF_8)
         val commitId = writeLooseObject(gitDirectory, "commit", commitContent)
         updateHead(gitDirectory, commitId)
-        "Created commit ${commitId.take(12)}.", commitId
+        "Created commit ${commitId.take(12)}." to commitId
     }
 
-    suspend fun createBranch(
-        gitDirectory: Uri,
-        headRevision: String?,
-        name: String,
-    ): GitExecutionResult = runMutation {
+    suspend fun createBranch(gitDirectory: Uri, headRevision: String?, name: String): GitExecutionResult = runMutation {
         val branch = validateBranchName(name)
         val revision = headRevision?.takeIf { SHA_PATTERN.matches(it) }
             ?: throw IllegalStateException("A valid HEAD revision is required before creating a branch.")
-        val refUri = ensurePath(gitDirectory, listOf("refs", "heads", *branch.split('/').toTypedArray()), directoryLeaf = false)
-        require(refUri == null || !exists(refUri)) { "Branch '$branch' already exists." }
+        require(findPath(gitDirectory, "refs/heads/$branch") == null) { "Branch '$branch' already exists." }
         val parent = ensureDirectoryPath(gitDirectory, listOf("refs", "heads", *branch.split('/').dropLast(1).toTypedArray()))
-        val leaf = branch.substringAfterLast('/')
-        val created = DocumentsContract.createDocument(resolver, parent, "text/plain", leaf)
+        val created = DocumentsContract.createDocument(resolver, parent, "text/plain", branch.substringAfterLast('/'))
             ?: throw IOException("Unable to create branch ref '$branch'.")
         writeText(created, "$revision\n")
-        "Created branch '$branch'."
+        "Created branch '$branch'." to null
     }
 
-    suspend fun deleteBranch(
-        gitDirectory: Uri,
-        currentBranch: String?,
-        name: String,
-    ): GitExecutionResult = runMutation {
+    suspend fun deleteBranch(gitDirectory: Uri, currentBranch: String?, name: String): GitExecutionResult = runMutation {
         val branch = validateBranchName(name)
         require(branch != currentBranch) { "The current branch cannot be deleted." }
         val ref = findPath(gitDirectory, "refs/heads/$branch")
             ?: throw IllegalStateException("Branch '$branch' does not exist.")
         require(!ref.directory) { "Branch ref '$branch' is not a file." }
         require(DocumentsContract.deleteDocument(resolver, ref.uri)) { "Unable to delete branch '$branch'." }
-        "Deleted branch '$branch'."
+        "Deleted branch '$branch'." to null
     }
 
     private fun updateHead(gitDirectory: Uri, revision: String) {
@@ -137,8 +108,7 @@ class GitExecutionService(private val resolver: ContentResolver) {
         val current = readText(head, 4096)?.trim().orEmpty()
         if (current.startsWith("ref:")) {
             val branch = current.removePrefix("ref:").trim().removePrefix("refs/heads/")
-            val ref = findPath(gitDirectory, "refs/heads/$branch")
-                ?: throw IOException("Current branch ref '$branch' is unavailable.")
+            val ref = findPath(gitDirectory, "refs/heads/$branch") ?: throw IOException("Current branch ref '$branch' is unavailable.")
             writeText(ref.uri, "$revision\n")
         } else {
             writeText(head, "$revision\n")
@@ -146,8 +116,7 @@ class GitExecutionService(private val resolver: ContentResolver) {
     }
 
     private fun loadIndex(gitDirectory: Uri): ParsedIndex {
-        val indexUri = findDirectChild(gitDirectory, "index")
-        if (indexUri == null) return ParsedIndex(2, emptyList())
+        val indexUri = findDirectChild(gitDirectory, "index") ?: return ParsedIndex(2, emptyList())
         val bytes = readBytes(indexUri, MAX_INDEX_BYTES)
         return when (val parsed = GitIndexParser.parse(bytes)) {
             is GitIndexParseResult.Success -> {
@@ -168,13 +137,12 @@ class GitExecutionService(private val resolver: ContentResolver) {
             val entryStart = body.size()
             repeat(2) { writeUInt32(body, 0) }
             writeUInt32(body, entry.mode)
-            repeat(2) { writeUInt32(body, 0) }
-            writeUInt32(body, 0)
-            writeUInt32(body, 0)
+            repeat(4) { writeUInt32(body, 0) }
             writeBytes(body, hexToBytes(entry.objectId))
-            val flags = ((entry.stage and 0x3) shl 12) or minOf(entry.path.toByteArray(Charsets.UTF_8).size, 0x0fff)
+            val pathBytes = entry.path.toByteArray(Charsets.UTF_8)
+            val flags = ((entry.stage and 0x3) shl 12) or minOf(pathBytes.size, 0x0fff)
             writeUInt16(body, flags)
-            writeBytes(body, entry.path.toByteArray(Charsets.UTF_8))
+            writeBytes(body, pathBytes)
             body.write(0)
             val padding = (8 - (body.size() - entryStart).mod(8)) % 8
             repeat(padding) { body.write(0) }
@@ -207,7 +175,7 @@ class GitExecutionService(private val resolver: ContentResolver) {
         val entries = mutableListOf<TreeLine>()
         node.files.values.forEach { entries += TreeLine(it.path.substringAfterLast('/'), formatMode(it.mode), it.objectId, false) }
         node.directories.forEach { (name, child) -> entries += TreeLine(name, "040000", writeTreeNode(gitDirectory, child), true) }
-        entries.sortWith(compareBy { it.sortKey.toByteList() })
+        entries.sortWith(Comparator { left, right -> compareBytes(left.sortKey.toByteArray(Charsets.UTF_8), right.sortKey.toByteArray(Charsets.UTF_8)) })
         val content = ByteArrayOutputStream()
         entries.forEach { line ->
             writeAscii(content, line.mode)
@@ -228,8 +196,7 @@ class GitExecutionService(private val resolver: ContentResolver) {
         val objectId = MessageDigest.getInstance("SHA-1").digest(objectBytes).toHex()
         val objects = findDirectChild(gitDirectory, "objects") ?: throw IOException("Git objects directory is unavailable.")
         val bucket = ensureDirectoryPath(objects, listOf(objectId.take(2)))
-        val existing = findDirectChild(bucket, objectId.drop(2))
-        if (existing == null) {
+        if (findDirectChild(bucket, objectId.drop(2)) == null) {
             val target = DocumentsContract.createDocument(resolver, bucket, "application/octet-stream", objectId.drop(2))
                 ?: throw IOException("Unable to create Git object $objectId.")
             val compressed = ByteArrayOutputStream()
@@ -241,19 +208,13 @@ class GitExecutionService(private val resolver: ContentResolver) {
 
     private fun readHeadFiles(gitDirectory: Uri, revision: String): Map<String, HeadEntry> {
         val reader = GitObjectReader(resolver, gitDirectory)
-        val tree = reader.readCommitTree(revision) ?: return emptyMap()
+        val tree = reader.readCommitTree(revision) ?: throw IllegalStateException("HEAD commit objects are unavailable on this access path.")
         val result = linkedMapOf<String, HeadEntry>()
         traverseTree(reader, tree, "", result, 0)
         return result
     }
 
-    private fun traverseTree(
-        reader: GitObjectReader,
-        treeId: String,
-        prefix: String,
-        result: MutableMap<String, HeadEntry>,
-        depth: Int,
-    ) {
+    private fun traverseTree(reader: GitObjectReader, treeId: String, prefix: String, result: MutableMap<String, HeadEntry>, depth: Int) {
         if (depth > MAX_TREE_DEPTH || result.size >= MAX_INDEX_ENTRIES) return
         when (val tree = reader.readTree(treeId, MAX_INDEX_ENTRIES)) {
             is GitObjectResultWithEntries.Unavailable -> throw IllegalStateException(tree.reason)
@@ -289,15 +250,14 @@ class GitExecutionService(private val resolver: ContentResolver) {
     }
 
     private fun normalizeIndexEntries(entries: List<GitIndexEntry>): List<GitIndexEntry> =
-        entries
-            .filter { it.stage in 0..3 }
-            .sortedWith(compareBy<GitIndexEntry> { it.path.toByteList() }.thenBy { it.stage })
+        entries.filter { it.stage in 0..3 }.sortedWith(Comparator { left, right ->
+            val pathCompare = compareBytes(left.path.toByteArray(Charsets.UTF_8), right.path.toByteArray(Charsets.UTF_8))
+            if (pathCompare != 0) pathCompare else left.stage.compareTo(right.stage)
+        })
 
-    private fun existingMode(entries: List<GitIndexEntry>, path: String): Long? =
-        entries.firstOrNull { it.path == path && it.stage == 0 }?.mode
+    private fun existingMode(entries: List<GitIndexEntry>, path: String): Long? = entries.firstOrNull { it.path == path && it.stage == 0 }?.mode
 
-    private fun normalizePaths(paths: List<String>): List<String> =
-        paths.map(::normalizePath).distinct()
+    private fun normalizePaths(paths: List<String>): List<String> = paths.map(::normalizePath).distinct()
 
     private fun normalizePath(path: String): String {
         val normalized = path.replace('\\', '/').trim('/')
@@ -323,18 +283,9 @@ class GitExecutionService(private val resolver: ContentResolver) {
         for ((index, part) in parts.withIndex()) {
             val child = findDirectChild(current, part) ?: return null
             current = child
-            if (index == parts.lastIndex) {
-                return DocumentRef(child, isDirectory(child))
-            }
+            if (index == parts.lastIndex) return DocumentRef(child, isDirectory(child))
         }
         return null
-    }
-
-    private fun ensurePath(root: Uri, parts: List<String>, directoryLeaf: Boolean): Uri? {
-        if (parts.isEmpty()) return root
-        var current = root
-        parts.dropLast(if (directoryLeaf) 0 else 1).forEach { part -> current = ensureDirectoryPath(current, listOf(part)) }
-        return findDirectChild(current, parts.last())
     }
 
     private fun ensureDirectoryPath(root: Uri, parts: List<String>): Uri {
@@ -363,11 +314,9 @@ class GitExecutionService(private val resolver: ContentResolver) {
         }.orEmpty()
     }.getOrDefault(emptyList())
 
-    private fun isDirectory(uri: Uri): Boolean = listChildren(uri).let { true }.runCatching {
+    private fun isDirectory(uri: Uri): Boolean = runCatching {
         resolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE), null, null, null)?.use { it.moveToFirst() && it.getString(0) == DocumentsContract.Document.MIME_TYPE_DIR } == true
     }.getOrDefault(false)
-
-    private fun exists(uri: Uri): Boolean = runCatching { resolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID), null, null, null)?.use { it.moveToFirst() } == true }.getOrDefault(false)
 
     private fun readText(uri: Uri, maxBytes: Int): String? = readBytes(uri, maxBytes).toString(Charsets.UTF_8)
 
@@ -399,15 +348,15 @@ class GitExecutionService(private val resolver: ContentResolver) {
         GitExecutionResult.Success(result.first, result.second)
     }.getOrElse { GitExecutionResult.Failure(it.message ?: "Git mutation failed safely.") }
 
-    private fun runMutation(block: () -> String): GitExecutionResult = runMutation { block() to null }
-
     private data class ParsedIndex(val version: Int, val entries: List<GitIndexEntry>)
     private data class GitIdentity(val name: String, val email: String)
     private data class HeadEntry(val objectId: String, val mode: String)
     private data class DocumentRef(val uri: Uri, val directory: Boolean)
     private data class ChildDocument(val uri: Uri, val name: String, val directory: Boolean)
     private data class TreeNode(val files: MutableMap<String, GitIndexEntry> = linkedMapOf(), val directories: MutableMap<String, TreeNode> = linkedMapOf())
-    private data class TreeLine(val name: String, val mode: String, val objectId: String, val directory: Boolean) { val sortKey: String get() = name + if (directory) "/" else "" }
+    private data class TreeLine(val name: String, val mode: String, val objectId: String, val directory: Boolean) {
+        val sortKey: String get() = name + if (directory) "/" else ""
+    }
 
     private companion object {
         const val MAX_STAGE_BYTES = 8 * 1024 * 1024
@@ -423,7 +372,6 @@ class GitExecutionService(private val resolver: ContentResolver) {
 }
 
 private fun writeAscii(output: ByteArrayOutputStream, value: String) = output.write(value.toByteArray(Charsets.US_ASCII))
-
 private fun writeBytes(output: ByteArrayOutputStream, bytes: ByteArray) = output.write(bytes)
 
 private fun writeUInt16(output: ByteArrayOutputStream, value: Int) {
@@ -439,9 +387,14 @@ private fun writeUInt32(output: ByteArrayOutputStream, value: Long) {
 }
 
 private fun formatMode(mode: Long): String = mode.toString(8).padStart(6, '0').takeLast(6)
-
 private fun hexToBytes(hex: String): ByteArray = ByteArray(hex.length / 2) { index -> hex.substring(index * 2, index * 2 + 2).toInt(16).toByte() }
-
 private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
-private fun String.toByteList(): ByteArray = toByteArray(Charsets.UTF_8)
+private fun compareBytes(left: ByteArray, right: ByteArray): Int {
+    val limit = minOf(left.size, right.size)
+    for (index in 0 until limit) {
+        val diff = (left[index].toInt() and 0xff) - (right[index].toInt() and 0xff)
+        if (diff != 0) return diff
+    }
+    return left.size.compareTo(right.size)
+}
