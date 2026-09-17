@@ -55,9 +55,10 @@
 - [x] Audit history and bounded retention
 - [x] Workspace-scoped persistent capability grants with R2 ceiling
 - [x] Protected destructive/high-risk capabilities cannot receive persistent bypass grants
-- [ ] Path-scoped grants
-- [ ] Biometric secret protection
-- [ ] Expanded action receipt/privacy controls
+- [ ] Path-scoped persistent capability grants
+- [x] Biometric-protected secret-store primitive for high-security credentials
+- [ ] Biometric integration across all existing credential consumers/UI
+- [x] Expanded bounded agent execution receipts with scope/capability/risk/approval metadata
 
 ### Durable Room State
 - [x] Room v7 schema and migrations
@@ -82,6 +83,10 @@
 - [x] Bounded SAF tools: read_file, list_files, search_workspace and write_file
 - [x] Persistent bounded agent-task engine with resumable steps, cancellation, receipts/results and approval waiting
 - [x] Agent task hard limits: 12 steps, bounded payload/result sizes and 60-second execution window
+- [x] Explicit per-agent-task path scopes persisted in the task plan
+- [x] Approval parameter hashes include the task path scope to prevent stale approval reuse after scope changes
+- [x] Workspace tool operations enforce path scopes and continue rejecting traversal/.git access
+- [x] Security regression tests for path traversal, scope boundaries, persisted scope and unsafe tool plans
 - [ ] Streaming responses
 - [ ] Structured patch generation + diff-first approval workflow
 - [ ] Workspace symbol extraction/indexing
@@ -113,10 +118,10 @@
 - [ ] Theme/density/editor preferences
 
 ## In Progress / Next Sequence
-1. Security hardening: path scopes, biometric secret protection, stronger receipts and regression coverage.
-2. Interactive Git conflict-resolution editor.
-3. Automation event triggers and richer automation UI.
-4. Terminal capability with strict sandbox/time/argument limits.
+1. Interactive Git conflict-resolution editor.
+2. Automation event triggers and richer automation UI.
+3. Terminal capability with strict sandbox/time/argument limits.
+4. Integrate biometric protected secrets into existing credential consumers and security UI.
 5. Maintained unit/UI/security regression suites and broader validation.
 
 ## Planned
@@ -144,6 +149,7 @@
 - [ ] Pause/resume controls and automation editor
 
 ### Quality / Observability
+- [x] Focused agent security regression tests
 - [ ] Maintained unit-test suite
 - [ ] Compose/UI tests
 - [ ] Static analysis/lint pipeline
@@ -156,7 +162,9 @@
 ## Validation
 - [x] Historical CI toolchain/debug-build validations
 - [x] Current agent milestone triggered a fresh Android CI run after commit
-- [ ] Current automation scheduler/run engine CI validation
+- [x] Security hardening changes triggered a fresh Android CI run after commit
+- [ ] Current automation scheduler/run engine CI result verification
+- [ ] Security hardening CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
 - [ ] Maintained unit/UI/security regression suites
@@ -212,3 +220,11 @@
 - Added WorkManager-backed durable scheduling with daily, interval and one-shot schedule parsing.
 - Added persistent automation execution through the typed agent gateway, approval waiting/resume, bounded retry/backoff, overlap protection, stale-run recovery and cancellation.
 - Added automation audit events and application-start rescheduling of enabled automations.
+
+### 2026-09-17 — Security hardening / path scopes, receipts and biometric secret primitive
+- Added explicit `WorkspacePathScope` boundaries with traversal and `.git` rejection.
+- Persisted agent path scopes inside task plans and included canonical scope data in approval parameter hashes.
+- Enforced scope-aware read/list/search/write behavior through the SAF agent tools.
+- Expanded agent execution receipts with task/step/tool/capability/risk/workspace/scope/affected-path/approval/timestamp metadata, bounded to the existing receipt limits.
+- Added a Keystore-backed biometric-protected secret-store primitive using strong biometric authentication.
+- Added focused path/scope/unsafe-plan regression tests and test dependencies.
