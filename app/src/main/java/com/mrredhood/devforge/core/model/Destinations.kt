@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * Stable primary destinations. Contextual surfaces such as Activity, Editor and
- * Diagnostics remain out of permanent navigation; approvals are a primary safety surface.
+ * Diagnostics remain out of permanent navigation; approvals and diffs are primary review surfaces.
  */
 enum class DevForgeDestination(
     val label: String,
@@ -20,6 +20,7 @@ enum class DevForgeDestination(
     Chat("Chat", Icons.Default.ChatBubble),
     Files("Files", Icons.Default.Description),
     Git("Git", Icons.Default.Source),
+    Diffs("Diffs", Icons.Default.Description),
     Build("Build", Icons.Default.Build),
     Approvals("Approvals", Icons.Default.Security),
     Settings("Settings", Icons.Default.Settings),
