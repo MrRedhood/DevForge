@@ -2,11 +2,9 @@ package com.mrredhood.devforge
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +32,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.NotificationsNone
@@ -42,7 +39,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Source
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
@@ -64,10 +60,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -78,7 +71,6 @@ import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSiz
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -127,11 +119,8 @@ private fun DevForgeApp() {
     ) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
             if (expanded && !editing) ForgeRail(current) { destinationName = it.name }
-            if (editing) {
-                EditorScreen(editorViewModel)
-            } else {
-                ForgeContent(current, workspaceViewModel, editorViewModel)
-            }
+            if (editing) EditorScreen(editorViewModel)
+            else ForgeContent(current, workspaceViewModel, editorViewModel)
         }
     }
 }
@@ -233,23 +222,55 @@ private fun HeroCard() {
 @Composable
 private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(workspace::openWorkspace) }
+    BackHandler(enabled = workspace.breadcrumbs.size > 1) { workspace.goUp() }
+
     ScreenFrame { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 ScreenTitle("Files", if (workspace.workspace == null) "Choose a workspace to begin" else "Live workspace browser")
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { picker.launch(null) }) { Icon(Icons.Default.Folder, null); Spacer(Modifier.width(8.dp)); Text(if (workspace.workspace == null) "Choose workspace" else "Change") }
+                    Button(onClick = { picker.launch(null) }) {
+                        Icon(Icons.Default.Folder, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (workspace.workspace == null) "Choose workspace" else "Change")
+                    }
                     if (workspace.workspace != null) IconButton(onClick = workspace::refresh) { Icon(Icons.Default.Refresh, "Refresh workspace") }
                 }
             }
-            if (workspace.workspace == null) item { WorkspaceEmptyState() }
-            else if (workspace.isLoading) item { LoadingCard("Reading workspace…") }
-            else if (workspace.entries.isEmpty()) item { EmptyFolderCard() }
-            else {
-                item { SectionLabel("Root • ${workspace.entries.size} entries") }
-                items(workspace.entries, key = { it.uri.toString() }) { entry -> WorkspaceRow(entry) { editor.open(entry) } }
+            if (workspace.workspace == null) {
+                item { WorkspaceEmptyState() }
+            } else {
+                item { Breadcrumbs(workspace) }
+                if (workspace.isLoading) item { LoadingCard("Reading folder…") }
+                else if (workspace.entries.isEmpty()) item { EmptyFolderCard() }
+                else {
+                    item { SectionLabel("${workspace.currentName} • ${workspace.entries.size} entries") }
+                    items(workspace.entries, key = { it.uri.toString() }) { entry ->
+                        WorkspaceRow(entry) {
+                            if (entry.isDirectory) workspace.openDirectory(entry) else editor.open(entry)
+                        }
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun Breadcrumbs(workspace: WorkspaceViewModel) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        workspace.breadcrumbs.forEachIndexed { index, crumb ->
+            if (index > 0) Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp).alpha(.45f))
+            FilterChip(
+                selected = index == workspace.breadcrumbs.lastIndex,
+                onClick = { workspace.goToBreadcrumb(index) },
+                label = { Text(crumb.name, maxLines = 1) },
+            )
         }
     }
 }
@@ -272,7 +293,7 @@ private fun LoadingCard(text: String) {
 
 @Composable
 private fun EmptyFolderCard() {
-    Card(RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) { Column(Modifier.fillMaxWidth().padding(20.dp)) { Text("Nothing at the workspace root", fontWeight = FontWeight.Bold); Text("Create a file in the selected folder and refresh.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp)) } }
+    Card(RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) { Column(Modifier.fillMaxWidth().padding(20.dp)) { Text("Nothing in this folder", fontWeight = FontWeight.Bold); Text("Create a file here and refresh.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp)) } }
 }
 
 @Composable
@@ -281,7 +302,10 @@ private fun WorkspaceRow(entry: WorkspaceEntry, onOpen: () -> Unit) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile, null, Modifier.size(23.dp))
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) { Text(entry.name, fontWeight = FontWeight.SemiBold); Text(if (entry.isDirectory) "Folder" else formatBytes(entry.sizeBytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Column(Modifier.weight(1f)) {
+                Text(entry.name, fontWeight = FontWeight.SemiBold)
+                Text(if (entry.isDirectory) "Folder" else formatBytes(entry.sizeBytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Icon(Icons.Default.ChevronRight, null, Modifier.alpha(.45f))
         }
     }
