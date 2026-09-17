@@ -12,27 +12,32 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mrredhood.devforge.core.storage.ApprovalEntity
+import com.mrredhood.devforge.core.storage.AuditEventEntity
+import com.mrredhood.devforge.core.storage.CapabilityGrantEntity
 import com.mrredhood.devforge.core.storage.capabilityOrNull
 import com.mrredhood.devforge.core.storage.riskOrNull
 import java.text.DateFormat
@@ -42,6 +47,7 @@ import java.util.Date
 fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
     val pending = viewModel.pending
     val message = viewModel.actionMessage
+    val activeGrantCapabilities = viewModel.grants.mapNotNull { it.capabilityOrNull() }.toSet()
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
@@ -53,7 +59,7 @@ fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
                 Column {
                     Text("Approval Center", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
                     Text(
-                        "Review side-effecting actions before DevForge executes them.",
+                        "Review side-effecting actions, persistent grants, and recent policy activity.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -69,10 +75,7 @@ fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Pending actions", fontWeight = FontWeight.Bold)
-                            Text(
-                                "${pending.size} waiting for your decision",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Text("${pending.size} waiting for your decision", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         FilterChip(selected = pending.isNotEmpty(), onClick = {}, enabled = false, label = { Text(pending.size.toString()) })
                     }
@@ -81,10 +84,7 @@ fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
 
             if (pending.isEmpty()) {
                 item {
-                    Card(
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    ) {
+                    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                         Column(Modifier.fillMaxWidth().padding(22.dp)) {
                             Text("Nothing needs approval", fontWeight = FontWeight.ExtraBold)
                             Text(
@@ -101,11 +101,54 @@ fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
                 }
             }
 
+            item { SectionHeader(Icons.Default.Settings, "Persistent capability grants", "Explicit workspace-scoped grants can bypass approval only up to R2 and never cover protected capabilities.") }
+
+            item {
+                Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Active workspace", fontWeight = FontWeight.Bold)
+                        Text(viewModel.activeWorkspaceId ?: "No workspace is currently active", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (viewModel.grants.isEmpty()) {
+                            Text("No persistent grants are active for this workspace.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            viewModel.grants.forEach { grant -> GrantRow(grant, viewModel::revoke) }
+                        }
+                    }
+                }
+            }
+
+            items(viewModel.grantableCapabilities, key = { it.name }) { capability ->
+                val active = capability in activeGrantCapabilities
+                Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(capability.name.replace('_', ' '), fontWeight = FontWeight.SemiBold)
+                            Text("Approval bypass ceiling: R2", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        OutlinedButton(onClick = { viewModel.grant(capability) }, enabled = !active && viewModel.activeWorkspaceId != null) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(5.dp))
+                            Text(if (active) "Enabled" else "Grant")
+                        }
+                    }
+                }
+            }
+
+            item { SectionHeader(Icons.Default.History, "Audit history", "Recent approval, execution, expiry, and grant events are retained locally with bounded history.") }
+
+            if (viewModel.auditHistory.isEmpty()) {
+                item {
+                    Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                        Text("No audit events yet.", Modifier.fillMaxWidth().padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                items(viewModel.auditHistory, key = { it.eventId }) { event -> AuditEventCard(event) }
+            }
+
             message?.let { text ->
                 item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    ) {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(text, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSecondaryContainer)
                             TextButton(onClick = viewModel::clearMessage) { Text("Dismiss") }
@@ -118,17 +161,10 @@ fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
 }
 
 @Composable
-private fun ApprovalActionCard(
-    action: ApprovalEntity,
-    onApprove: (ApprovalEntity) -> Unit,
-    onReject: (ApprovalEntity) -> Unit,
-) {
+private fun ApprovalActionCard(action: ApprovalEntity, onApprove: (ApprovalEntity) -> Unit, onReject: (ApprovalEntity) -> Unit) {
     val risk = action.riskOrNull()?.name ?: action.risk
     val capability = action.capabilityOrNull()?.name ?: action.capability
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
+    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(action.summary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -158,5 +194,42 @@ private fun ApprovalActionCard(
     }
 }
 
-private fun formatTime(epochMs: Long): String =
-    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(epochMs))
+@Composable
+private fun GrantRow(grant: CapabilityGrantEntity, onRevoke: (CapabilityGrantEntity) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(grant.capability.replace('_', ' '), fontWeight = FontWeight.SemiBold)
+            Text("Up to ${grant.maxRisk} · ${grant.expiresAtEpochMs?.let(::formatTime) ?: "No expiry"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = { onRevoke(grant) }) { Text("Revoke") }
+    }
+}
+
+@Composable
+private fun AuditEventCard(event: AuditEventEntity) {
+    Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(event.eventType.replace('_', ' '), Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                Text(formatTime(event.createdAtEpochMs), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(event.summary)
+            val detail = listOfNotNull(event.capability?.replace('_', ' '), event.risk, event.metadataJson).joinToString(" · ")
+            if (detail.isNotBlank()) Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Icon(icon, contentDescription = null, modifier = Modifier.padding(top = 2.dp))
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+private fun formatTime(epochMs: Long): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(epochMs))
