@@ -56,107 +56,224 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [x] Multiple workspace records persisted with Room
 - [x] Active workspace state persisted with Room
 - [x] Legacy SharedPreferences workspace migration
-- [x] Transactional workspace activation
+- [x] Workspace open/switch foundation
+- [x] Workspace refresh and active-root state handling
 
-### Editor / Recovery / Change Model
+### Editor / Recovery
 
-- [x] SAF-backed file read/write
-- [x] Editor tabs and active-tab switching
-- [x] Dirty-state tracking and explicit save
-- [x] Unsaved-change protection
-- [x] Local recovery drafts and delayed checkpoints
-- [x] Mobile monospace editor surface
-- [x] SHA-256 content hashing
+- [x] Multi-tab editor state foundation
+- [x] Active tab and dirty-state tracking
+- [x] Explicit save action
+- [x] Unsaved-change protection foundation
+- [x] Bounded recovery drafts/checkpoints
+- [x] SHA-256 content identity
 - [x] Immutable bounded snapshots
-- [x] Snapshot ViewModel
 - [x] Line-oriented diff engine
-- [x] Snapshot lifecycle connected to open/save/recovery flows
-- [x] Hash-based duplicate checkpoint suppression
+- [x] Duplicate checkpoint suppression
+- [x] Snapshot lifecycle tied to open/save/recovery events
+- [x] Snapshot ViewModel foundation
 
-### Git Foundation
+### Git / Repository Observation
 
-- [x] Git repository state domain model
-- [x] SAF `.git` directory detection
-- [x] HEAD metadata and branch-name extraction
-- [x] Detached-HEAD recognition and basic detached revision capture
-- [x] `origin` remote URL extraction
-- [x] Explicit unsupported state for linked/worktree `.git` files
-- [x] Detection automatically follows the active Room workspace
-- [x] Loose local branch discovery
-- [x] Packed branch discovery
-- [x] Bounded branch traversal
-- [x] Bounded workspace inventory/status-observation foundation
-- [x] Small-file content hashes for observation
-- [x] Generated-directory exclusions
-- [x] Explicit partial/truncated observation states
-- [x] Git repository state dashboard surface
-- [x] Local branch list presentation
-- [x] Workspace observation dashboard surface
-- [ ] Native working-tree status inspection
-- [ ] Staged/unstaged file model
-- [ ] Branch switching
-- [ ] Commit history
-- [ ] Git diff UI
-- [ ] Local mutation operations
-- [ ] GitHub remote integration
+- [x] `.git` repository detection through SAF
+- [x] HEAD parsing and current-branch extraction
+- [x] Detached-HEAD detection
+- [x] Origin remote URL parsing
+- [x] Linked/worktree `.git` unsupported-state reporting
+- [x] Loose branch discovery
+- [x] Packed-refs branch discovery
+- [x] Bounded repository traversal
+- [x] Workspace observation inventory
+- [x] Generated-directory exclusions for `.git`, build, and `.gradle`
+- [x] Optional small-file hashing for workspace observation
+- [x] Explicit partial/truncated observation state
+- [x] Git dashboard metadata and branch presentation
+- [x] Explicitly unavailable native-Git mutation/status affordances
 
-### Remote Build / CI Foundation
+### Build Center / Remote CI Foundation
 
-- [x] Declarative build configuration model
-- [x] Debug APK / release APK / release AAB target model
-- [x] Workflow-file, branch, Gradle-task, and artifact-name configuration
-- [x] Explicit build lifecycle state model
+- [x] Build targets for debug APK, release APK, and release AAB
+- [x] Build configuration model with workflow/ref/task/artifact metadata
+- [x] Build lifecycle state model
 - [x] Remote capability availability model
-- [x] Build ViewModel with target selection and configuration updates
-- [x] Build Center UI connected to the Build destination
-- [x] Explicit dispatch-unavailable state instead of pretending a remote run started
-- [x] GitHub credential storage boundary
-- [x] GitHub Actions REST dispatch gateway foundation
-- [ ] GitHub account identity verification
-- [ ] OAuth / GitHub App authentication
-- [ ] Repository selection
-- [ ] Workflow discovery
-- [ ] Workflow dispatch UI execution
-- [ ] Live run status
-- [ ] Logs
-- [ ] Artifact discovery/download
-- [ ] Build history
-- [ ] Failure diagnostics
+- [x] Build Center UI
+- [x] Dispatch capability gating before authentication/workflow wiring
+- [x] GitHub Actions API gateway foundation
+- [x] Bounded/redacted GitHub error handling
 
-### Security / Domain Foundation
+### Security / Policy Foundation
 
 - [x] Capability model
-- [x] Risk classification
-- [x] Permission/approval model
-- [x] Action request model
-- [x] Approval state foundation
-- [x] Foundation for policy-gated AI tool execution
-- [x] `SecretStore` abstraction
+- [x] Risk classification foundation
+- [x] Approval-state foundation
+- [x] Policy-gated execution foundation
+- [x] Action-request model
+- [x] SecretStore abstraction
 - [x] Android Keystore-backed AES/GCM secret storage
-- [x] Secret redaction boundary for GitHub API errors
+- [x] Redacted secret/error handling
 
-## Persistence Architecture
+### GitHub Connection Foundation
 
-### Room workspace database — Implemented
+- [x] GitHub connection screen
+- [x] Secure manual credential entry/removal foundation
+- [x] Secret storage through Android Keystore boundary
+- [x] Authenticated GitHub Actions gateway foundation
+- [ ] OAuth / GitHub App connection flow
+- [ ] Repository selection and validation
+- [ ] Workflow discovery and dispatch wiring
 
-- Database: `devforge.db`
-- Room version: 2.8.5 stable
-- KSP-based Room compiler
-- `WorkspaceEntity`, `WorkspaceDao`, `DevForgeDatabase`, `WorkspaceDatabaseRepository`
-- Flow-based active/all workspace state
-- Transactional activate/save behavior
-- One-time legacy selected-workspace migration
-- Room schema output under `app/schemas`
+## In Progress / Next Implementation Sequence
 
-### Intentionally not persisted in Room yet
+1. Authenticated GitHub repository selection and workflow discovery.
+2. End-to-end workflow dispatch from Build Center.
+3. Live run status, logs, artifacts, and build-history surfaces.
+4. Native/index-aware Git execution and status.
+5. Approval center and action review UI.
+6. Snapshot/history and structured diff viewer UI.
+7. Richer Room entities for workspaces, tabs, snapshots, builds, agent tasks, and automation state.
 
-Room expansion remains planned for open tabs, snapshots, Git metadata, agent tasks, build history, automation runs, and other relational state once those models stabilize.
+## Planned
+
+### AI / Agent
+
+- [ ] Provider-neutral AI interface
+- [ ] Gemini / OpenRouter / other provider adapters
+- [ ] Workspace context assembly
+- [ ] File-aware context and symbol extraction
+- [ ] Planning / task graph
+- [ ] Typed tool gateway
+- [ ] Patch generation and structured code changes
+- [ ] Diff-first proposal UI
+- [ ] Verification loop
+- [ ] Persistent agent task state
+- [ ] Memory and workspace knowledge
+- [ ] Context/token budgeting
+- [ ] Model capability matrix
+- [ ] Fallback/provider routing
+
+### Editor Intelligence
+
+- [ ] Full syntax highlighting
+- [ ] Language-aware editing foundation
+- [ ] Diagnostics and problems panel
+- [ ] Undo/redo stack
+- [ ] Find/replace
+- [ ] Go-to-line/symbol
+- [ ] Code folding
+- [ ] Selection/edit actions
+- [ ] Large-file performance safeguards
+- [ ] Editor preferences
+
+### Git
+
+- [ ] Native/index-aware Git status
+- [ ] Diff computation from index/worktree
+- [ ] Stage/unstage
+- [ ] Commit
+- [ ] Branch create/switch/delete
+- [ ] Fetch/pull/push through capability gateway
+- [ ] Merge/rebase/cherry-pick planning and execution
+- [ ] Conflict handling UI
+- [ ] Commit history and file history
+
+### Remote Build / GitHub
+
+- [ ] OAuth/GitHub App authentication
+- [ ] Repository picker
+- [ ] Workflow discovery
+- [ ] Workflow/ref validation
+- [ ] Dispatch execution
+- [ ] Run polling/state updates
+- [ ] Live logs
+- [ ] Artifact listing/download
+- [ ] Build history and receipts
+- [ ] Cancellation
+- [ ] Release build workflow support
+
+### Terminal / Execution
+
+- [ ] Sandboxed terminal capability
+- [ ] Command request model
+- [ ] Argument and path validation
+- [ ] Resource/time limits
+- [ ] Streaming output
+- [ ] Cancel/terminate
+- [ ] Command history
+- [ ] Terminal tabs/sessions
+- [ ] No unrestricted arbitrary AI shell access
+
+### Automation
+
+- [ ] Automation definitions
+- [ ] Triggers and schedules
+- [ ] Step graph
+- [ ] Capability-scoped actions
+- [ ] Approval checkpoints
+- [ ] Retry/backoff
+- [ ] Run history
+- [ ] Pause/resume/cancel
+- [ ] Idempotency/duplicate-run protection
+- [ ] Recovery/receipts
+
+### Security / Privacy
+
+- [ ] Approval Center UI
+- [ ] Per-capability grants
+- [ ] Workspace/path scopes
+- [ ] Secret lifecycle UI
+- [ ] Audit trail
+- [ ] Action receipts
+- [ ] Export/delete privacy controls
+- [ ] Redaction policy testing
+- [ ] Lockscreen/biometric secret access option
+
+### Settings
+
+- [ ] AI provider/model settings
+- [ ] API key/credential management
+- [ ] GitHub account/repository settings
+- [ ] Build settings
+- [ ] Terminal limits
+- [ ] Automation settings
+- [ ] Security/approval settings
+- [ ] Privacy/data retention
+- [ ] Appearance/theme/density
+- [ ] Editor settings
+- [ ] Storage/cache controls
+- [ ] Diagnostics/log export
+- [ ] About/version/license screen
+
+### UI / UX
+
+- [x] Modern dark-first Material 3 foundation
+- [x] Adaptive compact/expanded navigation
+- [x] Original DevForge visual direction
+- [x] Touch-friendly controls
+- [ ] Tablet two-pane refinements
+- [ ] Foldable posture refinements
+- [ ] Rich activity/notification surface
+- [ ] Command/search launcher
+- [ ] Keyboard shortcuts on hardware keyboards
+- [ ] Accessibility audit and semantic pass
+- [ ] Motion/reduced-motion support
+
+### Quality / Observability
+
+- [ ] Unit-test suite established
+- [ ] Compose/UI test suite established
+- [ ] Static analysis/lint pipeline
+- [ ] Release build validation
+- [ ] Performance/budget checks
+- [ ] Structured diagnostic logging
+- [ ] Crash-safe recovery checks
+- [ ] End-to-end build/dispatch tests
+- [ ] Security regression tests
 
 ## Validation
 
 - [x] GitHub Actions workflow configured
 - [x] CI triggered by implementation commits
-- [ ] Latest implementation commit passes Android build
+- [x] Latest implementation-changing commit passes Android build
 - [ ] Unit tests established
 - [ ] UI tests established
 - [ ] Static analysis/lint established
@@ -171,281 +288,65 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - The dependency set was aligned back to an API-36-compatible line without changing the app's stable SDK target.
 - CI run #96 reached Kotlin compilation and exposed an experimental Material3 API usage in `MainActivity.kt` at the expanded navigation rail.
 - The navigation rail call was explicitly opted into with `ExperimentalMaterial3Api`; the earlier Compose compatibility fixes remain intact.
-- A fresh CI run is required to validate the fix; the implementation commit is not marked validated until the build completes successfully.
-
-## In Progress / Next
-
-1. Wire authenticated GitHub repository selection and workflow discovery into Build Center.
-2. Complete workflow dispatch execution with explicit repository/ref selection.
-3. Add live run status, logs, and artifact handling.
-4. Native Git execution/index-aware status capability.
-5. Approval UI connected to real action requests.
-6. Diff viewer and snapshot/recovery history UI.
-7. Workspace switcher UI and richer Room entities after core models stabilize.
-
-## Planned — AI & Agent
-
-- [ ] Provider abstraction
-- [ ] Secure API-key handling
-- [ ] Model catalog/configuration
-- [ ] Context assembly
-- [ ] Workspace indexing/search
-- [ ] Tool registry and schemas
-- [ ] Capability/policy enforcement
-- [ ] Approval queue
-- [ ] Agent task state machine
-- [ ] Plan/execute/review flow
-- [ ] Patch generation/application
-- [ ] Diff-first review
-- [ ] Verification loop
-- [ ] Recovery/rollback loop
-- [ ] Cost/token telemetry
-- [ ] Multi-provider routing
-
-## Planned — Workspace & Editor
-
-- [x] SAF workspace selection
-- [x] Workspace database foundation
-- [x] Recursive folder navigation
-- [x] Breadcrumb navigation
-- [x] Filename search
-- [x] Safe preview foundation
-- [x] File read/write
-- [x] Editor tabs
-- [ ] Syntax highlighting
-- [ ] Diagnostics
-- [ ] Undo/redo
-- [x] Recovery draft hook
-- [x] Snapshot/hash foundation
-- [x] Diff engine foundation
-- [ ] Diff viewer UI
-- [ ] Restore points UI
-- [ ] Content indexing/full-text search
-- [ ] Symbol navigation
-- [x] Large-file preview safeguard
-- [ ] Large-file editor safeguard
-
-## Planned — Git
-
-- [x] Repository detection foundation
-- [x] Basic branch/HEAD metadata model
-- [x] Basic remote-origin metadata model
-- [x] Local branch discovery foundation
-- [x] Workspace observation/status foundation
-- [x] Git repository state surface
-- [x] Branch list surface
-- [x] Workspace observation surface
-- [ ] Native working-tree status
-- [ ] Staged/unstaged file model
-- [ ] Branch switching
-- [ ] Commit history
-- [ ] Status/diff view
-- [ ] Stage/unstage
-- [ ] Commit flow
-- [ ] Push/pull/fetch
-- [ ] Merge/rebase
-- [ ] Conflict UI
-- [ ] Safe-operation confirmation
-- [ ] GitHub integration
-
-## Planned — Remote Build / CI
-
-- [x] Build configuration model
-- [x] Build target selection model
-- [x] Build lifecycle state model
-- [x] Build Center presentation
-- [x] Secure credential-storage foundation
-- [x] GitHub Actions API gateway foundation
-- [ ] GitHub account verification
-- [ ] OAuth/GitHub App connection
-- [ ] Repository selection
-- [ ] Workflow discovery
-- [ ] Workflow dispatch
-- [ ] Live status
-- [ ] Logs
-- [ ] Artifact discovery
-- [ ] APK/AAB handling
-- [ ] Install/download handoff
-- [ ] Build history
-- [ ] Failure diagnostics
-
-## Planned — Terminal
-
-- [ ] Terminal surface
-- [ ] Sessions
-- [ ] Command execution abstraction
-- [ ] Output streaming
-- [ ] Process lifecycle/cancellation
-- [ ] Working directory
-- [ ] Environment model
-- [ ] Safe command policy
-- [ ] Permission prompts
-- [ ] Remote execution integration
-
-## Planned — Automation
-
-- [ ] Automation model
-- [ ] Triggers/actions
-- [ ] Conditions
-- [ ] Permission/approval model
-- [ ] Scheduling
-- [ ] Event triggers
-- [ ] Run history
-- [ ] Retry/backoff
-- [ ] Failure recovery
-- [ ] Automation editor UI
-
-## Planned — Security & Privacy
-
-- [x] Android Keystore foundation
-- [x] Encrypted secret storage foundation
-- [x] GitHub error secret-redaction boundary
-- [ ] Secret redaction across all logs/UI
-- [ ] API-key lifecycle
-- [ ] OAuth/token lifecycle
-- [ ] Capability registry
-- [ ] Least-privilege defaults
-- [ ] Confirmation policy
-- [ ] Audit log
-- [ ] Sensitive-file controls
-- [ ] Network policy
-- [ ] Export/delete controls
-
-## Planned — Settings
-
-- [ ] Appearance
-- [ ] Editor
-- [ ] Workspace
-- [ ] Git
-- [ ] Build
-- [ ] GitHub connection
-- [ ] AI providers/models
-- [ ] Agent behavior
-- [ ] Permissions/security
-- [ ] Terminal
-- [ ] Automation
-- [ ] Notifications
-- [ ] Performance
-- [ ] Accessibility
-- [ ] Storage/cache
-- [ ] Diagnostics
-- [ ] About/license
-
-## Planned — UI/UX Expansion
-
-- [ ] Onboarding
-- [x] Workspace empty/loading/root states
-- [x] Recursive workspace browser
-- [x] Breadcrumb surface
-- [x] Search surface foundation
-- [x] Safe preview foundation
-- [x] Editor workspace chrome foundation
-- [x] Unsaved-change confirmation
-- [ ] Workspace switcher surface
-- [x] Git repository state surface
-- [x] Git branch list surface
-- [ ] Git status/diff surface
-- [ ] Diff viewer
-- [ ] Snapshot/recovery history
-- [ ] Error/recovery states
-- [ ] Approval sheets/dialogs
-- [ ] Command palette
-- [ ] Global search
-- [ ] Quick actions
-- [ ] Activity center
-- [ ] Agent timeline
-- [x] Build Center surface
-- [ ] Build detail
-- [ ] Git detail screens
-- [ ] Full editor chrome
-- [ ] Tablet/foldable layouts
-- [ ] Accessibility semantics
-- [ ] Motion/transition system
-- [ ] Haptics
-
-## Planned — Quality & Observability
-
-- [ ] Unit tests
-- [ ] Repository/data tests
-- [ ] Editor recovery tests
-- [ ] Snapshot/hash tests
-- [ ] Diff tests
-- [ ] Workspace search tests
-- [ ] Preview-policy tests
-- [ ] Git metadata tests
-- [ ] Git branch discovery tests
-- [ ] Git workspace observation tests
-- [ ] Agent/tool contract tests
-- [ ] Policy tests
-- [ ] UI tests
-- [ ] Build smoke tests
-- [ ] Static analysis
-- [ ] Performance profiling
-- [ ] Crash reporting strategy
-- [ ] Structured local diagnostics
-- [ ] Privacy-preserving telemetry
+- CI run #102 reached toolchain verification but failed because the direct `sdkmanager` installation path was not available through the plain `sdkmanager` command during the verification step.
+- CI run #103 passed the toolchain verification, debug APK build, unit-test task, APK verification, and artifact upload after the workflow reused the resolved `sdkmanager` path.
 
 ## Implementation Rules
 
-1. Update this file after every meaningful implementation change.
-2. Never mark interface-only work as implemented.
-3. Keep validation status separate from implementation status.
-4. Preserve Android/mobile-first constraints.
-5. Do not bundle heavyweight Android SDK/NDK/toolchains.
-6. AI actions remain capability-scoped, policy-checked, and approval-aware.
-7. Destructive/external actions require safeguards and recovery.
-8. UI must remain original, stylish, touch-friendly, adaptive, accessible, and recognizably DevForge.
-9. Use least-privilege SAF workspace access.
-10. Keep editing buffers, saved file state, and recovery drafts separate.
-11. Prefer content-based identity for snapshots/diffs/recovery correctness.
-12. Keep local snapshot/history stores bounded until richer database models stabilize.
-13. Keep workspace search/preview bounded and fail safely on large/binary content.
-14. Use Room for durable relational state once the model warrants it; do not prematurely persist every transient UI state.
-15. Treat SAF Git metadata as capability-dependent: absence of `.git` visibility or worktree indirection must surface as an explicit unsupported/unknown state rather than a false repository state.
-16. Keep Git metadata and workspace observation scanning bounded; native Git mutation/status requires a dedicated execution layer rather than unsafe ad-hoc file manipulation.
-17. Never store GitHub or AI secrets in source-controlled configuration.
-18. Runtime credentials must stay behind `SecretStore` and must never be rendered, logged, or exposed through general UI state.
-19. Remote actions remain capability-gated until repository/ref/permission requirements are verified.
+- Never claim a feature is implemented unless the repository contains the supporting code/configuration.
+- Never fake Git status, build execution, GitHub authentication, agent execution, or terminal execution.
+- Keep unavailable capabilities explicitly visible in the UI rather than silently pretending they work.
+- AI/model output is untrusted data, not authorization.
+- Every privileged or side-effecting action must pass through typed capabilities and policy/approval checks.
+- Prefer bounded traversal, bounded file reads, explicit limits, and partial-state reporting on mobile.
+- Preserve manual workflows even when AI features are unavailable.
+- Keep GitHub and remote CI as the cloud backbone; do not bundle heavyweight Android SDK/NDK toolchains.
+- Update this file after every meaningful implementation change.
 
 ## Change Log
 
-### 2026-09-17 — Initial tracker
+### 2026-09-17 — Initial implementation tracker
 
-- Created the living implementation tracker and recorded the initial app foundation.
+- Added `IMPLEMENTATION.md` as the living source of truth for implementation state.
 
 ### 2026-09-17 — Workspace foundation
 
-- Added SAF workspace selection, real workspace enumeration, loading/empty states, refresh, and workspace-aware header.
-- Added durable workspace persistence after the Room migration slice.
+- Added SAF workspace picker with persistable permissions.
+- Added Room-backed workspace records and active-workspace persistence.
+- Added workspace browser state, bounded enumeration, navigation, refresh, and empty/loading states.
 
 ### 2026-09-17 — Editor foundation
 
-- Added SAF file read/write, tabs, dirty state, explicit save, unsaved-change protection, and local recovery drafts.
+- Added multi-tab editor state, dirty tracking, explicit save, and unsaved-change protection foundation.
+- Added bounded recovery drafts/checkpoints.
 
-### 2026-09-17 — Content identity, snapshots, and diff foundation
+### 2026-09-17 — Content identity / snapshots / diff foundation
 
-- Added SHA-256 hashing, immutable snapshots, bounded snapshot storage, SnapshotViewModel, and the line-oriented diff engine.
+- Added SHA-256 content hashing.
+- Added immutable bounded snapshots and a line-oriented diff engine.
+- Added duplicate checkpoint suppression.
 
 ### 2026-09-17 — Editor snapshot lifecycle
 
-- Connected snapshots to file-open, successful save, recovery-draft creation, and recovery reopening.
+- Connected snapshot creation to editor open/save/recovery paths.
+- Added `SnapshotViewModel` foundation.
 
 ### 2026-09-17 — Recursive workspace navigation
 
-- Added nested SAF folder traversal, breadcrumb hierarchy, and back/up/root navigation.
+- Added recursive folder navigation, breadcrumbs, root/back/up navigation, and per-folder bounded enumeration.
 
-### 2026-09-17 — Workspace search and safe preview
+### 2026-09-17 — Workspace search / safe preview
 
-- Added bounded recursive filename search, safe preview handling, binary detection, search-to-editor navigation, and large-preview safeguards.
+- Added bounded recursive filename search.
+- Added binary-content detection and a 512 KiB safe text-preview ceiling.
 
 ### 2026-09-17 — Durable workspace persistence with Room
 
-- Added KSP and AndroidX Room 2.8.5 stable dependencies, Room database/DAO/repository layers, Flow-based active/all workspace state, transactional workspace activation, legacy migration, and schema generation.
-- Kept richer entities such as snapshots, Git, agent tasks, builds, and automations for later model stabilization.
+- Added Room database, workspace entity/DAO/repository, migration from legacy SharedPreferences workspace state, and active-workspace persistence.
 
 ### 2026-09-17 — Git repository detection foundation
 
-- Added `GitRepositoryState`, explicit detection states, SAF `.git` detection, HEAD parsing, origin URL extraction, unsupported worktree reporting, and active-workspace-aware Git detection.
+- Added `.git` detection, HEAD parsing, origin URL extraction, unsupported worktree reporting, and active-workspace-aware Git detection.
 
 ### 2026-09-17 — Git branch discovery foundation
 
@@ -520,4 +421,12 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - CI run #96 reached Kotlin compilation and reported an experimental Material3 API usage at the expanded `NavigationRail` surface in `MainActivity.kt`.
 - Added the explicit `ExperimentalMaterial3Api` opt-in only to the navigation-rail composable, preserving the existing window-size opt-in and avoiding a broader global opt-in.
 - Corrected the `BackHandler` import while applying the fix.
-- Fresh CI validation remains pending.
+- CI run #103 completed successfully: toolchain verification, debug APK assembly, unit-test task, APK verification, and artifact upload all passed.
+
+### 2026-09-17 — CI sdkmanager verification-path fix
+
+- The attached CI handoff matched the repository application source and tracker; its workflow copy was older than the already-applied CI setup fix.
+- CI run #102 reached toolchain verification but failed because `sdkmanager` was not available on `PATH` even though SDK installation had succeeded.
+- Updated the workflow to persist the resolved `sdkmanager` path and add its directory to `GITHUB_PATH`, then reused that exact path for verification.
+- CI run #103 passed toolchain verification, `:app:assembleDebug`, `:app:testDebugUnitTest`, APK verification, and artifact upload.
+- No application-source changes from the supplied bundle were needed because the bundle's application files matched the repository state.
