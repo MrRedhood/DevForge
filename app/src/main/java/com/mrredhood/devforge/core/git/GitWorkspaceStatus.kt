@@ -22,10 +22,7 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
         val indexUri = gitDirectory?.let { findDirectChild(it, "index") }
         val indexBytes = indexUri?.let { readBytes(it, MAX_INDEX_BYTES) }
 
-        val parsedIndex = when {
-            indexBytes == null -> null
-            else -> GitIndexParser.parse(indexBytes)
-        }
+        val parsedIndex = indexBytes?.let(GitIndexParser::parse)
 
         when (parsedIndex) {
             is GitIndexParseResult.Success -> inspectAgainstIndex(root, parsedIndex.entries, maxFiles, parsedIndex.truncated)
@@ -97,8 +94,19 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
     }
 
     private fun observeOnly(root: Uri, maxFiles: Int, reason: String): GitWorkspaceStatus {
-        val files = mutableListOf<GitWorkspaceFile>()
-        walk(root, "", files.mapToMutableObservation(maxFiles), maxFiles, 0)
+        val worktree = mutableListOf<WorktreeFile>()
+        walk(root, "", worktree, maxFiles, 0)
+        val files = worktree.map { current ->
+            GitWorkspaceFile(
+                path = current.path,
+                sizeBytes = current.sizeBytes,
+                contentHash = current.gitBlobHash,
+                readError = current.readError,
+                gitStatus = GitFileStatus.Unchecked,
+                indexObjectId = null,
+                worktreeObjectId = current.gitBlobHash,
+            )
+        }
         return GitWorkspaceStatus(
             state = if (files.any { it.readError }) GitStatusConfidence.Partial else GitStatusConfidence.Observed,
             mode = GitStatusAvailability.MetadataOnly,
@@ -107,8 +115,6 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
             message = "$reason Staged/unstaged status is unavailable on this access path.",
         )
     }
-
-    private fun MutableList<WorktreeFile>.mapToMutableObservation(maxFiles: Int): MutableList<WorktreeFile> = this
 
     private fun walk(
         parent: Uri,
@@ -140,8 +146,7 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
     private fun readGitBlobHash(uri: Uri, declaredSize: Long): String? = runCatching {
         resolver.openInputStream(uri)?.use { input ->
             val digest = MessageDigest.getInstance("SHA-1")
-            val header = "blob $declaredSize\u0000".toByteArray(Charsets.UTF_8)
-            digest.update(header)
+            digest.update("blob $declaredSize\u0000".toByteArray(Charsets.UTF_8))
             var totalRead = 0L
             val buffer = ByteArray(16 * 1024)
             while (true) {
