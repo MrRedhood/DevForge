@@ -6,10 +6,7 @@ import com.mrredhood.devforge.core.policy.RiskLevel
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 
-class CapabilityGrantRepository(
-    private val dao: CapabilityGrantDao,
-    private val audit: AuditTrailRepository? = null,
-) {
+class CapabilityGrantRepository(private val dao: CapabilityGrantDao) {
     fun observe(workspaceId: String, limit: Int = MAX_GRANTS): Flow<List<CapabilityGrantEntity>> =
         dao.observeForWorkspace(workspaceId, limit)
 
@@ -30,39 +27,23 @@ class CapabilityGrantRepository(
         expiresAtEpochMs: Long? = null,
     ): CapabilityGrantEntity? {
         if (!isGrantable(capability)) return null
-        val now = System.currentTimeMillis()
         val entity = CapabilityGrantEntity(
             grantId = UUID.randomUUID().toString(),
             workspaceId = workspaceId,
             capability = capability.name,
             maxRisk = maxRisk.name,
-            createdAtEpochMs = now,
+            createdAtEpochMs = System.currentTimeMillis(),
             expiresAtEpochMs = expiresAtEpochMs,
             enabled = true,
         )
         dao.upsert(entity)
         CapabilityGrantRegistry.put(workspaceId, capability, maxRisk, expiresAtEpochMs)
-        audit?.record(
-            eventType = "GRANT_CREATED",
-            summary = "Persistent grant enabled for ${capability.name}",
-            workspaceId = workspaceId,
-            capability = capability.name,
-            risk = maxRisk.name,
-        )
         return entity
     }
 
     suspend fun revoke(workspaceId: String, capability: Capability): Boolean {
         val changed = dao.revoke(workspaceId, capability.name) > 0
-        if (changed) {
-            CapabilityGrantRegistry.remove(workspaceId, capability)
-            audit?.record(
-                eventType = "GRANT_REVOKED",
-                summary = "Persistent grant revoked for ${capability.name}",
-                workspaceId = workspaceId,
-                capability = capability.name,
-            )
-        }
+        if (changed) CapabilityGrantRegistry.remove(workspaceId, capability)
         return changed
     }
 
