@@ -34,6 +34,7 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
     private var detectionJob: Job? = null
     private var approvalJob: Job? = null
     private var reviewJob: Job? = null
+    private var conflictJob: Job? = null
 
     var repository by mutableStateOf<GitRepositoryState?>(null)
         private set
@@ -57,6 +58,11 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
     var selectedFileHistory by mutableStateOf<List<GitFileHistoryEntry>>(emptyList())
         private set
     var isLoadingHistory by mutableStateOf(false)
+        private set
+
+    var conflictSession by mutableStateOf<GitConflictSessionSnapshot?>(null)
+        private set
+    var isResolvingConflict by mutableStateOf(false)
         private set
 
     init {
@@ -121,9 +127,78 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun selectConflictFile(path: String) {
+        val current = conflictSession ?: return
+        if (path !in current.paths) return
+        conflictSession = current.copy(selectedPath = path)
+    }
+
+    fun resolveConflict(path: String, content: String?) {
+        val session = conflictSession ?: return
+        conflictJob?.cancel()
+        conflictJob = viewModelScope.launch(Dispatchers.IO) {
+            isResolvingConflict = true
+            val updated = runCatching { historyService.resolveConflict(session.sessionId, path, content) }.getOrNull()
+            withContext(Dispatchers.Main.immediate) {
+                isResolvingConflict = false
+                if (updated == null) {
+                    message = "The conflict session is no longer available."
+                } else {
+                    conflictSession = updated.copy(selectedPath = path.takeIf { it in updated.paths } ?: updated.paths.firstOrNull())
+                    message = if (updated.paths.isEmpty()) "All conflicts are resolved. Review the result, then continue." else "Resolution staged for $path."
+                }
+            }
+        }
+    }
+
+    fun continueConflict() {
+        val session = conflictSession ?: return
+        if (isResolvingConflict) return
+        conflictJob?.cancel()
+        conflictJob = viewModelScope.launch(Dispatchers.IO) {
+            isResolvingConflict = true
+            val result = historyService.continueConflict(session.sessionId)
+            withContext(Dispatchers.Main.immediate) {
+                isResolvingConflict = false
+                when (result) {
+                    is GitHistoryResult.Success -> {
+                        val approvalId = session.approvalId
+                        conflictSession = null
+                        message = result.message
+                        if (approvalId != null) viewModelScope.launch(Dispatchers.IO) { approvalRepository.finishSuccess(approvalId) }
+                        detect(repository?.rootUri)
+                    }
+                    is GitHistoryResult.Conflict -> {
+                        conflictSession = historyService.loadConflictSession(result.sessionId ?: session.sessionId)
+                        message = "More conflicts remain. Resolve them before continuing."
+                    }
+                    is GitHistoryResult.Failure -> message = result.message
+                }
+            }
+        }
+    }
+
+    fun abortConflict() {
+        val session = conflictSession ?: return
+        if (isResolvingConflict) return
+        conflictJob?.cancel()
+        conflictJob = viewModelScope.launch(Dispatchers.IO) {
+            isResolvingConflict = true
+            val result = historyService.abortConflict(session.sessionId)
+            val approvalId = session.approvalId
+            withContext(Dispatchers.Main.immediate) {
+                isResolvingConflict = false
+                conflictSession = null
+                message = resultMessage(result)
+                if (approvalId != null) viewModelScope.launch(Dispatchers.IO) { approvalRepository.finishFailure(approvalId) }
+            }
+        }
+    }
+
     private fun detect(root: Uri?) {
         detectionJob?.cancel()
         reviewJob?.cancel()
+        conflictJob?.cancel()
         repository = null
         status = null
         selectedBranch = null
@@ -132,6 +207,8 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
         selectedCommitFiles = emptyList()
         selectedFilePath = null
         selectedFileHistory = emptyList()
+        conflictSession = null
+        isLoadingHistory = false
         if (root == null) return
         detectionJob = viewModelScope.launch {
             val detected = repositoryService.detect(root)
@@ -158,7 +235,7 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
         parameters: String,
         block: suspend (GitRepositoryState) -> GitHistoryResult,
     ) {
-        if (isExecuting) return
+        if (isExecuting || conflictSession != null) return
         val current = repository ?: run {
             message = "No supported Git repository is active."
             return
@@ -225,21 +302,29 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
             isExecuting = true
             when (action.type) {
                 "git-history-switch" -> historyService.switchBranch(current, action.parameters)
-                "git-history-merge" -> historyService.merge(current, action.parameters)
-                "git-history-rebase" -> historyService.rebase(current, action.parameters)
-                "git-history-cherry-pick" -> historyService.cherryPick(current, action.parameters)
+                "git-history-merge" -> historyService.merge(current, action.parameters, approval.approvalId)
+                "git-history-rebase" -> historyService.rebase(current, action.parameters, approval.approvalId)
+                "git-history-cherry-pick" -> historyService.cherryPick(current, action.parameters, approval.approvalId)
                 else -> GitHistoryResult.Failure("Unsupported approved history action.")
             }
         }
         withContext(Dispatchers.Main.immediate) {
             isExecuting = false
             message = resultMessage(result)
+            when (result) {
+                is GitHistoryResult.Conflict -> {
+                    conflictSession = result.sessionId?.let { id -> historyService.loadConflictSession(id) }
+                }
+                else -> Unit
+            }
         }
-        if (result is GitHistoryResult.Success) {
-            approvalRepository.finishSuccess(approval.approvalId)
-            detect(current.rootUri)
-        } else {
-            approvalRepository.finishFailure(approval.approvalId)
+        when (result) {
+            is GitHistoryResult.Success -> {
+                approvalRepository.finishSuccess(approval.approvalId)
+                detect(current.rootUri)
+            }
+            is GitHistoryResult.Conflict -> Unit
+            is GitHistoryResult.Failure -> approvalRepository.finishFailure(approval.approvalId)
         }
     }
 
@@ -251,14 +336,23 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
                 isExecuting = false
                 message = resultMessage(result)
             }
-            if (result is GitHistoryResult.Success) detect(repository.rootUri)
+            when (result) {
+                is GitHistoryResult.Success -> detect(repository.rootUri)
+                is GitHistoryResult.Conflict -> {
+                    val id = result.sessionId
+                    withContext(Dispatchers.Main.immediate) {
+                        conflictSession = id?.let { historyService.loadConflictSession(it) }
+                    }
+                }
+                is GitHistoryResult.Failure -> Unit
+            }
         }
     }
 
     private fun resultMessage(result: GitHistoryResult): String = when (result) {
         is GitHistoryResult.Success -> result.message
         is GitHistoryResult.Failure -> result.message
-        is GitHistoryResult.Conflict -> "${result.operation} found ${result.paths.size} conflict(s). The conflicted temporary state was discarded; the workspace is unchanged.${if (result.paths.isNotEmpty()) " ${result.paths.take(6).joinToString()}${if (result.paths.size > 6) "…" else ""}" else ""}"
+        is GitHistoryResult.Conflict -> "${result.operation} found ${result.paths.size} conflict(s). Resolve them in the conflict editor before continuing."
     }
 
     private fun encode(type: String, repository: GitRepositoryState, parameters: String): String = JSONObject()
@@ -282,6 +376,7 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
         detectionJob?.cancel()
         approvalJob?.cancel()
         reviewJob?.cancel()
+        conflictJob?.cancel()
         super.onCleared()
     }
 
