@@ -44,6 +44,8 @@ jobs:
           if [ ! -x "$SDKMANAGER" ]; then
             SDKMANAGER="$(command -v sdkmanager)"
           fi
+          echo "ANDROID_SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
 
@@ -59,7 +61,7 @@ jobs:
           set -euo pipefail
           java -version
           gradle --version
-          sdkmanager --list_installed | grep -E "platform-tools|platforms;${ANDROID_PLATFORM}|build-tools;${ANDROID_BUILD_TOOLS}"
+          "$ANDROID_SDKMANAGER" --list_installed | grep -E "platform-tools|platforms;${ANDROID_PLATFORM}|build-tools;${ANDROID_BUILD_TOOLS}"
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace --no-daemon --max-workers=2
