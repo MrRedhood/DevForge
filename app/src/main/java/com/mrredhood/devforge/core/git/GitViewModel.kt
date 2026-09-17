@@ -44,13 +44,16 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         detectionJob = viewModelScope.launch {
             val detected = repositoryService.detect(root)
             state = detected
-            if (detected is GitDetectionState.Detected) inspectWorkspace(root, detected.repository.gitDirectoryUri)
+            if (detected is GitDetectionState.Detected) {
+                inspectWorkspace(root, detected.repository.gitDirectoryUri, detected.repository.headRevision)
+            }
         }
     }
 
     fun inspectWorkspace(
         root: Uri? = activeRoot(),
         gitDirectory: Uri? = activeGitDirectory(),
+        headRevision: String? = activeHeadRevision(),
     ) {
         statusJob?.cancel()
         if (root == null) {
@@ -59,7 +62,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         }
         isInspectingStatus = true
         statusJob = viewModelScope.launch {
-            val status = statusService.inspect(root, gitDirectory)
+            val status = statusService.inspect(root, gitDirectory, headRevision)
             workspaceStatus = status
             val detected = state as? GitDetectionState.Detected
             if (detected != null) {
@@ -75,4 +78,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun activeGitDirectory(): Uri? =
         (state as? GitDetectionState.Detected)?.repository?.gitDirectoryUri
+
+    private fun activeHeadRevision(): String? =
+        (state as? GitDetectionState.Detected)?.repository?.headRevision
 }
