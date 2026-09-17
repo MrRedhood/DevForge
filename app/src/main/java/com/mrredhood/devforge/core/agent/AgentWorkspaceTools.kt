@@ -1,0 +1,256 @@
+package com.mrredhood.devforge.core.agent
+
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.DocumentsContract
+import com.mrredhood.devforge.core.policy.Capability
+import com.mrredhood.devforge.core.policy.RiskLevel
+import com.mrredhood.devforge.core.storage.WorkspaceDao
+import com.mrredhood.devforge.core.workspace.WorkspaceFileTree
+import com.mrredhood.devforge.core.workspace.WorkspaceSearch
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+
+/** Registers bounded SAF workspace tools. There is deliberately no shell/exec tool here. */
+class WorkspaceAgentToolProvider(
+    private val resolver: ContentResolver,
+    private val workspaceDao: WorkspaceDao,
+) {
+    fun registerAll(registry: AgentToolRegistry): AgentToolRegistry = registry
+        .register(ReadFileTool())
+        .register(ListFilesTool())
+        .register(SearchWorkspaceTool())
+        .register(WriteFileTool())
+
+    private abstract inner class WorkspaceTool : AgentTool {
+        protected suspend fun root(context: AgentToolContext): Uri {
+            val workspace = workspaceDao.findById(context.workspaceId)
+                ?: throw IllegalArgumentException("Workspace '${context.workspaceId}' was not found.")
+            return Uri.parse(workspace.treeUri)
+        }
+
+        protected val access = WorkspaceAgentFileAccess(resolver)
+    }
+
+    private inner class ReadFileTool : WorkspaceTool() {
+        override val definition = AgentToolDefinition(
+            AgentToolId.READ_FILE,
+            "Read one bounded text file from the selected workspace.",
+            Capability.READ_WORKSPACE,
+            RiskLevel.R0,
+            sideEffecting = false,
+        )
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val path = JSONObject(request.argumentsJson).optString("path").trim()
+            val root = root(context)
+            val content = access.readText(root, path)
+            AgentToolResult.Success(
+                summary = "Read $path.",
+                output = JSONObject().put("path", path).put("content", content).toString(),
+                affectedPaths = listOf(path),
+            )
+        } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to read file.")
+        }
+    }
+
+    private inner class ListFilesTool : WorkspaceTool() {
+        override val definition = AgentToolDefinition(
+            AgentToolId.LIST_FILES,
+            "List bounded direct children of a workspace directory.",
+            Capability.READ_WORKSPACE,
+            RiskLevel.R0,
+            sideEffecting = false,
+        )
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val args = JSONObject(request.argumentsJson)
+            val path = args.optString("path", "").trim()
+            val limit = args.optInt("limit", 100).coerceIn(1, MAX_LIST_ENTRIES)
+            val entries = access.list(root(context), path, limit)
+            val result = JSONArray()
+            entries.forEach { entry ->
+                result.put(
+                    JSONObject()
+                        .put("name", entry.name)
+                        .put("directory", entry.isDirectory)
+                        .put("sizeBytes", entry.sizeBytes),
+                )
+            }
+            AgentToolResult.Success(
+                summary = "Listed ${entries.size} entries${if (path.isBlank()) "" else " in $path"}.",
+                output = JSONObject().put("path", path).put("entries", result).toString(),
+            )
+        } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to list workspace files.")
+        }
+    }
+
+    private inner class SearchWorkspaceTool : WorkspaceTool() {
+        override val definition = AgentToolDefinition(
+            AgentToolId.SEARCH_WORKSPACE,
+            "Search workspace names using the bounded SAF search implementation.",
+            Capability.READ_WORKSPACE,
+            RiskLevel.R0,
+            sideEffecting = false,
+        )
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val args = JSONObject(request.argumentsJson)
+            val query = args.optString("query").trim()
+            require(query.isNotBlank()) { "Search query cannot be empty." }
+            val limit = args.optInt("limit", 30).coerceIn(1, MAX_SEARCH_RESULTS)
+            val results = WorkspaceSearch(resolver).search(root(context), query, limit)
+            val output = JSONArray()
+            results.forEach { item ->
+                output.put(
+                    JSONObject()
+                        .put("name", item.name)
+                        .put("directory", item.isDirectory)
+                        .put("sizeBytes", item.sizeBytes)
+                        .put("uri", item.uri.toString()),
+                )
+            }
+            AgentToolResult.Success(
+                summary = "Found ${results.size} workspace matches for '$query'.",
+                output = JSONObject().put("query", query).put("results", output).toString(),
+            )
+        } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Workspace search failed.")
+        }
+    }
+
+    private inner class WriteFileTool : WorkspaceTool() {
+        override val definition = AgentToolDefinition(
+            AgentToolId.WRITE_FILE,
+            "Write one bounded UTF-8 text file inside the selected workspace.",
+            Capability.EDIT_FILES,
+            RiskLevel.R2,
+            sideEffecting = true,
+        )
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val args = JSONObject(request.argumentsJson)
+            val path = args.optString("path").trim()
+            val content = args.optString("content", "")
+            access.writeText(root(context), path, content)
+            AgentToolResult.Success(
+                summary = "Wrote $path.",
+                output = JSONObject()
+                    .put("path", path)
+                    .put("bytes", content.toByteArray(Charsets.UTF_8).size)
+                    .toString(),
+                affectedPaths = listOf(path),
+            )
+        } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to write file.")
+        }
+    }
+
+    companion object {
+        private const val MAX_LIST_ENTRIES = 100
+        private const val MAX_SEARCH_RESULTS = 50
+    }
+}
+
+private data class AgentWorkspaceEntry(
+    val name: String,
+    val isDirectory: Boolean,
+    val sizeBytes: Long?,
+)
+
+private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
+    private val tree = WorkspaceFileTree(resolver)
+
+    suspend fun list(root: Uri, path: String, limit: Int): List<AgentWorkspaceEntry> = withContext(Dispatchers.IO) {
+        val directory = resolve(root, path)
+        require(isDirectory(directory)) { "Workspace path is not a directory: $path" }
+        tree.list(directory, limit).map { AgentWorkspaceEntry(it.name, it.isDirectory, it.sizeBytes) }
+    }
+
+    suspend fun readText(root: Uri, path: String): String = withContext(Dispatchers.IO) {
+        val file = resolve(root, path)
+        require(!isDirectory(file)) { "Cannot read a directory as a file: $path" }
+        val bytes = readBounded(file, MAX_READ_BYTES)
+        require(!bytes.contains(0.toByte())) { "Binary files are not readable through the agent text tool." }
+        bytes.toString(Charsets.UTF_8)
+    }
+
+    suspend fun writeText(root: Uri, path: String, content: String) = withContext(Dispatchers.IO) {
+        val normalized = normalizePath(path)
+        val bytes = content.toByteArray(Charsets.UTF_8)
+        require(bytes.size <= MAX_WRITE_BYTES) { "Agent file writes are limited to 128 KiB." }
+        val parts = normalized.split('/')
+        val name = parts.last()
+        val parentPath = parts.dropLast(1).joinToString("/")
+        val parent = resolve(root, parentPath)
+        require(isDirectory(parent)) { "Parent path is not a directory: $parentPath" }
+        val target = findChild(parent, name)
+            ?: DocumentsContract.createDocument(resolver, parent, "text/plain", name)
+            ?: throw IOException("Unable to create $normalized")
+        require(!isDirectory(target)) { "Cannot overwrite a directory: $normalized" }
+        resolver.openOutputStream(target, "wt")?.use { output -> output.write(bytes) }
+            ?: throw IOException("Unable to open $normalized for writing.")
+    }
+
+    private fun resolve(root: Uri, path: String): Uri {
+        val normalized = normalizePath(path, allowEmpty = true)
+        if (normalized.isEmpty()) return root
+        var current = root
+        normalized.split('/').forEach { segment ->
+            current = findChild(current, segment)
+                ?: throw IllegalArgumentException("Workspace path does not exist: $normalized")
+        }
+        return current
+    }
+
+    private fun findChild(parent: Uri, name: String): Uri? =
+        tree.list(parent, MAX_DIRECTORY_ENTRIES).firstOrNull { it.name == name }?.uri
+
+    private fun normalizePath(path: String, allowEmpty: Boolean = false): String {
+        val value = path.replace('\\', '/').trim('/')
+        if (value.isEmpty() && allowEmpty) return ""
+        require(value.isNotBlank()) { "Workspace path cannot be empty." }
+        require(value.length <= MAX_PATH_LENGTH) { "Workspace path is too long." }
+        val parts = value.split('/')
+        require(parts.size <= MAX_PATH_DEPTH) { "Workspace path is too deep." }
+        require(parts.none { it.isBlank() || it == "." || it == ".." }) { "Workspace path is invalid." }
+        require(parts.none { it.equals(".git", true) }) { "Git metadata is not accessible through agent workspace tools." }
+        return parts.joinToString("/")
+    }
+
+    private fun isDirectory(uri: Uri): Boolean =
+        resolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE), null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+            cursor.moveToFirst() && index >= 0 && cursor.getString(index) == DocumentsContract.Document.MIME_TYPE_DIR
+        } ?: false
+
+    private fun readBounded(uri: Uri, maxBytes: Int): ByteArray {
+        val output = ByteArrayOutputStream()
+        resolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArray(8192)
+            while (output.size() <= maxBytes) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                if (output.size() + read > maxBytes) {
+                    throw IllegalArgumentException("File exceeds the agent read limit of 128 KiB.")
+                }
+                output.write(buffer, 0, read)
+            }
+        } ?: throw IOException("Unable to open file for reading.")
+        return output.toByteArray()
+    }
+
+    companion object {
+        private const val MAX_READ_BYTES = 128 * 1024
+        private const val MAX_WRITE_BYTES = 128 * 1024
+        private const val MAX_DIRECTORY_ENTRIES = 256
+        private const val MAX_PATH_LENGTH = 500
+        private const val MAX_PATH_DEPTH = 32
+    }
+}

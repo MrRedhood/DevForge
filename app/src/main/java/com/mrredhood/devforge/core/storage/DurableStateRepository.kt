@@ -84,8 +84,22 @@ class DurableStateRepository(
     suspend fun saveAgentTask(task: AgentTaskEntity) {
         require(task.instruction.toByteArray(Charsets.UTF_8).size <= MAX_AGENT_INSTRUCTION_BYTES) { "Agent task instruction exceeds the persistence limit." }
         require((task.payload ?: "").toByteArray(Charsets.UTF_8).size <= MAX_TASK_PAYLOAD_BYTES) { "Agent task payload exceeds the persistence limit." }
-        agentTasks.upsert(task.copy(title = task.title.take(MAX_NAME_LENGTH), errorMessage = task.errorMessage?.take(MAX_ERROR_LENGTH)))
+        require((task.result ?: "").toByteArray(Charsets.UTF_8).size <= MAX_AGENT_RESULT_BYTES) { "Agent task result exceeds the persistence limit." }
+        require(task.currentStep in 0..MAX_AGENT_STEPS) { "Agent task step pointer exceeds the persistence limit." }
+        require(task.stepCount in 0..MAX_AGENT_STEPS) { "Agent task step count exceeds the persistence limit." }
+        agentTasks.upsert(
+            task.copy(
+                title = task.title.take(MAX_NAME_LENGTH),
+                errorMessage = task.errorMessage?.take(MAX_ERROR_LENGTH),
+                approvalId = task.approvalId?.take(MAX_NAME_LENGTH),
+                lastToolId = task.lastToolId?.take(MAX_NAME_LENGTH),
+            ),
+        )
     }
+
+    suspend fun getAgentTask(taskId: String): AgentTaskEntity? = agentTasks.get(taskId)
+
+    suspend fun deleteAgentTask(taskId: String) = agentTasks.delete(taskId)
 
     fun observeAgentTasks(workspaceId: String, limit: Int = MAX_AGENT_TASKS) = agentTasks.observe(workspaceId, limit)
 
@@ -133,11 +147,13 @@ class DurableStateRepository(
         const val MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024
         const val MAX_SNAPSHOTS_PER_FILE = 12
         const val MAX_AGENT_TASKS = 50
+        const val MAX_AGENT_STEPS = 12
         const val MAX_AUTOMATIONS = 50
         const val MAX_AUTOMATION_RUNS = 50
         const val MAX_AUDIT_EVENTS = 200
         const val MAX_AGENT_INSTRUCTION_BYTES = 64 * 1024
         const val MAX_TASK_PAYLOAD_BYTES = 256 * 1024
+        const val MAX_AGENT_RESULT_BYTES = 64 * 1024
         const val MAX_AUTOMATION_GRAPH_BYTES = 256 * 1024
         const val MAX_RECEIPT_BYTES = 64 * 1024
         const val MAX_AUDIT_METADATA_BYTES = 32 * 1024

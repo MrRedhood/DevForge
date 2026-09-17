@@ -36,6 +36,13 @@ data class AgentTaskEntity(
     val updatedAtEpochMs: Long,
     val payload: String?,
     val errorMessage: String?,
+    val currentStep: Int = 0,
+    val stepCount: Int = 0,
+    val result: String? = null,
+    val approvalId: String? = null,
+    val lastToolId: String? = null,
+    val startedAtEpochMs: Long? = null,
+    val completedAtEpochMs: Long? = null,
 )
 
 @Entity(tableName = "automation_definitions")

@@ -26,7 +26,7 @@ import com.mrredhood.devforge.core.policy.RiskLevel
         ChatSessionEntity::class,
         ChatMessageEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class DevForgeDatabase : RoomDatabase() {
@@ -229,6 +229,18 @@ abstract class DevForgeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `currentStep` INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `stepCount` INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `result` TEXT")
+                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `approvalId` TEXT")
+                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `lastToolId` TEXT")
+                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `startedAtEpochMs` INTEGER")
+                database.execSQL("ALTER TABLE `agent_tasks` ADD COLUMN `completedAtEpochMs` INTEGER")
+            }
+        }
+
         @Volatile private var INSTANCE: DevForgeDatabase? = null
 
         fun get(context: Context): DevForgeDatabase =
@@ -238,7 +250,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     DevForgeDatabase::class.java,
                     "devforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)

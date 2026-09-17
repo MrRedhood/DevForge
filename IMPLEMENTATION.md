@@ -91,14 +91,14 @@ Git safety limits include 8 MiB staged files, 16 MiB index input, 20,000 index e
 - [ ] Expanded action receipts/privacy controls
 
 ### Durable Room State
-- [x] Room v6 schema and migrations
+- [x] Room v7 schema and migrations
 - [x] Durable editor tabs/snapshots
-- [x] Agent-task persistence foundation
+- [x] Durable agent-task state with step pointer, result, approval reference and lifecycle timestamps
 - [x] Automation definition/run persistence foundation
 - [x] Durable audit-event storage with retention pruning
 - [x] Durable capability-grant storage/DAO/repository
 - [x] Model-scoped persistent chat sessions and bounded chat messages
-- [ ] Full persistent agent-task execution engine
+- [x] Persistent bounded agent-task execution engine
 - [ ] Automation scheduler/run engine
 
 ### AI / Agent
@@ -116,15 +116,21 @@ Git safety limits include 8 MiB staged files, 16 MiB index input, 20,000 index e
 - [x] Bounded `@file` mention resolution through SAF workspace search and file reads
 - [x] Shared agent command bridge/catalog so future agents consume the same command definitions
 - [x] Side-effect command semantics remain proposals and still require typed capability/approval authorization
+- [x] Provider-neutral typed agent tool registry/gateway
+- [x] Bounded SAF agent tools: read_file, list_files, search_workspace and write_file
+- [x] Agent tool execution routed through capability/policy and Approval Center gates
+- [x] Structured tool execution audit events with bounded metadata
+- [x] Persisted agent task states: QUEUED, PLANNING, RUNNING, WAITING_APPROVAL, COMPLETED, FAILED and CANCELLED
+- [x] Approval-aware agent task resume and bounded execution time/step count
 - [ ] Streaming responses
-- [ ] Full provider-neutral agent tool gateway
-- [ ] Task graph/planning engine and persistent agent execution
 - [ ] Structured patch generation + diff-first approval workflow
 - [ ] Workspace symbol extraction/indexing for AI context
 - [ ] Workspace memory/knowledge layer
 
 Current command catalog:
 `/help`, `/explain`, `/debug`, `/fix`, `/refactor`, `/optimize`, `/test`, `/review`, `/summarize`, `/docs`, `/search`, `/find`, `/plan`, `/implement`, `/generate`, `/diff`, `/build`, `/commit`, `/run`, `/agent`.
+
+Current agent tool execution intentionally excludes arbitrary shell access. Git/build/remote tools remain separate typed capabilities and can be registered against the same gateway without bypassing its policy boundary.
 
 ### Settings / UX
 - [x] AI provider selection UI
@@ -137,11 +143,11 @@ Current command catalog:
 - [ ] Theme/density/editor preferences
 
 ## In Progress / Next Sequence
-1. Validate the current AI + Room v6 integration in CI and fix any remaining Android/Compose/Room compile issues.
-2. Provider-neutral agent tool gateway and persistent agent-task execution.
-3. Automation scheduler/run engine.
-4. Security hardening: path scopes, biometric secret protection, receipts and regression coverage.
-5. Interactive Git conflict-resolution editor.
+1. Automation scheduler/run engine.
+2. Security hardening: path scopes, biometric secret protection, receipts and regression coverage.
+3. Interactive Git conflict-resolution editor.
+4. Agent tool expansion for typed Git/build operations and structured patch workflows.
+5. Streaming AI responses and richer agent UI.
 
 ## Planned
 
@@ -187,6 +193,7 @@ Current command catalog:
 - [ ] Current Room v6 AI/chat model-session validation
 - [ ] Current AI model catalog/Compose integration validation
 - [ ] Current commit/file history review validation
+- [ ] Current Room v7 agent gateway/task execution validation
 - [ ] Live authenticated remote fetch/pull/push validation
 - [ ] Release APK validation with signing secrets
 - [ ] Maintained unit/UI/security test suites
@@ -244,3 +251,11 @@ Current command catalog:
 - Added bounded per-file history with added/modified/deleted change markers.
 - Integrated the review surface into the existing Git branch/history card without adding a new navigation destination.
 - CI validation for the commit/file history milestone remains pending.
+
+### 2026-09-17 — Provider-neutral agent gateway and persistent execution
+- Added typed `AgentTool`, request/result/context, registry and policy-aware `AgentToolGateway` abstractions.
+- Added bounded SAF workspace tools for file reads, directory listing, workspace search and approval-gated writes; no arbitrary shell tool was introduced.
+- Upgraded Room to v7 with durable agent step state, result, approval reference and lifecycle timestamps plus a 6→7 migration.
+- Added `AgentTaskEngine` with QUEUED/PLANNING/RUNNING/WAITING_APPROVAL/COMPLETED/FAILED/CANCELLED states, approval-aware resume, 12-step and 60-second execution bounds, and durable results.
+- Added `AgentRuntime` composition root so the provider-neutral gateway and persistent task engine can be reused by future UI/provider integrations.
+- CI validation for the Room v7/agent milestone remains pending.
