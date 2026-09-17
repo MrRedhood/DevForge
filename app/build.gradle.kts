@@ -6,6 +6,17 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val releaseKeystoreFile = providers.environmentVariable("DEVFORGE_RELEASE_KEYSTORE_FILE").orNull
+val releaseKeystorePassword = providers.environmentVariable("DEVFORGE_RELEASE_KEYSTORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("DEVFORGE_RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("DEVFORGE_RELEASE_KEY_PASSWORD").orNull
+val releaseSigningConfigured = listOf(
+    releaseKeystoreFile,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.mrredhood.devforge"
     compileSdk = 36
@@ -19,6 +30,25 @@ android {
     }
 
     buildFeatures { compose = true }
+
+    if (releaseSigningConfigured) {
+        signingConfigs {
+            create("devforgeRelease") {
+                storeFile = file(releaseKeystoreFile!!)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("devforgeRelease")
+            }
+        }
+    }
 
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
