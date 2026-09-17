@@ -69,8 +69,8 @@ import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSiz
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -296,7 +296,7 @@ private fun EditorScreen(editor: EditorViewModel) {
 }
 
 @Composable
-private fun BuildScreen() { ScreenFrame { padding -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { item { ScreenTitle("Build", "Cloud builds without bundling the Android toolchain") }; item { PulseCard("Build Center", "GitHub Actions dispatch and artifact flow", "Coming next") }; item { PulseCard("Remote-first", "DevForge stays lightweight on-device", "Protected") } } } }
+private fun BuildScreen() { com.mrredhood.devforge.core.build.BuildCenterScreen() }
 
 @Composable
 private fun SettingsScreen() { ScreenFrame { padding -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { item { ScreenTitle("Settings", "Control how DevForge behaves") }; item { PulseCard("AI", "Provider, model, context and memory", "Planned") }; item { PulseCard("Workspace", "Indexing, recovery, snapshots and storage", "Active") }; item { PulseCard("Security", "Approvals, secrets and privacy controls", "Planned") }; item { PulseCard("Appearance", "Theme, density, motion and editor style", "Planned") } } } }
