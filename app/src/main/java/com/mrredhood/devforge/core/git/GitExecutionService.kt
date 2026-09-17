@@ -35,7 +35,7 @@ class GitExecutionService(private val resolver: ContentResolver) {
         }
 
         writeIndex(gitDirectory, normalizeIndexEntries(entries))
-        "Staged ${normalizedPaths.size} path(s)."
+        "Staged ${normalizedPaths.size} path(s)." to null
     }
 
     suspend fun unstage(gitDirectory: Uri, headRevision: String?, paths: List<String>): GitExecutionResult = runMutation {
@@ -52,7 +52,7 @@ class GitExecutionService(private val resolver: ContentResolver) {
             }
         }
         writeIndex(gitDirectory, normalizeIndexEntries(entries))
-        "Unstaged ${normalizedPaths.size} path(s)."
+        "Unstaged ${normalizedPaths.size} path(s)." to null
     }
 
     suspend fun commit(gitDirectory: Uri, headRevision: String?, message: String): GitExecutionResult = runMutation {

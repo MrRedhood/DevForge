@@ -33,10 +33,11 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
                 } else {
                     HeadReadResult.Unavailable("Git HEAD objects are unavailable on this access path.")
                 }
-                if (headFiles is HeadReadResult.Success) {
-                    inspectAgainstHeadIndexWorktree(root, parsedIndex.entries, headFiles.files, maxFiles, parsedIndex.truncated, headFiles.truncated)
-                } else {
-                    inspectAgainstIndex(root, parsedIndex.entries, maxFiles, parsedIndex.truncated, headFiles.reason)
+                when (headFiles) {
+                    is HeadReadResult.Success ->
+                        inspectAgainstHeadIndexWorktree(root, parsedIndex.entries, headFiles.files, maxFiles, parsedIndex.truncated, headFiles.truncated)
+                    is HeadReadResult.Unavailable ->
+                        inspectAgainstIndex(root, parsedIndex.entries, maxFiles, parsedIndex.truncated, headFiles.reason)
                 }
             }
             is GitIndexParseResult.Unsupported -> observeOnly(root, maxFiles, parsedIndex.reason)
