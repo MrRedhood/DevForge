@@ -6,6 +6,16 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      target:
+        description: Build target
+        required: true
+        default: debug_apk
+        type: choice
+        options:
+          - debug_apk
+          - release_apk
+          - release_aab
 
 permissions:
   contents: read
@@ -55,6 +65,42 @@ jobs:
           gradle-version: ${{ env.GRADLE_VERSION }}
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
+      - name: Resolve build target
+        id: target
+        shell: bash
+        env:
+          EVENT_TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          TARGET="${EVENT_TARGET:-debug_apk}"
+          case "$TARGET" in
+            debug_apk)
+              TASK=":app:assembleDebug"
+              ARTIFACT_NAME="devforge-debug-apk"
+              ARTIFACT_PATH="app/build/outputs/apk/debug/app-debug.apk"
+              ;;
+            release_apk)
+              TASK=":app:assembleRelease"
+              ARTIFACT_NAME="devforge-release-apk"
+              ARTIFACT_PATH="app/build/outputs/apk/release/*.apk"
+              ;;
+            release_aab)
+              TASK=":app:bundleRelease"
+              ARTIFACT_NAME="devforge-release-aab"
+              ARTIFACT_PATH="app/build/outputs/bundle/release/*.aab"
+              ;;
+            *)
+              echo "Unsupported build target: $TARGET" >&2
+              exit 1
+              ;;
+          esac
+          {
+            echo "target=$TARGET"
+            echo "task=$TASK"
+            echo "artifact_name=$ARTIFACT_NAME"
+            echo "artifact_path=$ARTIFACT_PATH"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Verify toolchain
         shell: bash
         run: |
@@ -63,23 +109,33 @@ jobs:
           gradle --version
           "$ANDROID_SDKMANAGER" --list_installed | grep -E "platform-tools|platforms;${ANDROID_PLATFORM}|build-tools;${ANDROID_BUILD_TOOLS}"
 
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace --no-daemon --max-workers=2
+      - name: Build selected target
+        run: gradle "${{ steps.target.outputs.task }}" --stacktrace --no-daemon --max-workers=2
 
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --stacktrace --no-daemon --max-workers=2
 
-      - name: Verify debug APK
+      - name: Verify selected artifact
         shell: bash
+        env:
+          ARTIFACT_PATH: ${{ steps.target.outputs.artifact_path }}
         run: |
           set -euo pipefail
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          sha256sum app/build/outputs/apk/debug/app-debug.apk
+          shopt -s nullglob
+          files=( $ARTIFACT_PATH )
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "Expected artifact was not produced: $ARTIFACT_PATH" >&2
+            exit 1
+          fi
+          for file in "${files[@]}"; do
+            test -s "$file"
+            sha256sum "$file"
+          done
 
-      - name: Upload debug APK
+      - name: Upload selected artifact
         uses: actions/upload-artifact@v4
         with:
-          name: devforge-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: ${{ steps.target.outputs.artifact_name }}
+          path: ${{ steps.target.outputs.artifact_path }}
           if-no-files-found: error
           retention-days: 14
