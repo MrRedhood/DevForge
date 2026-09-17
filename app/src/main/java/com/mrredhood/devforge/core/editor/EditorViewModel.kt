@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.mrredhood.devforge.core.storage.DevForgeDatabase
+import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -15,11 +17,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class EditorViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = EditorRepository(
-        application.contentResolver,
-        application.getSharedPreferences(PREFERENCES, 0),
-    )
-    private val snapshots = SnapshotStore(application)
+    private val repository = EditorRepository(application.contentResolver, application.getSharedPreferences(PREFERENCES, 0))
+    private val durable = DurableStateRepository(DevForgeDatabase.get(application))
 
     var tabs by mutableStateOf<List<EditorTab>>(emptyList())
         private set
@@ -35,11 +34,22 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     val activeTab: EditorTab?
         get() = tabs.firstOrNull { it.uri == activeUri }
 
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            val restored = durable.loadEditorTabs()
+            withContext(Dispatchers.Main.immediate) {
+                tabs = restored
+                activeUri = restored.firstOrNull()?.uri
+            }
+        }
+    }
+
     fun open(entry: WorkspaceEntry) {
         if (entry.isDirectory) return
         val existing = tabs.firstOrNull { it.uri == entry.uri }
         if (existing != null) {
             activeUri = existing.uri
+            viewModelScope.launch(Dispatchers.IO) { durable.saveEditorTab(existing, active = true) }
             return
         }
         isLoading = true
@@ -47,20 +57,18 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { repository.read(entry.uri) }
             result.onSuccess { content ->
-                val recovery = withContext(Dispatchers.IO) { repository.recoveryDraft(entry.uri) }
-                val initial = recovery?.content ?: content
-                tabs = tabs + EditorTab(entry.uri, entry.name, initial, content)
+                val legacyRecovery = withContext(Dispatchers.IO) { repository.recoveryDraft(entry.uri) }
+                val existingDurable = withContext(Dispatchers.IO) { durable.loadEditorTabs().firstOrNull { it.uri == entry.uri } }
+                val initial = existingDurable?.content ?: legacyRecovery?.content ?: content
+                val tab = EditorTab(entry.uri, entry.name, initial, existingDurable?.savedContent ?: content)
+                tabs = tabs.filterNot { it.uri == entry.uri } + tab
                 activeUri = entry.uri
                 isLoading = false
                 withContext(Dispatchers.IO) {
+                    durable.saveEditorTab(tab, active = true)
                     ensureBaselineSnapshot(entry.uri, entry.name, content)
-                    if (recovery != null && recovery.content != content) {
-                        saveSnapshotIfChanged(
-                            entry.uri,
-                            entry.name,
-                            recovery.content,
-                            SnapshotReason.RECOVERY,
-                        )
+                    if (legacyRecovery != null && legacyRecovery.content != content) {
+                        saveSnapshotIfChanged(entry.uri, entry.name, legacyRecovery.content, SnapshotReason.RECOVERY)
                     }
                 }
             }.onFailure { throwable ->
@@ -70,7 +78,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun select(uri: Uri) { activeUri = uri }
+    fun select(uri: Uri) {
+        activeUri = uri
+        tabs.firstOrNull { it.uri == uri }?.let { selected ->
+            viewModelScope.launch(Dispatchers.IO) { durable.saveEditorTab(selected, active = true) }
+        }
+    }
 
     fun updateContent(content: String) {
         val uri = activeUri ?: return
@@ -84,8 +97,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
             result.onSuccess {
                 val saved = tab.content
-                tabs = tabs.map { if (it.uri == tab.uri) it.copy(savedContent = saved, updatedAt = System.currentTimeMillis()) else it }
+                val persisted = tab.copy(savedContent = saved, updatedAt = System.currentTimeMillis())
+                tabs = tabs.map { if (it.uri == tab.uri) persisted else it }
                 withContext(Dispatchers.IO) {
+                    durable.saveEditorTab(persisted, active = true)
                     saveSnapshotIfChanged(tab.uri, tab.name, saved, SnapshotReason.MANUAL)
                     repository.clearRecoveryDraft(tab.uri)
                 }
@@ -100,24 +115,35 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
             result.onSuccess {
                 val saved = tab.content
-                tabs = tabs.map { if (it.uri == tab.uri) it.copy(savedContent = saved, updatedAt = System.currentTimeMillis()) else it }
+                val persisted = tab.copy(savedContent = saved, updatedAt = System.currentTimeMillis())
+                tabs = tabs.map { if (it.uri == tab.uri) persisted else it }
                 withContext(Dispatchers.IO) {
                     saveSnapshotIfChanged(tab.uri, tab.name, saved, SnapshotReason.MANUAL)
                     repository.clearRecoveryDraft(tab.uri)
+                    durable.deleteEditorTab(tab.uri)
                 }
                 recoveryJobs.remove(tab.uri)?.cancel()
-                close(tab.uri)
+                close(tab.uri, persist = false)
             }.onFailure { throwable -> error = throwable.message ?: "Unable to save file" }
         }
     }
 
-    fun close(uri: Uri, discard: Boolean = false) {
+    fun close(uri: Uri, discard: Boolean = false) = close(uri, persist = true)
+
+    private fun close(uri: Uri, persist: Boolean) {
         val tab = tabs.firstOrNull { it.uri == uri } ?: return
-        if (tab.isDirty && !discard) return
+        if (tab.isDirty && !persist) {
+            // save-and-close already persisted the final state removal path
+        }
+        if (tab.isDirty && persist) return
         recoveryJobs.remove(uri)?.cancel()
         tabs = tabs.filterNot { it.uri == uri }
         activeUri = tabs.lastOrNull()?.uri
-        if (discard) viewModelScope.launch(Dispatchers.IO) { repository.clearRecoveryDraft(uri) }
+        viewModelScope.launch(Dispatchers.IO) {
+            durable.deleteEditorTab(uri)
+            activeUri?.let { next -> tabs.firstOrNull { it.uri == next }?.let { durable.saveEditorTab(it, active = true) } }
+            if (discard) repository.clearRecoveryDraft(uri)
+        }
     }
 
     fun dismissError() { error = null }
@@ -129,6 +155,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             val tab = tabs.firstOrNull { it.uri == uri } ?: return@launch
             if (tab.isDirty) {
                 withContext(Dispatchers.IO) {
+                    durable.saveEditorTab(tab, active = tab.uri == activeUri)
                     repository.saveRecoveryDraft(
                         RecoveryDraft(tab.uri, tab.name, tab.content, System.currentTimeMillis()),
                     )
@@ -138,17 +165,17 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun ensureBaselineSnapshot(uri: Uri, name: String, content: String) {
-        val latest = snapshots.latest(uri)
+    private suspend fun ensureBaselineSnapshot(uri: Uri, name: String, content: String) {
+        val latest = durable.latestSnapshot(uri)
         if (latest == null || latest.contentHash != ContentHasher.sha256(content)) {
-            snapshots.save(snapshots.create(uri, name, content, SnapshotReason.OPEN))
+            durable.saveSnapshot(durable.createSnapshot(uri, name, content, SnapshotReason.OPEN))
         }
     }
 
-    private fun saveSnapshotIfChanged(uri: Uri, name: String, content: String, reason: SnapshotReason) {
+    private suspend fun saveSnapshotIfChanged(uri: Uri, name: String, content: String, reason: SnapshotReason) {
         val hash = ContentHasher.sha256(content)
-        if (snapshots.latest(uri)?.contentHash != hash) {
-            snapshots.save(snapshots.create(uri, name, content, reason))
+        if (durable.latestSnapshot(uri)?.contentHash != hash) {
+            durable.saveSnapshot(durable.createSnapshot(uri, name, content, reason))
         }
     }
 
