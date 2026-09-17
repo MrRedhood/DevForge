@@ -39,7 +39,9 @@
 - [x] Branch checkout/merge/rebase/cherry-pick with clean-worktree enforcement
 - [x] Structured HEAD/index/worktree diff viewer
 - [x] Bounded commit history, changed-file review and per-file history
-- [ ] Interactive conflict-resolution editor
+- [x] Interactive isolated conflict-resolution editor for merge/rebase/cherry-pick
+- [x] Ours/base/theirs views with bounded text editing and side-selection/deletion
+- [x] Conflict continuation/abort with final clean-state and HEAD revalidation before workspace sync
 
 ### Build Center / GitHub Actions
 - [x] Debug APK, release APK and release AAB targets
@@ -118,11 +120,10 @@
 - [ ] Theme/density/editor preferences
 
 ## In Progress / Next Sequence
-1. Interactive Git conflict-resolution editor.
-2. Automation event triggers and richer automation UI.
-3. Terminal capability with strict sandbox/time/argument limits.
-4. Integrate biometric protected secrets into existing credential consumers and security UI.
-5. Maintained unit/UI/security regression suites and broader validation.
+1. Automation event triggers and richer automation UI.
+2. Terminal capability with strict sandbox/time/argument limits.
+3. Integrate biometric protected secrets into existing credential consumers and security UI.
+4. Maintained unit/UI/security regression suites and broader validation.
 
 ## Planned
 
@@ -163,6 +164,7 @@
 - [x] Historical CI toolchain/debug-build validations
 - [x] Current agent milestone triggered a fresh Android CI run after commit
 - [x] Security hardening changes triggered a fresh Android CI run after commit
+- [ ] Interactive conflict editor CI result verification
 - [ ] Current automation scheduler/run engine CI result verification
 - [ ] Security hardening CI result verification
 - [ ] Live authenticated remote Git validation
@@ -228,3 +230,9 @@
 - Expanded agent execution receipts with task/step/tool/capability/risk/workspace/scope/affected-path/approval/timestamp metadata, bounded to the existing receipt limits.
 - Added a Keystore-backed biometric-protected secret-store primitive using strong biometric authentication.
 - Added focused path/scope/unsafe-plan regression tests and test dependencies.
+
+### 2026-09-17 — Interactive Git conflict-resolution editor
+- Preserved merge/rebase/cherry-pick conflicts inside a bounded app-cache JGit session instead of discarding the temporary state.
+- Added bounded ours/base/theirs inspection, manual text resolution, side selection, deletion handling and per-file conflict navigation.
+- Added Continue/Abort controls with a fresh clean-worktree/HEAD validation before any resolved state is copied back to the SAF workspace.
+- Kept conflict sessions approval-aware and bounded by 50 conflict paths, 256 KiB per conflict file and a two-hour session lifetime.
