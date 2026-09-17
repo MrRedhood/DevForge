@@ -85,6 +85,18 @@ interface AutomationDao {
 }
 
 @Dao
+interface AutomationTriggerStateDao {
+    @Query("SELECT * FROM automation_trigger_state WHERE automationId = :automationId LIMIT 1")
+    suspend fun get(automationId: String): AutomationTriggerStateEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(state: AutomationTriggerStateEntity)
+
+    @Query("DELETE FROM automation_trigger_state WHERE automationId = :automationId")
+    suspend fun delete(automationId: String)
+}
+
+@Dao
 interface AuditEventDao {
     @Query("SELECT * FROM audit_events ORDER BY createdAtEpochMs DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<AuditEventEntity>>
