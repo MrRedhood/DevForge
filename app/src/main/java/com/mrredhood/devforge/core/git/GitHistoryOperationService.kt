@@ -40,6 +40,8 @@ class GitHistoryOperationService(
     private val context: Context,
     private val resolver: ContentResolver = context.contentResolver,
 ) {
+    private val repositoryService = GitRepositoryService(resolver)
+    private val statusService = GitWorkspaceStatusService(resolver)
     private val conflictSessions = ConcurrentHashMap<String, ActiveConflictSession>()
 
     init {
@@ -59,65 +61,36 @@ class GitHistoryOperationService(
             "Switched to branch '$branch'."
         }
 
-    suspend fun merge(
-        repository: GitRepositoryState,
-        branchName: String,
-        approvalId: String? = null,
-    ): GitHistoryResult =
+    suspend fun merge(repository: GitRepositoryState, branchName: String, approvalId: String? = null): GitHistoryResult =
         executeHistory(repository, "merge '$branchName'", OPERATION_MERGE, approvalId) { git ->
             val branch = validateBranchName(branchName)
             requireClean(git)
-            require(git.repository.findRef("refs/heads/$branch") != null) {
-                "Local branch '$branch' does not exist."
-            }
-            val result = git.merge()
-                .include(git.repository.findRef("refs/heads/$branch")!!.objectId)
-                .call()
+            require(git.repository.findRef("refs/heads/$branch") != null) { "Local branch '$branch' does not exist." }
+            val result = git.merge().include(git.repository.findRef("refs/heads/$branch")!!.objectId).call()
             handleMergeResult(result, "Merge '$branchName'")
         }
 
-    suspend fun rebase(
-        repository: GitRepositoryState,
-        branchName: String,
-        approvalId: String? = null,
-    ): GitHistoryResult =
+    suspend fun rebase(repository: GitRepositoryState, branchName: String, approvalId: String? = null): GitHistoryResult =
         executeHistory(repository, "rebase '$branchName'", OPERATION_REBASE, approvalId) { git ->
             val branch = validateBranchName(branchName)
             requireClean(git)
-            require(git.repository.findRef("refs/heads/$branch") != null) {
-                "Local branch '$branch' does not exist."
-            }
-            val result = git.rebase()
-                .setUpstream("refs/heads/$branch")
-                .call()
-            if (result.status.isSuccessful) {
-                GitHistoryResult.Success("Rebased current branch onto '$branch'.")
-            } else if (result.status.name.equals("CONFLICTS", ignoreCase = true)) {
-                conflictResult(git, "Rebase onto '$branchName'")
-            } else {
-                GitHistoryResult.Failure("Rebase did not complete (status: ${result.status.name}). The workspace was not changed.")
-            }
+            require(git.repository.findRef("refs/heads/$branch") != null) { "Local branch '$branch' does not exist." }
+            val result = git.rebase().setUpstream("refs/heads/$branch").call()
+            if (result.status.isSuccessful) GitHistoryResult.Success("Rebased current branch onto '$branch'.")
+            else if (result.status.name.equals("CONFLICTS", ignoreCase = true)) conflictResult(git, "Rebase onto '$branchName'")
+            else GitHistoryResult.Failure("Rebase did not complete (status: ${result.status.name}). The workspace was not changed.")
         }
 
-    suspend fun cherryPick(
-        repository: GitRepositoryState,
-        revision: String,
-        approvalId: String? = null,
-    ): GitHistoryResult =
+    suspend fun cherryPick(repository: GitRepositoryState, revision: String, approvalId: String? = null): GitHistoryResult =
         executeHistory(repository, "cherry-pick", OPERATION_CHERRY_PICK, approvalId) { git ->
             val commitId = revision.trim()
             require(commitId.matches(SHA_PATTERN)) { "Cherry-pick requires a 40-character commit SHA." }
             requireClean(git)
-            val objectId = ObjectId.fromString(commitId)
-            val commit = git.repository.parseCommit(objectId)
+            val commit = git.repository.parseCommit(ObjectId.fromString(commitId))
             val result = git.cherryPick().include(commit).call()
-            if (result.status == CherryPickResult.CherryPickStatus.OK) {
-                GitHistoryResult.Success("Cherry-picked ${commitId.take(12)}.")
-            } else if (git.status().call().conflicting.isNotEmpty()) {
-                conflictResult(git, "Cherry-pick ${commitId.take(12)}")
-            } else {
-                GitHistoryResult.Failure("Cherry-pick did not complete (status: ${result.status.name}). The workspace was not changed.")
-            }
+            if (result.status == CherryPickResult.CherryPickStatus.OK) GitHistoryResult.Success("Cherry-picked ${commitId.take(12)}.")
+            else if (git.status().call().conflicting.isNotEmpty()) conflictResult(git, "Cherry-pick ${commitId.take(12)}")
+            else GitHistoryResult.Failure("Cherry-pick did not complete (status: ${result.status.name}). The workspace was not changed.")
         }
 
     suspend fun loadConflictSession(sessionId: String): GitConflictSessionSnapshot? = withContext(Dispatchers.IO) {
@@ -130,55 +103,46 @@ class GitHistoryOperationService(
         }
     }
 
-    suspend fun resolveConflict(sessionId: String, path: String, content: String?): GitConflictSessionSnapshot? =
-        withContext(Dispatchers.IO) {
-            val session = activeSession(sessionId) ?: return@withContext null
-            val normalized = normalizePath(path)
-            Git.open(session.repoRoot).use { git ->
-                require(normalized in git.status().call().conflicting) { "The file is no longer unresolved: $normalized" }
-                if (content == null) {
-                    val target = safeRepoFile(session.repoRoot, normalized)
-                    if (target.exists() && !target.isDirectory) target.delete()
-                } else {
-                    val bytes = content.toByteArray(Charsets.UTF_8)
-                    require(bytes.size <= MAX_CONFLICT_BYTES) { "Resolved content exceeds the conflict editor limit." }
-                    val target = safeRepoFile(session.repoRoot, normalized)
-                    target.parentFile?.mkdirs()
-                    target.writeText(content, Charsets.UTF_8)
-                }
-                git.add().addFilepattern(normalized).call()
-                snapshotSession(session)
+    suspend fun resolveConflict(sessionId: String, path: String, content: String?): GitConflictSessionSnapshot? = withContext(Dispatchers.IO) {
+        val session = activeSession(sessionId) ?: return@withContext null
+        val normalized = normalizePath(path)
+        Git.open(session.repoRoot).use { git ->
+            require(normalized in git.status().call().conflicting) { "The file is no longer unresolved: $normalized" }
+            if (content == null) {
+                val target = safeRepoFile(session.repoRoot, normalized)
+                if (target.exists() && !target.isDirectory) target.delete()
+            } else {
+                require(content.toByteArray(Charsets.UTF_8).size <= MAX_CONFLICT_BYTES) { "Resolved content exceeds the conflict editor limit." }
+                val target = safeRepoFile(session.repoRoot, normalized)
+                target.parentFile?.mkdirs()
+                target.writeText(content, Charsets.UTF_8)
             }
+            git.add().addFilepattern(normalized).call()
+            snapshotSession(session)
         }
+    }
 
     suspend fun continueConflict(sessionId: String): GitHistoryResult = withContext(Dispatchers.IO) {
         val session = activeSession(sessionId) ?: return@withContext GitHistoryResult.Failure("Conflict session is no longer available.")
         try {
+            requireWorkspaceUnchanged(session)
             Git.open(session.repoRoot).use { git ->
                 val remaining = git.status().call().conflicting.sorted().take(MAX_CONFLICT_PATHS)
                 require(remaining.isEmpty()) { "Resolve all ${remaining.size.coerceAtLeast(1)} remaining conflict(s) before continuing." }
                 val result = when (session.operation) {
                     OPERATION_MERGE -> {
-                        git.commit()
-                            .setMessage(readMergeCommitMessage(session.repoRoot) ?: "Merge conflict resolution")
-                            .call()
+                        git.commit().setMessage(readMergeCommitMessage(session.repoRoot) ?: "Merge conflict resolution").call()
                         GitHistoryResult.Success("Merge conflict resolution committed.")
                     }
                     OPERATION_CHERRY_PICK -> {
-                        git.commit()
-                            .setMessage(readCherryPickCommitMessage(git, session.repoRoot) ?: "Cherry-pick conflict resolution")
-                            .call()
+                        git.commit().setMessage(readCherryPickCommitMessage(git, session.repoRoot) ?: "Cherry-pick conflict resolution").call()
                         GitHistoryResult.Success("Cherry-pick conflict resolution committed.")
                     }
                     OPERATION_REBASE -> {
                         val rebase = git.rebase().setOperation(RebaseCommand.Operation.CONTINUE).call()
-                        if (rebase.status.isSuccessful) {
-                            GitHistoryResult.Success("Rebase conflict resolution continued successfully.")
-                        } else if (rebase.status.name.equals("CONFLICTS", ignoreCase = true)) {
-                            conflictResult(git, "Rebase conflict resolution")
-                        } else {
-                            GitHistoryResult.Failure("Rebase continuation did not complete (status: ${rebase.status.name}).")
-                        }
+                        if (rebase.status.isSuccessful) GitHistoryResult.Success("Rebase conflict resolution continued successfully.")
+                        else if (rebase.status.name.equals("CONFLICTS", ignoreCase = true)) conflictResult(git, "Rebase conflict resolution")
+                        else GitHistoryResult.Failure("Rebase continuation did not complete (status: ${rebase.status.name}).")
                     }
                     else -> GitHistoryResult.Failure("Unsupported conflict operation.")
                 }
@@ -193,16 +157,14 @@ class GitHistoryOperationService(
                 }
             }
         } catch (error: Throwable) {
-            GitHistoryResult.Failure("${session.operation} continuation failed: ${sanitizeError(error)}")
+            GitHistoryResult.Failure("${operationLabel(session.operation)} continuation failed: ${sanitizeError(error)}")
         } finally {
-            val stillActive = conflictSessions.containsKey(session.sessionId)
-            if (!stillActive && session.workRoot.exists()) session.workRoot.deleteRecursively()
+            if (!conflictSessions.containsKey(session.sessionId) && session.workRoot.exists()) session.workRoot.deleteRecursively()
         }
     }
 
     suspend fun abortConflict(sessionId: String): GitHistoryResult = withContext(Dispatchers.IO) {
-        val session = conflictSessions.remove(sessionId)
-            ?: return@withContext GitHistoryResult.Failure("Conflict session is no longer available.")
+        val session = conflictSessions.remove(sessionId) ?: return@withContext GitHistoryResult.Failure("Conflict session is no longer available.")
         session.workRoot.deleteRecursively()
         GitHistoryResult.Success("${operationLabel(session.operation)} conflict session aborted. The workspace was left unchanged.")
     }
@@ -233,6 +195,7 @@ class GitHistoryOperationService(
                             workRoot = workRoot,
                             repoRoot = repoRoot,
                             workspaceRoot = repository.rootUri,
+                            baseHeadRevision = repository.headRevision,
                             approvalId = approvalId,
                             createdAtEpochMs = System.currentTimeMillis(),
                         )
@@ -249,11 +212,7 @@ class GitHistoryOperationService(
         }
     }
 
-    private suspend fun execute(
-        repository: GitRepositoryState,
-        syncWorktree: Boolean,
-        block: (Git) -> String,
-    ): GitHistoryResult = withContext(Dispatchers.IO) {
+    private suspend fun execute(repository: GitRepositoryState, syncWorktree: Boolean, block: (Git) -> String): GitHistoryResult = withContext(Dispatchers.IO) {
         val workRoot = File(context.cacheDir, "devforge-git-history/${UUID.randomUUID()}")
         val repoRoot = File(workRoot, "repo")
         try {
@@ -270,16 +229,21 @@ class GitHistoryOperationService(
         }
     }
 
+    private suspend fun requireWorkspaceUnchanged(session: ActiveConflictSession) {
+        val detected = repositoryService.detect(session.workspaceRoot) as? GitDetectionState.Detected
+            ?: throw IllegalStateException("The active Git repository could no longer be detected.")
+        require(detected.repository.headRevision == session.baseHeadRevision) { "The workspace HEAD changed while the conflict editor was open. Resolution was not applied." }
+        val current = statusService.inspect(detected.repository.rootUri, detected.repository.gitDirectoryUri, detected.repository.headRevision)
+        require(current.mode == GitStatusAvailability.IndexAndHeadAware && !current.truncated) { "The workspace Git state could not be fully verified. Resolution was not applied." }
+        require(current.files.all { it.gitStatus == GitFileStatus.Clean }) { "The workspace changed while the conflict editor was open. Commit or preserve those changes before continuing." }
+    }
+
     private fun handleMergeResult(result: MergeResult, operation: String): GitHistoryResult =
-        if (result.mergeStatus.isSuccessful) {
-            GitHistoryResult.Success("$operation completed (${result.mergeStatus.name}).")
-        } else {
+        if (result.mergeStatus.isSuccessful) GitHistoryResult.Success("$operation completed (${result.mergeStatus.name}).")
+        else {
             val conflicts = result.conflicts?.keys?.sorted().orEmpty()
-            if (conflicts.isNotEmpty()) {
-                GitHistoryResult.Conflict(operation, conflicts.take(MAX_CONFLICT_PATHS))
-            } else {
-                GitHistoryResult.Failure("$operation did not complete (${result.mergeStatus.name}). The workspace was not changed.")
-            }
+            if (conflicts.isNotEmpty()) GitHistoryResult.Conflict(operation, conflicts.take(MAX_CONFLICT_PATHS))
+            else GitHistoryResult.Failure("$operation did not complete (${result.mergeStatus.name}). The workspace was not changed.")
         }
 
     private fun conflictResult(git: Git, operation: String): GitHistoryResult {
@@ -291,19 +255,11 @@ class GitHistoryOperationService(
         Git.open(session.repoRoot).use { git ->
             val paths = git.status().call().conflicting.sorted().take(MAX_CONFLICT_PATHS)
             val files = paths.mapNotNull { readConflictFile(git, session.repoRoot, it) }
-            return GitConflictSessionSnapshot(
-                sessionId = session.sessionId,
-                operation = session.operation,
-                paths = paths,
-                selectedPath = paths.firstOrNull(),
-                files = files,
-                approvalId = session.approvalId,
-                createdAtEpochMs = session.createdAtEpochMs,
-            )
+            return GitConflictSessionSnapshot(session.sessionId, session.operation, paths, paths.firstOrNull(), files, session.approvalId, session.createdAtEpochMs)
         }
     }
 
-    private fun readConflictFile(git: Git, repoRoot: File, path: String): GitConflictFile? {
+    private fun readConflictFile(git: Git, repoRoot: File, path: String): GitConflictFile {
         normalizePath(path)
         val index = git.repository.readDirCache()
         var ours: BlobContent? = null
@@ -312,52 +268,40 @@ class GitHistoryOperationService(
         for (indexPosition in 0 until index.entryCount) {
             val entry = index.getEntry(indexPosition)
             if (entry.pathString != path) continue
-            val blob = readBlobContent(git, entry.objectId)
             when (entry.stage) {
-                1 -> base = blob
-                2 -> ours = blob
-                3 -> theirs = blob
+                1 -> base = readBlobContent(git, entry.objectId)
+                2 -> ours = readBlobContent(git, entry.objectId)
+                3 -> theirs = readBlobContent(git, entry.objectId)
             }
         }
         val working = readWorkingContent(safeRepoFile(repoRoot, path))
-        val binary = listOf(ours, base, theirs, working).any { it?.binary == true }
-        val oversized = listOf(ours, base, theirs, working).any { it?.oversized == true }
+        val values = listOf(ours, base, theirs, working)
         return GitConflictFile(
             path = path,
             ours = ours?.text,
             base = base?.text,
             theirs = theirs?.text,
             merged = working?.text,
-            binary = binary,
-            oversized = oversized,
+            binary = values.any { it?.binary == true },
+            oversized = values.any { it?.oversized == true },
         )
     }
 
-    private fun readBlobContent(git: Git, objectId: ObjectId): BlobContent {
-        return runCatching {
-            git.repository.newObjectReader().use { reader ->
-                reader.open(objectId).openStream().use { input -> toBlobContent(readBounded(input, MAX_CONFLICT_BYTES + 1)) }
-            }
-        }.getOrElse { BlobContent(null, binary = false, oversized = true) }
-    }
+    private fun readBlobContent(git: Git, objectId: ObjectId): BlobContent = runCatching {
+        git.repository.newObjectReader().use { reader -> reader.open(objectId).openStream().use { input -> toBlobContent(readBounded(input, MAX_CONFLICT_BYTES + 1)) } }
+    }.getOrElse { BlobContent(null, false, true) }
 
     private fun readWorkingContent(file: File): BlobContent? {
         if (!file.exists()) return null
-        if (file.isDirectory) return BlobContent(null, binary = true, oversized = false)
-        return runCatching {
-            file.inputStream().use { input -> toBlobContent(readBounded(input, MAX_CONFLICT_BYTES + 1)) }
-        }.getOrElse { BlobContent(null, binary = false, oversized = true) }
+        if (file.isDirectory) return BlobContent(null, true, false)
+        return runCatching { file.inputStream().use { input -> toBlobContent(readBounded(input, MAX_CONFLICT_BYTES + 1)) } }.getOrElse { BlobContent(null, false, true) }
     }
 
     private fun toBlobContent(bytes: ByteArray): BlobContent {
-        if (bytes.size > MAX_CONFLICT_BYTES) return BlobContent(null, binary = false, oversized = true)
+        if (bytes.size > MAX_CONFLICT_BYTES) return BlobContent(null, false, true)
         val text = bytes.toString(Charsets.UTF_8)
         val textBytes = text.toByteArray(Charsets.UTF_8)
-        return BlobContent(
-            text = if (textBytes.contentEquals(bytes)) text else null,
-            binary = !textBytes.contentEquals(bytes),
-            oversized = false,
-        )
+        return BlobContent(if (textBytes.contentEquals(bytes)) text else null, !textBytes.contentEquals(bytes), false)
     }
 
     private fun readBounded(input: java.io.InputStream, maxBytes: Int): ByteArray {
@@ -398,13 +342,10 @@ class GitHistoryOperationService(
     }
 
     private fun requireClean(git: Git) {
-        require(git.status().call().isClean) {
-            "This history operation requires a clean working tree. Commit or preserve local changes first."
-        }
+        require(git.status().call().isClean) { "This history operation requires a clean working tree. Commit or preserve local changes first." }
     }
 
-    private fun readMergeCommitMessage(repoRoot: File): String? =
-        readSmallControlFile(File(repoRoot, ".git/MERGE_MSG"))?.trim()?.takeIf(String::isNotBlank)?.take(MAX_COMMIT_MESSAGE)
+    private fun readMergeCommitMessage(repoRoot: File): String? = readSmallControlFile(File(repoRoot, ".git/MERGE_MSG"))?.trim()?.takeIf(String::isNotBlank)?.take(MAX_COMMIT_MESSAGE)
 
     private fun readCherryPickCommitMessage(git: Git, repoRoot: File): String? {
         val head = readSmallControlFile(File(repoRoot, ".git/CHERRY_PICK_HEAD"))?.trim() ?: return null
@@ -429,9 +370,7 @@ class GitHistoryOperationService(
         val normalized = normalizePath(relativePath)
         val canonicalRoot = root.canonicalFile
         val target = File(canonicalRoot, normalized).canonicalFile
-        require(target.path == canonicalRoot.path || target.path.startsWith(canonicalRoot.path + File.separator)) {
-            "Git path escapes the isolated repository mirror."
-        }
+        require(target.path == canonicalRoot.path || target.path.startsWith(canonicalRoot.path + File.separator)) { "Git path escapes the isolated repository mirror." }
         return target
     }
 
@@ -439,15 +378,9 @@ class GitHistoryOperationService(
         val branch = value.trim()
         require(branch.isNotBlank()) { "Branch name cannot be empty." }
         require(branch.length <= 200) { "Branch name is too long." }
-        require(!branch.startsWith('/') && !branch.endsWith('/') && !branch.startsWith('.') && !branch.endsWith('.')) {
-            "Invalid Git branch name."
-        }
-        require(!branch.contains("..") && !branch.contains("@{") && !branch.contains(' ')) {
-            "Invalid Git branch name."
-        }
-        require(branch.none { it.code < 32 || it == '~' || it == '^' || it == ':' || it == '?' || it == '*' || it == '[' || it == '\\' }) {
-            "Invalid Git branch name."
-        }
+        require(!branch.startsWith('/') && !branch.endsWith('/') && !branch.startsWith('.') && !branch.endsWith('.')) { "Invalid Git branch name." }
+        require(!branch.contains("..") && !branch.contains("@{") && !branch.contains(' ')) { "Invalid Git branch name." }
+        require(branch.none { it.code < 32 || it == '~' || it == '^' || it == ':' || it == '?' || it == '*' || it == '[' || it == '\\' }) { "Invalid Git branch name." }
         return branch
     }
 
@@ -460,16 +393,13 @@ class GitHistoryOperationService(
         val metadata = queryDocument(source) ?: throw IOException("Unable to inspect workspace document.")
         if (metadata.isDirectory) {
             target.mkdirs()
-            listChildren(source).forEach { child ->
-                copySafNode(child.uri, File(target, child.name), budget, if (relativePath.isBlank()) child.name else "$relativePath/${child.name}")
-            }
+            listChildren(source).forEach { child -> copySafNode(child.uri, File(target, child.name), budget, if (relativePath.isBlank()) child.name else "$relativePath/${child.name}") }
             return
         }
         if (metadata.size > MAX_FILE_BYTES) throw IOException("History mirror encountered an oversized file: $relativePath")
         budget.consumeFile(metadata.size, relativePath)
-        resolver.openInputStream(source)?.use { input ->
-            target.outputStream().use { output -> copyBounded(input, output, metadata.size) }
-        } ?: throw IOException("Unable to read workspace file: $relativePath")
+        resolver.openInputStream(source)?.use { input -> target.outputStream().use { output -> copyBounded(input, output, metadata.size) } }
+            ?: throw IOException("Unable to read workspace file: $relativePath")
     }
 
     private fun syncWorkspaceBack(sourceRoot: File, targetRoot: Uri) {
@@ -492,9 +422,8 @@ class GitHistoryOperationService(
                 budget.consumeFile(item.length(), itemPath)
                 val document = existing ?: DocumentsContract.createDocument(resolver, target, "application/octet-stream", item.name)
                     ?: throw IOException("Unable to create workspace file: $itemPath")
-                resolver.openOutputStream(document, "wt")?.use { output ->
-                    item.inputStream().use { input -> copyBounded(input, output, item.length()) }
-                } ?: throw IOException("Unable to write workspace file: $itemPath")
+                resolver.openOutputStream(document, "wt")?.use { output -> item.inputStream().use { input -> copyBounded(input, output, item.length()) } }
+                    ?: throw IOException("Unable to write workspace file: $itemPath")
             }
         }
         targetChildren.values.forEach { orphan -> DocumentsContract.deleteDocument(resolver, orphan.uri) }
@@ -514,13 +443,7 @@ class GitHistoryOperationService(
     private fun listChildren(parent: Uri): List<DocumentRef> = runCatching {
         val documentId = runCatching { DocumentsContract.getDocumentId(parent) }.getOrElse { DocumentsContract.getTreeDocumentId(parent) }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
-        resolver.query(
-            childrenUri,
-            arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
+        resolver.query(childrenUri, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { cursor ->
             buildList {
                 while (cursor.moveToNext() && size < MAX_CHILDREN_PER_DIRECTORY) {
                     val id = cursor.getString(0) ?: continue
@@ -547,6 +470,7 @@ class GitHistoryOperationService(
         val workRoot: File,
         val repoRoot: File,
         val workspaceRoot: Uri,
+        val baseHeadRevision: String?,
         val approvalId: String?,
         val createdAtEpochMs: Long,
     )
