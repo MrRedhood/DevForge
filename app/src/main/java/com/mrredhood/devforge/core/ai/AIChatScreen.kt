@@ -104,13 +104,13 @@ private fun ModelSelector(viewModel: AIChatViewModel) {
             )
         }
         Box {
-            OutlinedButton(onClick = { viewModel.setModelMenuOpen(true) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+            OutlinedButton(onClick = { viewModel.updateModelMenuOpen(true) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
                 Text(viewModel.selectedModel?.displayName ?: "Select a model", modifier = Modifier.weight(1f))
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Models")
             }
             DropdownMenu(
                 expanded = viewModel.isModelMenuOpen,
-                onDismissRequest = { viewModel.setModelMenuOpen(false) },
+                onDismissRequest = { viewModel.updateModelMenuOpen(false) },
             ) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     ModelFilter.entries.forEach { filter ->

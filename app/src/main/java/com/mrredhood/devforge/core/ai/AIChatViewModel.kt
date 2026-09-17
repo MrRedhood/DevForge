@@ -92,7 +92,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         if (!savedId.isNullOrBlank()) selectedModel = AIModelInfo(provider, savedId, savedId)
     }
 
-    fun setProvider(value: AIProvider) {
+    fun selectProvider(value: AIProvider) {
         if (provider == value) return
         provider = value
         settings.setSelectedProvider(value)
@@ -135,7 +135,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     fun refreshModels() = loadModels(force = true)
     fun setFilter(filter: ModelFilter) { activeFilter = filter }
 
-    fun setModelMenuOpen(open: Boolean) {
+    fun updateModelMenuOpen(open: Boolean) {
         isModelMenuOpen = open
         if (open) loadModels()
     }

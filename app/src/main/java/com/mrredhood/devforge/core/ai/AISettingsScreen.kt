@@ -43,7 +43,7 @@ fun AISettingsScreen(viewModel: AISettingsViewModel = viewModel()) {
                 }
                 OutlinedTextField(
                     value = viewModel.apiKey,
-                    onValueChange = viewModel::setApiKey,
+                    onValueChange = viewModel::updateApiKey,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     label = { Text("API key") },

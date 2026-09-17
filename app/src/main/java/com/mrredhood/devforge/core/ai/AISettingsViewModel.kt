@@ -23,7 +23,7 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
         status = if (repository.hasApiKey(value)) "API key is configured." else "No API key saved for this provider."
     }
 
-    fun setApiKey(value: String) { apiKey = value }
+    fun updateApiKey(value: String) { apiKey = value }
 
     fun save() {
         val value = apiKey.trim()
