@@ -23,8 +23,10 @@ import com.mrredhood.devforge.core.policy.RiskLevel
         AutomationRunEntity::class,
         AuditEventEntity::class,
         CapabilityGrantEntity::class,
+        ChatSessionEntity::class,
+        ChatMessageEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class DevForgeDatabase : RoomDatabase() {
@@ -37,12 +39,13 @@ abstract class DevForgeDatabase : RoomDatabase() {
     abstract fun automationDao(): AutomationDao
     abstract fun auditEventDao(): AuditEventDao
     abstract fun capabilityGrantDao(): CapabilityGrantDao
+    abstract fun chatSessionDao(): ChatSessionDao
+    abstract fun chatMessageDao(): ChatMessageDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
-                    """
+                database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `build_receipts` (
                         `runId` INTEGER NOT NULL,
                         `runNumber` INTEGER NOT NULL,
@@ -60,15 +63,13 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         `recordedAtEpochMs` INTEGER NOT NULL,
                         PRIMARY KEY(`runId`)
                     )
-                    """.trimIndent(),
-                )
+                """.trimIndent())
             }
         }
 
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
-                    """
+                database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `approval_actions` (
                         `approvalId` TEXT NOT NULL,
                         `actionId` TEXT NOT NULL,
@@ -85,8 +86,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                         `resolvedAtEpochMs` INTEGER,
                         PRIMARY KEY(`approvalId`)
                     )
-                    """.trimIndent(),
-                )
+                """.trimIndent())
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_approval_actions_status_createdAtEpochMs` ON `approval_actions` (`status`, `createdAtEpochMs`)")
             }
         }
@@ -197,6 +197,38 @@ abstract class DevForgeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `chat_sessions` (
+                        `sessionId` TEXT NOT NULL,
+                        `scopeId` TEXT NOT NULL,
+                        `providerId` TEXT NOT NULL,
+                        `modelId` TEXT NOT NULL,
+                        `modelName` TEXT NOT NULL,
+                        `contextLimit` INTEGER,
+                        `title` TEXT NOT NULL,
+                        `createdAtEpochMs` INTEGER NOT NULL,
+                        `updatedAtEpochMs` INTEGER NOT NULL,
+                        PRIMARY KEY(`sessionId`)
+                    )
+                """.trimIndent())
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_chat_sessions_scopeId_providerId_modelId` ON `chat_sessions` (`scopeId`, `providerId`, `modelId`)")
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `chat_messages` (
+                        `messageId` TEXT NOT NULL,
+                        `sessionId` TEXT NOT NULL,
+                        `role` TEXT NOT NULL,
+                        `content` TEXT NOT NULL,
+                        `commandName` TEXT,
+                        `createdAtEpochMs` INTEGER NOT NULL,
+                        PRIMARY KEY(`messageId`)
+                    )
+                """.trimIndent())
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_chat_messages_sessionId_createdAtEpochMs` ON `chat_messages` (`sessionId`, `createdAtEpochMs`)")
+            }
+        }
+
         @Volatile private var INSTANCE: DevForgeDatabase? = null
 
         fun get(context: Context): DevForgeDatabase =
@@ -206,7 +238,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     DevForgeDatabase::class.java,
                     "devforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
