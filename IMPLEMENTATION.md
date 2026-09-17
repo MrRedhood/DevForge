@@ -105,6 +105,11 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Snapshot state ViewModel
 - [x] Lightweight line-oriented diff engine
 - [x] Shared diff model suitable for editor review and future Git/AI patch tooling
+- [x] Snapshot creation connected to file-open baseline
+- [x] Snapshot creation connected to successful file save
+- [x] Snapshot creation connected to delayed recovery drafts
+- [x] Recovery snapshot capture on opening a file with an existing recovery draft
+- [x] Content-hash de-duplication prevents redundant checkpoint growth
 
 ### Domain / Safety Foundation
 
@@ -136,13 +141,12 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 ### Next implementation slice
 
-1. Connect snapshot creation to editor save/open/recovery lifecycle
-2. Recursive folder navigation and workspace breadcrumbs
-3. File preview/search safeguards
-4. Durable multi-workspace database strategy (Room after the state model stabilizes)
-5. Git repository state model and status UI
-6. Build configuration/state model
-7. Approval UI connected to actual action requests
+1. Recursive folder navigation and workspace breadcrumbs
+2. File preview/search safeguards
+3. Durable multi-workspace database strategy (Room after the state model stabilizes)
+4. Git repository state model and status UI
+5. Build configuration/state model
+6. Approval UI connected to actual action requests
 
 ### Workspace persistence decision
 
@@ -153,7 +157,7 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 - Recovery drafts currently use a small local SharedPreferences store keyed by document URI.
 - Recovery is deliberately separate from normal save state: editing a document never silently overwrites the selected workspace file.
-- Content hashes and snapshots are now available as a common identity/checkpoint layer for recovery, AI patches, and Git diffs.
+- Content hashes and snapshots now form a common identity/checkpoint layer for recovery, AI patches, Git diffs, and future rollback workflows.
 
 ## Planned — AI & Agent
 
@@ -181,6 +185,7 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [ ] Workspace database
 - [x] File tree root enumeration
 - [ ] Recursive folder navigation
+- [ ] Breadcrumb navigation
 - [ ] Search
 - [ ] File preview
 - [x] File open/read/write pipeline
@@ -398,6 +403,15 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - Added a lightweight line-oriented `DiffEngine` with context, added, and removed line entries.
 - Established a common foundation for future editor review, Git status/diffs, AI patch preparation, recovery checkpoints, and rollback workflows.
 - Deliberately kept the snapshot layer lightweight until Room becomes justified by broader relational state.
+- CI validation of this implementation is pending.
+
+### 2026-09-17 — Editor snapshot lifecycle
+
+- Connected snapshot creation to the editor file-open lifecycle as a baseline checkpoint.
+- Connected snapshots to successful saves using content-hash de-duplication.
+- Connected delayed recovery-draft creation to recovery snapshots so unsaved work has a durable checkpoint distinct from the actual workspace file.
+- Added recovery snapshot capture when opening a document with an existing recovery draft.
+- Preserved separation between source-file writes and local recovery/snapshot state.
 - CI validation of this implementation is pending.
 
 ### Future entries
