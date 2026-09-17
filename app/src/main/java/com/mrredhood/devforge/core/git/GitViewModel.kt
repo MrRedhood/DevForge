@@ -29,6 +29,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
     private val repositoryService = GitRepositoryService(resolver)
     private val statusService = GitWorkspaceStatusService(resolver)
     private val executionService = GitExecutionService(resolver)
+    private val remoteService = GitRemoteTransportService(application)
     private val workspaces = WorkspaceDatabaseRepository(application)
     private val approvalRepository = ApprovalRepository(DevForgeDatabase.get(application).approvalDao())
     private var detectionJob: Job? = null
@@ -116,6 +117,18 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         executionService.deleteBranch(repository.gitDirectoryUri, repository.branchName, name)
     }
 
+    fun fetchRemote() = executeRemote("git-fetch", Capability.FETCH_REMOTE, RiskLevel.R1, "Fetch origin") { repository ->
+        remoteService.fetch(repository)
+    }
+
+    fun pullRemote() = executeRemote("git-pull", Capability.PULL_REMOTE, RiskLevel.R2, "Pull from origin") { repository ->
+        remoteService.pull(repository)
+    }
+
+    fun pushRemote() = executeRemote("git-push", Capability.PUSH_REMOTE, RiskLevel.R3, "Push current branch to origin") { repository ->
+        remoteService.push(repository)
+    }
+
     private fun executeMutation(
         actionType: String,
         capability: Capability,
@@ -133,8 +146,41 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             operationMessage = "Git mutation is unavailable because the index/HEAD objects cannot be read safely through the selected workspace."
             return
         }
+        submitApprovedOrRun(actionType, capability, risk, summary, parameters, repository) { target -> block(target) }
+    }
 
-        val precondition = hash("${repository.headRevision.orEmpty()}|${workspaceStatus?.files?.joinToString { it.path + ":" + it.gitStatus.name }}")
+    private fun executeRemote(
+        actionType: String,
+        capability: Capability,
+        risk: RiskLevel,
+        summary: String,
+        block: suspend (GitRepositoryState) -> GitRemoteResult,
+    ) {
+        if (isExecuting) return
+        val repository = (state as? GitDetectionState.Detected)?.repository ?: run {
+            operationMessage = "No supported Git repository is active."
+            return
+        }
+        if (remoteService.validateConfigured(repository.remoteUrl).available.not()) {
+            operationMessage = remoteService.validateConfigured(repository.remoteUrl).reason ?: "Remote Git transport is unavailable."
+            refreshCapabilities()
+            return
+        }
+
+        val parameters = repository.remoteUrl.orEmpty()
+        submitApprovedOrRemote(actionType, capability, risk, summary, parameters, repository, block)
+    }
+
+    private fun submitApprovedOrRun(
+        actionType: String,
+        capability: Capability,
+        risk: RiskLevel,
+        summary: String,
+        parameters: String,
+        repository: GitRepositoryState,
+        block: suspend (GitRepositoryState) -> GitExecutionResult,
+    ) {
+        val precondition = currentPrecondition(repository)
         val action = ActionRequest(
             actionId = "$actionType:${System.currentTimeMillis()}",
             capability = capability,
@@ -144,36 +190,64 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             parametersHash = hash(parameters),
             preconditionHash = precondition,
         )
-
         if (DefaultPolicy.requiresApproval(action, PermissionMode.SOME)) {
-            viewModelScope.launch(Dispatchers.IO) {
-                runCatching {
-                    approvalRepository.createPending(
-                        approvalId = action.actionId,
-                        actionId = action.actionId,
-                        capability = capability,
-                        risk = risk,
-                        workspaceId = action.workspaceId,
-                        summary = summary,
-                        parametersHash = action.parametersHash,
-                        preconditionHash = precondition,
-                        payload = encodeGitAction(actionType, repository, parameters),
-                        expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_WINDOW_MS,
-                    )
-                }.onSuccess {
-                    withContext(Dispatchers.Main.immediate) {
-                        operationMessage = "${summary} is waiting for approval in Approval Center."
-                    }
-                }.onFailure { error ->
-                    withContext(Dispatchers.Main.immediate) {
-                        operationMessage = error.message ?: "Unable to create the Git approval request."
-                    }
-                }
-            }
+            queueApproval(action, summary, precondition, encodeGitAction(actionType, repository, parameters))
             return
         }
-
         runMutation(repository, block, null)
+    }
+
+    private fun submitApprovedOrRemote(
+        actionType: String,
+        capability: Capability,
+        risk: RiskLevel,
+        summary: String,
+        parameters: String,
+        repository: GitRepositoryState,
+        block: suspend (GitRepositoryState) -> GitRemoteResult,
+    ) {
+        val precondition = currentPrecondition(repository)
+        val action = ActionRequest(
+            actionId = "$actionType:${System.currentTimeMillis()}",
+            capability = capability,
+            risk = risk,
+            workspaceId = repository.rootUri.toString(),
+            summary = summary,
+            parametersHash = hash(parameters),
+            preconditionHash = precondition,
+        )
+        if (DefaultPolicy.requiresApproval(action, PermissionMode.SOME)) {
+            queueApproval(action, summary, precondition, encodeGitAction(actionType, repository, parameters))
+            return
+        }
+        remoteJob(repository, block, null)
+    }
+
+    private fun queueApproval(action: ActionRequest, summary: String, precondition: String, payload: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                approvalRepository.createPending(
+                    approvalId = action.actionId,
+                    actionId = action.actionId,
+                    capability = action.capability,
+                    risk = action.risk,
+                    workspaceId = action.workspaceId,
+                    summary = summary,
+                    parametersHash = action.parametersHash,
+                    preconditionHash = precondition,
+                    payload = payload,
+                    expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_WINDOW_MS,
+                )
+            }.onSuccess {
+                withContext(Dispatchers.Main.immediate) {
+                    operationMessage = "$summary is waiting for approval in Approval Center."
+                }
+            }.onFailure { error ->
+                withContext(Dispatchers.Main.immediate) {
+                    operationMessage = error.message ?: "Unable to create the Git approval request."
+                }
+            }
+        }
     }
 
     private suspend fun executeApprovedMutation(approval: ApprovalEntity) {
@@ -189,7 +263,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
 
         val detected = repositoryService.detect(action.repository.rootUri)
         val current = (detected as? GitDetectionState.Detected)?.repository
-        if (current == null || current.rootUri.toString() != action.repository.rootUri.toString()) {
+        if (current == null || current.rootUri.toString() != action.repository.rootUri.toString() || current.remoteUrl != action.repository.remoteUrl) {
             approvalRepository.finishFailure(approval.approvalId)
             return
         }
@@ -211,21 +285,30 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             operationMessage = "Executing approved Git action…"
         }
 
-        val result = when (action.type) {
+        val result: Any = when (action.type) {
             "git-commit" -> executionService.commit(action.repository.gitDirectoryUri, current.headRevision, action.parameters)
             "git-delete-branch" -> executionService.deleteBranch(action.repository.gitDirectoryUri, current.branchName, action.parameters)
+            "git-fetch" -> remoteService.fetch(current)
+            "git-pull" -> remoteService.pull(current)
+            "git-push" -> remoteService.push(current)
             else -> GitExecutionResult.Failure("Unsupported approved Git action.")
+        }
+
+        val success = when (result) {
+            is GitExecutionResult.Success -> result.message
+            is GitExecutionResult.Failure -> result.message
+            is GitRemoteResult.Success -> result.message
+            is GitRemoteResult.Failure -> result.message
+            else -> "Git action completed."
         }
 
         withContext(Dispatchers.Main.immediate) {
             isExecuting = false
-            operationMessage = when (result) {
-                is GitExecutionResult.Success -> result.message
-                is GitExecutionResult.Failure -> result.message
-            }
+            operationMessage = success
         }
 
-        if (result is GitExecutionResult.Success) {
+        val succeeded = result is GitExecutionResult.Success || result is GitRemoteResult.Success
+        if (succeeded) {
             approvalRepository.finishSuccess(approval.approvalId)
             withContext(Dispatchers.Main.immediate) { refreshAfterMutation(current.rootUri) }
         } else {
@@ -254,6 +337,30 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun remoteJob(repository: GitRepositoryState, block: suspend (GitRepositoryState) -> GitRemoteResult, approvalId: String?) {
+        mutationJob?.cancel()
+        isExecuting = true
+        operationMessage = null
+        mutationJob = viewModelScope.launch(Dispatchers.IO) {
+            val result = block(repository)
+            if (approvalId != null) {
+                if (result is GitRemoteResult.Success) approvalRepository.finishSuccess(approvalId) else approvalRepository.finishFailure(approvalId)
+            }
+            withContext(Dispatchers.Main.immediate) {
+                isExecuting = false
+                operationMessage = when (result) {
+                    is GitRemoteResult.Success -> result.message
+                    is GitRemoteResult.Failure -> result.message
+                }
+                if (result is GitRemoteResult.Success) refreshAfterMutation(repository.rootUri) else refreshCapabilities()
+            }
+        }
+    }
+
+    private fun currentPrecondition(repository: GitRepositoryState): String = hash(
+        "${repository.headRevision.orEmpty()}|${workspaceStatus?.files?.joinToString { it.path + ":" + it.gitStatus.name }}",
+    )
+
     private fun refreshAfterMutation(root: Uri) {
         detectionJob?.cancel()
         state = GitDetectionState.Detecting
@@ -268,15 +375,17 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         val repository = (state as? GitDetectionState.Detected)?.repository
         val status = workspaceStatus
         val mutationReadReady = repository != null && status != null && !status.truncated
+        val remote = remoteService.validateConfigured(repository?.remoteUrl)
+        val remoteReady = repository?.branchName != null && remote.available
         capabilities = GitCapabilityState(
             stage = if (mutationReadReady) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             unstage = if (mutationReadReady && repository?.headRevision != null && status.mode == GitStatusAvailability.IndexAndHeadAware) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             commit = if (mutationReadReady && status.mode == GitStatusAvailability.IndexAndHeadAware && status.files.none { it.gitStatus == GitFileStatus.Conflict || it.gitStatus == GitFileStatus.Unchecked }) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             createBranch = if (repository?.headRevision != null) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             deleteBranch = if (repository?.branchName != null && repository.branches.any { !it.isCurrent }) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
-            fetchRemote = CapabilityAvailability.NotConfigured,
-            pullRemote = CapabilityAvailability.NotConfigured,
-            pushRemote = CapabilityAvailability.NotConfigured,
+            fetchRemote = if (remoteReady) CapabilityAvailability.Available else CapabilityAvailability.NotConfigured,
+            pullRemote = if (remoteReady && status?.mode == GitStatusAvailability.IndexAndHeadAware) CapabilityAvailability.Available else CapabilityAvailability.NotConfigured,
+            pushRemote = if (remoteReady) CapabilityAvailability.Available else CapabilityAvailability.NotConfigured,
         )
     }
 
@@ -286,6 +395,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         .put("git", repository.gitDirectoryUri.toString())
         .put("head", repository.headRevision.orEmpty())
         .put("branch", repository.branchName.orEmpty())
+        .put("remote", repository.remoteUrl.orEmpty())
         .put("parameters", parameters)
         .toString()
 
@@ -298,7 +408,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
                 gitDirectoryUri = Uri.parse(json.getString("git")),
                 branchName = json.optString("branch").ifBlank { null },
                 headRevision = json.optString("head").ifBlank { null },
-                remoteUrl = null,
+                remoteUrl = json.optString("remote").ifBlank { null },
                 detachedHead = json.optString("branch").isBlank(),
             ),
             parameters = json.getString("parameters"),
