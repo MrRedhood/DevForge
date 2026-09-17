@@ -58,4 +58,5 @@ data class BuildHistoryEntry(
     val conclusion: String?,
     val htmlUrl: String?,
     val updatedAt: String?,
+    val recordedAtEpochMs: Long,
 )
