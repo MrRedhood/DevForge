@@ -97,7 +97,7 @@ class WorkspaceAgentToolProvider(
     private inner class SearchWorkspaceTool : WorkspaceTool() {
         override val definition = AgentToolDefinition(
             AgentToolId.SEARCH_WORKSPACE,
-            "Search workspace names using the bounded SAF search implementation.",
+            "Search workspace names inside the authorized path scope.",
             Capability.READ_WORKSPACE,
             RiskLevel.R0,
             sideEffecting = false,
@@ -108,18 +108,25 @@ class WorkspaceAgentToolProvider(
             val query = args.optString("query").trim()
             require(query.isNotBlank()) { "Search query cannot be empty." }
             val limit = args.optInt("limit", 30).coerceIn(1, MAX_SEARCH_RESULTS)
-            val results = WorkspaceSearch(resolver).search(root(context), query, limit)
+            val workspaceRoot = root(context)
             val output = JSONArray()
-            results.forEach { item ->
-                val relativePath = runCatching { relativePath(root(context), item.uri) }.getOrNull()
-                if (relativePath != null && context.pathScope.allows(relativePath)) {
-                    output.put(
-                        JSONObject()
-                            .put("path", relativePath)
-                            .put("name", item.name)
-                            .put("directory", item.isDirectory)
-                            .put("sizeBytes", item.sizeBytes),
-                    )
+            val prefixes = context.pathScope.canonicalPrefixes()
+            val search = WorkspaceSearch(resolver)
+            prefixes.forEach { prefix ->
+                if (output.length() >= limit) return@forEach
+                val scopedRoot = access.resolveDirectory(workspaceRoot, prefix)
+                val remaining = (limit - output.length()).coerceAtLeast(1)
+                search.search(scopedRoot, query, remaining).forEach { item ->
+                    if (output.length() < limit) {
+                        output.put(
+                            JSONObject()
+                                .put("scope", prefix)
+                                .put("name", item.name)
+                                .put("directory", item.isDirectory)
+                                .put("sizeBytes", item.sizeBytes)
+                                .put("uri", item.uri.toString()),
+                        )
+                    }
                 }
             }
             AgentToolResult.Success(
@@ -156,13 +163,6 @@ class WorkspaceAgentToolProvider(
         } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Unable to write file.")
         }
-    }
-
-    private suspend fun relativePath(root: Uri, target: Uri): String? = withContext(Dispatchers.IO) {
-        val targetId = runCatching { DocumentsContract.getDocumentId(target) }.getOrNull() ?: return@withContext null
-        val rootId = runCatching { DocumentsContract.getTreeDocumentId(root) }.getOrNull() ?: return@withContext null
-        if (targetId == rootId) return@withContext ""
-        null
     }
 
     companion object {
@@ -209,6 +209,13 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         require(!isDirectory(target)) { "Cannot overwrite a directory: $normalized" }
         resolver.openOutputStream(target, "wt")?.use { output -> output.write(bytes) }
             ?: throw IOException("Unable to open $normalized for writing.")
+    }
+
+    suspend fun resolveDirectory(root: Uri, path: String): Uri = withContext(Dispatchers.IO) {
+        val normalized = WorkspacePathScope.normalize(path, allowEmpty = true)
+        val target = resolve(root, normalized)
+        require(isDirectory(target)) { "Workspace path is not a directory: $path" }
+        target
     }
 
     private fun resolve(root: Uri, path: String): Uri {
