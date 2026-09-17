@@ -73,7 +73,7 @@ Core rules:
 
 Still planned: full syntax highlighting, diagnostics, undo/redo, symbol navigation, richer editing tools, and large-file editor safeguards.
 
-### Git Observation
+### Git Observation / Status Foundation
 
 - [x] `.git` detection through SAF
 - [x] HEAD parsing
@@ -85,12 +85,15 @@ Still planned: full syntax highlighting, diagnostics, undo/redo, symbol navigati
 - [x] Packed-refs branch discovery
 - [x] Bounded repository traversal
 - [x] `.git`, build, and `.gradle` exclusions
-- [x] Optional small-file hashing
 - [x] Partial/truncated observation reporting
 - [x] Git dashboard metadata/branch presentation
-- [x] Explicit unavailable-state messaging for native Git mutation/status
+- [x] Git index v2/v3 parser with bounded entry count
+- [x] Git blob SHA-1 hashing for bounded worktree files
+- [x] Index-vs-worktree clean/modified/deleted/untracked classification
+- [x] Mobile hash/read ceilings and partial-state reporting
+- [x] Git dashboard surfaces index/worktree status and unavailable capabilities
 
-Important: current Git support is observation, not a complete native/index-aware Git implementation.
+Still not implemented: index-vs-HEAD staged/unstaged comparison, stage/unstage, commit, branch mutation, fetch/pull/push, conflict handling, and capability-controlled Git execution.
 
 ### Build Center / GitHub Actions
 
@@ -149,7 +152,7 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 ## In Progress / Next Sequence
 
 1. Release-safe workflow inputs and release contract.
-2. Native/index-aware Git execution and status.
+2. Git index-vs-HEAD staged-state comparison, then capability-controlled Git mutations.
 3. Approval Center and action-review UI.
 4. Snapshot/history and structured diff viewer UI.
 5. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
@@ -188,15 +191,16 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 
 ### Git
 
-- [ ] Native/index-aware Git status
-- [ ] Worktree/index diff computation
+- [x] Index/worktree read status foundation
+- [ ] Index-vs-HEAD staged/unstaged status
+- [ ] Diff computation from index/HEAD
 - [ ] Stage/unstage
 - [ ] Commit
 - [ ] Branch create/switch/delete
 - [ ] Fetch/pull/push through capability gateway
 - [ ] Merge/rebase/cherry-pick planning and execution
 - [ ] Conflict handling UI
-- [ ] Commit/file history
+- [ ] Commit history and file history
 
 ### Remote Build / GitHub
 
@@ -303,7 +307,7 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 - [x] CI #117 passed the Android pipeline after repository/workflow discovery
 - [x] CI #122 passed the Android pipeline after authenticated debug workflow dispatch
 - [x] CI #127 recorded as cancelled by concurrency, not a build failure
-- [ ] Durable build-history implementation final CI validation
+- [ ] Current durable-history + Git index-status implementation final CI validation
 - [ ] Maintained unit-test suite
 - [ ] UI tests
 - [ ] Static analysis/lint
@@ -317,8 +321,7 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 - CI #96 exposed an experimental Material3 `NavigationRail` call; it now has a local opt-in.
 - CI #102 exposed `sdkmanager` PATH handling; the workflow now persists the resolved path.
 - CI #103 validated the resulting toolchain/build/test/APK pipeline.
-- CI #126 was superseded/cancelled by concurrency after checkout and is not treated as a failure.
-- CI #127 was similarly cancelled as newer commits superseded it.
+- CI #126, #127, and subsequent intermediate milestone runs were superseded by newer commits under workflow concurrency; they are not treated as build failures.
 
 ## Implementation Rules
 
@@ -354,3 +357,11 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 - Updated `BuildViewModel` to load history from Room and persist completed GitHub Actions runs instead of keeping history only in memory.
 - Kept receipts limited to build metadata; no tokens, authorization headers, raw logs, or workflow secret inputs are persisted.
 - Bounded persisted history to 20 receipts, matching the mobile-oriented history policy.
+
+### 2026-09-17 — Index-aware Git worktree status foundation
+
+- Added a bounded Git index v2/v3 parser for SAF-accessible `.git/index` files.
+- Added Git blob SHA-1 computation for bounded worktree files.
+- Added clean/modified/deleted/untracked/unchecked classification by comparing the worktree against the index.
+- Updated the Git ViewModel and dashboard to expose real index/worktree status and explicit partial/unavailable states.
+- Deliberately left index-vs-HEAD staged state and all Git mutations behind the next capability-controlled execution milestone.
