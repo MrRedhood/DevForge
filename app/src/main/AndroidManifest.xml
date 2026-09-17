@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
+        android:name=".DevForgeApplication"
         android:allowBackup="false"
         android:label="DevForge"
         android:supportsRtl="true"

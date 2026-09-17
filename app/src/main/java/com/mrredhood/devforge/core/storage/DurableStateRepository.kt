@@ -7,7 +7,7 @@ import com.mrredhood.devforge.core.editor.EditorTab
 import com.mrredhood.devforge.core.editor.SnapshotReason
 import java.util.UUID
 
-/** Bounded Room-backed persistence shared by editor recovery and future agent/automation features. */
+/** Bounded Room-backed persistence shared by editor recovery and agent/automation execution. */
 class DurableStateRepository(
     private val db: DevForgeDatabase,
 ) {
@@ -105,8 +105,19 @@ class DurableStateRepository(
 
     suspend fun saveAutomation(automation: AutomationEntity) {
         require(automation.actionGraph.toByteArray(Charsets.UTF_8).size <= MAX_AUTOMATION_GRAPH_BYTES) { "Automation definition exceeds the persistence limit." }
-        automations.upsert(automation.copy(name = automation.name.take(MAX_NAME_LENGTH), schedule = automation.schedule?.take(MAX_SCHEDULE_LENGTH)))
+        automations.upsert(
+            automation.copy(
+                name = automation.name.take(MAX_NAME_LENGTH),
+                schedule = automation.schedule?.take(MAX_SCHEDULE_LENGTH),
+            ),
+        )
     }
+
+    suspend fun getAutomation(automationId: String): AutomationEntity? = automations.get(automationId)
+
+    suspend fun listAutomations(limit: Int = MAX_AUTOMATIONS): List<AutomationEntity> = automations.list(limit)
+
+    suspend fun deleteAutomation(automationId: String) = automations.delete(automationId)
 
     fun observeAutomations(limit: Int = MAX_AUTOMATIONS) = automations.observeAll(limit)
 
@@ -114,6 +125,8 @@ class DurableStateRepository(
         require((run.receiptJson ?: "").toByteArray(Charsets.UTF_8).size <= MAX_RECEIPT_BYTES) { "Automation receipt exceeds the persistence limit." }
         automations.upsertRun(run.copy(errorMessage = run.errorMessage?.take(MAX_ERROR_LENGTH)))
     }
+
+    suspend fun getAutomationRun(runId: String): AutomationRunEntity? = automations.getRun(runId)
 
     suspend fun recentAutomationRuns(automationId: String, limit: Int = MAX_AUTOMATION_RUNS): List<AutomationRunEntity> =
         automations.recentRuns(automationId, limit)

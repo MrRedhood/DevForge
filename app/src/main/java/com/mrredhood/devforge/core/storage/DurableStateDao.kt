@@ -62,6 +62,9 @@ interface AutomationDao {
     @Query("SELECT * FROM automation_definitions ORDER BY updatedAtEpochMs DESC LIMIT :limit")
     fun observeAll(limit: Int): Flow<List<AutomationEntity>>
 
+    @Query("SELECT * FROM automation_definitions ORDER BY updatedAtEpochMs DESC LIMIT :limit")
+    suspend fun list(limit: Int): List<AutomationEntity>
+
     @Query("SELECT * FROM automation_definitions WHERE automationId = :automationId LIMIT 1")
     suspend fun get(automationId: String): AutomationEntity?
 
@@ -73,6 +76,9 @@ interface AutomationDao {
 
     @Query("SELECT * FROM automation_runs WHERE automationId = :automationId ORDER BY startedAtEpochMs DESC LIMIT :limit")
     suspend fun recentRuns(automationId: String, limit: Int): List<AutomationRunEntity>
+
+    @Query("SELECT * FROM automation_runs WHERE runId = :runId LIMIT 1")
+    suspend fun getRun(runId: String): AutomationRunEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertRun(run: AutomationRunEntity)
