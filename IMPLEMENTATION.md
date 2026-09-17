@@ -18,7 +18,7 @@
 ### App Foundation
 - [x] Android/Kotlin/Compose project and Gradle configuration
 - [x] Material 3/adaptive UI foundation
-- [x] Chat, Files, Git, Build, Settings destinations
+- [x] Chat, Files, Git, Build, Approvals, Settings destinations
 - [x] Modern dark-first DevForge visual direction
 - [x] App-level destination back stack
 - [x] Nested folder/editor back handling
@@ -92,8 +92,22 @@ Current Git mutation limits:
 - [x] Durable Room-backed build receipts/history
 - [x] Release signing via repository-managed secrets
 - [x] Release signing preflight and temporary keystore cleanup
+- [x] Build dispatch routed through persisted Approval Center review
 - [ ] Build cancellation
 - [ ] Runtime validation with a live credential
+
+### Approval Center / Action Review
+- [x] Room v2 → v3 approval-action persistence migration
+- [x] Persisted pending approval queue with bounded 50-action capacity
+- [x] Approval expiry and resolved-action pruning
+- [x] Risk/capability/workspace summary presentation
+- [x] Approve/reject action-review UI
+- [x] Approval Center primary navigation surface
+- [x] Build dispatch creates a reviewed action before execution
+- [x] Git commit and branch-delete actions create reviewed actions before execution
+- [x] Approved actions have an execution lifecycle: approved → executing → completed/failed
+- [x] Approved Git actions re-check repository preconditions before execution
+- [x] Action payloads contain only execution metadata needed to resume; no credentials or secrets
 
 ### Chat / UX
 - [x] Essential Chat landing screen only
@@ -115,15 +129,17 @@ Current Git mutation limits:
 - [x] Secret-safe error handling
 - [x] `DISPATCH_BUILD` capability gate
 - [x] Git mutation capability gates
-- [ ] Approval Center UI and durable action approvals
+- [x] Durable Approval Center action gate
+- [ ] Per-capability persistent grants
+- [ ] Biometric secret protection
 
 ## In Progress / Next Sequence
 
-1. Approval Center and action-review UI.
-2. Git diff computation and structured diff viewer.
-3. Safe remote Git transport: fetch/pull/push with credential/remote validation.
-4. Branch switch/checkout, conflict handling, merge/rebase/cherry-pick.
-5. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
+1. Git diff computation and structured diff viewer.
+2. Safe remote Git transport: fetch/pull/push with credential/remote validation.
+3. Branch switch/checkout, conflict handling, merge/rebase/cherry-pick.
+4. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
+5. Approval history/audit expansion and per-capability grant controls.
 
 ## Planned
 
@@ -172,7 +188,7 @@ Current Git mutation limits:
 - [ ] Idempotency and recovery/receipts
 
 ### Security / Privacy
-- [ ] Approval Center UI
+- [x] Approval Center UI foundation
 - [ ] Per-capability grants and workspace/path scopes
 - [ ] Secret lifecycle UI
 - [ ] Audit trail and action receipts
@@ -220,7 +236,7 @@ Current Git mutation limits:
 - [x] CI #117 passed the Android pipeline after repository/workflow discovery.
 - [x] CI #122 passed after authenticated debug workflow dispatch.
 - [x] CI #127 was cancelled by workflow concurrency and is not treated as a build failure.
-- [ ] Current local-Git execution implementation CI validation
+- [ ] Current Approval Center/Git/Build implementation CI validation
 - [ ] Release APK validation with configured signing secrets
 - [ ] Maintained unit-test suite
 - [ ] UI tests
@@ -259,3 +275,10 @@ Current Git mutation limits:
 - Added real index serialization and checksum generation plus loose blob/tree/commit object writing.
 - Added Git dashboard mutation controls with bounded per-file actions, commit dialog, branch controls and explicit unavailable remote operations.
 - Kept remote fetch/pull/push, branch switch, merge/rebase/cherry-pick and conflict resolution out of the implementation until their transport/checkout safety contracts are ready.
+
+### 2026-09-17 — Approval Center and action-review flow
+- Added Room v3 approval persistence with bounded pending queue, expiry and resolved-action pruning.
+- Added Approval Center UI with risk/capability/workspace context and explicit Approve/Reject controls.
+- Routed remote Build Center dispatch through persisted approval review instead of treating the build button as authorization.
+- Routed Git commit and branch-delete operations through the same approval gate, with repository precondition re-checks before execution.
+- Added approved-action execution lifecycle and safe resumable payloads without storing credentials or secrets.
