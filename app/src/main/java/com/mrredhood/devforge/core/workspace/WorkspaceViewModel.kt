@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.workspace
 
 import android.app.Application
+import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.getValue
@@ -15,25 +16,27 @@ import kotlinx.coroutines.launch
 
 class WorkspaceViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = WorkspaceRepository(application)
-    private val tree = WorkspaceFileTree(application.contentResolver)
+    private val resolver: ContentResolver = application.contentResolver
+    private val tree = WorkspaceFileTree(resolver)
+    private val searchService = WorkspaceSearch(resolver)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     var workspace by mutableStateOf(repository.current())
         private set
-
     var currentUri by mutableStateOf(workspace?.treeUri)
         private set
-
     var currentName by mutableStateOf("Workspace")
         private set
-
     var breadcrumbs by mutableStateOf<List<WorkspaceBreadcrumb>>(emptyList())
         private set
-
     var entries by mutableStateOf<List<WorkspaceEntry>>(emptyList())
         private set
-
+    var searchResults by mutableStateOf<List<WorkspaceSearchResult>>(emptyList())
+        private set
+    var searchQuery by mutableStateOf("")
     var isLoading by mutableStateOf(false)
+        private set
+    var isSearching by mutableStateOf(false)
         private set
 
     init {
@@ -48,7 +51,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     fun openWorkspace(uri: Uri, takePersistablePermission: Boolean = true) {
         if (takePersistablePermission) {
             runCatching {
-                getApplication<Application>().contentResolver.takePersistableUriPermission(
+                resolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                 )
@@ -61,6 +64,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         currentName = name
         breadcrumbs = listOf(WorkspaceBreadcrumb(uri, name))
         repository.save(newWorkspace)
+        clearSearch()
         refresh()
     }
 
@@ -69,6 +73,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         currentUri = entry.uri
         currentName = entry.name
         breadcrumbs = breadcrumbs + WorkspaceBreadcrumb(entry.uri, entry.name)
+        clearSearch()
         refresh()
     }
 
@@ -77,6 +82,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         breadcrumbs = breadcrumbs.take(index + 1)
         currentUri = target.uri
         currentName = target.name
+        clearSearch()
         refresh()
     }
 
@@ -87,8 +93,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun goToRoot() {
-        if (breadcrumbs.isEmpty()) return
-        goToBreadcrumb(0)
+        if (breadcrumbs.isNotEmpty()) goToBreadcrumb(0)
     }
 
     fun refresh() {
@@ -101,6 +106,29 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
                 isLoading = false
             }
         }
+    }
+
+    fun search(query: String = searchQuery) {
+        val root = workspace?.treeUri ?: return
+        searchQuery = query
+        if (query.isBlank()) {
+            clearSearch()
+            return
+        }
+        isSearching = true
+        scope.launch {
+            val result = searchService.search(root, query)
+            launch(Dispatchers.Main.immediate) {
+                searchResults = result
+                isSearching = false
+            }
+        }
+    }
+
+    fun clearSearch() {
+        searchQuery = ""
+        searchResults = emptyList()
+        isSearching = false
     }
 
     override fun onCleared() {
