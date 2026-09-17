@@ -5,8 +5,11 @@ import android.net.Uri
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.mrredhood.devforge.core.git.GitDetectionState
+import com.mrredhood.devforge.core.git.GitFileStatus
 import com.mrredhood.devforge.core.git.GitRepositoryService
 import com.mrredhood.devforge.core.git.GitWorkspaceStatusService
+import com.mrredhood.devforge.core.storage.AutomationEntity
+import com.mrredhood.devforge.core.storage.AutomationTriggerStateEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import kotlinx.coroutines.flow.first
@@ -23,8 +26,7 @@ class AutomationEventMonitorWorker(
         val context = applicationContext
         val database = DevForgeDatabase.get(context)
         val durable = DurableStateRepository(database)
-        val automations = durable.listAutomations()
-            .filter { it.status == AutomationStatus.ENABLED.name }
+        val automations = durable.listAutomations().filter { it.status == AutomationStatus.ENABLED.name }
 
         monitorRepositories(context, durable, automations)
         monitorBuilds(context, durable, automations)
@@ -34,7 +36,7 @@ class AutomationEventMonitorWorker(
     private suspend fun monitorRepositories(
         context: Context,
         durable: DurableStateRepository,
-        automations: List<com.mrredhood.devforge.core.storage.AutomationEntity>,
+        automations: List<AutomationEntity>,
     ) {
         val workspaceIds = automations
             .filter { it.triggerType == AutomationTriggerType.REPOSITORY_CHANGE.name || it.triggerType == AutomationTriggerType.CONDITION.name }
@@ -51,15 +53,29 @@ class AutomationEventMonitorWorker(
             val detected = repositoryService.detect(root) as? GitDetectionState.Detected ?: continue
             val status = statusService.inspect(detected.repository.rootUri, detected.repository.gitDirectoryUri, detected.repository.headRevision)
             if (status.truncated) continue
+
             val stateParts = buildList {
                 add("head:${detected.repository.headRevision.orEmpty()}")
                 addAll(status.files.take(MAX_FILES).map { "${it.path}:${it.gitStatus.name}" })
             }
             val changedPaths = status.files
-                .filter { it.gitStatus != com.mrredhood.devforge.core.git.GitFileStatus.Clean && it.gitStatus != com.mrredhood.devforge.core.git.GitFileStatus.Unchecked }
+                .filter { it.gitStatus != GitFileStatus.Clean && it.gitStatus != GitFileStatus.Unchecked }
                 .map { it.path }
                 .take(MAX_FILES)
             val fingerprint = AutomationTriggerCodec.eventFingerprint(workspaceId, detected.repository.branchName, stateParts)
+            automations.filter { it.workspaceId == workspaceId && (it.triggerType == AutomationTriggerType.REPOSITORY_CHANGE.name || it.triggerType == AutomationTriggerType.CONDITION.name) }
+                .forEach { automation ->
+                    val state = durable.getAutomationTriggerState(automation.automationId)
+                    if (state == null || state.lastRepositoryFingerprint == null) {
+                        durable.saveAutomationTriggerState(
+                            (state ?: AutomationTriggerStateEntity(automation.automationId, null, null, 0L)).copy(
+                                lastRepositoryFingerprint = fingerprint,
+                                lastEvaluatedAtEpochMs = System.currentTimeMillis(),
+                            ),
+                        )
+                    }
+                }
+
             AutomationEventDispatcher.dispatch(
                 context,
                 AutomationEvent.RepositoryChanged(
@@ -75,7 +91,7 @@ class AutomationEventMonitorWorker(
     private suspend fun monitorBuilds(
         context: Context,
         durable: DurableStateRepository,
-        automations: List<com.mrredhood.devforge.core.storage.AutomationEntity>,
+        automations: List<AutomationEntity>,
     ) {
         if (automations.none { it.triggerType == AutomationTriggerType.BUILD_COMPLETION.name || it.triggerType == AutomationTriggerType.CONDITION.name }) return
         val receipts = DevForgeDatabase.get(context).buildReceiptDao().observeRecent(MAX_BUILD_RECEIPTS).first().sortedBy { it.runId }
@@ -87,8 +103,13 @@ class AutomationEventMonitorWorker(
         val latest = receipts.last()
         for (automation in buildAutomations) {
             val state = durable.getAutomationTriggerState(automation.automationId)
-            if (state?.lastBuildRunId == null) {
-                AutomationEventDispatcher.dispatch(context, latest.toEvent())
+            if (state == null || state.lastBuildRunId == null) {
+                durable.saveAutomationTriggerState(
+                    (state ?: AutomationTriggerStateEntity(automation.automationId, null, null, 0L)).copy(
+                        lastBuildRunId = latest.runId,
+                        lastEvaluatedAtEpochMs = System.currentTimeMillis(),
+                    ),
+                )
                 continue
             }
             receipts.filter { it.runId > state.lastBuildRunId }.forEach { receipt ->
