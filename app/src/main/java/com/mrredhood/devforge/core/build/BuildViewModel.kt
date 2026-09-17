@@ -50,41 +50,29 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     var configuration by mutableStateOf(BuildConfiguration())
         private set
-
     var state by mutableStateOf<BuildState>(BuildState.Ready(configuration))
         private set
-
     var capabilities by mutableStateOf(BuildCapabilityState())
         private set
-
     var runSnapshot by mutableStateOf<GitHubRunSnapshot?>(null)
         private set
-
     var logs by mutableStateOf<List<GitHubJobLog>>(emptyList())
         private set
-
     var logsTruncated by mutableStateOf(false)
         private set
-
     var artifacts by mutableStateOf<List<GitHubArtifact>>(emptyList())
         private set
-
     var monitoringMessage by mutableStateOf<String?>(null)
         private set
-
     var history by mutableStateOf<List<BuildHistoryEntry>>(emptyList())
         private set
 
     init {
         viewModelScope.launch {
-            buildReceiptDao.observeRecent(MAX_HISTORY).collect { receipts ->
-                history = receipts.map(BuildReceiptEntity::toDomain)
-            }
+            buildReceiptDao.observeRecent(MAX_HISTORY).collect { receipts -> history = receipts.map(BuildReceiptEntity::toDomain) }
         }
         approvalJob = viewModelScope.launch(Dispatchers.IO) {
-            approvalRepository.observeApproved("build-dispatch:").collect { approvals ->
-                approvals.forEach { executeApprovedBuild(it) }
-            }
+            approvalRepository.observeApproved("build-dispatch:").collect { approvals -> approvals.forEach { executeApprovedBuild(it) } }
         }
     }
 
@@ -108,18 +96,13 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     fun configureGitHubRepository(owner: String, repository: String, defaultBranch: String, workflowFile: String) {
         if (state is BuildState.Dispatching || state is BuildState.Running || state is BuildState.AwaitingApproval) return
-        configuration = configuration.copy(
-            githubOwner = owner,
-            githubRepository = repository,
-            branch = defaultBranch.ifBlank { "main" },
-            workflowFile = workflowFile,
-        )
+        configuration = configuration.copy(githubOwner = owner, githubRepository = repository, branch = defaultBranch.ifBlank { "main" }, workflowFile = workflowFile)
         refreshDispatchCapability()
         state = BuildState.Ready(configuration)
     }
 
     fun resetToReady() {
-        if (state is BuildState.Dispatching || state is BuildState.Running) return
+        if (state is BuildState.Dispatching || state is BuildState.Running || state is BuildState.AwaitingApproval) return
         monitoringMessage = null
         state = BuildState.Ready(configuration)
     }
@@ -135,7 +118,6 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
             state = BuildState.Failed(dispatchUnavailableMessage())
             return
         }
-
         val request = configuration
         val action = ActionRequest(
             actionId = "build-dispatch:${System.currentTimeMillis()}",
@@ -146,13 +128,11 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
             parametersHash = configurationHash(request),
             preconditionHash = configurationHash(request),
         )
-
         if (DefaultPolicy.requiresApproval(action, PermissionMode.SOME)) {
-            val approvalId = action.actionId
             viewModelScope.launch(Dispatchers.IO) {
                 runCatching {
                     approvalRepository.createPending(
-                        approvalId = approvalId,
+                        approvalId = action.actionId,
                         actionId = action.actionId,
                         capability = action.capability,
                         risk = action.risk,
@@ -165,18 +145,15 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }.onSuccess {
                     withContext(Dispatchers.Main.immediate) {
-                        state = BuildState.AwaitingApproval(approvalId, request)
+                        state = BuildState.AwaitingApproval(action.actionId, request)
                         monitoringMessage = "Build request sent to Approval Center."
                     }
                 }.onFailure { error ->
-                    withContext(Dispatchers.Main.immediate) {
-                        state = BuildState.Failed(error.message ?: "Unable to create the build approval request.")
-                    }
+                    withContext(Dispatchers.Main.immediate) { state = BuildState.Failed(error.message ?: "Unable to create the build approval request.") }
                 }
             }
             return
         }
-
         executeDispatch(request, null)
     }
 
@@ -201,13 +178,15 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun executeDispatch(request: BuildConfiguration, approvalId: String?) {
         monitorJob?.cancel()
-        runSnapshot = null
-        logs = emptyList()
-        artifacts = emptyList()
-        logsTruncated = false
-        monitoringMessage = null
-        state = BuildState.Dispatching(request)
         viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main.immediate) {
+                runSnapshot = null
+                logs = emptyList()
+                artifacts = emptyList()
+                logsTruncated = false
+                monitoringMessage = null
+                state = BuildState.Dispatching(request)
+            }
             val result = githubGateway.dispatch(request.githubOwner, request.githubRepository, request)
             when (result) {
                 is GitHubDispatchResult.Started -> {
@@ -219,9 +198,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 is GitHubDispatchResult.Failure -> {
                     if (approvalId != null) approvalRepository.finishFailure(approvalId)
-                    withContext(Dispatchers.Main.immediate) {
-                        state = BuildState.Failed(result.message)
-                    }
+                    withContext(Dispatchers.Main.immediate) { state = BuildState.Failed(result.message) }
                 }
             }
         }
@@ -275,16 +252,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                     "cancelled", "timed_out" -> BuildState.Cancelled(snapshot.id)
                     else -> BuildState.Failed("GitHub Actions run #${snapshot.runNumber} finished with ${snapshot.conclusion ?: "an unknown conclusion"}.")
                 }
-                val entry = BuildHistoryEntry(
-                    runId = snapshot.id,
-                    runNumber = snapshot.runNumber,
-                    configuration = buildConfiguration,
-                    state = snapshot.status,
-                    conclusion = snapshot.conclusion,
-                    htmlUrl = snapshot.htmlUrl,
-                    updatedAt = snapshot.updatedAt,
-                    recordedAtEpochMs = System.currentTimeMillis(),
-                )
+                val entry = BuildHistoryEntry(snapshot.id, snapshot.runNumber, buildConfiguration, snapshot.status, snapshot.conclusion, snapshot.htmlUrl, snapshot.updatedAt, System.currentTimeMillis())
                 viewModelScope.launch(Dispatchers.IO) { buildReceiptDao.record(entry.toEntity(), MAX_HISTORY) }
             }
         }
@@ -326,19 +294,10 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     }
 
-    private fun encodeConfiguration(value: BuildConfiguration): String = JSONObject()
-        .put("owner", value.githubOwner)
-        .put("repository", value.githubRepository)
-        .put("workflow", value.workflowFile)
-        .put("branch", value.branch)
-        .put("task", value.buildTask)
-        .put("artifact", value.artifactName)
-        .put("target", value.target.name)
-        .toString()
+    private fun encodeConfiguration(value: BuildConfiguration): String = JSONObject().put("owner", value.githubOwner).put("repository", value.githubRepository).put("workflow", value.workflowFile).put("branch", value.branch).put("task", value.buildTask).put("artifact", value.artifactName).put("target", value.target.name).toString()
 
     private fun decodeConfiguration(payload: String): BuildConfiguration? = runCatching {
         val json = JSONObject(payload)
-        val target = BuildTarget.valueOf(json.getString("target"))
         BuildConfiguration(
             githubOwner = json.getString("owner"),
             githubRepository = json.getString("repository"),
@@ -346,7 +305,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
             branch = json.getString("branch"),
             buildTask = json.getString("task"),
             artifactName = json.getString("artifact"),
-            target = target,
+            target = BuildTarget.valueOf(json.getString("target")),
         )
     }.getOrNull()
 
