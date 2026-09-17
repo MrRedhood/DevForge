@@ -1,6 +1,5 @@
 package com.mrredhood.devforge.core.ai
 
-import android.util.Base64
 import java.net.HttpURLConnection
 import java.net.URLEncoder
 import java.net.URL
@@ -8,7 +7,7 @@ import java.util.Locale
 import org.json.JSONObject
 
 class ModelCatalogService {
-    suspend fun load(provider: AIProvider, apiKey: String): ModelCatalogResult {
+    fun load(provider: AIProvider, apiKey: String): ModelCatalogResult {
         return runCatching {
             when (provider) {
                 AIProvider.GEMINI -> loadGemini(apiKey)
@@ -20,13 +19,16 @@ class ModelCatalogService {
         }
     }
 
+    fun resolveMissingContext(model: AIModelInfo): AIModelInfo {
+        if (model.contextLimit != null) return model
+        val context = resolveContextLimitFromWeb(model.id) ?: return model
+        return model.copy(contextLimit = context, metadataSource = "${model.metadataSource} + web search")
+    }
+
     private fun loadGemini(apiKey: String): ModelCatalogResult {
         val json = request(
             "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000",
-            headers = mapOf(
-                "x-goog-api-key" to apiKey,
-                "Accept" to "application/json",
-            ),
+            headers = mapOf("x-goog-api-key" to apiKey, "Accept" to "application/json"),
         )
         val array = json.optJSONArray("models") ?: return ModelCatalogResult(emptyList(), AIProvider.GEMINI, warning = "Gemini returned no models.")
         val models = buildList {
@@ -96,11 +98,11 @@ class ModelCatalogService {
                         priceClass = priceClass,
                         inputPricePerMillion = inputPrice,
                         outputPricePerMillion = outputPrice,
-                        contextLimit = context ?: resolveContextLimitFromWeb(id),
+                        contextLimit = context,
                         inputModalities = input.ifEmpty { setOf("text") },
                         outputModalities = output.ifEmpty { setOf("text") },
                         supportsTools = "tools" in supported || "tool_choice" in supported,
-                        metadataSource = if (context != null) "OpenRouter API" else "OpenRouter API + web search",
+                        metadataSource = if (context != null) "OpenRouter API" else "OpenRouter API · web fallback available",
                     ),
                 )
             }
@@ -111,10 +113,7 @@ class ModelCatalogService {
     private fun loadOpenAi(apiKey: String): ModelCatalogResult {
         val json = request(
             "https://api.openai.com/v1/models",
-            headers = mapOf(
-                "Authorization" to "Bearer $apiKey",
-                "Accept" to "application/json",
-            ),
+            headers = mapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json"),
         )
         val array = json.optJSONArray("data") ?: return ModelCatalogResult(emptyList(), AIProvider.OPENAI, warning = "OpenAI returned no models.")
         val models = buildList {
@@ -122,6 +121,7 @@ class ModelCatalogService {
                 val model = array.optJSONObject(index) ?: continue
                 val id = model.optString("id")
                 if (id.isBlank()) continue
+                val modalities = inferModalities(id, "")
                 add(
                     AIModelInfo(
                         provider = AIProvider.OPENAI,
@@ -129,11 +129,11 @@ class ModelCatalogService {
                         displayName = id,
                         description = "Discovered from the OpenAI Models API.",
                         priceClass = ModelPriceClass.UNKNOWN,
-                        contextLimit = resolveContextLimitFromWeb(id),
-                        inputModalities = inferModalities(id, "" ).first,
-                        outputModalities = inferModalities(id, "" ).second,
+                        contextLimit = null,
+                        inputModalities = modalities.first,
+                        outputModalities = modalities.second,
                         supportsTools = !id.contains("embedding", true),
-                        metadataSource = "OpenAI API + web search",
+                        metadataSource = "OpenAI API · web fallback available",
                     ),
                 )
             }
@@ -167,7 +167,7 @@ class ModelCatalogService {
             val body = connection.inputStream.bufferedReader().use { it.readText() }
             connection.disconnect()
             val patterns = listOf(
-                Regex("(?i)([0-9][0-9,]*(?:\\.[0-9]+)?)[ ]*(k|m)?[ ]*(?:token|tokens)[ ]*(?:context|context window|context length)"),
+                Regex("(?i)([0-9][0-9,]*(?:\\.[0-9]+)?)[ ]*(k|m)?[ ]*(?:token|tokens)[^<]{0,40}(?:context|context window|context length)"),
                 Regex("(?i)(?:context window|context length)[^0-9]{0,40}([0-9][0-9,]*(?:\\.[0-9]+)?)[ ]*(k|m)?[ ]*(?:token|tokens)"),
             )
             patterns.asSequence().mapNotNull { regex ->
