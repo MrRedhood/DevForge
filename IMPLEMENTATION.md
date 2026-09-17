@@ -80,11 +80,15 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Persistable URI permission handoff
 - [x] Workspace-aware global header
 - [x] Real workspace root file/folder enumeration
+- [x] Recursive folder listing through SAF document-tree APIs
+- [x] Nested folder navigation state
+- [x] Workspace breadcrumbs
+- [x] Back/up navigation through breadcrumb hierarchy
 - [x] File/folder loading state
-- [x] Empty workspace state
+- [x] Empty workspace/folder state
 - [x] Workspace refresh action
 - [x] Lightweight file metadata presentation
-- [x] Background file-tree loading with bounded root enumeration
+- [x] Background file-tree loading with bounded enumeration per folder
 
 ### Editor Foundation
 
@@ -141,12 +145,11 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 ### Next implementation slice
 
-1. Recursive folder navigation and workspace breadcrumbs
-2. File preview/search safeguards
-3. Durable multi-workspace database strategy (Room after the state model stabilizes)
-4. Git repository state model and status UI
-5. Build configuration/state model
-6. Approval UI connected to actual action requests
+1. File preview/search safeguards
+2. Durable multi-workspace database strategy (Room after the state model stabilizes)
+3. Git repository state model and status UI
+4. Build configuration/state model
+5. Approval UI connected to actual action requests
 
 ### Workspace persistence decision
 
@@ -184,8 +187,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] SAF workspace selection
 - [ ] Workspace database
 - [x] File tree root enumeration
-- [ ] Recursive folder navigation
-- [ ] Breadcrumb navigation
+- [x] Recursive folder navigation
+- [x] Breadcrumb navigation
 - [ ] Search
 - [ ] File preview
 - [x] File open/read/write pipeline
@@ -306,6 +309,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Workspace empty state
 - [x] Workspace loading state
 - [x] Workspace root browser state
+- [x] Recursive folder browser surface
+- [x] Workspace breadcrumb surface
 - [x] Editor workspace chrome foundation
 - [x] Unsaved-change confirmation
 - [ ] Diff viewer surface
@@ -359,6 +364,7 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 13. File editing must separate in-memory buffers, persisted file state, and recovery drafts so AI/automation features can later add reviewable patches without bypassing user control.
 14. Content identity should be content-based rather than timestamp-based where correctness matters, so snapshots, diffs, recovery, and future agent patches can detect actual changes.
 15. Keep snapshot storage bounded per file until a proper database-backed history layer is introduced.
+16. Recursive workspace browsing must operate through the selected SAF tree permission; do not expand storage scope just to traverse nested folders.
 
 ## Change Log
 
@@ -412,6 +418,16 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - Connected delayed recovery-draft creation to recovery snapshots so unsaved work has a durable checkpoint distinct from the actual workspace file.
 - Added recovery snapshot capture when opening a document with an existing recovery draft.
 - Preserved separation between source-file writes and local recovery/snapshot state.
+- CI validation of this implementation is pending.
+
+### 2026-09-17 — Recursive workspace navigation
+
+- Extended the SAF file-tree abstraction to list any selected document-tree folder, not only the workspace root.
+- Added nested-folder navigation state to `WorkspaceViewModel`.
+- Added breadcrumb hierarchy, root navigation, and back/up behavior.
+- Updated the Files UI so folder rows navigate deeper while file rows continue opening in the editor.
+- Added horizontally scrollable breadcrumb chips for phone-sized layouts.
+- Kept enumeration bounded per folder to avoid unbounded reads on-device.
 - CI validation of this implementation is pending.
 
 ### Future entries
