@@ -2,7 +2,7 @@ package com.mrredhood.devforge
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
+import androidx.activity.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -74,6 +75,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrredhood.devforge.core.ai.AIChatScreen
 import com.mrredhood.devforge.core.ai.AISettingsScreen
+import com.mrredhood.devforge.core.automation.AutomationCenterScreen
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.git.GitDashboardScreen
@@ -211,13 +213,19 @@ private fun DevForgeTopBar(workspaceName: String, editing: Boolean) {
 @Composable
 private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDestination) -> Unit) {
     NavigationBar {
-        DevForgeDestination.entries.forEach { item ->
-            NavigationBarItem(
-                selected = current == item,
-                onClick = { onSelect(item) },
-                icon = { Icon(item.icon, item.label) },
-                label = { Text(item.label) },
-            )
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DevForgeDestination.entries.forEach { item ->
+                NavigationBarItem(
+                    modifier = Modifier.width(88.dp),
+                    selected = current == item,
+                    onClick = { onSelect(item) },
+                    icon = { Icon(item.icon, item.label) },
+                    label = { Text(item.label) },
+                )
+            }
         }
     }
 }
@@ -225,7 +233,7 @@ private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDe
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NavigationSide(current: DevForgeDestination, onSelect: (DevForgeDestination) -> Unit) {
-    NavigationRail(Modifier.fillMaxHeight().width(88.dp)) {
+    NavigationRail(Modifier.fillMaxHeight().width(88.dp).verticalScroll(rememberScrollState())) {
         Spacer(Modifier.height(18.dp))
         DevForgeDestination.entries.forEach { item ->
             NavigationRailItem(
@@ -246,6 +254,7 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
         DevForgeDestination.Git -> GitDashboardScreen()
         DevForgeDestination.Diffs -> GitDiffScreen()
         DevForgeDestination.Build -> BuildCenterScreen()
+        DevForgeDestination.Automations -> AutomationCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
         DevForgeDestination.Settings -> SettingsScreen()
     }
