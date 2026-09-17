@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Source
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -76,6 +77,7 @@ fun GitDashboardScreen(viewModel: GitViewModel = viewModel()) {
                     item { RepositoryCard(state.repository) }
                     item { WorkspaceStatusCard(viewModel.workspaceStatus, viewModel.isInspectingStatus) }
                     item { GitOperationsCard() }
+                    item { GitHistoryControlsCard() }
                     if (state.repository.branches.isNotEmpty()) {
                         item {
                             Column {
