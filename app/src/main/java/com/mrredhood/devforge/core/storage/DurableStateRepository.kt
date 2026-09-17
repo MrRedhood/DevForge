@@ -130,6 +130,8 @@ class DurableStateRepository(
 
     suspend fun saveAutomationTriggerState(state: AutomationTriggerStateEntity) = triggerStates.upsert(state)
 
+    suspend fun resetAutomationTriggerState(automationId: String) = triggerStates.delete(automationId)
+
     suspend fun saveAutomationRun(run: AutomationRunEntity) {
         require((run.receiptJson ?: "").toByteArray(Charsets.UTF_8).size <= MAX_RECEIPT_BYTES) { "Automation receipt exceeds the persistence limit." }
         automations.upsertRun(run.copy(errorMessage = run.errorMessage?.take(MAX_ERROR_LENGTH)))
@@ -145,8 +147,8 @@ class DurableStateRepository(
     fun observeWorkspaceAudit(workspaceId: String, limit: Int = MAX_AUDIT_EVENTS) = audit.observeForWorkspace(workspaceId, limit)
 
     suspend fun recordAudit(event: AuditEventEntity) {
-        require(event.summary.length <= MAX_SUMMARY_LENGTH) { "Audit summary exceeds the persistence limit." }
-        require((event.metadataJson ?: "").toByteArray(Charsets.UTF_8).size <= MAX_AUDIT_METADATA_BYTES) { "Audit metadata exceeds the persistence limit." }
+        require(event.summary.length <= MAX_SUMMARY_LENGTH) { "Audit summary exceeds the limit." }
+        require((event.metadataJson ?: "").toByteArray(Charsets.UTF_8).size <= MAX_AUDIT_METADATA_BYTES) { "Audit metadata exceeds the limit." }
         audit.insert(event.copy(summary = event.summary.take(MAX_SUMMARY_LENGTH)))
     }
 
