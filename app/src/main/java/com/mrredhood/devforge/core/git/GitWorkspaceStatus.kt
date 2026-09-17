@@ -36,7 +36,8 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
                 if (headFiles is HeadReadResult.Success) {
                     inspectAgainstHeadIndexWorktree(root, parsedIndex.entries, headFiles.files, maxFiles, parsedIndex.truncated, headFiles.truncated)
                 } else {
-                    inspectAgainstIndex(root, parsedIndex.entries, maxFiles, parsedIndex.truncated, headFiles.reason)
+                    val reason = (headFiles as? HeadReadResult.Unavailable)?.reason ?: "Git HEAD objects are unavailable on this access path."
+                    inspectAgainstIndex(root, parsedIndex.entries, maxFiles, parsedIndex.truncated, reason)
                 }
             }
             is GitIndexParseResult.Unsupported -> observeOnly(root, maxFiles, parsedIndex.reason)
@@ -231,29 +232,17 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
         }
     }
 
-    private fun walk(
-        parent: Uri,
-        relativePrefix: String,
-        files: MutableList<WorktreeFile>,
-        maxFiles: Int,
-        depth: Int,
-    ) {
+    private fun walk(parent: Uri, relativePrefix: String, files: MutableList<WorktreeFile>, maxFiles: Int, depth: Int) {
         if (depth > MAX_DEPTH || files.size >= maxFiles) return
         for (child in listChildren(parent)) {
             if (files.size >= maxFiles) return
             if (child.name == ".git" || child.name == "build" || child.name == ".gradle") continue
             val relativePath = if (relativePrefix.isBlank()) child.name else "$relativePrefix/${child.name}"
-            if (child.directory) {
-                walk(child.uri, relativePath, files, maxFiles, depth + 1)
-            } else {
+            if (child.directory) walk(child.uri, relativePath, files, maxFiles, depth + 1)
+            else {
                 val size = child.sizeBytes
                 val hash = if (size != null && size <= MAX_HASH_BYTES) readGitBlobHash(child.uri, size) else null
-                files += WorktreeFile(
-                    path = relativePath,
-                    sizeBytes = size,
-                    gitBlobHash = hash,
-                    readError = size != null && size <= MAX_HASH_BYTES && hash == null,
-                )
+                files += WorktreeFile(path = relativePath, sizeBytes = size, gitBlobHash = hash, readError = size != null && size <= MAX_HASH_BYTES && hash == null)
             }
         }
     }
@@ -271,8 +260,7 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
                 if (totalRead > MAX_HASH_BYTES) return@use null
                 digest.update(buffer, 0, read)
             }
-            if (totalRead != declaredSize) null
-            else digest.digest().joinToString("") { "%02x".format(it) }
+            if (totalRead != declaredSize) null else digest.digest().joinToString("") { "%02x".format(it) }
         }
     }.getOrNull()
 
@@ -292,49 +280,23 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
         }
     }.getOrNull()
 
-    private fun findDirectChild(parent: Uri, name: String): Uri? =
-        listChildren(parent).firstOrNull { it.name == name }?.uri
+    private fun findDirectChild(parent: Uri, name: String): Uri? = listChildren(parent).firstOrNull { it.name == name }?.uri
 
-    private data class WorktreeFile(
-        val path: String,
-        val sizeBytes: Long?,
-        val gitBlobHash: String?,
-        val readError: Boolean,
-    )
-
+    private data class WorktreeFile(val path: String, val sizeBytes: Long?, val gitBlobHash: String?, val readError: Boolean)
     private sealed interface HeadReadResult {
         data class Success(val files: Map<String, String>, val truncated: Boolean) : HeadReadResult
         data class Unavailable(val reason: String) : HeadReadResult
     }
-
     private sealed interface TreeTraversal {
         data class Success(val truncated: Boolean) : TreeTraversal
         data class Unavailable(val reason: String) : TreeTraversal
     }
-
-    private data class ChildDocument(
-        val uri: Uri,
-        val name: String,
-        val directory: Boolean,
-        val sizeBytes: Long?,
-    )
+    private data class ChildDocument(val uri: Uri, val name: String, val directory: Boolean, val sizeBytes: Long?)
 
     private fun listChildren(parent: Uri): List<ChildDocument> = runCatching {
-        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }
-            .getOrElse { DocumentsContract.getTreeDocumentId(parent) }
+        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }.getOrElse { DocumentsContract.getTreeDocumentId(parent) }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
-        resolver.query(
-            childrenUri,
-            arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_SIZE,
-            ),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
+        resolver.query(childrenUri, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { cursor ->
             buildList {
                 while (cursor.moveToNext() && size < MAX_ENTRIES_PER_FOLDER) {
                     val id = cursor.getString(0) ?: continue
