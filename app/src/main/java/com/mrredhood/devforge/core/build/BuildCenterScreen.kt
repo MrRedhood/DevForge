@@ -63,14 +63,12 @@ fun BuildCenterScreen() {
     val configuration = model.configuration
     val dispatchEnabled = model.capabilities.githubDispatch == CapabilityAvailability.Available &&
         model.state !is BuildState.Dispatching &&
-        model.state !is BuildState.Running
+        model.state !is BuildState.Running &&
+        model.state !is BuildState.AwaitingApproval
     val context = LocalContext.current
 
     if (choosingRepository) {
-        GitHubRepositoryScreen(
-            buildViewModel = model,
-            onBack = { choosingRepository = false },
-        )
+        GitHubRepositoryScreen(buildViewModel = model, onBack = { choosingRepository = false })
         return
     }
 
@@ -83,47 +81,27 @@ fun BuildCenterScreen() {
             item {
                 Column {
                     Text("Build Center", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
-                    Text(
-                        "Remote-first Android builds through GitHub Actions. DevForge stays lightweight on-device.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text("Remote-first Android builds through GitHub Actions. DevForge stays lightweight on-device.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-
+            item { BuildStatusCard(model) }
             item {
-                BuildStatusCard(model)
-            }
-
-            item {
-                Card(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                ) {
+                Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("GitHub source", fontWeight = FontWeight.Bold)
                         if (configuration.githubOwner.isBlank() || configuration.githubRepository.isBlank()) {
-                            Text(
-                                "No repository selected. Discover a repository and an active Actions workflow before remote dispatch can be configured.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Text("No repository selected. Discover a repository and an active Actions workflow before remote dispatch can be configured.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Button(onClick = { choosingRepository = true }) { Text("Choose repository") }
                         } else {
                             Text("${configuration.githubOwner}/${configuration.githubRepository}", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "Workflow: ${configuration.workflowFile}\nBranch: ${configuration.branch}",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Text("Workflow: ${configuration.workflowFile}\nBranch: ${configuration.branch}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             TextButton(onClick = { choosingRepository = true }) { Text("Change") }
                         }
                     }
                 }
             }
-
             item {
-                Card(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                ) {
+                Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Build, contentDescription = null)
@@ -135,28 +113,20 @@ fun BuildCenterScreen() {
                                 FilterChip(
                                     selected = configuration.target == target,
                                     onClick = { model.selectTarget(target) },
-                                    enabled = model.state !is BuildState.Running && model.state !is BuildState.Dispatching,
+                                    enabled = model.state !is BuildState.Running && model.state !is BuildState.Dispatching && model.state !is BuildState.AwaitingApproval,
                                     label = { Text(target.label) },
                                 )
                             }
                         }
                         Text(configuration.target.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (configuration.target != BuildTarget.DebugApk) {
-                            Text(
-                                "Remote dispatch for release targets is intentionally disabled until the workflow exposes explicit release inputs and signing-safe behavior.",
-                                color = MaterialTheme.colorScheme.tertiary,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            Text("Release dispatch is protected by the Approval Center and requires the repository's configured signing contract.", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
             }
-
             item {
-                Card(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                ) {
+                Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Execution plan", fontWeight = FontWeight.Bold)
                         BuildDetailRow("Repository", if (configuration.githubOwner.isBlank()) "Not selected" else "${configuration.githubOwner}/${configuration.githubRepository}")
@@ -167,30 +137,21 @@ fun BuildCenterScreen() {
                     }
                 }
             }
-
             if (model.runSnapshot != null) {
                 item { RunSummaryCard(model, onOpen = { url -> openUrl(context, url) }) }
                 item { ArtifactCard(model.artifacts) }
                 item { LogsCard(model.logs, model.logsTruncated) }
             }
-
             if (model.monitoringMessage != null) {
                 item {
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                        Text(
-                            model.monitoringMessage.orEmpty(),
-                            modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
+                    val pending = model.state is BuildState.AwaitingApproval
+                    Card(colors = CardDefaults.cardColors(containerColor = if (pending) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer)) {
+                        Text(model.monitoringMessage.orEmpty(), modifier = Modifier.padding(16.dp), color = if (pending) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer)
                     }
                 }
             }
-
             item {
-                Card(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                ) {
+                Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.CloudUpload, contentDescription = null)
@@ -203,23 +164,22 @@ fun BuildCenterScreen() {
                     }
                 }
             }
-
             if (model.history.isNotEmpty()) {
                 item { HistoryHeader() }
-                items(model.history, key = { it.runId }) { entry ->
-                    HistoryRow(entry, onOpen = { url -> openUrl(context, url) })
-                }
+                items(model.history, key = { it.runId }) { entry -> HistoryRow(entry, onOpen = { url -> openUrl(context, url) }) }
             }
-
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Button(
-                        onClick = model::requestDispatch,
-                        enabled = dispatchEnabled,
-                    ) {
+                    Button(onClick = model::requestDispatch, enabled = dispatchEnabled) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text(if (model.state is BuildState.Dispatching) "Dispatching…" else "Start remote build")
+                        Text(
+                            when (model.state) {
+                                is BuildState.AwaitingApproval -> "Awaiting approval…"
+                                is BuildState.Dispatching -> "Dispatching…"
+                                else -> "Start remote build"
+                            },
+                        )
                     }
                     if (model.runSnapshot != null) {
                         TextButton(onClick = model::refreshRun) {
@@ -230,7 +190,7 @@ fun BuildCenterScreen() {
                     }
                     TextButton(
                         onClick = model::resetToReady,
-                        enabled = model.state !is BuildState.Dispatching && model.state !is BuildState.Running,
+                        enabled = model.state !is BuildState.Dispatching && model.state !is BuildState.Running && model.state !is BuildState.AwaitingApproval,
                     ) { Text("Reset") }
                 }
             }
@@ -244,6 +204,7 @@ private fun BuildStatusCard(model: BuildViewModel) {
     val (title, detail) = when (state) {
         BuildState.Idle -> "Idle" to "No build is configured."
         is BuildState.Ready -> "Ready" to "Configuration prepared; no remote run has started."
+        is BuildState.AwaitingApproval -> "Awaiting approval" to "Review this build in Approval Center before DevForge dispatches it."
         is BuildState.Dispatching -> "Dispatching" to "Submitting the authenticated GitHub Actions request…"
         is BuildState.Running -> "Running" to "GitHub Actions run #${state.runId} is active."
         is BuildState.Succeeded -> "Succeeded" to "Artifact ${state.artifactName} is available."
@@ -251,10 +212,7 @@ private fun BuildStatusCard(model: BuildViewModel) {
         is BuildState.Cancelled -> "Cancelled" to "Run #${state.runId} was cancelled."
     }
     val active = state is BuildState.Dispatching || state is BuildState.Running
-    Card(
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
-    ) {
+    Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (state is BuildState.Succeeded) Icons.Default.CheckCircle else Icons.Default.Info, contentDescription = null)
@@ -270,10 +228,7 @@ private fun BuildStatusCard(model: BuildViewModel) {
 @Composable
 private fun RunSummaryCard(model: BuildViewModel, onOpen: (String) -> Unit) {
     val run = model.runSnapshot ?: return
-    Card(
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-    ) {
+    Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -281,11 +236,7 @@ private fun RunSummaryCard(model: BuildViewModel, onOpen: (String) -> Unit) {
                     Text("${run.name} • ${run.branch}", color = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
                 Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)) {
-                    Text(
-                        run.conclusion ?: run.status,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
+                    Text(run.conclusion ?: run.status, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium)
                 }
             }
             BuildDetailRow("Event", run.event)
@@ -303,19 +254,11 @@ private fun RunSummaryCard(model: BuildViewModel, onOpen: (String) -> Unit) {
 
 @Composable
 private fun ArtifactCard(artifacts: List<GitHubArtifact>) {
-    Card(
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
+    Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Artifacts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            if (artifacts.isEmpty()) {
-                Text("No artifacts are available for this run yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                artifacts.forEach { artifact ->
-                    ArtifactRow(artifact)
-                }
-            }
+            if (artifacts.isEmpty()) Text("No artifacts are available for this run yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else artifacts.forEach { artifact -> ArtifactRow(artifact) }
         }
     }
 }
@@ -325,28 +268,17 @@ private fun ArtifactRow(artifact: GitHubArtifact) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(artifact.name, fontWeight = FontWeight.SemiBold)
-            Text(
-                "${formatBytes(artifact.sizeBytes)} • ${if (artifact.expired) "Expired" else "Available"}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text("${formatBytes(artifact.sizeBytes)} • ${if (artifact.expired) "Expired" else "Available"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Surface(shape = MaterialTheme.shapes.small, color = if (artifact.expired) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant) {
-            Text(
-                if (artifact.expired) "Expired" else "Ready",
-                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                style = MaterialTheme.typography.labelMedium,
-            )
+            Text(if (artifact.expired) "Expired" else "Ready", modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelMedium)
         }
     }
 }
 
 @Composable
 private fun LogsCard(logs: List<GitHubJobLog>, truncated: Boolean) {
-    Card(
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
+    Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Live logs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             if (logs.isEmpty()) {
@@ -356,27 +288,12 @@ private fun LogsCard(logs: List<GitHubJobLog>, truncated: Boolean) {
                     Text("${job.jobName} • ${job.conclusion ?: job.status}", fontWeight = FontWeight.SemiBold)
                     SelectionContainer {
                         Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium) {
-                            Text(
-                                job.text.ifBlank { "No log output yet." },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(220.dp)
-                                    .verticalScroll(rememberScrollState())
-                                    .padding(12.dp),
-                                fontFamily = FontFamily.Monospace,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            Text(job.text.ifBlank { "No log output yet." }, modifier = Modifier.fillMaxWidth().height(220.dp).verticalScroll(rememberScrollState()).padding(12.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
             }
-            if (truncated) {
-                Text(
-                    "Log output is bounded for mobile performance; older output may be omitted.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.tertiary,
-                )
-            }
+            if (truncated) Text("Log output is bounded for mobile performance; older output may be omitted.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
         }
     }
 }
@@ -395,17 +312,11 @@ private fun HistoryHeader() {
 
 @Composable
 private fun HistoryRow(entry: BuildHistoryEntry, onOpen: (String) -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("#${entry.runNumber} • ${entry.configuration.target.label}", fontWeight = FontWeight.SemiBold)
-                Text(
-                    "${entry.configuration.githubOwner}/${entry.configuration.githubRepository} • ${entry.conclusion ?: entry.state}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text("${entry.configuration.githubOwner}/${entry.configuration.githubRepository} • ${entry.conclusion ?: entry.state}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             entry.htmlUrl?.let { url -> IconButton(onClick = { onOpen(url) }) { Icon(Icons.Default.OpenInNew, "Open run") } }
         }
