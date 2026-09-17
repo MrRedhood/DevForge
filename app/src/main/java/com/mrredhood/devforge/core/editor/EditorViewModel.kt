@@ -58,9 +58,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             val result = withContext(Dispatchers.IO) { repository.read(entry.uri) }
             result.onSuccess { content ->
                 val legacyRecovery = withContext(Dispatchers.IO) { repository.recoveryDraft(entry.uri) }
-                val existingDurable = withContext(Dispatchers.IO) { durable.loadEditorTabs().firstOrNull { it.uri == entry.uri } }
-                val initial = existingDurable?.content ?: legacyRecovery?.content ?: content
-                val tab = EditorTab(entry.uri, entry.name, initial, existingDurable?.savedContent ?: content)
+                val persisted = withContext(Dispatchers.IO) { durable.loadEditorTabs().firstOrNull { it.uri == entry.uri } }
+                val initial = persisted?.content ?: legacyRecovery?.content ?: content
+                val tab = EditorTab(entry.uri, entry.name, initial, persisted?.savedContent ?: content)
                 tabs = tabs.filterNot { it.uri == entry.uri } + tab
                 activeUri = entry.uri
                 isLoading = false
@@ -96,12 +96,11 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
             result.onSuccess {
-                val saved = tab.content
-                val persisted = tab.copy(savedContent = saved, updatedAt = System.currentTimeMillis())
+                val persisted = tab.copy(savedContent = tab.content, updatedAt = System.currentTimeMillis())
                 tabs = tabs.map { if (it.uri == tab.uri) persisted else it }
                 withContext(Dispatchers.IO) {
                     durable.saveEditorTab(persisted, active = true)
-                    saveSnapshotIfChanged(tab.uri, tab.name, saved, SnapshotReason.MANUAL)
+                    saveSnapshotIfChanged(tab.uri, tab.name, tab.content, SnapshotReason.MANUAL)
                     repository.clearRecoveryDraft(tab.uri)
                 }
                 recoveryJobs.remove(tab.uri)?.cancel()
@@ -114,28 +113,22 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
             result.onSuccess {
-                val saved = tab.content
-                val persisted = tab.copy(savedContent = saved, updatedAt = System.currentTimeMillis())
+                val persisted = tab.copy(savedContent = tab.content, updatedAt = System.currentTimeMillis())
                 tabs = tabs.map { if (it.uri == tab.uri) persisted else it }
                 withContext(Dispatchers.IO) {
-                    saveSnapshotIfChanged(tab.uri, tab.name, saved, SnapshotReason.MANUAL)
+                    saveSnapshotIfChanged(tab.uri, tab.name, tab.content, SnapshotReason.MANUAL)
                     repository.clearRecoveryDraft(tab.uri)
                     durable.deleteEditorTab(tab.uri)
                 }
                 recoveryJobs.remove(tab.uri)?.cancel()
-                close(tab.uri, persist = false)
+                close(tab.uri)
             }.onFailure { throwable -> error = throwable.message ?: "Unable to save file" }
         }
     }
 
-    fun close(uri: Uri, discard: Boolean = false) = close(uri, persist = true)
-
-    private fun close(uri: Uri, persist: Boolean) {
+    fun close(uri: Uri, discard: Boolean = false) {
         val tab = tabs.firstOrNull { it.uri == uri } ?: return
-        if (tab.isDirty && !persist) {
-            // save-and-close already persisted the final state removal path
-        }
-        if (tab.isDirty && persist) return
+        if (tab.isDirty && !discard) return
         recoveryJobs.remove(uri)?.cancel()
         tabs = tabs.filterNot { it.uri == uri }
         activeUri = tabs.lastOrNull()?.uri
@@ -156,9 +149,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             if (tab.isDirty) {
                 withContext(Dispatchers.IO) {
                     durable.saveEditorTab(tab, active = tab.uri == activeUri)
-                    repository.saveRecoveryDraft(
-                        RecoveryDraft(tab.uri, tab.name, tab.content, System.currentTimeMillis()),
-                    )
+                    repository.saveRecoveryDraft(RecoveryDraft(tab.uri, tab.name, tab.content, System.currentTimeMillis()))
                     saveSnapshotIfChanged(tab.uri, tab.name, tab.content, SnapshotReason.RECOVERY)
                 }
             }
