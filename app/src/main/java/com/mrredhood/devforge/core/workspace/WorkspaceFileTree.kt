@@ -8,7 +8,7 @@ class WorkspaceFileTree(private val resolver: ContentResolver) {
     fun listRoot(root: Uri, maxEntries: Int = 200): List<WorkspaceEntry> = list(root, maxEntries)
 
     fun list(parent: Uri, maxEntries: Int = 200): List<WorkspaceEntry> =
-        listChildren(parent, maxEntries)
+        listChildren(parent, maxEntries.coerceAtLeast(0))
             .sortedWith(compareBy<WorkspaceEntry> { !it.isDirectory }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 
     private fun listChildren(parent: Uri, maxEntries: Int): List<WorkspaceEntry> {
@@ -32,8 +32,10 @@ class WorkspaceFileTree(private val resolver: ContentResolver) {
             val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
             val mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
             val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+            if (idIndex < 0 || nameIndex < 0 || mimeIndex < 0) return@use
             while (cursor.moveToNext() && results.size < maxEntries) {
                 val id = cursor.getString(idIndex)
+                if (id.isNullOrBlank()) continue
                 val name = cursor.getString(nameIndex) ?: "Unnamed"
                 val mime = cursor.getString(mimeIndex)
                 val isDirectory = mime == DocumentsContract.Document.MIME_TYPE_DIR

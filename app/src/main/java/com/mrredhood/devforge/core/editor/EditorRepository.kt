@@ -11,7 +11,7 @@ class EditorRepository(
 ) {
     fun read(uri: Uri): Result<String> = runCatching {
         resolver.openInputStream(uri)?.use { input ->
-            input.readBytes().toString(StandardCharsets.UTF_8)
+            input.readBytesLimited(MAX_EDITOR_BYTES).toString(StandardCharsets.UTF_8)
         } ?: error("Unable to open file")
     }
 
@@ -47,5 +47,20 @@ class EditorRepository(
 
     private companion object {
         const val RECOVERY_PREFIX = "recovery::"
+        const val MAX_EDITOR_BYTES = 8 * 1024 * 1024
     }
+}
+
+private fun java.io.InputStream.readBytesLimited(maxBytes: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 64 * 1024))
+    val buffer = ByteArray(16 * 1024)
+    var total = 0
+    while (true) {
+        val read = read(buffer)
+        if (read <= 0) break
+        total += read
+        if (total > maxBytes) error("File is larger than the supported editor limit of ${maxBytes / (1024 * 1024)} MB")
+        output.write(buffer, 0, read)
+    }
+    return output.toByteArray()
 }

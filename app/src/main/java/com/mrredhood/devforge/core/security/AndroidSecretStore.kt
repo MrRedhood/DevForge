@@ -52,7 +52,8 @@ class AndroidSecretStore(context: Context) : SecretStore {
         if (existing is SecretKey) return existing
 
         val generator = KeyGenerator.getInstance("AES", ANDROID_KEYSTORE)
-        generator.init(256)
+        // AES-256 is not available on every Android Keystore provider.
+        generator.init(128)
         return generator.generateKey()
     }
 
