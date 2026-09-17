@@ -15,6 +15,7 @@ class DurableStateRepository(
     private val snapshots = db.editorSnapshotDao()
     private val agentTasks = db.agentTaskDao()
     private val automations = db.automationDao()
+    private val triggerStates = db.automationTriggerStateDao()
     private val audit = db.auditEventDao()
 
     suspend fun loadEditorTabs(limit: Int = MAX_TABS): List<EditorTab> =
@@ -84,7 +85,7 @@ class DurableStateRepository(
     suspend fun saveAgentTask(task: AgentTaskEntity) {
         require(task.instruction.toByteArray(Charsets.UTF_8).size <= MAX_AGENT_INSTRUCTION_BYTES) { "Agent task instruction exceeds the persistence limit." }
         require((task.payload ?: "").toByteArray(Charsets.UTF_8).size <= MAX_TASK_PAYLOAD_BYTES) { "Agent task payload exceeds the persistence limit." }
-        require((task.result ?: "").toByteArray(Charsets.UTF_8).size <= MAX_AGENT_RESULT_BYTES) { "Agent task result exceeds the persistence limit." }
+        require((task.result ?: "").toByteArray(Charsets.UTF_8).size <= MAX_AGENT_RESULT_BYTES) { "Agent task result exceeds the durable persistence limit." }
         require(task.currentStep in 0..MAX_AGENT_STEPS) { "Agent task step pointer exceeds the persistence limit." }
         require(task.stepCount in 0..MAX_AGENT_STEPS) { "Agent task step count exceeds the persistence limit." }
         agentTasks.upsert(
@@ -105,6 +106,7 @@ class DurableStateRepository(
 
     suspend fun saveAutomation(automation: AutomationEntity) {
         require(automation.actionGraph.toByteArray(Charsets.UTF_8).size <= MAX_AUTOMATION_GRAPH_BYTES) { "Automation definition exceeds the persistence limit." }
+        require((automation.schedule ?: "").toByteArray(Charsets.UTF_8).size <= MAX_SCHEDULE_LENGTH) { "Automation trigger configuration exceeds the limit." }
         automations.upsert(
             automation.copy(
                 name = automation.name.take(MAX_NAME_LENGTH),
@@ -117,9 +119,16 @@ class DurableStateRepository(
 
     suspend fun listAutomations(limit: Int = MAX_AUTOMATIONS): List<AutomationEntity> = automations.list(limit)
 
-    suspend fun deleteAutomation(automationId: String) = automations.delete(automationId)
+    suspend fun deleteAutomation(automationId: String) {
+        automations.delete(automationId)
+        triggerStates.delete(automationId)
+    }
 
     fun observeAutomations(limit: Int = MAX_AUTOMATIONS) = automations.observeAll(limit)
+
+    suspend fun getAutomationTriggerState(automationId: String): AutomationTriggerStateEntity? = triggerStates.get(automationId)
+
+    suspend fun saveAutomationTriggerState(state: AutomationTriggerStateEntity) = triggerStates.upsert(state)
 
     suspend fun saveAutomationRun(run: AutomationRunEntity) {
         require((run.receiptJson ?: "").toByteArray(Charsets.UTF_8).size <= MAX_RECEIPT_BYTES) { "Automation receipt exceeds the persistence limit." }
