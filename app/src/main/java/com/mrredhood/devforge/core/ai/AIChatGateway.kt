@@ -1,0 +1,103 @@
+package com.mrredhood.devforge.core.ai
+
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.Locale
+import org.json.JSONArray
+import org.json.JSONObject
+
+class AIChatGateway {
+    suspend fun send(
+        model: AIModelInfo,
+        apiKey: String,
+        history: List<Pair<String, String>>,
+        userInstruction: String,
+    ): String {
+        return when (model.provider) {
+            AIProvider.GEMINI -> sendGemini(model.id, apiKey, history, userInstruction)
+            AIProvider.OPENROUTER -> sendOpenAiCompatible("https://openrouter.ai/api/v1/chat/completions", apiKey, model.id, history, userInstruction, openRouter = true)
+            AIProvider.OPENAI -> sendOpenAiCompatible("https://api.openai.com/v1/chat/completions", apiKey, model.id, history, userInstruction, openRouter = false)
+        }
+    }
+
+    private fun sendGemini(
+        modelId: String,
+        apiKey: String,
+        history: List<Pair<String, String>>,
+        userInstruction: String,
+    ): String {
+        val contents = JSONArray()
+        history.filter { it.first == "user" || it.first == "assistant" }.forEach { (role, content) ->
+            contents.put(
+                JSONObject()
+                    .put("role", if (role == "assistant") "model" else "user")
+                    .put("parts", JSONArray().put(JSONObject().put("text", content))),
+            )
+        }
+        contents.put(
+            JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", userInstruction))),
+        )
+        val body = JSONObject().put("contents", contents)
+        val json = request(
+            "https://generativelanguage.googleapis.com/v1beta/models/$modelId:generateContent",
+            body,
+            mapOf("x-goog-api-key" to apiKey, "Content-Type" to "application/json"),
+        )
+        val candidates = json.optJSONArray("candidates") ?: error("Gemini returned no candidates.")
+        val parts = candidates.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")
+            ?: error("Gemini returned no text content.")
+        return buildString {
+            for (index in 0 until parts.length()) {
+                val text = parts.optJSONObject(index)?.optString("text").orEmpty()
+                if (text.isNotBlank()) append(text)
+            }
+        }.ifBlank { "The model returned an empty response." }
+    }
+
+    private fun sendOpenAiCompatible(
+        endpoint: String,
+        apiKey: String,
+        modelId: String,
+        history: List<Pair<String, String>>,
+        userInstruction: String,
+        openRouter: Boolean,
+    ): String {
+        val messages = JSONArray()
+        history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
+        messages.put(JSONObject().put("role", "user").put("content", userInstruction))
+        val body = JSONObject()
+            .put("model", modelId)
+            .put("messages", messages)
+            .put("stream", false)
+        val headers = mutableMapOf("Authorization" to "Bearer $apiKey", "Content-Type" to "application/json")
+        if (openRouter) {
+            headers["X-Title"] = "DevForge"
+            headers["HTTP-Referer"] = "https://github.com/MrRedhood/DevForge"
+        }
+        val json = request(endpoint, body, headers)
+        val choice = json.optJSONArray("choices")?.optJSONObject(0)
+            ?: error("Provider returned no choices.")
+        return choice.optJSONObject("message")?.optString("content").orEmpty().ifBlank {
+            "The model returned an empty response."
+        }
+    }
+
+    private fun request(url: String, body: JSONObject, headers: Map<String, String>): JSONObject {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.connectTimeout = 15_000
+        connection.readTimeout = 120_000
+        headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
+        connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+        val status = connection.responseCode
+        val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+        val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        connection.disconnect()
+        if (status !in 200..299) {
+            val detail = runCatching { JSONObject(response).optJSONObject("error")?.optString("message") }.getOrNull()
+            error(detail ?: "AI request failed (HTTP $status).")
+        }
+        return JSONObject(response)
+    }
+}
