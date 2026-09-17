@@ -28,16 +28,27 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
+import com.mrredhood.devforge.core.github.GitHubRepositoryScreen
 
 @Composable
 fun BuildCenterScreen() {
     val model: BuildViewModel = viewModel()
+    var choosingRepository by rememberSaveable { mutableStateOf(false) }
     val configuration = model.configuration
+
+    if (choosingRepository) {
+        GitHubRepositoryScreen(
+            buildViewModel = model,
+            onBack = { choosingRepository = false },
+        )
+        return
+    }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
@@ -57,6 +68,35 @@ fun BuildCenterScreen() {
 
             item {
                 BuildStatusCard(model.state)
+            }
+
+            item {
+                Card(
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                ) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("GitHub source", fontWeight = FontWeight.Bold)
+                        if (configuration.githubOwner.isBlank() || configuration.githubRepository.isBlank()) {
+                            Text(
+                                "No repository selected. Discover a repository and an active Actions workflow before remote dispatch can be configured.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Button(onClick = { choosingRepository = true }) {
+                                Text("Choose repository")
+                            }
+                        } else {
+                            Text("${configuration.githubOwner}/${configuration.githubRepository}", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Workflow: ${configuration.workflowFile}\nBranch: ${configuration.branch}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                TextButton(onClick = { choosingRepository = true }) { Text("Change") }
+                            }
+                        }
+                    }
+                }
             }
 
             item {
@@ -90,6 +130,7 @@ fun BuildCenterScreen() {
                 ) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Execution plan", fontWeight = FontWeight.Bold)
+                        BuildDetailRow("Repository", if (configuration.githubOwner.isBlank()) "Not selected" else "${configuration.githubOwner}/${configuration.githubRepository}")
                         BuildDetailRow("Workflow", configuration.workflowFile)
                         BuildDetailRow("Branch", configuration.branch)
                         BuildDetailRow("Gradle task", configuration.buildTask)
@@ -112,7 +153,7 @@ fun BuildCenterScreen() {
                         CapabilityRow("Live logs", model.capabilities.liveLogs)
                         CapabilityRow("Artifact discovery", model.capabilities.artifacts)
                         Text(
-                            "Authentication and workflow_dispatch wiring are intentionally separate from this configuration model.",
+                            "Repository and workflow discovery is now available. Dispatch execution remains separately gated until its authenticated mutation path is validated.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
