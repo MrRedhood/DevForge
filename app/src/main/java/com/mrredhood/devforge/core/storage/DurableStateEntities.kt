@@ -52,6 +52,7 @@ data class AutomationEntity(
     val name: String,
     val status: String,
     val triggerType: String,
+    /** Schedule grammar for SCHEDULE; bounded JSON trigger configuration for event/condition triggers. */
     val schedule: String?,
     val actionGraph: String,
     val createdAtEpochMs: Long,
@@ -67,6 +68,14 @@ data class AutomationRunEntity(
     val completedAtEpochMs: Long?,
     val errorMessage: String?,
     val receiptJson: String?,
+)
+
+@Entity(tableName = "automation_trigger_state")
+data class AutomationTriggerStateEntity(
+    @PrimaryKey val automationId: String,
+    val lastRepositoryFingerprint: String?,
+    val lastBuildRunId: Long?,
+    val lastEvaluatedAtEpochMs: Long,
 )
 
 @Entity(tableName = "audit_events")
