@@ -40,6 +40,7 @@ UI direction: original, stylish, modern, distinctive, mobile-first, adaptive to 
 - [x] DevForge-specific visual language
 - [x] GitHub Actions Android CI workflow
 - [x] Repository `.gitignore`
+- [x] Stable Android API 36 compile/target configuration for reproducible CI
 
 ### Workspace
 
@@ -137,10 +138,9 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 
 ### Latest CI findings
 
-- A post-dashboard CI run reached Android SDK setup but failed because the stable SDK repository could not resolve `platforms;android-37`.
-- Android 17/API 37 is currently a preview platform, while the app intentionally uses `compileSdk = 37` and `targetSdk = 37`.
-- CI was updated to install `platform-tools` with the setup action and then install the Android 17 preview platform through `sdkmanager --channel=1 'platforms;android-37'`.
-- A fresh CI run is required to validate the corrected preview-SDK installation before Android build validation is marked complete.
+- The dashboard CI run failed before Gradle because the GitHub runner could not resolve `platforms;android-37`, even when requested through the preview channel.
+- The app was therefore moved from preview API 37 to stable API 36 for both `compileSdk` and `targetSdk`, and CI now requests `platforms;android-36`.
+- A fresh workflow run is required to validate the stable Android SDK path and then expose any real Kotlin/Compose compiler issues.
 
 ## In Progress / Next
 
@@ -410,7 +410,7 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 ### 2026-09-17 — CI workflow hardening
 
 - Updated Java setup to v5 and Android SDK setup to avoid the obsolete `tools` package.
-- Follow-up CI showed API 37 must be installed from the preview channel rather than the stable package channel.
+- Follow-up CI showed API 37 was not resolvable on the runner, including preview-channel installation.
 
 ### 2026-09-17 — Workspace observation status foundation
 
@@ -426,9 +426,8 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Added disabled native-Git action affordances explaining why status/diff/commit remain unavailable until an index-aware execution layer is implemented.
 - Marked Git repository state and branch-list UI as implemented without mislabeling workspace observation as native Git status.
 
-### 2026-09-17 — CI Android 17 preview installation fix
+### 2026-09-17 — Stable Android CI target
 
-- Changed Android SDK setup to install only `platform-tools` through `android-actions/setup-android@v3`.
-- Added a dedicated `sdkmanager --channel=1 'platforms;android-37'` step because API 37 is currently a preview platform.
-- Kept `compileSdk = 37` and `targetSdk = 37` unchanged.
-- A fresh workflow run is required to validate this corrected setup.
+- Reverted the app build target from preview API 37 to stable API 36 because the GitHub runner could not resolve Android 17/API 37 even on the preview SDK channel.
+- Updated CI to install `platform-tools` and `platforms;android-36` through `android-actions/setup-android@v3`.
+- Kept the mobile app on a stable SDK baseline so future CI failures can reach the actual Gradle/Kotlin compilation stage.
