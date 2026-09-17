@@ -72,6 +72,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mrredhood.devforge.core.ai.AIChatScreen
+import com.mrredhood.devforge.core.ai.AISettingsScreen
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.git.GitDashboardScreen
@@ -239,48 +241,13 @@ private fun NavigationSide(current: DevForgeDestination, onSelect: (DevForgeDest
 @Composable
 private fun DestinationScreen(destination: DevForgeDestination, workspace: WorkspaceViewModel, editor: EditorViewModel) {
     when (destination) {
-        DevForgeDestination.Chat -> ChatScreen()
+        DevForgeDestination.Chat -> AIChatScreen()
         DevForgeDestination.Files -> FilesScreen(workspace, editor)
         DevForgeDestination.Git -> GitDashboardScreen()
         DevForgeDestination.Diffs -> GitDiffScreen()
         DevForgeDestination.Build -> BuildCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
         DevForgeDestination.Settings -> SettingsScreen()
-    }
-}
-
-@Composable
-private fun ChatScreen() {
-    Column(
-        Modifier.fillMaxSize().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Card(
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        ) {
-            Column(Modifier.fillMaxWidth().padding(24.dp)) {
-                Text("Build. Review. Ship.", fontSize = 32.sp, fontWeight = FontWeight.Black)
-                Text(
-                    "Ask questions, describe a change, or plan the next step in your project.",
-                    Modifier.padding(top = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Card(
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        ) {
-            Column(Modifier.fillMaxWidth().padding(20.dp)) {
-                Text("Start a conversation", fontWeight = FontWeight.Bold)
-                Text(
-                    "Your project context and actions will appear here as the AI assistant is implemented.",
-                    Modifier.padding(top = 6.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
     }
 }
 
@@ -399,7 +366,7 @@ private fun SettingsScreen() {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item { Text("Settings", fontSize = 30.sp, fontWeight = FontWeight.Black) }
-        item { PulseCard("AI", "Provider, model, context and memory", "Planned") }
+        item { AISettingsScreen() }
         item { PulseCard("Workspace", "Indexing, recovery, snapshots and storage", "Active") }
         item { PulseCard("Security", "Approvals, secrets and privacy controls", "Planned") }
         item { PulseCard("Appearance", "Theme, density, motion and editor style", "Planned") }
