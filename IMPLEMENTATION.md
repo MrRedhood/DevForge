@@ -40,6 +40,10 @@ Core rules:
 - [x] DevForge-specific visual language
 - [x] GitHub Actions Android CI workflow
 - [x] Stable API 36 compile/target baseline
+- [x] App-level back stack for destination navigation
+- [x] Nested back handling for folders and editor tabs
+- [x] Exit confirmation at the root navigation state
+- [x] Unsaved-editor confirmation on back
 
 ### Workspace
 
@@ -62,6 +66,7 @@ Core rules:
 - [x] Multi-tab editor foundation
 - [x] Active tab and dirty-state tracking
 - [x] Explicit save
+- [x] Save-and-close path for back navigation
 - [x] Unsaved-change protection foundation
 - [x] Recovery drafts/checkpoints
 - [x] SHA-256 content identity
@@ -125,8 +130,18 @@ Still not implemented: stage/unstage, commit, branch mutation, fetch/pull/push, 
 - [x] Bounded history pruning to 20 receipts
 - [x] Transactional receipt insert + prune operation
 - [x] Room v1 → v2 migration for build receipts
+- [x] Explicit GitHub Actions workflow_dispatch target inputs: debug APK, release APK, release AAB
+- [x] Fixed target-to-Gradle-task mapping inside CI
+- [x] Fixed target-to-artifact mapping inside CI
+- [x] CI rejects unsupported target values instead of accepting arbitrary Gradle commands
 
-Not implemented yet: release-safe workflow inputs, release dispatch, cancellation, and runtime validation with a live user credential.
+Not implemented yet: release dispatch wiring in DevForge, signing-specific release policy, cancellation, and runtime validation with a live user credential.
+
+### Chat / UX
+
+- [x] Chat landing screen reduced to essential assistant content
+- [x] Removed workspace/git/build/agent status labels and shortcut chips from Chat
+- [x] Removed unrelated Git/build activity cards from Chat
 
 ### GitHub Connection / Discovery
 
@@ -155,7 +170,7 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 
 ## In Progress / Next Sequence
 
-1. Release-safe workflow inputs and release contract.
+1. Release dispatch wiring against the explicit workflow target inputs and signing-safe release contract.
 2. Capability-controlled Git execution: stage/unstage, commit, branch mutation, and remote operations.
 3. Approval Center and action-review UI.
 4. Snapshot/history and structured diff viewer UI.
@@ -217,10 +232,10 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 - [x] Live logs
 - [x] Artifact metadata
 - [x] Durable build receipts/history
+- [x] Explicit workflow_dispatch target contract for debug/release APK/release AAB
 - [ ] OAuth/GitHub App authentication
-- [ ] Release-safe workflow inputs
-- [ ] Release APK workflow support
-- [ ] Release AAB workflow support
+- [ ] DevForge release dispatch wiring
+- [ ] Signing-safe release configuration and validation
 - [ ] Build cancellation
 - [ ] Runtime dispatch validation with live credential
 
@@ -311,7 +326,7 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 - [x] CI #117 passed the Android pipeline after repository/workflow discovery
 - [x] CI #122 passed the Android pipeline after authenticated debug workflow dispatch
 - [x] CI #127 recorded as cancelled by concurrency, not a build failure
-- [ ] Current durable-history + HEAD-aware Git status implementation final CI validation
+- [ ] Current navigation/chat/release-workflow changes final CI validation
 - [ ] Maintained unit-test suite
 - [ ] UI tests
 - [ ] Static analysis/lint
@@ -325,7 +340,7 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 - CI #96 exposed an experimental Material3 `NavigationRail` call; it now has a local opt-in.
 - CI #102 exposed `sdkmanager` PATH handling; the workflow now persists the resolved path.
 - CI #103 validated the resulting toolchain/build/test/APK pipeline.
-- CI #126, #127, and later intermediate runs were superseded by newer commits under workflow concurrency; they are not treated as build failures.
+- CI #126, #127 and later intermediate runs were superseded by newer commits under workflow concurrency; they are not treated as build failures.
 
 ## Implementation Rules
 
@@ -375,3 +390,18 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 - Added HEAD/index/worktree comparison for clean, modified, staged, staged+modified, deleted, untracked, and conflict states.
 - Added safe fallback to index/worktree-only status when Git object storage is packed or inaccessible through SAF.
 - Updated the Git dashboard to surface the richer state model while keeping stage/commit/push controls disabled behind the future capability execution layer.
+
+### 2026-09-17 — Navigation and Chat cleanup
+
+- Added an app-level destination back stack so Android back returns one navigation state at a time instead of immediately closing the app.
+- Added nested editor back behavior with save/discard/cancel handling for dirty files.
+- Added final-root exit confirmation instead of immediate activity finish.
+- Kept Files folder back behavior intact so deeper folders unwind before destination navigation.
+- Simplified Chat to its essential assistant landing state and removed workspace/git/build/agent labels and cards.
+
+### 2026-09-17 — Explicit remote build target contract
+
+- Added workflow_dispatch target inputs for debug APK, release APK, and release AAB.
+- Added fixed target-to-task and target-to-artifact mappings in CI.
+- Rejected arbitrary or unknown build target values in the workflow.
+- Kept DevForge release dispatch gated until the app-side dispatch payload and signing-safe release policy are wired to this contract.
