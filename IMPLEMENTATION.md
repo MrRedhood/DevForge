@@ -3,277 +3,166 @@
 > Living implementation record for DevForge. Updated after meaningful repository changes so the repository remains the source of truth for implemented vs planned work.
 
 ## Product / Architecture Rules
-
 - Android-first, mobile-native Kotlin + Jetpack Compose + Material 3.
 - SAF is the workspace boundary; no hidden filesystem assumptions.
 - Git/AI/build/terminal side effects use typed capabilities and policy gates.
-- AI output is untrusted data and never grants authorization.
+- AI output is untrusted and never grants authorization.
 - GitHub Actions is the remote-build backbone; no Android SDK/NDK/toolchain bundled in the app.
-- Mobile work is bounded by file, object, index, tree, log, and history limits.
-- Secrets are not persisted in action parameters, receipts, logs, or UI state.
-- Unavailable capabilities are shown as unavailable rather than simulated.
+- Mobile operations are bounded by file, object, index, tree, context, log and history limits.
+- Secrets are stored through Android Keystore and are excluded from action payloads, receipts and logs.
+- Planned functionality is never marked implemented until repository code exists and validation is performed.
 
 ## Implemented
 
 ### App Foundation
-- [x] Android/Kotlin/Compose project and Gradle configuration
-- [x] Material 3/adaptive UI foundation
-- [x] Chat, Files, Git, Diffs, Build, Approvals, Settings destinations
-- [x] Modern dark-first DevForge visual direction
-- [x] App-level destination back stack
-- [x] Nested folder/editor back handling
-- [x] Unsaved editor confirmation and root exit confirmation
+- [x] Kotlin/Compose/Material 3 foundation
+- [x] Adaptive compact/expanded navigation
+- [x] Chat, Files, Git, Diffs, Build, Approvals and Settings destinations
+- [x] Dark-first original DevForge UI direction
+- [x] Destination history/back handling and nested editor/folder back behavior
+- [x] Unsaved editor and root-exit confirmations
 - [x] API 36 CI/toolchain baseline
 
 ### Workspace
 - [x] SAF folder picker and persistable permissions
-- [x] Room-backed multiple workspace records
-- [x] Active workspace persistence/switching
-- [x] Recursive navigation, breadcrumbs and bounded enumeration/search
+- [x] Room-backed multiple workspaces and active workspace persistence
+- [x] Recursive navigation, breadcrumbs, bounded enumeration and search
 - [x] Safe text preview and binary detection
-- [x] Workspace refresh and legacy workspace migration
+- [x] Workspace refresh and legacy-workspace migration
 
 ### Editor / Recovery
 - [x] Multi-tab editor and dirty tracking
-- [x] Explicit save and save-and-close
+- [x] Explicit save/save-and-close
 - [x] Recovery drafts/checkpoints
-- [x] SHA-256 content identity
-- [x] Immutable bounded snapshots
-- [x] Line-based diff engine and snapshot ViewModel foundation
-- [x] Room-backed durable open-tab persistence across process restarts
-- [x] Room-backed durable editor snapshot persistence with bounded retention
-- [x] Room-backed dirty-tab recovery checkpoints while retaining legacy draft compatibility
+- [x] SHA-256 content identity and bounded immutable snapshots
+- [x] Line-based diff engine foundation
+- [x] Room-backed durable editor tabs/snapshots/recovery checkpoints
 
-### Git Observation / Status
-- [x] `.git` detection through SAF
-- [x] HEAD/branch/detached-HEAD parsing
-- [x] Loose and packed local branch discovery
-- [x] Origin remote metadata parsing
-- [x] Bounded repository traversal with `.git`, `build`, `.gradle` exclusions
-- [x] Git index v2/v3 parser and conflict-stage parsing
-- [x] Real Git blob SHA-1 hashing for bounded worktree files
-- [x] HEAD/index/worktree classification: clean, modified, deleted, untracked, staged, staged+modified, conflict, unchecked
-- [x] Loose-object commit/tree reader with bounded decompression
-- [x] Safe index/worktree fallback when packed Git objects are inaccessible through SAF
-- [x] Git dashboard status presentation
+### Git Observation / Execution
+- [x] `.git` detection, HEAD/branch/detached-HEAD parsing
+- [x] Loose/packed branch discovery and origin metadata parsing
+- [x] Bounded repository traversal and Git index v2/v3 parsing
+- [x] HEAD/index/worktree status classification, conflict-stage parsing and real Git blob SHA-1 hashing
+- [x] Loose Git object reader and safe SAF fallbacks
+- [x] Native SAF Git stage/unstage/commit/local branch operations without shell commands
+- [x] Typed stage/commit/branch/switch/fetch/pull/push/merge/rebase/cherry-pick capabilities
+- [x] Approval-backed mutations with repository precondition re-checks
+- [x] Safe GitHub HTTPS fetch/pull/push through bounded ephemeral JGit mirrors
+- [x] Non-force push and fast-forward-only pull safety rules
+- [x] Branch/history checkout/merge/rebase/cherry-pick engine with clean-worktree enforcement
+- [x] Bounded conflict-path reporting and safe discard of conflicted temporary state
+- [x] Git dashboard mutation, remote and history controls
 
-### Capability-Controlled Git Execution
-- [x] Typed `STAGE_FILES`, `CREATE_COMMIT`, `CREATE_BRANCH`, `DELETE_BRANCH`, `SWITCH_BRANCH`, `FETCH_REMOTE`, `PULL_REMOTE`, `PUSH_REMOTE`, `MERGE_BRANCH`, `REBASE_BRANCH`, and `CHERRY_PICK` capability definitions
-- [x] Policy integration for Git mutations with R1/R2/R3 risk levels
-- [x] Bounded native Git mutation service implemented without shell commands
-- [x] Stage files into the real Git index through SAF
-- [x] Stage deletions by removing paths from the index
-- [x] Unstage paths against readable HEAD trees
-- [x] Git index v2 serialization with checksum and deterministic entry ordering
-- [x] Loose Git blob/tree/commit object creation with SHA-1 identities
-- [x] Commit creation from the real index and configured `.git/config` user identity
-- [x] Attached and detached HEAD commit ref updates
-- [x] Local branch creation
-- [x] Local branch deletion with current-branch protection
-- [x] Git dashboard per-file Stage/Unstage actions
-- [x] Commit dialog and local branch creation/deletion controls
-- [x] Mutation success/failure feedback and bounded refresh after mutation
-- [x] Safe HTTPS GitHub fetch through a bounded JGit cache mirror
-- [x] Safe fast-forward-only GitHub pull through a bounded JGit cache mirror
-- [x] Safe non-force GitHub push through a bounded JGit cache mirror
-- [x] Origin URL/host validation before remote transport
-- [x] Just-in-time Android Keystore credential retrieval and remote access validation
-- [x] Remote fetch/pull/push approval routing through typed capabilities and Approval Center
-- [x] Remote action payloads contain no credentials or secrets
-- [x] Conflict-safe branch/history operation engine using an ephemeral JGit workspace mirror
-- [x] Clean-worktree enforcement for checkout, merge, rebase and cherry-pick
-- [x] Conflict detection with bounded conflict-path reporting
-- [x] Conflicted temporary state is discarded instead of copied into the canonical workspace
-- [x] Approval-backed history ViewModel and modern Git history controls
-
-Current Git mutation and transport limits:
-- 8 MiB maximum staged file size
-- 16 MiB maximum Git index input
-- 20,000 maximum index entries
-- 4 MiB maximum individual generated Git object
-- 16-level maximum tree traversal depth
-- Mutation is blocked for truncated/partial status where safety cannot be established
-- Unstage requires readable HEAD objects
-- Commit requires no unresolved index conflict stages and a configured `user.name` / `user.email`
-- Remote transport currently supports HTTPS remotes on `github.com` only
-- Remote mirror is bounded to 8,000 files / 256 MiB total / 64 MiB per file
-- Pull is blocked on dirty worktrees and refuses non-fast-forward/merge operations
-- Push is non-force and rejects remote non-fast-forward updates
-- Branch/history mirror is bounded to 5,000 files / 64 MiB total / 8 MiB per file
-- Checkout/merge/rebase/cherry-pick require a fully readable clean worktree
-- Conflicted history operations are discarded from the ephemeral mirror; dedicated conflict resolution remains separate work
-- Remote/history transport workspaces are ephemeral cache mirrors and are deleted after execution
+Git safety limits include 8 MiB staged files, 16 MiB index input, 20,000 index entries, 4 MiB generated Git objects, bounded tree depth, bounded remote/history mirrors, and mutation blocking when status is partial/truncated.
 
 ### Git Diff / Review
-- [x] Structured HEAD/index/worktree diff models
-- [x] Bounded diff computation from real Git blob IDs and SAF worktree content
-- [x] Staged, unstaged, staged+unstaged, deleted, and untracked diff sections
-- [x] Read-only structured diff viewer with section labels and line-level +/- presentation
+- [x] HEAD/index/worktree structured diff models
+- [x] Bounded real-object diff computation
+- [x] Staged, unstaged, staged+unstaged, deleted and untracked sections
+- [x] Read-only line-level diff viewer
 - [x] Binary/unreadable/conflict-safe unavailable states
-- [x] Bounded diff documents and text sizes for mobile performance
-- [x] Dedicated Diffs navigation surface
+- [x] Dedicated Diffs destination
 - [ ] Commit/file history viewer
+- [ ] Interactive conflict-resolution editor
 
 ### Build Center / GitHub Actions
 - [x] Debug APK, release APK and release AAB targets
-- [x] Explicit `workflow_dispatch` target contract
-- [x] Fixed target-to-task/artifact mapping; arbitrary Gradle commands rejected
-- [x] Authenticated debug/release dispatch wiring
-- [x] Correct handling of GitHub `workflow_dispatch` HTTP 204 responses
+- [x] Fixed workflow_dispatch contract and target/task/artifact mapping
+- [x] Authenticated dispatch and HTTP 204 follow-up run lookup
 - [x] Bounded run polling, logs and artifact discovery
 - [x] Durable Room-backed build receipts/history
-- [x] Release signing via repository-managed secrets
 - [x] Release signing preflight and temporary keystore cleanup
-- [x] Build dispatch routed through persisted Approval Center review
+- [x] Build dispatch routed through Approval Center
 - [ ] Build cancellation
-- [ ] Runtime validation with a live credential
+- [ ] Live credential runtime validation
 
-### Approval Center / Action Review
-- [x] Room v2 → v3 approval-action persistence migration
-- [x] Persisted pending approval queue with bounded 50-action capacity
-- [x] Approval expiry and resolved-action pruning
-- [x] Risk/capability/workspace summary presentation
-- [x] Approve/reject action-review UI
-- [x] Approval Center primary navigation surface
-- [x] Build dispatch creates a reviewed action before execution
-- [x] Git commit and branch-delete actions create reviewed actions before execution
-- [x] Remote Git pull/push actions create reviewed actions before execution
-- [x] Git branch/history actions create reviewed actions before execution
-- [x] Approved actions have an execution lifecycle: approved → executing → completed/failed
-- [x] Approved Git actions re-check repository preconditions before execution
-- [x] Approved Git actions can resume by re-detecting the persisted repository URI
-- [x] Action payloads contain only execution metadata needed to resume; no credentials or secrets
-- [x] Durable approval lifecycle audit events for create/approve/reject/expire/execute outcomes
-- [x] User-facing bounded audit history in Approval Center
-- [x] Workspace-scoped persistent capability grants with explicit R2 ceiling
-- [x] Protected capabilities remain approval-gated and cannot receive persistent bypass grants
-
-### Durable Room State
-- [x] Room v5 schema migration for durable editor, agent, automation, audit, and capability-grant state
-- [x] Bounded `editor_tabs` and `editor_snapshots` persistence
-- [x] Bounded `agent_tasks` persistence foundation
-- [x] Bounded automation definitions and run receipt persistence foundation
-- [x] Durable audit-event storage with retention pruning
-- [x] Shared repository API separating durable storage from feature-domain models
-- [x] Durable capability-grant entity/DAO/repository and policy-registry hydration
-- [ ] Full agent-task execution persistence wiring
-- [ ] Full automation scheduler/run engine wiring
-
-### Chat / UX
-- [x] Essential Chat landing screen only
-- [x] Removed workspace/Git/build/agent status labels and unrelated cards
-
-### GitHub Connection / Discovery
-- [x] Manual credential foundation
-- [x] Android Keystore-backed secret storage
-- [x] Authenticated GitHub REST boundary
-- [x] Account lookup/repository listing/validation
-- [x] Actions workflow discovery and Build Center integration
-- [ ] OAuth / GitHub App authentication
-
-### Security / Policy
-- [x] R0–R5 risk foundation
-- [x] Typed `ActionRequest` / `Approval` models
-- [x] Default policy evaluation
-- [x] Persistent-grant-aware policy evaluation
-- [x] SecretStore abstraction and Android Keystore AES/GCM
-- [x] Secret-safe error handling
-- [x] `DISPATCH_BUILD` capability gate
-- [x] Git mutation capability gates
-- [x] Durable Approval Center action gate
-- [x] Per-capability workspace-scoped persistent grants up to R2
+### Approval Center / Security Policy
+- [x] Durable approval queue with Room persistence, expiry and pruning
+- [x] Risk/capability/workspace action review UI
+- [x] Approve/reject flow and approved → executing → completed/failed lifecycle
+- [x] Approval history/audit events and bounded user-facing audit history
+- [x] Workspace-scoped persistent capability grants with R2 ceiling
+- [x] Protected delete/remote-push/release/secret/rebase capabilities cannot receive persistent bypass grants
+- [x] Persistent-grant-aware policy registry hydration
 - [ ] Path-scoped grants
 - [ ] Biometric secret protection
+- [ ] Expanded action receipts/privacy controls
+
+### Durable Room State
+- [x] Room v6 schema and migrations
+- [x] Durable editor tabs/snapshots
+- [x] Agent-task persistence foundation
+- [x] Automation definition/run persistence foundation
+- [x] Durable audit-event storage with retention pruning
+- [x] Durable capability-grant storage/DAO/repository
+- [x] Model-scoped persistent chat sessions and bounded chat messages
+- [ ] Full persistent agent-task execution engine
+- [ ] Automation scheduler/run engine
+
+### AI / Agent
+- [x] Provider-neutral AI model domain with Gemini, OpenRouter and OpenAI providers
+- [x] Secure per-provider API-key storage via Android Keystore
+- [x] Live model catalog loading when Chat model dropdown is opened
+- [x] Model search and filters for All, Free, Paid, Voice, Image, Video, Audio, Embedding and Tools
+- [x] Provider metadata parsing for pricing, modalities, tool support and context limits where exposed
+- [x] Lazy context-limit web fallback for models whose provider metadata does not include context length
+- [x] Model-specific Room chat sessions isolated by workspace + provider + model
+- [x] Context-budgeted chat history using the selected model's context limit when known
+- [x] Native Gemini and OpenAI-compatible chat request gateway
+- [x] Slash-command registry with 20 commands and aliases
+- [x] Slash command suggestions shown while typing `/`
+- [x] Bounded `@file` mention resolution through SAF workspace search and file reads
+- [x] Shared agent command bridge/catalog so future agents consume the same command definitions
+- [x] Side-effect command semantics remain proposals and still require typed capability/approval authorization
+- [ ] Streaming responses
+- [ ] Full provider-neutral agent tool gateway
+- [ ] Task graph/planning engine and persistent agent execution
+- [ ] Structured patch generation + diff-first approval workflow
+- [ ] Workspace symbol extraction/indexing for AI context
+- [ ] Workspace memory/knowledge layer
+
+Current command catalog:
+`/help`, `/explain`, `/debug`, `/fix`, `/refactor`, `/optimize`, `/test`, `/review`, `/summarize`, `/docs`, `/search`, `/find`, `/plan`, `/implement`, `/generate`, `/diff`, `/build`, `/commit`, `/run`, `/agent`.
+
+### Settings / UX
+- [x] AI provider selection UI
+- [x] Secure API-key save/remove UI with masked key field
+- [x] AI catalog/context metadata guidance in Settings
+- [ ] AI model defaults/routing settings
+- [ ] GitHub repository settings
+- [ ] Build/terminal/automation/security settings
+- [ ] Privacy/data retention settings
+- [ ] Theme/density/editor preferences
 
 ## In Progress / Next Sequence
-
-1. Complete CI/runtime validation of the branch/history and Room/policy milestones, then expand dedicated conflict resolution UX.
+1. Validate the current AI + Room v6 integration in CI and fix any Android/Compose/Room compile issues.
 2. Commit/file history and richer Git review surfaces.
-3. Provider-neutral AI/agent tool gateway and persistent agent-task execution.
-4. Automation scheduler/run engine on top of the durable automation schema.
-5. Security hardening: path scopes, biometric secret protection, regression coverage and receipts.
+3. Provider-neutral agent tool gateway and persistent agent-task execution.
+4. Automation scheduler/run engine.
+5. Security hardening: path scopes, biometric secret protection, receipts and regression coverage.
 
 ## Planned
 
-### AI / Agent
-- [ ] Provider-neutral AI interface
-- [ ] Gemini/OpenRouter/other provider adapters
-- [ ] Workspace context assembly and symbol extraction
-- [ ] Planning/task graph and typed tool gateway
-- [ ] Structured patch generation and diff-first proposal UI
-- [ ] Verification loop and persistent agent tasks
-- [ ] Workspace memory/knowledge
-- [ ] Token/context budgeting and provider routing
-
 ### Editor Intelligence
-- [ ] Syntax highlighting and language-aware editing
-- [ ] Diagnostics/problems panel
-- [ ] Undo/redo, find/replace, go-to-line/symbol
+- [ ] Syntax highlighting/language-aware editing
+- [ ] Problems/diagnostics panel
+- [ ] Undo/redo, find/replace and go-to-line/symbol
 - [ ] Code folding and selection/edit actions
-- [ ] Large-file safeguards and editor preferences
-
-### Git
-- [x] Index/worktree and HEAD-aware status
-- [x] Stage/unstage
-- [x] Commit
-- [x] Branch create/delete
-- [x] HEAD/index/worktree structured diff viewer
-- [x] Fetch/pull/push through capability gateway for validated GitHub HTTPS remotes
-- [x] Branch switch/checkout engine and dashboard controls
-- [x] Merge/rebase/cherry-pick engine and dashboard controls
-- [x] Conflict detection and safe discard of conflicted temporary state
-- [ ] Dedicated interactive conflict resolution/editor
-- [ ] Commit/file history
-- [ ] Additional remote providers/protocols
+- [ ] Large-file safeguards/editor preferences
 
 ### Terminal / Execution
 - [ ] Sandboxed terminal capability
-- [ ] Command request/argument/path validation
+- [ ] Command/path/argument validation
 - [ ] Resource/time limits and streaming output
 - [ ] Cancel/terminate and terminal sessions/tabs
 - [ ] No unrestricted arbitrary AI shell access
 
 ### Automation
-- [ ] Automation definitions and schedules
-- [ ] Capability-scoped action graph
+- [ ] Scheduled and event-driven definitions
+- [ ] Capability-scoped action graphs
 - [ ] Approval checkpoints
-- [ ] Retry/backoff and run history
-- [ ] Pause/resume/cancel
-- [ ] Idempotency and recovery/receipts
-
-### Security / Privacy
-- [x] Approval Center UI foundation
-- [x] Durable audit-event storage foundation
-- [x] Workspace-scoped per-capability persistent grants
-- [ ] Path-scoped grants
-- [ ] Secret lifecycle UI
-- [ ] User-facing action receipts
-- [ ] Privacy export/delete controls
-- [ ] Redaction regression tests
-- [ ] Optional biometric secret access
-
-### Settings
-- [ ] AI provider/model settings
-- [ ] API keys/credential management
-- [ ] GitHub repository settings
-- [ ] Build/terminal/automation/security settings
-- [ ] Privacy/data retention
-- [ ] Appearance/theme/density
-- [ ] Editor settings
-- [ ] Storage/cache controls
-- [ ] Diagnostics/log export
-- [ ] About/version/license
-
-### UI / UX
-- [x] Adaptive compact/expanded navigation
-- [x] Original touch-friendly visual language
-- [ ] Tablet two-pane refinements
-- [ ] Foldable posture refinements
-- [ ] Activity/notification surface
-- [ ] Command/search launcher
-- [ ] Hardware keyboard shortcuts
-- [ ] Accessibility semantic audit
-- [ ] Reduced-motion support
+- [ ] Retry/backoff, pause/resume/cancel
+- [ ] Idempotency, recovery and receipts
 
 ### Quality / Observability
 - [ ] Maintained unit-test suite
@@ -281,97 +170,67 @@ Current Git mutation and transport limits:
 - [ ] Static analysis/lint pipeline
 - [ ] Release build validation
 - [ ] Performance/budget checks
-- [ ] Structured diagnostic logging
+- [ ] Structured diagnostics
 - [ ] Crash/recovery validation
 - [ ] End-to-end build/dispatch tests
-- [ ] Security regression tests
+- [ ] Security/redaction regression tests
 
 ## Validation
-
 - [x] CI #103 passed toolchain verification, debug build, unit-test task, APK verification and artifact upload.
 - [x] CI #117 passed the Android pipeline after repository/workflow discovery.
 - [x] CI #122 passed after authenticated debug workflow dispatch.
 - [x] CI #127 was cancelled by workflow concurrency and is not treated as a build failure.
-- [ ] Current branch/history JGit compilation/CI validation
-- [ ] Current durable Room v5 / grant policy / audit CI validation
-- [ ] Current structured Git diff / Approval Center integration CI validation
-- [ ] Release APK validation with configured signing secrets
-- [ ] Maintained unit-test suite
-- [ ] UI tests
-- [ ] Static analysis/lint
+- [ ] Current branch/history JGit milestone validation
+- [ ] Current Room v5 audit/grant validation
+- [ ] Current Room v6 AI/chat model-session validation
+- [ ] Current AI model catalog/Compose integration validation
 - [ ] Live authenticated remote fetch/pull/push validation
+- [ ] Release APK validation with signing secrets
+- [ ] Maintained unit/UI/security test suites
 
 ## Implementation Rules
-
-- Never mark planned functionality as implemented.
-- Never fake Git status, GitHub authentication, builds, agent execution, or terminal execution.
-- Side effects must use typed capabilities and policy/approval checks.
-- AI output is untrusted and must pass through tool/policy boundaries.
+- Never fake Git status, GitHub authentication, builds, agent execution or terminal execution.
+- AI output is untrusted data and cannot grant authorization.
+- All side effects remain behind typed capability and policy/approval boundaries.
 - Keep mobile operations bounded and report partial/unavailable states explicitly.
-- Do not store tokens, secrets, raw logs, or secret inputs in build receipts.
-- Do not bundle heavyweight Android SDK/NDK resources.
+- Never persist API keys or other secrets in ordinary domain state, approvals, build receipts or logs.
+- Do not bundle heavyweight Android SDK/NDK/toolchains.
 - Avoid broad refactors unless required by the current milestone.
 - Update this tracker after every meaningful repository change.
 
 ## Change Log
-
 ### 2026-09-17 — Foundation through remote build
-- Established the Android-first DevForge architecture, SAF workspace foundation, editor/recovery foundation, Git observation, Build Center, GitHub discovery, capability/policy primitives, Keystore-backed secrets and Android CI.
+- Established Android-first architecture, SAF workspace, editor/recovery, Git observation, Build Center, GitHub discovery, capability/policy primitives, Keystore-backed secrets and Android CI.
 
 ### 2026-09-17 — Navigation / Chat cleanup
-- Added destination-level back navigation, nested folder/editor back behavior and root exit confirmation.
-- Simplified Chat to essential assistant content without workspace/Git/build/agent status cards.
+- Added destination history/back behavior, nested folder/editor handling and root exit confirmation.
+- Removed unrelated workspace/Git/build/agent status cards from the Chat landing surface.
 
-### 2026-09-17 — Release dispatch and signing-safe contract
-- Connected debug/release APK/AAB dispatch to fixed workflow inputs.
-- Added correct workflow-dispatch run lookup after GitHub's normal HTTP 204 response.
-- Added repository-managed release signing preflight and temporary keystore cleanup.
-
-### 2026-09-17 — Capability-controlled local Git execution
-- Added explicit Git mutation capability types and policy handling.
-- Added a SAF-native Git plumbing mutation service for stage/unstage, commit, and local branch create/delete.
-- Added real index serialization and checksum generation plus loose blob/tree/commit object writing.
-- Added Git dashboard mutation controls with bounded per-file actions, commit dialog, branch controls and explicit unavailable remote operations.
-- Kept remote fetch/pull/push, branch switch, merge/rebase/cherry-pick and conflict resolution out of the implementation until their transport/checkout safety contracts were ready.
-
-### 2026-09-17 — Approval Center and action-review flow
-- Added Room v3 approval persistence with bounded pending queue, expiry and resolved-action pruning.
-- Added Approval Center UI with risk/capability/workspace context and explicit Approve/Reject controls.
-- Routed remote Build Center dispatch through persisted approval review instead of treating the build button as authorization.
-- Routed Git commit and branch-delete operations through the same approval gate, with repository precondition re-checks before execution.
-- Added approved-action execution lifecycle and safe resumable payloads without storing credentials or secrets.
+### 2026-09-17 — Capability-controlled Git execution
+- Added native stage/unstage/commit/branch operations, typed capabilities and Approval Center routing.
 
 ### 2026-09-17 — Structured Git diff viewer
-- Added bounded HEAD/index/worktree diff computation using real Git blob objects and SAF worktree content.
-- Added structured per-file diff sections for staged, unstaged, staged+unstaged, deleted and untracked states.
-- Added read-only Diffs navigation and line-level structured review UI with explicit unavailable states for conflicts/binary/unreadable files.
-- Kept diff computation bounded for mobile memory and I/O safety.
+- Added bounded HEAD/index/worktree diff computation and read-only structured review.
 
 ### 2026-09-17 — Safe remote Git transport
-- Added JGit-based HTTPS transport for GitHub origins using a private ephemeral workspace mirror.
-- Added origin/host/credential validation before each remote operation.
-- Added fetch, fast-forward-only pull, and non-force push with bounded mirror/file/byte limits.
-- Added Fetch/Pull/Push capability states and explicit dashboard controls.
-- Routed pull/push through Approval Center and kept credentials out of persisted approval payloads.
+- Added validated GitHub HTTPS fetch/pull/push through bounded ephemeral JGit mirrors and Approval Center routing.
 
 ### 2026-09-17 — Branch/history execution layer
-- Added JGit-based ephemeral checkout/merge/rebase/cherry-pick execution with clean-worktree preconditions.
-- Added typed merge/rebase/cherry-pick capabilities and Approval Center-backed history actions.
-- Added bounded conflict-path reporting and safe discard of conflicted temporary state so a partial history operation is never silently copied to the canonical workspace.
-- Added a dedicated mobile Git history control card for branch selection, checkout, merge, rebase and cherry-pick.
-- CI validation for this milestone remains pending.
+- Added approval-backed checkout/merge/rebase/cherry-pick execution with clean-worktree and conflict-safe temporary-state rules.
 
 ### 2026-09-17 — Durable Room state layer
-- Upgraded Room from v3 to v4 with explicit migration coverage for editor, agent-task, automation/run, and audit tables.
-- Moved durable editor tab state and bounded snapshots onto Room, including dirty-tab recovery checkpoints while keeping legacy draft compatibility.
-- Added bounded repositories for future agent-task and automation persistence and a retention-pruned audit trail repository.
-- Kept feature-domain models separate from the storage schema so upcoming agent and automation engines can evolve without reworking persistence contracts.
-- CI validation for the Room v4/editor persistence milestone remains pending.
+- Upgraded Room to v4 and added durable editor, agent-task, automation/run and audit persistence foundations.
 
 ### 2026-09-17 — Approval audit and persistent capability grants
-- Upgraded Room from v4 to v5 with a workspace-scoped `capability_grants` table and bounded grant DAO/repository.
-- Added an in-process grant registry hydrated from Room on database open so existing Git/build/history policy call sites consume durable grants without bypassing the typed capability layer.
-- Added R2 grant ceilings and permanently excluded delete, remote-push, release-management, secret-access and rebase capabilities from persistent approval bypass.
-- Added SQLite audit triggers for approval lifecycle/status transitions and grant create/revoke activity, with no action payload or secret data copied into the audit trail.
-- Expanded Approval Center with persistent-grant controls, active-grant visibility, revoke actions, and a bounded user-facing audit history.
-- CI validation for the Room v5/audit/grant milestone remains pending.
+- Upgraded Room to v5 with workspace-scoped capability grants and hydrated policy registry.
+- Added approval/grant audit triggers and expanded Approval Center history/grant controls.
+- Protected destructive/high-risk capabilities from persistent bypass grants.
+
+### 2026-09-17 — AI model catalog, model sessions and command layer
+- Added secure Gemini/OpenRouter/OpenAI provider keys and live model catalogs loaded from the Chat model dropdown.
+- Added price/capability filters, provider metadata parsing, lazy context-limit web fallback and bounded context-aware request history.
+- Added model-isolated Room chat sessions/messages and replaced the Chat placeholder with the live AI chat surface.
+- Added 20 slash commands with aliases, command suggestions on `/`, bounded `@file` mentions and a shared agent command bridge.
+- Kept side-effecting commands as proposals that continue through DevForge capability/approval policy.
+- Added masked API-key input in Settings.
+- CI validation for the AI/Room v6 milestone remains pending.
