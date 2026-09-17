@@ -73,6 +73,19 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Build starter surface
 - [x] Settings starter surface
 
+### Workspace Foundation
+
+- [x] Android Storage Access Framework workspace selection
+- [x] Persisted selected workspace metadata
+- [x] Persistable URI permission handoff
+- [x] Workspace-aware global header
+- [x] Real workspace root file/folder enumeration
+- [x] File/folder loading state
+- [x] Empty workspace state
+- [x] Workspace refresh action
+- [x] Lightweight file metadata presentation
+- [x] Background file-tree loading with bounded root enumeration
+
 ### Domain / Safety Foundation
 
 - [x] Capability model foundation
@@ -103,15 +116,20 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 ### Next implementation slice
 
-1. Workspace domain and persistence
-2. File tree and workspace browser
-3. Editor foundation with tabs, dirty state, autosave/recovery hooks
+1. Editor foundation with tabs and dirty state
+2. File open/read/write pipeline
+3. Autosave and crash-recovery hooks
 4. Content hashing and snapshot model
 5. Diff engine foundation
-6. Room-backed durable state
+6. Durable multi-workspace database strategy (Room after the state model stabilizes)
 7. Git repository state model and status UI
 8. Build configuration/state model
 9. Approval UI connected to actual action requests
+
+### Workspace persistence decision
+
+- SharedPreferences is currently used only for the small, stable selected-workspace record so the first workspace flow stays dependency-light.
+- Room is intentionally not introduced yet; it should be added when DevForge begins persisting richer relational state such as open tabs, snapshots, Git metadata, agent tasks, build history, and automation runs.
 
 ## Planned — AI & Agent
 
@@ -135,11 +153,13 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 ## Planned — Workspace & Editor
 
-- [ ] SAF workspace selection
+- [x] SAF workspace selection
 - [ ] Workspace database
-- [ ] File tree
+- [x] File tree root enumeration
+- [ ] Recursive folder navigation
 - [ ] Search
 - [ ] File preview
+- [ ] File open/read/write pipeline
 - [ ] Editor tabs
 - [ ] Syntax highlighting
 - [ ] Diagnostics
@@ -252,8 +272,9 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 - [ ] Onboarding
 - [ ] Workspace setup flow
-- [ ] Empty states
-- [ ] Loading/skeleton states
+- [x] Workspace empty state
+- [x] Workspace loading state
+- [x] Workspace root browser state
 - [ ] Error/recovery states
 - [ ] Approval bottom sheets/dialogs
 - [ ] Command palette
@@ -295,6 +316,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 8. AI actions must remain capability-scoped, policy-checked, and approval-aware.
 9. Destructive or externally consequential actions must have explicit safeguards and recoverability.
 10. UI work must prioritize originality, clarity, touch usability, adaptive layouts, accessibility, and a distinctive DevForge identity.
+11. Keep the first persistence layer minimal; introduce Room when the product has enough durable relational state to justify it.
+12. Workspace access must use least-privilege Android storage APIs; do not request broad storage permissions for the core workspace flow.
 
 ## Change Log
 
@@ -304,6 +327,17 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - Recorded the current repository foundation and initial UI/domain implementation.
 - Recorded current CI validation state.
 - Established the rule that this file is updated after every implementation change.
+
+### 2026-09-17 — Workspace foundation
+
+- Added workspace and file-entry domain models.
+- Added persisted selected-workspace storage using a small SharedPreferences record.
+- Added Android Storage Access Framework folder selection with persistable URI permissions.
+- Added background workspace root enumeration through `DocumentsContract`.
+- Replaced the Files mock surface with a real workspace browser state, loading state, empty state, refresh action, and file metadata rows.
+- Updated the global header to display the active workspace name.
+- Kept Room deferred until richer relational state such as tabs, snapshots, agent tasks, and build/automation history is introduced.
+- CI validation of this implementation is pending.
 
 ### Future entries
 
