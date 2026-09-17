@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
@@ -41,6 +40,9 @@ fun BuildCenterScreen() {
     val model: BuildViewModel = viewModel()
     var choosingRepository by rememberSaveable { mutableStateOf(false) }
     val configuration = model.configuration
+    val dispatchEnabled = model.capabilities.githubDispatch == CapabilityAvailability.Available &&
+        model.state !is BuildState.Dispatching &&
+        model.state !is BuildState.Running
 
     if (choosingRepository) {
         GitHubRepositoryScreen(
@@ -119,6 +121,13 @@ fun BuildCenterScreen() {
                             }
                         }
                         Text(configuration.target.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (configuration.target != BuildTarget.DebugApk) {
+                            Text(
+                                "Remote dispatch for release targets is intentionally disabled until the workflow exposes explicit release inputs and signing-safe behavior.",
+                                color = MaterialTheme.colorScheme.tertiary,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
             }
@@ -153,7 +162,7 @@ fun BuildCenterScreen() {
                         CapabilityRow("Live logs", model.capabilities.liveLogs)
                         CapabilityRow("Artifact discovery", model.capabilities.artifacts)
                         Text(
-                            "Repository and workflow discovery is now available. Dispatch execution remains separately gated until its authenticated mutation path is validated.",
+                            "Debug APK dispatch is now connected through the authenticated GitHub Actions workflow path. Run monitoring and artifact controls will be added next.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -162,12 +171,15 @@ fun BuildCenterScreen() {
 
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = model::requestDispatch) {
+                    Button(
+                        onClick = model::requestDispatch,
+                        enabled = dispatchEnabled,
+                    ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.padding(horizontal = 3.dp))
-                        Text("Start remote build")
+                        Text(if (model.state is BuildState.Dispatching) "Dispatching…" else "Start remote build")
                     }
-                    TextButton(onClick = model::resetToReady) {
+                    TextButton(onClick = model::resetToReady, enabled = model.state !is BuildState.Dispatching) {
                         Text("Reset")
                     }
                 }
@@ -181,8 +193,8 @@ private fun BuildStatusCard(state: BuildState) {
     val (title, detail) = when (state) {
         BuildState.Idle -> "Idle" to "No build is configured."
         is BuildState.Ready -> "Ready" to "Configuration prepared; no remote run has started."
-        is BuildState.Dispatching -> "Dispatching" to "Submitting the workflow request…"
-        is BuildState.Running -> "Running" to "GitHub Actions run #${state.runId} is active."
+        is BuildState.Dispatching -> "Dispatching" to "Submitting the authenticated GitHub Actions request…"
+        is BuildState.Running -> "Running" to "GitHub Actions run #${state.runId} was created. Live monitoring is the next build milestone."
         is BuildState.Succeeded -> "Succeeded" to "Artifact ${state.artifactName} is available."
         is BuildState.Failed -> "Not started" to state.message
         is BuildState.Cancelled -> "Cancelled" to "Run #${state.runId} was cancelled."
