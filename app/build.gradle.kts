@@ -51,7 +51,7 @@ dependencies {
     implementation("androidx.compose.material3:material3-window-size-class")
     implementation("androidx.compose.material3.adaptive:adaptive:1.3.0")
     implementation("androidx.compose.material3.adaptive:adaptive-layout:1.3.0")
-    implementation("androidx.compose.material3.adaptive:adaptive-navigation-suite:1.3.0")
+    implementation("androidx.compose.material3:material3-adaptive-navigation-suite:1.4.0")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
