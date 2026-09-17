@@ -13,12 +13,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Repository
-import androidx.compose.material.icons.filled.Workflow
+import androidx.compose.material.icons.filled.Source
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,7 +32,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -80,126 +79,120 @@ fun GitHubRepositoryScreen(
                 viewModel = connectionViewModel,
                 onConnectionChanged = { viewModel.refreshRepositories() },
             )
-            return@Column
-        }
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item {
-                OutlinedTextField(
-                    value = state.query,
-                    onValueChange = viewModel::updateQuery,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Search repositories") },
-                    singleLine = true,
-                )
-            }
-
-            state.error?.let { message ->
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 item {
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                        Text(message, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+                    OutlinedTextField(
+                        value = state.query,
+                        onValueChange = viewModel::updateQuery,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Search repositories") },
+                        singleLine = true,
+                    )
+                }
+
+                state.error?.let { message ->
+                    item {
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                            Text(message, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
                     }
                 }
-            }
 
-            if (state.isLoading && state.repositories.isEmpty()) {
-                item {
-                    Row(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalArrangement = Arrangement.Center) {
-                        CircularProgressIndicator(Modifier.size(24.dp))
+                if (state.isLoading && state.repositories.isEmpty()) {
+                    item {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalArrangement = Arrangement.Center) {
+                            CircularProgressIndicator(Modifier.size(24.dp))
+                        }
                     }
                 }
-            }
 
-            state.truncated.let { truncated ->
-                if (truncated) item {
+                if (state.truncated) item {
                     Text(
                         "Showing the newest 300 accessible repositories. Refine the search to choose from this list.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
 
-            val filtered = state.repositories.filter { repository ->
-                val query = state.query.trim()
-                query.isEmpty() || repository.fullName.contains(query, ignoreCase = true)
-            }
-
-            if (filtered.isEmpty() && !state.isLoading) {
-                item {
-                    Text(
-                        "No accessible repositories match this search.",
-                        modifier = Modifier.padding(vertical = 20.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            items(filtered, key = { it.id }) { repository ->
-                RepositoryRow(repository, selected = state.selectedRepository?.id == repository.id) {
-                    viewModel.selectRepository(repository)
-                }
-            }
-
-            state.selectedRepository?.let { repository ->
-                item {
-                    Card(
-                        shape = MaterialTheme.shapes.extraLarge,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                    ) {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("Validated repository", fontWeight = FontWeight.Bold)
-                            Text(repository.fullName, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "Default branch: ${repository.defaultBranch}",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                FilterChip(selected = true, onClick = {}, label = { Text(if (repository.isPrivate) "Private" else "Public") })
-                            }
-                        }
-                    }
+                val filtered = state.repositories.filter { repository ->
+                    val query = state.query.trim()
+                    query.isEmpty() || repository.fullName.contains(query, ignoreCase = true)
                 }
 
-                item {
-                    Text("Workflow", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-
-                if (state.workflows.isEmpty() && !state.isLoading) {
+                if (filtered.isEmpty() && !state.isLoading) {
                     item {
                         Text(
-                            "No GitHub Actions workflows were found in this repository.",
+                            "No accessible repositories match this search.",
+                            modifier = Modifier.padding(vertical = 20.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
 
-                items(state.workflows, key = { it.id }) { workflow ->
-                    WorkflowRow(workflow, selected = state.selectedWorkflow?.id == workflow.id) {
-                        viewModel.selectWorkflow(workflow)
+                items(filtered, key = { it.id }) { repository ->
+                    RepositoryRow(repository, selected = state.selectedRepository?.id == repository.id) {
+                        viewModel.selectRepository(repository)
                     }
                 }
 
-                item {
-                    Button(
-                        onClick = {
-                            val workflow = state.selectedWorkflow ?: return@Button
-                            buildViewModel.configureGitHubRepository(
-                                owner = repository.owner,
-                                repository = repository.name,
-                                defaultBranch = repository.defaultBranch,
-                                workflowFile = workflow.path,
+                state.selectedRepository?.let { repository ->
+                    item {
+                        Card(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        ) {
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Validated repository", fontWeight = FontWeight.Bold)
+                                Text(repository.fullName, style = MaterialTheme.typography.titleMedium)
+                                Text("Default branch: ${repository.defaultBranch}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(selected = true, onClick = {}, label = { Text(if (repository.isPrivate) "Private" else "Public") })
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        Text("Workflow", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+
+                    if (state.workflows.isEmpty() && !state.isLoading) {
+                        item {
+                            Text(
+                                "No GitHub Actions workflows were found in this repository.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            onBack()
-                        },
-                        enabled = state.selectedWorkflow?.state == "active" && !state.isLoading,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Use repository and workflow")
+                        }
+                    }
+
+                    items(state.workflows, key = { it.id }) { workflow ->
+                        WorkflowRow(workflow, selected = state.selectedWorkflow?.id == workflow.id) {
+                            viewModel.selectWorkflow(workflow)
+                        }
+                    }
+
+                    item {
+                        Button(
+                            onClick = {
+                                val workflow = state.selectedWorkflow ?: return@Button
+                                buildViewModel.configureGitHubRepository(
+                                    owner = repository.owner,
+                                    repository = repository.name,
+                                    defaultBranch = repository.defaultBranch,
+                                    workflowFile = workflow.path,
+                                )
+                                onBack()
+                            },
+                            enabled = state.selectedWorkflow?.state == "active" && !state.isLoading,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Use repository and workflow")
+                        }
                     }
                 }
             }
@@ -215,7 +208,7 @@ private fun RepositoryRow(
 ) {
     Card(onClick = onClick, colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (repository.isPrivate) Icons.Default.Lock else Icons.Default.Repository, null)
+            Icon(if (repository.isPrivate) Icons.Default.Lock else Icons.Default.Source, null)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(repository.fullName, fontWeight = FontWeight.SemiBold)
@@ -239,7 +232,7 @@ private fun WorkflowRow(
         enabled = active,
     ) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Workflow, null)
+            Icon(Icons.Default.AccountTree, null)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(workflow.name, fontWeight = FontWeight.SemiBold)
