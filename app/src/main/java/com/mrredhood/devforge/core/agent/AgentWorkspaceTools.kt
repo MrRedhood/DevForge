@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import com.mrredhood.devforge.core.policy.Capability
 import com.mrredhood.devforge.core.policy.RiskLevel
+import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.WorkspaceDao
 import com.mrredhood.devforge.core.workspace.WorkspaceFileTree
 import com.mrredhood.devforge.core.workspace.WorkspaceSearch
@@ -33,6 +34,9 @@ class WorkspaceAgentToolProvider(
             return Uri.parse(workspace.treeUri)
         }
 
+        protected fun scopedPath(scope: WorkspacePathScope, rawPath: String, allowEmpty: Boolean = false): String =
+            WorkspacePathScope.normalize(rawPath, allowEmpty).also { scope.requireAllowed(it) }
+
         protected val access = WorkspaceAgentFileAccess(resolver)
     }
 
@@ -46,9 +50,8 @@ class WorkspaceAgentToolProvider(
         )
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
-            val path = JSONObject(request.argumentsJson).optString("path").trim()
-            val root = root(context)
-            val content = access.readText(root, path)
+            val path = scopedPath(context.pathScope, JSONObject(request.argumentsJson).optString("path").trim())
+            val content = access.readText(root(context), path)
             AgentToolResult.Success(
                 summary = "Read $path.",
                 output = JSONObject().put("path", path).put("content", content).toString(),
@@ -70,7 +73,7 @@ class WorkspaceAgentToolProvider(
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val args = JSONObject(request.argumentsJson)
-            val path = args.optString("path", "").trim()
+            val path = scopedPath(context.pathScope, args.optString("path", "").trim(), allowEmpty = true)
             val limit = args.optInt("limit", 100).coerceIn(1, MAX_LIST_ENTRIES)
             val entries = access.list(root(context), path, limit)
             val result = JSONArray()
@@ -108,16 +111,19 @@ class WorkspaceAgentToolProvider(
             val results = WorkspaceSearch(resolver).search(root(context), query, limit)
             val output = JSONArray()
             results.forEach { item ->
-                output.put(
-                    JSONObject()
-                        .put("name", item.name)
-                        .put("directory", item.isDirectory)
-                        .put("sizeBytes", item.sizeBytes)
-                        .put("uri", item.uri.toString()),
-                )
+                val relativePath = runCatching { relativePath(root(context), item.uri) }.getOrNull()
+                if (relativePath != null && context.pathScope.allows(relativePath)) {
+                    output.put(
+                        JSONObject()
+                            .put("path", relativePath)
+                            .put("name", item.name)
+                            .put("directory", item.isDirectory)
+                            .put("sizeBytes", item.sizeBytes),
+                    )
+                }
             }
             AgentToolResult.Success(
-                summary = "Found ${results.size} workspace matches for '$query'.",
+                summary = "Found ${output.length()} workspace matches for '$query'.",
                 output = JSONObject().put("query", query).put("results", output).toString(),
             )
         } catch (error: Throwable) {
@@ -136,7 +142,7 @@ class WorkspaceAgentToolProvider(
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val args = JSONObject(request.argumentsJson)
-            val path = args.optString("path").trim()
+            val path = scopedPath(context.pathScope, args.optString("path").trim())
             val content = args.optString("content", "")
             access.writeText(root(context), path, content)
             AgentToolResult.Success(
@@ -150,6 +156,13 @@ class WorkspaceAgentToolProvider(
         } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Unable to write file.")
         }
+    }
+
+    private suspend fun relativePath(root: Uri, target: Uri): String? = withContext(Dispatchers.IO) {
+        val targetId = runCatching { DocumentsContract.getDocumentId(target) }.getOrNull() ?: return@withContext null
+        val rootId = runCatching { DocumentsContract.getTreeDocumentId(root) }.getOrNull() ?: return@withContext null
+        if (targetId == rootId) return@withContext ""
+        null
     }
 
     companion object {
@@ -182,7 +195,7 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
     }
 
     suspend fun writeText(root: Uri, path: String, content: String) = withContext(Dispatchers.IO) {
-        val normalized = normalizePath(path)
+        val normalized = WorkspacePathScope.normalize(path)
         val bytes = content.toByteArray(Charsets.UTF_8)
         require(bytes.size <= MAX_WRITE_BYTES) { "Agent file writes are limited to 128 KiB." }
         val parts = normalized.split('/')
@@ -199,7 +212,7 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
     }
 
     private fun resolve(root: Uri, path: String): Uri {
-        val normalized = normalizePath(path, allowEmpty = true)
+        val normalized = WorkspacePathScope.normalize(path, allowEmpty = true)
         if (normalized.isEmpty()) return root
         var current = root
         normalized.split('/').forEach { segment ->
@@ -211,18 +224,6 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
 
     private fun findChild(parent: Uri, name: String): Uri? =
         tree.list(parent, MAX_DIRECTORY_ENTRIES).firstOrNull { it.name == name }?.uri
-
-    private fun normalizePath(path: String, allowEmpty: Boolean = false): String {
-        val value = path.replace('\\', '/').trim('/')
-        if (value.isEmpty() && allowEmpty) return ""
-        require(value.isNotBlank()) { "Workspace path cannot be empty." }
-        require(value.length <= MAX_PATH_LENGTH) { "Workspace path is too long." }
-        val parts = value.split('/')
-        require(parts.size <= MAX_PATH_DEPTH) { "Workspace path is too deep." }
-        require(parts.none { it.isBlank() || it == "." || it == ".." }) { "Workspace path is invalid." }
-        require(parts.none { it.equals(".git", true) }) { "Git metadata is not accessible through agent workspace tools." }
-        return parts.joinToString("/")
-    }
 
     private fun isDirectory(uri: Uri): Boolean =
         resolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE), null, null, null)?.use { cursor ->
@@ -250,7 +251,5 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         private const val MAX_READ_BYTES = 128 * 1024
         private const val MAX_WRITE_BYTES = 128 * 1024
         private const val MAX_DIRECTORY_ENTRIES = 256
-        private const val MAX_PATH_LENGTH = 500
-        private const val MAX_PATH_DEPTH = 32
     }
 }
