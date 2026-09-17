@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.ai
 
 import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -24,6 +25,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private val resolver = application.contentResolver
     private var messageJob: Job? = null
     private var workspaceJob: Job? = null
+    private var workspaceRoot: Uri? = null
 
     var provider by mutableStateOf(settings.selectedProvider())
         private set
@@ -82,6 +84,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         workspaceJob = viewModelScope.launch {
             workspaceRepository.activeWorkspace.collectLatest { workspace ->
                 workspaceId = workspace?.id
+                workspaceRoot = workspace?.treeUri
                 selectedModel?.let { model -> selectModelInternal(model) }
             }
         }
@@ -96,6 +99,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         apiKeyConfigured = settings.hasApiKey(value)
         models = emptyList()
         selectedModel = null
+        activeSessionId = null
+        messages = emptyList()
         modelError = null
         isModelMenuOpen = false
         val savedId = settings.selectedModelId(value)
@@ -190,7 +195,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         sendError = null
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val mentions = AICommandRegistry.resolveMentions(resolver, workspaceId?.let { workspaceRepositoryUri(it) }, raw)
+                val mentions = AICommandRegistry.resolveMentions(resolver, workspaceRoot, raw)
                 val parsed = AICommandRegistry.parse(raw)?.let { it.copy(mentions = mentions) }
                 val finalInstruction = if (parsed != null) {
                     if (parsed.command.name == "help") AgentCommandCatalog.systemSummary() else parsed.toAgentInstruction()
@@ -209,7 +214,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                 }
-                val history = messages.takeLast(HISTORY_FOR_REQUEST).map { it.role to it.content }
+                val history = buildBoundedHistory(model, messages)
                 val key = settings.getApiKey(provider) ?: error("API key is not configured.")
                 val response = if (parsed?.command?.name == "help") {
                     finalInstruction
@@ -227,9 +232,17 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     fun dismissError() { sendError = null }
 
-    private suspend fun workspaceRepositoryUri(id: String): android.net.Uri? {
-        val workspace = workspaceRepository.workspaces.firstOrNull()?.firstOrNull { it.id == id }
-        return workspace?.treeUri
+    private fun buildBoundedHistory(model: AIModelInfo, source: List<ChatMessageEntity>): List<Pair<String, String>> {
+        val hardLimit = model.contextLimit?.let { (it * CHARS_PER_TOKEN).coerceAtMost(MAX_REQUEST_CHARS) } ?: DEFAULT_REQUEST_CHARS
+        val result = ArrayDeque<Pair<String, String>>()
+        var used = 0L
+        source.asReversed().forEach { message ->
+            val chars = message.content.length.toLong()
+            if (used + chars > hardLimit) return@forEach
+            result.addFirst(message.role to message.content)
+            used += chars
+        }
+        return result.toList()
     }
 
     override fun onCleared() {
@@ -241,6 +254,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     companion object {
         private const val MAX_VISIBLE_MODELS = 120
         private const val MAX_COMMAND_SUGGESTIONS = 12
-        private const val HISTORY_FOR_REQUEST = 40
+        private const val CHARS_PER_TOKEN = 4L
+        private const val MAX_REQUEST_CHARS = 1_000_000L
+        private const val DEFAULT_REQUEST_CHARS = 256_000L
     }
 }
