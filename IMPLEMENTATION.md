@@ -62,7 +62,9 @@ Git safety limits include 8 MiB staged files, 16 MiB index input, 20,000 index e
 - [x] Read-only line-level diff viewer
 - [x] Binary/unreadable/conflict-safe unavailable states
 - [x] Dedicated Diffs destination
-- [ ] Commit/file history viewer
+- [x] Bounded commit history viewer from readable loose commit objects
+- [x] Commit detail with bounded changed-file listing
+- [x] Per-file history viewer with added/modified/deleted change markers
 - [ ] Interactive conflict-resolution editor
 
 ### Build Center / GitHub Actions
@@ -135,11 +137,11 @@ Current command catalog:
 - [ ] Theme/density/editor preferences
 
 ## In Progress / Next Sequence
-1. Validate the current AI + Room v6 integration in CI and fix any Android/Compose/Room compile issues.
-2. Commit/file history and richer Git review surfaces.
-3. Provider-neutral agent tool gateway and persistent agent-task execution.
-4. Automation scheduler/run engine.
-5. Security hardening: path scopes, biometric secret protection, receipts and regression coverage.
+1. Validate the current AI + Room v6 integration in CI and fix any remaining Android/Compose/Room compile issues.
+2. Provider-neutral agent tool gateway and persistent agent-task execution.
+3. Automation scheduler/run engine.
+4. Security hardening: path scopes, biometric secret protection, receipts and regression coverage.
+5. Interactive Git conflict-resolution editor.
 
 ## Planned
 
@@ -184,6 +186,7 @@ Current command catalog:
 - [ ] Current Room v5 audit/grant validation
 - [ ] Current Room v6 AI/chat model-session validation
 - [ ] Current AI model catalog/Compose integration validation
+- [ ] Current commit/file history review validation
 - [ ] Live authenticated remote fetch/pull/push validation
 - [ ] Release APK validation with signing secrets
 - [ ] Maintained unit/UI/security test suites
@@ -234,3 +237,10 @@ Current command catalog:
 - Kept side-effecting commands as proposals that continue through DevForge capability/approval policy.
 - Added masked API-key input in Settings.
 - CI validation for the AI/Room v6 milestone remains pending.
+
+### 2026-09-17 — Commit/file history review surfaces
+- Added bounded loose-object commit history traversal from HEAD with author, timestamp, parent and changed-file metadata.
+- Added commit detail review with bounded changed-file lists and selectable file paths.
+- Added bounded per-file history with added/modified/deleted change markers.
+- Integrated the review surface into the existing Git branch/history card without adding a new navigation destination.
+- CI validation for the commit/file history milestone remains pending.
