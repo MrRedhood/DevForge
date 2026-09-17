@@ -54,9 +54,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             workspaces.activeWorkspace.collectLatest { workspace -> detect(workspace?.treeUri) }
         }
         approvalJob = viewModelScope.launch(Dispatchers.IO) {
-            approvalRepository.observeApproved("git-").collect { approvals ->
-                approvals.forEach { executeApprovedMutation(it) }
-            }
+            approvalRepository.observeApproved("git-").collect { approvals -> approvals.forEach { executeApprovedMutation(it) } }
         }
     }
 
@@ -188,11 +186,14 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             approvalRepository.finishFailure(approval.approvalId)
             return
         }
-        val current = (state as? GitDetectionState.Detected)?.repository
+
+        val detected = repositoryService.detect(action.repository.rootUri)
+        val current = (detected as? GitDetectionState.Detected)?.repository
         if (current == null || current.rootUri.toString() != action.repository.rootUri.toString()) {
             approvalRepository.finishFailure(approval.approvalId)
             return
         }
+
         val freshStatus = statusService.inspect(current.rootUri, current.gitDirectoryUri, current.headRevision)
         val freshPrecondition = hash("${current.headRevision.orEmpty()}|${freshStatus.files.joinToString { it.path + ":" + it.gitStatus.name }}")
         if (freshPrecondition != approval.preconditionHash || freshStatus.truncated) {
@@ -204,14 +205,18 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         withContext(Dispatchers.Main.immediate) {
+            state = detected
+            workspaceStatus = freshStatus
             isExecuting = true
             operationMessage = "Executing approved Git action…"
         }
+
         val result = when (action.type) {
             "git-commit" -> executionService.commit(action.repository.gitDirectoryUri, current.headRevision, action.parameters)
             "git-delete-branch" -> executionService.deleteBranch(action.repository.gitDirectoryUri, current.branchName, action.parameters)
             else -> GitExecutionResult.Failure("Unsupported approved Git action.")
         }
+
         withContext(Dispatchers.Main.immediate) {
             isExecuting = false
             operationMessage = when (result) {
@@ -219,6 +224,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
                 is GitExecutionResult.Failure -> result.message
             }
         }
+
         if (result is GitExecutionResult.Success) {
             approvalRepository.finishSuccess(approval.approvalId)
             withContext(Dispatchers.Main.immediate) { refreshAfterMutation(current.rootUri) }
