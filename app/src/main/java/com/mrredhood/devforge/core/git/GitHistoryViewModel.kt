@@ -28,10 +28,12 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
     private val repositoryService = GitRepositoryService(application.contentResolver)
     private val statusService = GitWorkspaceStatusService(application.contentResolver)
     private val historyService = GitHistoryOperationService(application)
+    private val reviewService = GitCommitHistoryService(application.contentResolver)
     private val workspaces = WorkspaceDatabaseRepository(application)
     private val approvalRepository = ApprovalRepository(DevForgeDatabase.get(application).approvalDao())
     private var detectionJob: Job? = null
     private var approvalJob: Job? = null
+    private var reviewJob: Job? = null
 
     var repository by mutableStateOf<GitRepositoryState?>(null)
         private set
@@ -44,6 +46,19 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
     var selectedBranch by mutableStateOf<String?>(null)
         private set
 
+    var commits by mutableStateOf<List<GitCommitHistoryEntry>>(emptyList())
+        private set
+    var selectedCommit by mutableStateOf<GitCommitHistoryEntry?>(null)
+        private set
+    var selectedCommitFiles by mutableStateOf<List<GitFileHistoryEntry>>(emptyList())
+        private set
+    var selectedFilePath by mutableStateOf<String?>(null)
+        private set
+    var selectedFileHistory by mutableStateOf<List<GitFileHistoryEntry>>(emptyList())
+        private set
+    var isLoadingHistory by mutableStateOf(false)
+        private set
+
     init {
         viewModelScope.launch {
             workspaces.activeWorkspace.collectLatest { workspace -> detect(workspace?.treeUri) }
@@ -53,9 +68,7 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun selectBranch(name: String) {
-        selectedBranch = name
-    }
+    fun selectBranch(name: String) { selectedBranch = name }
 
     fun switchToSelectedBranch() {
         selectedBranch?.let { execute("git-history-switch", Capability.SWITCH_BRANCH, "Switch to branch $it", it) { repository -> historyService.switchBranch(repository, it) } }
@@ -78,11 +91,47 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
         execute("git-history-cherry-pick", Capability.CHERRY_PICK, "Cherry-pick ${value.take(12)}", value) { repository -> historyService.cherryPick(repository, value) }
     }
 
+    fun selectCommit(commit: GitCommitHistoryEntry) {
+        selectedCommit = commit
+        selectedFilePath = null
+        selectedFileHistory = emptyList()
+        val current = repository ?: return
+        isLoadingHistory = true
+        reviewJob?.cancel()
+        reviewJob = viewModelScope.launch(Dispatchers.IO) {
+            val files = reviewService.changedFiles(current, commit.commitId)
+            withContext(Dispatchers.Main.immediate) {
+                selectedCommitFiles = files
+                isLoadingHistory = false
+            }
+        }
+    }
+
+    fun selectFile(path: String) {
+        val current = repository ?: return
+        selectedFilePath = path
+        isLoadingHistory = true
+        reviewJob?.cancel()
+        reviewJob = viewModelScope.launch(Dispatchers.IO) {
+            val history = reviewService.fileHistory(current, path)
+            withContext(Dispatchers.Main.immediate) {
+                selectedFileHistory = history
+                isLoadingHistory = false
+            }
+        }
+    }
+
     private fun detect(root: Uri?) {
         detectionJob?.cancel()
+        reviewJob?.cancel()
         repository = null
         status = null
         selectedBranch = null
+        commits = emptyList()
+        selectedCommit = null
+        selectedCommitFiles = emptyList()
+        selectedFilePath = null
+        selectedFileHistory = emptyList()
         if (root == null) return
         detectionJob = viewModelScope.launch {
             val detected = repositoryService.detect(root)
@@ -91,6 +140,14 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
             repository = current.copy(statusAvailability = inspected.mode)
             status = inspected
             selectedBranch = current.branches.firstOrNull { !it.isCurrent }?.name
+            isLoadingHistory = true
+            reviewJob = launch(Dispatchers.IO) {
+                val history = reviewService.load(current)
+                withContext(Dispatchers.Main.immediate) {
+                    commits = history.commits
+                    isLoadingHistory = false
+                }
+            }
         }
     }
 
@@ -224,6 +281,7 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
     override fun onCleared() {
         detectionJob?.cancel()
         approvalJob?.cancel()
+        reviewJob?.cancel()
         super.onCleared()
     }
 
