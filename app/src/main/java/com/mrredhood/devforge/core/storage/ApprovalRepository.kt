@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 class ApprovalRepository(private val dao: ApprovalDao) {
     fun observePending(limit: Int = MAX_PENDING): Flow<List<ApprovalEntity>> = dao.observePending(limit)
 
+    fun observeApproved(actionPrefix: String, limit: Int = MAX_APPROVED): Flow<List<ApprovalEntity>> =
+        dao.observeApproved("$actionPrefix%", limit)
+
     fun observeById(approvalId: String): Flow<ApprovalEntity?> = dao.observeById(approvalId)
 
     suspend fun createPending(
@@ -45,13 +48,26 @@ class ApprovalRepository(private val dao: ApprovalDao) {
     suspend fun reject(approvalId: String): Boolean =
         dao.resolve(approvalId, STATUS_REJECTED, System.currentTimeMillis()) == 1
 
+    suspend fun claimApproved(approvalId: String): Boolean =
+        dao.claimApproved(approvalId, System.currentTimeMillis()) == 1
+
+    suspend fun finishSuccess(approvalId: String): Boolean =
+        dao.finishExecution(approvalId, STATUS_COMPLETED, System.currentTimeMillis()) == 1
+
+    suspend fun finishFailure(approvalId: String): Boolean =
+        dao.finishExecution(approvalId, STATUS_FAILED, System.currentTimeMillis()) == 1
+
     suspend fun expireDue(): Int = dao.expire(System.currentTimeMillis())
 
     companion object {
         const val STATUS_PENDING = "PENDING"
         const val STATUS_APPROVED = "APPROVED"
+        const val STATUS_EXECUTING = "EXECUTING"
+        const val STATUS_COMPLETED = "COMPLETED"
+        const val STATUS_FAILED = "FAILED"
         const val STATUS_REJECTED = "REJECTED"
         const val STATUS_EXPIRED = "EXPIRED"
         const val MAX_PENDING = 50
+        const val MAX_APPROVED = 10
     }
 }
