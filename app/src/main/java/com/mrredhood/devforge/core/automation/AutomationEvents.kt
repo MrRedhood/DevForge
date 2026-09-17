@@ -100,14 +100,17 @@ object AutomationTriggerCodec {
         val type = runCatching { AutomationTriggerType.valueOf(automation.triggerType) }.getOrNull() ?: return false
         val config = runCatching { decode(type, automation.schedule) }.getOrElse { return false }
         return when (event) {
-            is AutomationEvent.RepositoryChanged -> when (config) {
-                is AutomationTriggerConfig.RepositoryChange -> repositoryMatches(config, event)
-                is AutomationTriggerConfig.Condition -> config.event.equals("repository_change", true) && conditionMatches(config.conditions, mapOf(
-                    "workspaceId" to event.workspaceId,
-                    "branch" to event.branch.orEmpty(),
-                    "paths" to event.changedPaths.joinToString(","),
-                ))
-                else -> false
+            is AutomationEvent.RepositoryChanged -> {
+                if (automation.workspaceId != null && automation.workspaceId != event.workspaceId) return false
+                when (config) {
+                    is AutomationTriggerConfig.RepositoryChange -> repositoryMatches(config, event)
+                    is AutomationTriggerConfig.Condition -> config.event.equals("repository_change", true) && conditionMatches(config.conditions, mapOf(
+                        "workspaceId" to event.workspaceId,
+                        "branch" to event.branch.orEmpty(),
+                        "paths" to event.changedPaths.joinToString(","),
+                    ))
+                    else -> false
+                }
             }
             is AutomationEvent.BuildCompleted -> when (config) {
                 is AutomationTriggerConfig.BuildCompletion -> buildMatches(config, event)
