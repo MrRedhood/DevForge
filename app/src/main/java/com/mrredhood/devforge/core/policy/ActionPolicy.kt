@@ -8,7 +8,13 @@ enum class Capability {
     EDIT_FILES,
     DELETE_FILES,
     RUN_CHECK,
+    STAGE_FILES,
     CREATE_COMMIT,
+    CREATE_BRANCH,
+    SWITCH_BRANCH,
+    DELETE_BRANCH,
+    FETCH_REMOTE,
+    PULL_REMOTE,
     PUSH_REMOTE,
     DISPATCH_BUILD,
     MANAGE_RELEASE,
@@ -42,6 +48,7 @@ object DefaultPolicy {
         PermissionMode.SOME -> request.risk >= RiskLevel.R2
         PermissionMode.AUTONOMOUS -> request.risk >= RiskLevel.R4 || request.capability in setOf(
             Capability.DELETE_FILES,
+            Capability.DELETE_BRANCH,
             Capability.PUSH_REMOTE,
             Capability.MANAGE_RELEASE,
             Capability.ACCESS_SECRET,
