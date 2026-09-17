@@ -5,6 +5,8 @@ package com.mrredhood.devforge.core.build
  * GitHub Actions workflow_dispatch request without coupling the UI to GitHub APIs.
  */
 data class BuildConfiguration(
+    val githubOwner: String = "",
+    val githubRepository: String = "",
     val workflowFile: String = ".github/workflows/android.yml",
     val branch: String = "main",
     val buildTask: String = ":app:assembleDebug",
