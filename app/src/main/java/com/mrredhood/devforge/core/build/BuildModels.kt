@@ -1,8 +1,8 @@
 package com.mrredhood.devforge.core.build
 
 /**
- * Declarative build configuration. The execution layer can later map this to a
- * GitHub Actions workflow_dispatch request without coupling the UI to GitHub APIs.
+ * Declarative build configuration. The execution layer maps this to the fixed
+ * GitHub Actions workflow_dispatch target contract without coupling the UI to GitHub APIs.
  */
 data class BuildConfiguration(
     val githubOwner: String = "",
@@ -17,10 +17,23 @@ data class BuildConfiguration(
 enum class BuildTarget(
     val label: String,
     val description: String,
+    val workflowInput: String,
 ) {
-    DebugApk("Debug APK", "Fast installable debug package"),
-    ReleaseApk("Release APK", "Signed release package when signing is configured"),
-    ReleaseBundle("Release AAB", "Play-ready bundle when signing is configured"),
+    DebugApk(
+        label = "Debug APK",
+        description = "Fast installable debug package",
+        workflowInput = "debug_apk",
+    ),
+    ReleaseApk(
+        label = "Release APK",
+        description = "Signed release package when signing is configured",
+        workflowInput = "release_apk",
+    ),
+    ReleaseBundle(
+        label = "Release AAB",
+        description = "Play-ready bundle when signing is configured",
+        workflowInput = "release_aab",
+    ),
 }
 
 sealed interface BuildState {
