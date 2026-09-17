@@ -4,8 +4,12 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.RoomDatabase.Callback
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.mrredhood.devforge.core.policy.Capability
+import com.mrredhood.devforge.core.policy.CapabilityGrantRegistry
+import com.mrredhood.devforge.core.policy.RiskLevel
 
 @Database(
     entities = [
@@ -203,8 +207,71 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     "devforge.db",
                 )
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addCallback(object : Callback() {
+                        override fun onOpen(db: SupportSQLiteDatabase) {
+                            super.onOpen(db)
+                            installAuditTriggers(db)
+                            hydrateGrantRegistry(db)
+                        }
+                    })
                     .build()
                     .also { INSTANCE = it }
             }
+
+        private fun installAuditTriggers(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                CREATE TRIGGER IF NOT EXISTS devforge_approval_insert_audit
+                AFTER INSERT ON approval_actions
+                BEGIN
+                    INSERT INTO audit_events(eventId, workspaceId, actionId, capability, risk, eventType, summary, metadataJson, createdAtEpochMs)
+                    VALUES (lower(hex(randomblob(16))), NEW.workspaceId, NEW.actionId, NEW.capability, NEW.risk, 'APPROVAL_CREATED', NEW.summary, '{"status":"'||NEW.status||'"}', strftime('%s','now') * 1000);
+                END
+            """.trimIndent())
+            db.execSQL("""
+                CREATE TRIGGER IF NOT EXISTS devforge_approval_status_audit
+                AFTER UPDATE OF status ON approval_actions
+                WHEN OLD.status != NEW.status
+                BEGIN
+                    INSERT INTO audit_events(eventId, workspaceId, actionId, capability, risk, eventType, summary, metadataJson, createdAtEpochMs)
+                    VALUES (lower(hex(randomblob(16))), NEW.workspaceId, NEW.actionId, NEW.capability, NEW.risk, 'APPROVAL_STATUS', NEW.summary, '{"from":"'||OLD.status||'","to":"'||NEW.status||'"}', strftime('%s','now') * 1000);
+                END
+            """.trimIndent())
+            db.execSQL("""
+                CREATE TRIGGER IF NOT EXISTS devforge_grant_insert_audit
+                AFTER INSERT ON capability_grants
+                WHEN NEW.enabled = 1
+                BEGIN
+                    INSERT INTO audit_events(eventId, workspaceId, capability, risk, eventType, summary, metadataJson, createdAtEpochMs)
+                    VALUES (lower(hex(randomblob(16))), NEW.workspaceId, NEW.capability, NEW.maxRisk, 'GRANT_CREATED', 'Persistent grant enabled for '||NEW.capability, '{"expiresAtEpochMs":'||COALESCE(CAST(NEW.expiresAtEpochMs AS TEXT),'null')||'}', strftime('%s','now') * 1000);
+                END
+            """.trimIndent())
+            db.execSQL("""
+                CREATE TRIGGER IF NOT EXISTS devforge_grant_status_audit
+                AFTER UPDATE OF enabled ON capability_grants
+                WHEN OLD.enabled != NEW.enabled
+                BEGIN
+                    INSERT INTO audit_events(eventId, workspaceId, capability, risk, eventType, summary, metadataJson, createdAtEpochMs)
+                    VALUES (lower(hex(randomblob(16))), NEW.workspaceId, NEW.capability, NEW.maxRisk, CASE WHEN NEW.enabled = 1 THEN 'GRANT_CREATED' ELSE 'GRANT_REVOKED' END, CASE WHEN NEW.enabled = 1 THEN 'Persistent grant enabled for '||NEW.capability ELSE 'Persistent grant revoked for '||NEW.capability END, NULL, strftime('%s','now') * 1000);
+                END
+            """.trimIndent())
+        }
+
+        private fun hydrateGrantRegistry(db: SupportSQLiteDatabase) {
+            CapabilityGrantRegistry.clear()
+            val now = System.currentTimeMillis()
+            db.query("SELECT workspaceId, capability, maxRisk, expiresAtEpochMs FROM capability_grants WHERE enabled = 1 AND (expiresAtEpochMs IS NULL OR expiresAtEpochMs > $now)").use { cursor ->
+                val workspaceIndex = cursor.getColumnIndexOrThrow("workspaceId")
+                val capabilityIndex = cursor.getColumnIndexOrThrow("capability")
+                val maxRiskIndex = cursor.getColumnIndexOrThrow("maxRisk")
+                val expiresIndex = cursor.getColumnIndexOrThrow("expiresAtEpochMs")
+                while (cursor.moveToNext()) {
+                    val workspaceId = cursor.getString(workspaceIndex)
+                    val capability = runCatching { Capability.valueOf(cursor.getString(capabilityIndex)) }.getOrNull() ?: continue
+                    val maxRisk = runCatching { RiskLevel.valueOf(cursor.getString(maxRiskIndex)) }.getOrNull() ?: continue
+                    val expiresAt = if (cursor.isNull(expiresIndex)) null else cursor.getLong(expiresIndex)
+                    CapabilityGrantRegistry.put(workspaceId, capability, maxRisk, expiresAt)
+                }
+            }
+        }
     }
 }
