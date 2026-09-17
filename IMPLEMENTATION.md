@@ -143,17 +143,21 @@ Current Git mutation and transport limits:
 - [x] Approved Git actions re-check repository preconditions before execution
 - [x] Approved Git actions can resume by re-detecting the persisted repository URI
 - [x] Action payloads contain only execution metadata needed to resume; no credentials or secrets
+- [x] Durable approval lifecycle audit events for create/approve/reject/expire/execute outcomes
+- [x] User-facing bounded audit history in Approval Center
+- [x] Workspace-scoped persistent capability grants with explicit R2 ceiling
+- [x] Protected capabilities remain approval-gated and cannot receive persistent bypass grants
 
 ### Durable Room State
-- [x] Room v4 schema migration for durable editor, agent, automation and audit state
+- [x] Room v5 schema migration for durable editor, agent, automation, audit, and capability-grant state
 - [x] Bounded `editor_tabs` and `editor_snapshots` persistence
 - [x] Bounded `agent_tasks` persistence foundation
 - [x] Bounded automation definitions and run receipt persistence foundation
 - [x] Durable audit-event storage with retention pruning
 - [x] Shared repository API separating durable storage from feature-domain models
+- [x] Durable capability-grant entity/DAO/repository and policy-registry hydration
 - [ ] Full agent-task execution persistence wiring
 - [ ] Full automation scheduler/run engine wiring
-- [ ] User-facing audit history surface
 
 ### Chat / UX
 - [x] Essential Chat landing screen only
@@ -171,21 +175,23 @@ Current Git mutation and transport limits:
 - [x] R0–R5 risk foundation
 - [x] Typed `ActionRequest` / `Approval` models
 - [x] Default policy evaluation
+- [x] Persistent-grant-aware policy evaluation
 - [x] SecretStore abstraction and Android Keystore AES/GCM
 - [x] Secret-safe error handling
 - [x] `DISPATCH_BUILD` capability gate
 - [x] Git mutation capability gates
 - [x] Durable Approval Center action gate
-- [ ] Per-capability persistent grants
+- [x] Per-capability workspace-scoped persistent grants up to R2
+- [ ] Path-scoped grants
 - [ ] Biometric secret protection
 
 ## In Progress / Next Sequence
 
-1. Complete CI/runtime validation of the branch/history engine, then expand dedicated conflict resolution UX.
-2. Approval history/audit expansion and per-capability grant controls.
-3. Commit/file history and richer Git review surfaces.
-4. Provider-neutral AI/agent tool gateway and persistent agent-task execution.
-5. Automation scheduler/run engine on top of the durable automation schema.
+1. Complete CI/runtime validation of the branch/history and Room/policy milestones, then expand dedicated conflict resolution UX.
+2. Commit/file history and richer Git review surfaces.
+3. Provider-neutral AI/agent tool gateway and persistent agent-task execution.
+4. Automation scheduler/run engine on top of the durable automation schema.
+5. Security hardening: path scopes, biometric secret protection, regression coverage and receipts.
 
 ## Planned
 
@@ -238,9 +244,10 @@ Current Git mutation and transport limits:
 ### Security / Privacy
 - [x] Approval Center UI foundation
 - [x] Durable audit-event storage foundation
-- [ ] Per-capability grants and workspace/path scopes
+- [x] Workspace-scoped per-capability persistent grants
+- [ ] Path-scoped grants
 - [ ] Secret lifecycle UI
-- [ ] User-facing audit trail and action receipts
+- [ ] User-facing action receipts
 - [ ] Privacy export/delete controls
 - [ ] Redaction regression tests
 - [ ] Optional biometric secret access
@@ -286,7 +293,7 @@ Current Git mutation and transport limits:
 - [x] CI #122 passed after authenticated debug workflow dispatch.
 - [x] CI #127 was cancelled by workflow concurrency and is not treated as a build failure.
 - [ ] Current branch/history JGit compilation/CI validation
-- [ ] Current durable Room v4/editor persistence CI validation
+- [ ] Current durable Room v5 / grant policy / audit CI validation
 - [ ] Current structured Git diff / Approval Center integration CI validation
 - [ ] Release APK validation with configured signing secrets
 - [ ] Maintained unit-test suite
@@ -360,3 +367,11 @@ Current Git mutation and transport limits:
 - Added bounded repositories for future agent-task and automation persistence and a retention-pruned audit trail repository.
 - Kept feature-domain models separate from the storage schema so upcoming agent and automation engines can evolve without reworking persistence contracts.
 - CI validation for the Room v4/editor persistence milestone remains pending.
+
+### 2026-09-17 — Approval audit and persistent capability grants
+- Upgraded Room from v4 to v5 with a workspace-scoped `capability_grants` table and bounded grant DAO/repository.
+- Added an in-process grant registry hydrated from Room on database open so existing Git/build/history policy call sites consume durable grants without bypassing the typed capability layer.
+- Added R2 grant ceilings and permanently excluded delete, remote-push, release-management, secret-access and rebase capabilities from persistent approval bypass.
+- Added SQLite audit triggers for approval lifecycle/status transitions and grant create/revoke activity, with no action payload or secret data copied into the audit trail.
+- Expanded Approval Center with persistent-grant controls, active-grant visibility, revoke actions, and a bounded user-facing audit history.
+- CI validation for the Room v5/audit/grant milestone remains pending.
