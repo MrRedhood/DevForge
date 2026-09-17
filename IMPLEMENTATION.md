@@ -40,6 +40,9 @@
 - [x] SHA-256 content identity
 - [x] Immutable bounded snapshots
 - [x] Line-based diff engine and snapshot ViewModel foundation
+- [x] Room-backed durable open-tab persistence across process restarts
+- [x] Room-backed durable editor snapshot persistence with bounded retention
+- [x] Room-backed dirty-tab recovery checkpoints while retaining legacy draft compatibility
 
 ### Git Observation / Status
 - [x] `.git` detection through SAF
@@ -141,6 +144,17 @@ Current Git mutation and transport limits:
 - [x] Approved Git actions can resume by re-detecting the persisted repository URI
 - [x] Action payloads contain only execution metadata needed to resume; no credentials or secrets
 
+### Durable Room State
+- [x] Room v4 schema migration for durable editor, agent, automation and audit state
+- [x] Bounded `editor_tabs` and `editor_snapshots` persistence
+- [x] Bounded `agent_tasks` persistence foundation
+- [x] Bounded automation definitions and run receipt persistence foundation
+- [x] Durable audit-event storage with retention pruning
+- [x] Shared repository API separating durable storage from feature-domain models
+- [ ] Full agent-task execution persistence wiring
+- [ ] Full automation scheduler/run engine wiring
+- [ ] User-facing audit history surface
+
 ### Chat / UX
 - [x] Essential Chat landing screen only
 - [x] Removed workspace/Git/build/agent status labels and unrelated cards
@@ -168,10 +182,10 @@ Current Git mutation and transport limits:
 ## In Progress / Next Sequence
 
 1. Complete CI/runtime validation of the branch/history engine, then expand dedicated conflict resolution UX.
-2. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
-3. Approval history/audit expansion and per-capability grant controls.
-4. Commit/file history and richer Git review surfaces.
-5. Remote transport expansion beyond GitHub HTTPS once a safe credential/provider contract exists.
+2. Approval history/audit expansion and per-capability grant controls.
+3. Commit/file history and richer Git review surfaces.
+4. Provider-neutral AI/agent tool gateway and persistent agent-task execution.
+5. Automation scheduler/run engine on top of the durable automation schema.
 
 ## Planned
 
@@ -223,9 +237,10 @@ Current Git mutation and transport limits:
 
 ### Security / Privacy
 - [x] Approval Center UI foundation
+- [x] Durable audit-event storage foundation
 - [ ] Per-capability grants and workspace/path scopes
 - [ ] Secret lifecycle UI
-- [ ] Audit trail and action receipts
+- [ ] User-facing audit trail and action receipts
 - [ ] Privacy export/delete controls
 - [ ] Redaction regression tests
 - [ ] Optional biometric secret access
@@ -271,6 +286,7 @@ Current Git mutation and transport limits:
 - [x] CI #122 passed after authenticated debug workflow dispatch.
 - [x] CI #127 was cancelled by workflow concurrency and is not treated as a build failure.
 - [ ] Current branch/history JGit compilation/CI validation
+- [ ] Current durable Room v4/editor persistence CI validation
 - [ ] Current structured Git diff / Approval Center integration CI validation
 - [ ] Release APK validation with configured signing secrets
 - [ ] Maintained unit-test suite
@@ -337,3 +353,10 @@ Current Git mutation and transport limits:
 - Added bounded conflict-path reporting and safe discard of conflicted temporary state so a partial history operation is never silently copied to the canonical workspace.
 - Added a dedicated mobile Git history control card for branch selection, checkout, merge, rebase and cherry-pick.
 - CI validation for this milestone remains pending.
+
+### 2026-09-17 — Durable Room state layer
+- Upgraded Room from v3 to v4 with explicit migration coverage for editor, agent-task, automation/run, and audit tables.
+- Moved durable editor tab state and bounded snapshots onto Room, including dirty-tab recovery checkpoints while keeping legacy draft compatibility.
+- Added bounded repositories for future agent-task and automation persistence and a retention-pruned audit trail repository.
+- Kept feature-domain models separate from the storage schema so upcoming agent and automation engines can evolve without reworking persistence contracts.
+- CI validation for the Room v4/editor persistence milestone remains pending.
