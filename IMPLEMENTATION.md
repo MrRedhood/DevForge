@@ -86,6 +86,20 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Lightweight file metadata presentation
 - [x] Background file-tree loading with bounded root enumeration
 
+### Editor Foundation
+
+- [x] SAF-backed file read pipeline
+- [x] SAF-backed file write pipeline
+- [x] Open-file editor tabs
+- [x] Active-tab switching
+- [x] Dirty-state tracking
+- [x] Explicit save action
+- [x] Unsaved-change close protection
+- [x] Local recovery draft storage
+- [x] Delayed recovery snapshot after edits
+- [x] Mobile editor surface with monospace editing
+- [x] Editor mode hides primary navigation for focused phone editing
+
 ### Domain / Safety Foundation
 
 - [x] Capability model foundation
@@ -116,20 +130,25 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 ### Next implementation slice
 
-1. Editor foundation with tabs and dirty state
-2. File open/read/write pipeline
-3. Autosave and crash-recovery hooks
-4. Content hashing and snapshot model
-5. Diff engine foundation
-6. Durable multi-workspace database strategy (Room after the state model stabilizes)
-7. Git repository state model and status UI
-8. Build configuration/state model
-9. Approval UI connected to actual action requests
+1. Content hashing and snapshot model
+2. Diff engine foundation
+3. Recursive folder navigation
+4. File preview/search safeguards
+5. Durable multi-workspace database strategy (Room after the state model stabilizes)
+6. Git repository state model and status UI
+7. Build configuration/state model
+8. Approval UI connected to actual action requests
 
 ### Workspace persistence decision
 
 - SharedPreferences is currently used only for the small, stable selected-workspace record so the first workspace flow stays dependency-light.
 - Room is intentionally not introduced yet; it should be added when DevForge begins persisting richer relational state such as open tabs, snapshots, Git metadata, agent tasks, build history, and automation runs.
+
+### Editor recovery decision
+
+- Recovery drafts currently use a small local SharedPreferences store keyed by document URI.
+- Recovery is deliberately separate from normal save state: editing a document never silently overwrites the selected workspace file.
+- The next editor hardening step is content hashing/snapshots so recovery, AI patches, and Git diffs can share one consistent change model.
 
 ## Planned — AI & Agent
 
@@ -159,13 +178,13 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [ ] Recursive folder navigation
 - [ ] Search
 - [ ] File preview
-- [ ] File open/read/write pipeline
-- [ ] Editor tabs
+- [x] File open/read/write pipeline
+- [x] Editor tabs
 - [ ] Syntax highlighting
 - [ ] Diagnostics
 - [ ] Undo/redo
-- [ ] Autosave
-- [ ] Crash recovery
+- [x] Autosave/recovery draft hook
+- [x] Crash-recovery draft storage foundation
 - [ ] Snapshots
 - [ ] Restore points
 - [ ] Diff viewer
@@ -275,6 +294,8 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [x] Workspace empty state
 - [x] Workspace loading state
 - [x] Workspace root browser state
+- [x] Editor workspace chrome foundation
+- [x] Unsaved-change confirmation
 - [ ] Error/recovery states
 - [ ] Approval bottom sheets/dialogs
 - [ ] Command palette
@@ -284,7 +305,7 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - [ ] Agent task timeline
 - [ ] Build detail screen
 - [ ] Git detail screens
-- [ ] Editor workspace chrome
+- [ ] Full editor workspace chrome
 - [ ] Tablet/foldable layouts
 - [ ] Accessibility semantics
 - [ ] Motion/transition system
@@ -294,6 +315,7 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 
 - [ ] Unit test suite
 - [ ] Repository/data tests
+- [ ] Editor recovery tests
 - [ ] Agent/tool contract tests
 - [ ] Policy tests
 - [ ] UI tests
@@ -318,6 +340,7 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 10. UI work must prioritize originality, clarity, touch usability, adaptive layouts, accessibility, and a distinctive DevForge identity.
 11. Keep the first persistence layer minimal; introduce Room when the product has enough durable relational state to justify it.
 12. Workspace access must use least-privilege Android storage APIs; do not request broad storage permissions for the core workspace flow.
+13. File editing must separate in-memory buffers, persisted file state, and recovery drafts so AI/automation features can later add reviewable patches without bypassing user control.
 
 ## Change Log
 
@@ -337,6 +360,20 @@ The UI should be original, stylish, modern, distinctive, highly usable on phones
 - Replaced the Files mock surface with a real workspace browser state, loading state, empty state, refresh action, and file metadata rows.
 - Updated the global header to display the active workspace name.
 - Kept Room deferred until richer relational state such as tabs, snapshots, agent tasks, and build/automation history is introduced.
+- CI validation of this implementation is pending.
+
+### 2026-09-17 — Editor foundation
+
+- Added `EditorTab` and recovery-draft domain models.
+- Added SAF-backed file read/write repository operations.
+- Added open-file tabs and active-tab state.
+- Added dirty-state tracking based on saved-vs-buffer content.
+- Added explicit save behavior that writes back to the selected document URI.
+- Added delayed recovery draft persistence after edits without overwriting the source file.
+- Added unsaved-change close protection.
+- Connected workspace file rows to the editor so real files open from the Files screen.
+- Added a focused mobile editor surface with tab chrome, save control, monospace editing, and error presentation.
+- Hid primary navigation while editing on compact screens to maximize editor space.
 - CI validation of this implementation is pending.
 
 ### Future entries
