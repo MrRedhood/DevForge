@@ -13,22 +13,35 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Commit
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Source
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -65,9 +78,13 @@ fun GitDashboardScreen(viewModel: GitViewModel = viewModel()) {
                     if (state.repository.branches.isNotEmpty()) {
                         item {
                             Column {
-                                Text("Local branches", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                                Spacer(Modifier.height(4.dp))
-                                Text("Metadata discovered from refs and packed-refs", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Local branches", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                        Spacer(Modifier.height(4.dp))
+                                        Text("Metadata discovered from refs and packed-refs", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
                             }
                         }
                         items(state.repository.branches.take(MAX_BRANCHES_VISIBLE), key = { it.name }) { branch -> BranchRow(branch) }
@@ -173,7 +190,166 @@ private fun StatusMetric(label: String, value: String) {
 }
 
 @Composable
+private fun GitOperationsCard() {
+    val model: GitViewModel = viewModel()
+    var commitOpen by rememberSaveable { mutableStateOf(false) }
+    var branchOpen by rememberSaveable { mutableStateOf(false) }
+    var commitMessage by rememberSaveable { mutableStateOf("") }
+    var branchName by rememberSaveable { mutableStateOf("") }
+    val changed = model.workspaceStatus?.files
+        ?.filter { it.gitStatus !in setOf(GitFileStatus.Clean, GitFileStatus.Unchecked) }
+        ?.take(MAX_CHANGE_ROWS)
+        .orEmpty()
+
+    Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Commit, null)
+                Spacer(Modifier.size(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Native Git operations", fontWeight = FontWeight.Bold)
+                    Text("Bounded local Git mutations through SAF; no shell commands are used.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (model.isExecuting) CircularProgressIndicator(Modifier.size(21.dp))
+            }
+
+            if (changed.isEmpty()) {
+                Text("No pending file changes were observed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                changed.forEach { file ->
+                    GitChangeRow(file, model)
+                }
+                if ((model.workspaceStatus?.files?.count { it.gitStatus !in setOf(GitFileStatus.Clean, GitFileStatus.Unchecked) } ?: 0) > MAX_CHANGE_ROWS) {
+                    Text("Only the first $MAX_CHANGE_ROWS changes are shown; mutation remains bounded.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { commitOpen = true },
+                    enabled = model.capabilities.commit == CapabilityAvailability.Available && !model.isExecuting,
+                ) {
+                    Icon(Icons.Default.CheckCircle, null)
+                    Spacer(Modifier.size(6.dp))
+                    Text("Commit")
+                }
+                OutlinedButton(
+                    onClick = { branchOpen = true },
+                    enabled = model.capabilities.createBranch == CapabilityAvailability.Available && !model.isExecuting,
+                ) {
+                    Icon(Icons.Default.Add, null)
+                    Spacer(Modifier.size(6.dp))
+                    Text("Branch")
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CapabilityChip("Stage", model.capabilities.stage)
+                CapabilityChip("Unstage", model.capabilities.unstage)
+                CapabilityChip("Commit", model.capabilities.commit)
+                CapabilityChip("Push", model.capabilities.pushRemote)
+            }
+
+            Text(
+                "Fetch, pull, and push are not configured yet; DevForge keeps those remote mutations unavailable instead of simulating them.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            model.operationMessage?.let { message ->
+                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                    Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+
+    if (commitOpen) {
+        AlertDialog(
+            onDismissRequest = { commitOpen = false },
+            title = { Text("Create commit") },
+            text = {
+                OutlinedTextField(
+                    value = commitMessage,
+                    onValueChange = { commitMessage = it },
+                    label = { Text("Commit message") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        model.commit(commitMessage)
+                        commitMessage = ""
+                        commitOpen = false
+                    },
+                    enabled = commitMessage.isNotBlank() && !model.isExecuting,
+                ) { Text("Commit") }
+            },
+            dismissButton = { TextButton(onClick = { commitOpen = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (branchOpen) {
+        AlertDialog(
+            onDismissRequest = { branchOpen = false },
+            title = { Text("Create local branch") },
+            text = {
+                OutlinedTextField(
+                    value = branchName,
+                    onValueChange = { branchName = it },
+                    label = { Text("Branch name") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        model.createBranch(branchName)
+                        branchName = ""
+                        branchOpen = false
+                    },
+                    enabled = branchName.isNotBlank() && !model.isExecuting,
+                ) { Text("Create") }
+            },
+            dismissButton = { TextButton(onClick = { branchOpen = false }) { Text("Cancel") } },
+        )
+    }
+}
+
+@Composable
+private fun GitChangeRow(file: GitWorkspaceFile, model: GitViewModel) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), shape = RoundedCornerShape(16.dp)) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(file.path, fontWeight = FontWeight.SemiBold)
+                Text(file.gitStatus.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            when (file.gitStatus) {
+                GitFileStatus.Untracked, GitFileStatus.Modified, GitFileStatus.Deleted, GitFileStatus.StagedAndModified ->
+                    TextButton(onClick = { model.stage(file.path) }, enabled = model.capabilities.stage == CapabilityAvailability.Available && !model.isExecuting) { Text("Stage") }
+                GitFileStatus.Staged ->
+                    TextButton(onClick = { model.unstage(file.path) }, enabled = model.capabilities.unstage == CapabilityAvailability.Available && !model.isExecuting) { Text("Unstage") }
+                GitFileStatus.Conflict -> Text("Resolve first", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+                else -> Unit
+            }
+        }
+    }
+}
+
+@Composable
+private fun CapabilityChip(label: String, availability: CapabilityAvailability) {
+    FilterChip(
+        selected = availability == CapabilityAvailability.Available,
+        onClick = {},
+        enabled = false,
+        label = { Text(label) },
+    )
+}
+
+@Composable
 private fun BranchRow(branch: GitBranch) {
+    val model: GitViewModel = viewModel()
     Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = if (branch.isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Source, null, Modifier.size(21.dp)); Spacer(Modifier.size(12.dp))
@@ -181,22 +357,13 @@ private fun BranchRow(branch: GitBranch) {
                 Text(branch.name, fontWeight = FontWeight.SemiBold)
                 Text(when { branch.isCurrent -> "Current branch"; branch.revision != null -> branch.revision.take(12); else -> "Local branch" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Default.ChevronRight, null, Modifier.alpha(.4f))
-        }
-    }
-}
-
-@Composable
-private fun GitOperationsCard() {
-    Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(18.dp)) {
-            Text("Native Git operations", fontWeight = FontWeight.Bold)
-            Text("HEAD/index/worktree status is available when the repository exposes readable objects. Stage, unstage, commit, branch mutation, fetch, pull and push remain behind the capability-controlled execution layer.", modifier = Modifier.padding(top = 6.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {}, enabled = false) { Text("Stage") }
-                OutlinedButton(onClick = {}, enabled = false) { Text("Commit") }
-                OutlinedButton(onClick = {}, enabled = false) { Text("Push") }
+            if (!branch.isCurrent) {
+                IconButton(
+                    onClick = { model.deleteBranch(branch.name) },
+                    enabled = model.capabilities.deleteBranch == CapabilityAvailability.Available && !model.isExecuting,
+                ) { Icon(Icons.Default.Delete, "Delete branch") }
+            } else {
+                Icon(Icons.Default.ChevronRight, null, Modifier.alpha(.4f))
             }
         }
     }
@@ -231,3 +398,4 @@ private fun GitUnsupportedCard(message: String) {
 }
 
 private const val MAX_BRANCHES_VISIBLE = 20
+private const val MAX_CHANGE_ROWS = 30
