@@ -32,6 +32,7 @@ enum class GitStatusAvailability {
     NotImplemented,
     MetadataOnly,
     IndexAwareWorktree,
+    IndexAndHeadAware,
 }
 
 enum class GitFileStatus {
@@ -39,5 +40,8 @@ enum class GitFileStatus {
     Modified,
     Deleted,
     Untracked,
+    Staged,
+    StagedAndModified,
+    Conflict,
     Unchecked,
 }
