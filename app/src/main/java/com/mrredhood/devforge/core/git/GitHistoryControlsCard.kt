@@ -47,82 +47,88 @@ fun GitHistoryControlsCard(viewModel: GitHistoryViewModel = viewModel()) {
     val selected = viewModel.selectedBranch
     val canRun = selected != null && !viewModel.isExecuting && viewModel.conflictSession == null
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Branch & history", fontWeight = FontWeight.Bold, fontSize = 19.sp)
-                    Text("Checkout, merge, rebase and cherry-pick run only against a clean, fully inspected workspace.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        ) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Branch & history", fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                        Text("Checkout, merge, rebase and cherry-pick run only against a clean, fully inspected workspace.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (viewModel.isExecuting || viewModel.isLoadingHistory) CircularProgressIndicator(Modifier.size(22.dp))
                 }
-                if (viewModel.isExecuting || viewModel.isLoadingHistory) CircularProgressIndicator(Modifier.size(22.dp))
-            }
 
-            if (branches.none { !it.isCurrent }) {
-                Text("No alternate local branches are available.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                Text("Target branch", style = MaterialTheme.typography.labelLarge)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(branches.filter { !it.isCurrent }.take(MAX_HISTORY_BRANCHES), key = { it.name }) { branch ->
-                        FilterChip(selected = branch.name == selected, onClick = { viewModel.selectBranch(branch.name) }, label = { Text(branch.name) }, enabled = viewModel.conflictSession == null)
+                if (branches.none { !it.isCurrent }) {
+                    Text("No alternate local branches are available.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("Target branch", style = MaterialTheme.typography.labelLarge)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(branches.filter { !it.isCurrent }.take(MAX_HISTORY_BRANCHES), key = { it.name }) { branch ->
+                            FilterChip(selected = branch.name == selected, onClick = { viewModel.selectBranch(branch.name) }, label = { Text(branch.name) }, enabled = viewModel.conflictSession == null)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { viewModel.switchToSelectedBranch() }, enabled = canRun) { IconText(Icons.Default.CallSplit, "Switch") }
+                        OutlinedButton(onClick = { viewModel.mergeSelectedBranch() }, enabled = canRun) { IconText(Icons.Default.MergeType, "Merge") }
+                        OutlinedButton(onClick = { viewModel.rebaseOntoSelectedBranch() }, enabled = canRun) { IconText(Icons.Default.Replay, "Rebase") }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { viewModel.switchToSelectedBranch() }, enabled = canRun) { IconText(Icons.Default.CallSplit, "Switch") }
-                    OutlinedButton(onClick = { viewModel.mergeSelectedBranch() }, enabled = canRun) { IconText(Icons.Default.MergeType, "Merge") }
-                    OutlinedButton(onClick = { viewModel.rebaseOntoSelectedBranch() }, enabled = canRun) { IconText(Icons.Default.Replay, "Rebase") }
+
+                Spacer(Modifier.height(2.dp))
+                Text("Cherry-pick commit", style = MaterialTheme.typography.labelLarge)
+                OutlinedTextField(value = cherryPickRevision, onValueChange = { cherryPickRevision = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("40-character commit SHA") }, enabled = viewModel.conflictSession == null)
+                Button(onClick = { viewModel.cherryPick(cherryPickRevision); cherryPickRevision = "" }, enabled = cherryPickRevision.trim().length == 40 && !viewModel.isExecuting && viewModel.conflictSession == null) {
+                    IconText(Icons.Default.Check, "Cherry-pick")
                 }
-            }
 
-            Spacer(Modifier.height(2.dp))
-            Text("Cherry-pick commit", style = MaterialTheme.typography.labelLarge)
-            OutlinedTextField(value = cherryPickRevision, onValueChange = { cherryPickRevision = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("40-character commit SHA") }, enabled = viewModel.conflictSession == null)
-            Button(onClick = { viewModel.cherryPick(cherryPickRevision); cherryPickRevision = "" }, enabled = cherryPickRevision.trim().length == 40 && !viewModel.isExecuting && viewModel.conflictSession == null) {
-                IconText(Icons.Default.Check, "Cherry-pick")
-            }
-
-            Text("Recent commits", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            if (viewModel.commits.isEmpty()) {
-                Text("No readable commit history is available through the selected workspace access path.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                viewModel.commits.take(MAX_HISTORY_COMMITS).forEach { commit ->
-                    CommitHistoryRow(commit = commit, selected = commit.commitId == viewModel.selectedCommit?.commitId, onClick = { viewModel.selectCommit(commit) })
-                }
-                if (viewModel.commits.size > MAX_HISTORY_COMMITS) Text("Showing the newest $MAX_HISTORY_COMMITS commits; history is bounded for mobile performance.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            viewModel.selectedCommit?.let { commit ->
-                Text("Files changed in ${commit.shortId}", fontWeight = FontWeight.Bold)
-                if (viewModel.selectedCommitFiles.isEmpty()) {
-                    Text("No changed files could be resolved for this commit.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Recent commits", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                if (viewModel.commits.isEmpty()) {
+                    Text("No readable commit history is available through the selected workspace access path.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    viewModel.selectedCommitFiles.take(MAX_CHANGED_FILES_VISIBLE).forEach { file -> ChangedFileRow(file) { viewModel.selectFile(file.path) } }
-                    if (viewModel.selectedCommitFiles.size > MAX_CHANGED_FILES_VISIBLE) Text("Only the first $MAX_CHANGED_FILES_VISIBLE changed paths are shown.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    viewModel.commits.take(MAX_HISTORY_COMMITS).forEach { commit ->
+                        CommitHistoryRow(commit = commit, selected = commit.commitId == viewModel.selectedCommit?.commitId, onClick = { viewModel.selectCommit(commit) })
+                    }
+                    if (viewModel.commits.size > MAX_HISTORY_COMMITS) Text("Showing the newest $MAX_HISTORY_COMMITS commits; history is bounded for mobile performance.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
 
-            viewModel.selectedFilePath?.let { path ->
-                Text("File history: $path", fontWeight = FontWeight.Bold)
-                if (viewModel.selectedFileHistory.isEmpty()) {
-                    Text("No historical changes were resolved for this path.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    viewModel.selectedFileHistory.take(MAX_FILE_HISTORY_VISIBLE).forEach { item ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(item.changeType.name, Modifier.weight(.24f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
-                            Column(Modifier.weight(.76f)) {
-                                Text(item.subject, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                Text("${item.commitId.take(12)} · ${item.author}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                viewModel.selectedCommit?.let { commit ->
+                    Text("Files changed in ${commit.shortId}", fontWeight = FontWeight.Bold)
+                    if (viewModel.selectedCommitFiles.isEmpty()) {
+                        Text("No changed files could be resolved for this commit.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        viewModel.selectedCommitFiles.take(MAX_CHANGED_FILES_VISIBLE).forEach { file -> ChangedFileRow(file) { viewModel.selectFile(file.path) } }
+                        if (viewModel.selectedCommitFiles.size > MAX_CHANGED_FILES_VISIBLE) Text("Only the first $MAX_CHANGED_FILES_VISIBLE changed paths are shown.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                viewModel.selectedFilePath?.let { path ->
+                    Text("File history: $path", fontWeight = FontWeight.Bold)
+                    if (viewModel.selectedFileHistory.isEmpty()) {
+                        Text("No historical changes were resolved for this path.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        viewModel.selectedFileHistory.take(MAX_FILE_HISTORY_VISIBLE).forEach { item ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(item.changeType.name, Modifier.weight(.24f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+                                Column(Modifier.weight(.76f)) {
+                                    Text(item.subject, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                    Text("${item.commitId.take(12)} · ${item.author}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            viewModel.message?.let { message -> Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Text("When Git reports conflicts, DevForge keeps them inside a bounded isolated session. Nothing is copied back to the workspace until the conflicts are resolved and the final state is revalidated.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                viewModel.message?.let { message -> Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Text("When Git reports conflicts, DevForge keeps them inside a bounded isolated session. Nothing is copied back to the workspace until the conflicts are resolved and the final state is revalidated.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            }
+        }
+
+        if (viewModel.conflictSession != null) {
+            GitConflictResolverCard(viewModel)
         }
     }
 }
