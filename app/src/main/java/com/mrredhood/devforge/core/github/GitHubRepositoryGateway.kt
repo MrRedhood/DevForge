@@ -22,11 +22,12 @@ class GitHubRepositoryGateway(
         var truncated = false
 
         while (page <= MAX_REPOSITORY_PAGES) {
-            val result = getJson("/user/repos?per_page=$PAGE_SIZE&page=$page&sort=updated&direction=desc") { json ->
-                parseRepositoryArray(json)
-            }
+            val result = getJsonArray("/user/repos?per_page=$PAGE_SIZE&page=$page&sort=updated&direction=desc")
+            val pageItems = result.fold(
+                onSuccess = { parseRepositoryArray(it) },
+                onFailure = { return GitHubRepositoryListResult.Failure(safeMessage(it)) },
+            )
 
-            val pageItems = result.getOrElse { return GitHubRepositoryListResult.Failure(safeMessage(it)) }
             repositories += pageItems
             if (pageItems.size < PAGE_SIZE) break
             page++
@@ -72,6 +73,13 @@ class GitHubRepositoryGateway(
     }
 
     private fun <T> getJson(path: String, parser: (JSONObject) -> T): Result<T> {
+        return readBody(path).map { parser(JSONObject(it)) }
+    }
+
+    private fun getJsonArray(path: String): Result<JSONArray> =
+        readBody(path).map(::JSONArray)
+
+    private fun readBody(path: String): Result<String> {
         val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
             ?: return Result.failure(IllegalStateException("GitHub is not connected on this device."))
 
@@ -97,15 +105,14 @@ class GitHubRepositoryGateway(
                 throw IllegalStateException("GitHub request failed (HTTP $code)${if (body.isBlank()) "." else ": ${sanitizeError(body)}"}")
             }
 
-            parser(JSONObject(body))
+            body
         }
     }
 
-    private fun parseRepositoryArray(json: JSONObject): List<GitHubRepository> {
-        val repositories = json.optJSONArray("repositories") ?: JSONArray()
-        return buildList(repositories.length()) {
-            for (index in 0 until repositories.length()) {
-                repositories.optJSONObject(index)?.let { add(parseRepository(it)) }
+    private fun parseRepositoryArray(json: JSONArray): List<GitHubRepository> {
+        return buildList(json.length()) {
+            for (index in 0 until json.length()) {
+                json.optJSONObject(index)?.let { add(parseRepository(it)) }
             }
         }
     }
