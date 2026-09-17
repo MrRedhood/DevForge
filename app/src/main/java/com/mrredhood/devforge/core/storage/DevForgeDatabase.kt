@@ -8,14 +8,29 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [WorkspaceEntity::class, BuildReceiptEntity::class, ApprovalEntity::class],
-    version = 3,
+    entities = [
+        WorkspaceEntity::class,
+        BuildReceiptEntity::class,
+        ApprovalEntity::class,
+        EditorTabEntity::class,
+        EditorSnapshotEntity::class,
+        AgentTaskEntity::class,
+        AutomationEntity::class,
+        AutomationRunEntity::class,
+        AuditEventEntity::class,
+    ],
+    version = 4,
     exportSchema = true,
 )
 abstract class DevForgeDatabase : RoomDatabase() {
     abstract fun workspaceDao(): WorkspaceDao
     abstract fun buildReceiptDao(): BuildReceiptDao
     abstract fun approvalDao(): ApprovalDao
+    abstract fun editorTabDao(): EditorTabDao
+    abstract fun editorSnapshotDao(): EditorSnapshotDao
+    abstract fun agentTaskDao(): AgentTaskDao
+    abstract fun automationDao(): AutomationDao
+    abstract fun auditEventDao(): AuditEventDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -70,6 +85,93 @@ abstract class DevForgeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `editor_tabs` (
+                        `uri` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `content` TEXT NOT NULL,
+                        `savedContent` TEXT NOT NULL,
+                        `isActive` INTEGER NOT NULL,
+                        `updatedAtEpochMs` INTEGER NOT NULL,
+                        PRIMARY KEY(`uri`)
+                    )
+                """.trimIndent())
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `editor_snapshots` (
+                        `snapshotId` TEXT NOT NULL,
+                        `uri` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `content` TEXT NOT NULL,
+                        `contentHash` TEXT NOT NULL,
+                        `reason` TEXT NOT NULL,
+                        `createdAtEpochMs` INTEGER NOT NULL,
+                        PRIMARY KEY(`snapshotId`)
+                    )
+                """.trimIndent())
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_editor_snapshots_uri_createdAtEpochMs` ON `editor_snapshots` (`uri`, `createdAtEpochMs`)")
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `agent_tasks` (
+                        `taskId` TEXT NOT NULL,
+                        `workspaceId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `instruction` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `createdAtEpochMs` INTEGER NOT NULL,
+                        `updatedAtEpochMs` INTEGER NOT NULL,
+                        `payload` TEXT,
+                        `errorMessage` TEXT,
+                        PRIMARY KEY(`taskId`)
+                    )
+                """.trimIndent())
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_agent_tasks_workspaceId_updatedAtEpochMs` ON `agent_tasks` (`workspaceId`, `updatedAtEpochMs`)")
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `automation_definitions` (
+                        `automationId` TEXT NOT NULL,
+                        `workspaceId` TEXT,
+                        `name` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `triggerType` TEXT NOT NULL,
+                        `schedule` TEXT,
+                        `actionGraph` TEXT NOT NULL,
+                        `createdAtEpochMs` INTEGER NOT NULL,
+                        `updatedAtEpochMs` INTEGER NOT NULL,
+                        PRIMARY KEY(`automationId`)
+                    )
+                """.trimIndent())
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `automation_runs` (
+                        `runId` TEXT NOT NULL,
+                        `automationId` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `startedAtEpochMs` INTEGER NOT NULL,
+                        `completedAtEpochMs` INTEGER,
+                        `errorMessage` TEXT,
+                        `receiptJson` TEXT,
+                        PRIMARY KEY(`runId`)
+                    )
+                """.trimIndent())
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_automation_runs_automationId_startedAtEpochMs` ON `automation_runs` (`automationId`, `startedAtEpochMs`)")
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `audit_events` (
+                        `eventId` TEXT NOT NULL,
+                        `workspaceId` TEXT,
+                        `actionId` TEXT,
+                        `capability` TEXT,
+                        `risk` TEXT,
+                        `eventType` TEXT NOT NULL,
+                        `summary` TEXT NOT NULL,
+                        `metadataJson` TEXT,
+                        `createdAtEpochMs` INTEGER NOT NULL,
+                        PRIMARY KEY(`eventId`)
+                    )
+                """.trimIndent())
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_events_createdAtEpochMs` ON `audit_events` (`createdAtEpochMs`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_events_workspaceId_createdAtEpochMs` ON `audit_events` (`workspaceId`, `createdAtEpochMs`)")
+            }
+        }
+
         @Volatile private var INSTANCE: DevForgeDatabase? = null
 
         fun get(context: Context): DevForgeDatabase =
@@ -79,7 +181,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     DevForgeDatabase::class.java,
                     "devforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { INSTANCE = it }
             }
