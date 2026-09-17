@@ -9,7 +9,6 @@ import com.mrredhood.devforge.core.security.AndroidSecretStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.api.errors.GitAPIException
 import org.eclipse.jgit.lib.RefSpec
 import org.eclipse.jgit.transport.CredentialsProvider
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
@@ -58,9 +57,7 @@ class GitRemoteTransportService(
             validateRemoteAndCredentials(repository.remoteUrl, credentials)
             val branch = repository.branchName
                 ?: throw IllegalStateException("Fetch requires an attached local branch.")
-            val refSpec = RefSpec(
-                "+refs/heads/$branch:refs/remotes/origin/$branch",
-            )
+            val refSpec = RefSpec("+refs/heads/$branch:refs/remotes/origin/$branch")
             val result = git.fetch()
                 .setRemote("origin")
                 .setRefSpecs(refSpec)
@@ -68,15 +65,16 @@ class GitRemoteTransportService(
                 .setRemoveDeletedRefs(false)
                 .setTimeout(NETWORK_TIMEOUT_SECONDS)
                 .call()
-            val changed = result.advertisedRefs.count { it.name == "refs/heads/$branch" }
-            "Fetched origin/$branch${if (changed > 0) " and updated remote metadata" else "; remote metadata is unchanged"}."
+            val advertised = result.getAdvertisedRefs().any { it.getName() == "refs/heads/$branch" }
+            "Fetched origin/$branch${if (advertised) " and refreshed remote metadata" else "; branch is not advertised by the remote"}."
         }
     }
 
     suspend fun pull(repository: GitRepositoryState): GitRemoteResult = withContext(Dispatchers.IO) {
         execute(repository, syncWorktree = true) { git, credentials ->
             validateRemoteAndCredentials(repository.remoteUrl, credentials)
-            require(repository.branchName != null) { "Pull requires an attached local branch." }
+            val branch = repository.branchName
+                ?: throw IllegalStateException("Pull requires an attached local branch.")
             val status = git.status().call()
             if (!status.isClean) {
                 throw IllegalStateException("Pull is blocked while the working tree has local changes. Commit or discard them first.")
@@ -84,20 +82,22 @@ class GitRemoteTransportService(
 
             val result = git.pull()
                 .setRemote("origin")
-                .setRemoteBranchName(repository.branchName)
+                .setRemoteBranchName(branch)
                 .setCredentialsProvider(credentials)
-                .setFastForwardMode(org.eclipse.jgit.merge.MergeStrategy.RECURSIVE.defaultFastForwardMode())
+                .setFastForwardMode(org.eclipse.jgit.api.MergeCommand.FastForwardMode.FF_ONLY)
                 .setTimeout(NETWORK_TIMEOUT_SECONDS)
                 .call()
 
-            if (result.mergeResult?.mergeStatus?.isSuccessful != true) {
-                val statusText = result.mergeResult?.mergeStatus?.name ?: "unknown"
+            val mergeStatus = result.getMergeResult()?.getMergeStatus()
+            if (mergeStatus == null || !mergeStatus.isSuccessful) {
+                val statusText = mergeStatus?.name ?: "unknown"
                 throw IllegalStateException("Pull did not complete as a fast-forward operation (status: $statusText). No merge conflict was applied by DevForge.")
             }
-            if (result.newHead == null || result.newHead.name == repository.headRevision) {
-                "Already up to date with origin/${repository.branchName}."
+            val newHead = result.getNewHead()?.name
+            if (newHead.isNullOrBlank() || newHead == repository.headRevision) {
+                "Already up to date with origin/$branch."
             } else {
-                "Pulled origin/${repository.branchName} to ${result.newHead.name.take(12)}."
+                "Pulled origin/$branch to ${newHead.take(12)}."
             }
         }
     }
@@ -107,7 +107,7 @@ class GitRemoteTransportService(
             validateRemoteAndCredentials(repository.remoteUrl, credentials)
             val branch = repository.branchName
                 ?: throw IllegalStateException("Push requires an attached local branch.")
-            val currentHead = git.repository.resolve("HEAD")?.name
+            val currentHead = git.getRepository().resolve("HEAD")?.name
                 ?: throw IllegalStateException("A valid local HEAD is required before pushing.")
             val pushSpec = RefSpec("refs/heads/$branch:refs/heads/$branch")
             val results = git.push()
@@ -118,10 +118,13 @@ class GitRemoteTransportService(
                 .setTimeout(NETWORK_TIMEOUT_SECONDS)
                 .call()
             val rejection = results.asSequence()
-                .flatMap { it.remoteUpdates.asSequence() }
-                .firstOrNull { update -> update.status.name.contains("REJECTED", ignoreCase = true) || update.status.name.contains("NON_FAST_FORWARD", ignoreCase = true) }
+                .flatMap { it.getRemoteUpdates().asSequence() }
+                .firstOrNull { update ->
+                    val status = update.getStatus().name
+                    status.contains("REJECTED", ignoreCase = true) || status.contains("NON_FAST_FORWARD", ignoreCase = true)
+                }
             if (rejection != null) {
-                throw IllegalStateException("Push was rejected by the remote (${rejection.status.name}). DevForge never force-pushes remote branches.")
+                throw IllegalStateException("Push was rejected by the remote (${rejection.getStatus().name}). DevForge never force-pushes remote branches.")
             }
             "Pushed $branch (${currentHead.take(12)}) to origin."
         }
@@ -166,81 +169,73 @@ class GitRemoteTransportService(
         val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
             ?: throw IllegalStateException("GitHub credentials are unavailable.")
         if (token.length > MAX_TOKEN_LENGTH) throw IllegalStateException("The stored GitHub credential is invalid.")
-        // lsRemote is intentionally required before every state-changing transport operation.
-        val temp = File(context.cacheDir, "devforge-git-validate-${UUID.randomUUID()}")
+
         try {
-            val repository = org.eclipse.jgit.lib.RepositoryBuilder()
-                .setGitDir(File(temp, ".git"))
-                .setBare()
-                .build()
-            repository.use {
-                Git(it).lsRemote()
-                    .setRemote("https://github.com/${remote.owner}/${remote.repository}.git")
-                    .setCredentialsProvider(credentials)
-                    .setHeads(true)
-                    .setTags(false)
-                    .setTimeout(NETWORK_TIMEOUT_SECONDS)
-                    .call()
-            }
+            Git.lsRemoteRepository()
+                .setRemote("https://github.com/${remote.owner}/${remote.repository}.git")
+                .setCredentialsProvider(credentials)
+                .setHeads(true)
+                .setTags(false)
+                .setTimeout(NETWORK_TIMEOUT_SECONDS)
+                .call()
         } catch (error: Throwable) {
             throw IllegalStateException("GitHub remote validation failed: ${sanitizeError(error)}")
-        } finally {
-            temp.deleteRecursively()
         }
     }
 
     private fun ensureOriginRemote(repoRoot: File, remoteUrl: String) {
-        val gitDir = File(repoRoot, ".git")
-        val config = File(gitDir, "config")
+        val config = File(File(repoRoot, ".git"), "config")
         if (!config.exists()) throw IOException("The mirrored Git repository has no .git/config.")
         val normalized = parseGitHubRemote(remoteUrl)
             ?: throw IllegalStateException("Origin remote is outside the supported HTTPS GitHub scope.")
-        val safeUrl = "https://github.com/${normalized.owner}/${normalized.repository}.git"
+        val expected = "https://github.com/${normalized.owner}/${normalized.repository}.git"
         Git.open(repoRoot).use { git ->
-            val existing = git.remoteList().call().firstOrNull { it.name == "origin" }
-            if (existing == null || existing.urIs.singleOrNull()?.toString() != safeUrl) {
-                git.remoteSetUrl().setRemoteName("origin").setRemoteUri(org.eclipse.jgit.transport.URIish(safeUrl)).call()
+            val existing = git.remoteList().call().firstOrNull { it.getName() == "origin" }
+                ?: throw IllegalStateException("The local repository has no origin remote.")
+            val configured = existing.getURIs().singleOrNull()?.toString()
+                ?: throw IllegalStateException("The origin remote must have exactly one configured URL.")
+            if (configured != expected) {
+                throw IllegalStateException("The mirrored origin remote does not match the validated GitHub remote.")
             }
         }
     }
 
     private fun copySafWorkspaceToFile(sourceRoot: Uri, targetRoot: File) {
         targetRoot.mkdirs()
-        val budget = CopyBudget()
-        copySafNode(sourceRoot, targetRoot, budget, relativePath = "")
+        copySafNode(sourceRoot, targetRoot, CopyBudget(), "")
     }
 
     private fun copySafNode(source: Uri, target: File, budget: CopyBudget, relativePath: String) {
-        val type = queryDocument(source) ?: throw IOException("Unable to inspect workspace document.")
-        if (type.isDirectory) {
-            if (relativePath == ".git") {
-                // Git metadata must be mirrored exactly; it is still bounded by the same global budget.
-            }
+        val metadata = queryDocument(source) ?: throw IOException("Unable to inspect workspace document.")
+        if (metadata.isDirectory) {
             target.mkdirs()
             listChildren(source).forEach { child ->
-                if (child.name == ".git" || !relativePath.startsWith(".git") || relativePath.isNotBlank()) {
-                    copySafNode(child.uri, File(target, child.name), budget, if (relativePath.isBlank()) child.name else "$relativePath/${child.name}")
-                }
+                copySafNode(
+                    child.uri,
+                    File(target, child.name),
+                    budget,
+                    if (relativePath.isBlank()) child.name else "$relativePath/${child.name}",
+                )
             }
             return
         }
-        val length = type.size
+
+        val length = metadata.size
         if (length > MAX_FILE_BYTES) throw IOException("Remote transport mirror encountered an oversized file: $relativePath")
         budget.consumeFile(length, relativePath)
         resolver.openInputStream(source)?.use { input ->
-            target.outputStream().use { output ->
-                copyBounded(input, output, length)
-            }
+            target.outputStream().use { output -> copyBounded(input, output, length) }
         } ?: throw IOException("Unable to read workspace file: $relativePath")
     }
 
     private fun syncFileWorkspaceBack(sourceRoot: File, targetRoot: Uri, includeWorktree: Boolean) {
         val budget = CopyBudget()
         val sourceGit = File(sourceRoot, ".git")
-        val targetGit = findDirectChild(targetRoot, ".git") ?: throw IOException("The selected workspace lost its .git directory during transport.")
+        val targetGit = findDirectChild(targetRoot, ".git")
+            ?: throw IOException("The selected workspace lost its .git directory during transport.")
         syncDirectoryFromFile(sourceGit, targetGit, budget, ".git")
         if (!includeWorktree) return
-        syncDirectoryFromFile(sourceRoot, targetRoot, budget, "") { name -> name == ".git" }
+        syncDirectoryFromFile(sourceRoot, targetRoot, budget, "") { it == ".git" }
     }
 
     private fun syncDirectoryFromFile(
@@ -257,15 +252,23 @@ class GitRemoteTransportService(
             val itemPath = if (relativePath.isBlank()) item.name else "$relativePath/${item.name}"
             val existing = targetChildren.remove(item.name)?.uri
             if (item.isDirectory) {
-                val directory = existing ?: DocumentsContract.createDocument(resolver, target, DocumentsContract.Document.MIME_TYPE_DIR, item.name)
-                    ?: throw IOException("Unable to create workspace directory: $itemPath")
+                val directory = existing ?: DocumentsContract.createDocument(
+                    resolver,
+                    target,
+                    DocumentsContract.Document.MIME_TYPE_DIR,
+                    item.name,
+                ) ?: throw IOException("Unable to create workspace directory: $itemPath")
                 syncDirectoryFromFile(item, directory, budget, itemPath, skip)
             } else {
                 val bytes = item.length()
                 if (bytes > MAX_FILE_BYTES) throw IOException("Transport output contains an oversized file: $itemPath")
                 budget.consumeFile(bytes, itemPath)
-                val document = existing ?: DocumentsContract.createDocument(resolver, target, "application/octet-stream", item.name)
-                    ?: throw IOException("Unable to create workspace file: $itemPath")
+                val document = existing ?: DocumentsContract.createDocument(
+                    resolver,
+                    target,
+                    "application/octet-stream",
+                    item.name,
+                ) ?: throw IOException("Unable to create workspace file: $itemPath")
                 resolver.openOutputStream(document, "wt")?.use { output ->
                     item.inputStream().use { input -> copyBounded(input, output, bytes) }
                 } ?: throw IOException("Unable to write workspace file: $itemPath")
@@ -288,11 +291,17 @@ class GitRemoteTransportService(
     }
 
     private fun listChildren(parent: Uri): List<DocumentRef> = runCatching {
-        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }.getOrElse { DocumentsContract.getTreeDocumentId(parent) }
+        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }
+            .getOrElse { DocumentsContract.getTreeDocumentId(parent) }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
         resolver.query(
             childrenUri,
-            arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE),
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_SIZE,
+            ),
             null,
             null,
             null,
@@ -302,12 +311,14 @@ class GitRemoteTransportService(
                     val id = cursor.getString(0) ?: continue
                     val name = cursor.getString(1) ?: continue
                     val mime = cursor.getString(2).orEmpty()
-                    add(DocumentRef(
-                        uri = DocumentsContract.buildDocumentUriUsingTree(parent, id),
-                        name = name,
-                        directory = mime == DocumentsContract.Document.MIME_TYPE_DIR,
-                        size = cursor.getLong(3).takeIf { it >= 0L } ?: 0L,
-                    ))
+                    add(
+                        DocumentRef(
+                            uri = DocumentsContract.buildDocumentUriUsingTree(parent, id),
+                            name = name,
+                            directory = mime == DocumentsContract.Document.MIME_TYPE_DIR,
+                            size = cursor.getLong(3).takeIf { it >= 0L } ?: 0L,
+                        ),
+                    )
                 }
             }
         }.orEmpty()
@@ -323,7 +334,10 @@ class GitRemoteTransportService(
         )?.use { cursor ->
             if (!cursor.moveToFirst()) return@use null
             val mime = cursor.getString(0).orEmpty()
-            DocumentMetadata(mime == DocumentsContract.Document.MIME_TYPE_DIR, cursor.getLong(1).takeIf { it >= 0L } ?: 0L)
+            DocumentMetadata(
+                isDirectory = mime == DocumentsContract.Document.MIME_TYPE_DIR,
+                size = cursor.getLong(1).takeIf { it >= 0L } ?: 0L,
+            )
         }
     }.getOrNull()
 
@@ -333,7 +347,7 @@ class GitRemoteTransportService(
         val raw = value?.trim().orEmpty()
         if (raw.isBlank() || raw.any { it == '\n' || it == '\r' }) return null
         val uri = runCatching { URI(raw) }.getOrNull() ?: return null
-        if (uri.scheme != "https" || !uri.host.equals("github.com", ignoreCase = true)) return null
+        if (!uri.scheme.equals("https", ignoreCase = true) || !uri.host.equals("github.com", ignoreCase = true)) return null
         if (!uri.userInfo.isNullOrBlank() || !uri.query.isNullOrBlank() || !uri.fragment.isNullOrBlank()) return null
         val pieces = uri.path.trim('/').split('/').filter(String::isNotBlank)
         if (pieces.size != 2) return null
