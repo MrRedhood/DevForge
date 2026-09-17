@@ -37,6 +37,21 @@ class BuildViewModel : ViewModel() {
         state = BuildState.Ready(configuration)
     }
 
+    fun configureGitHubRepository(
+        owner: String,
+        repository: String,
+        defaultBranch: String,
+        workflowFile: String,
+    ) {
+        configuration = configuration.copy(
+            githubOwner = owner,
+            githubRepository = repository,
+            branch = defaultBranch.ifBlank { "main" },
+            workflowFile = workflowFile,
+        )
+        state = BuildState.Ready(configuration)
+    }
+
     fun resetToReady() {
         state = BuildState.Ready(configuration)
     }
