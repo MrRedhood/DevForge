@@ -343,9 +343,16 @@ class GitExecutionService(private val resolver: ContentResolver) {
 
     private fun writeText(uri: Uri, value: String) = writeBytes(uri, value.toByteArray(Charsets.UTF_8))
 
-    private fun runMutation(block: () -> Pair<String, String?>): GitExecutionResult = runCatching {
-        val result = block()
-        GitExecutionResult.Success(result.first, result.second)
+    private fun runMutation(block: () -> Any): GitExecutionResult = runCatching {
+        when (val result = block()) {
+            is String -> GitExecutionResult.Success(result)
+            is Pair<*, *> -> {
+                val message = result.first as? String ?: error("Git mutation returned an invalid message.")
+                val revision = result.second as? String
+                GitExecutionResult.Success(message, revision)
+            }
+            else -> error("Git mutation returned an unsupported result.")
+        }
     }.getOrElse { GitExecutionResult.Failure(it.message ?: "Git mutation failed safely.") }
 
     private data class ParsedIndex(val version: Int, val entries: List<GitIndexEntry>)
