@@ -78,7 +78,7 @@ Still planned: full syntax highlighting, diagnostics, undo/redo, symbol navigati
 - [x] `.git` detection through SAF
 - [x] HEAD parsing
 - [x] Current branch extraction
-- [x] Detached-HEAD detection
+- [x] Attached/detached HEAD revision resolution where refs are readable
 - [x] Origin remote parsing
 - [x] Linked/worktree `.git` unsupported-state reporting
 - [x] Loose branch discovery
@@ -88,12 +88,16 @@ Still planned: full syntax highlighting, diagnostics, undo/redo, symbol navigati
 - [x] Partial/truncated observation reporting
 - [x] Git dashboard metadata/branch presentation
 - [x] Git index v2/v3 parser with bounded entry count
+- [x] Git index conflict-stage parsing
 - [x] Git blob SHA-1 hashing for bounded worktree files
 - [x] Index-vs-worktree clean/modified/deleted/untracked classification
-- [x] Mobile hash/read ceilings and partial-state reporting
-- [x] Git dashboard surfaces index/worktree status and unavailable capabilities
+- [x] Loose-object Git commit/tree reader with bounded decompression
+- [x] HEAD/index/worktree staged/unstaged classification when HEAD objects are readable
+- [x] Conflict-state detection from index stages
+- [x] Explicit fallback to index/worktree status when Git objects are packed or inaccessible through SAF
+- [x] Git dashboard surfaces clean/modified/staged/staged+modified/untracked/deleted/conflict/unchecked states
 
-Still not implemented: index-vs-HEAD staged/unstaged comparison, stage/unstage, commit, branch mutation, fetch/pull/push, conflict handling, and capability-controlled Git execution.
+Still not implemented: stage/unstage, commit, branch mutation, fetch/pull/push, merge/rebase/cherry-pick, conflict-resolution mutations, and capability-controlled Git execution.
 
 ### Build Center / GitHub Actions
 
@@ -152,7 +156,7 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 ## In Progress / Next Sequence
 
 1. Release-safe workflow inputs and release contract.
-2. Git index-vs-HEAD staged-state comparison, then capability-controlled Git mutations.
+2. Capability-controlled Git execution: stage/unstage, commit, branch mutation, and remote operations.
 3. Approval Center and action-review UI.
 4. Snapshot/history and structured diff viewer UI.
 5. Richer Room persistence for tabs, snapshots, agent tasks, automation, approvals, and audit activity.
@@ -192,14 +196,14 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 ### Git
 
 - [x] Index/worktree read status foundation
-- [ ] Index-vs-HEAD staged/unstaged status
-- [ ] Diff computation from index/HEAD
+- [x] HEAD/index/worktree staged-state read foundation
+- [ ] Git diff computation from index/HEAD
 - [ ] Stage/unstage
 - [ ] Commit
 - [ ] Branch create/switch/delete
 - [ ] Fetch/pull/push through capability gateway
 - [ ] Merge/rebase/cherry-pick planning and execution
-- [ ] Conflict handling UI
+- [ ] Conflict handling UI/actions
 - [ ] Commit history and file history
 
 ### Remote Build / GitHub
@@ -307,7 +311,7 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 - [x] CI #117 passed the Android pipeline after repository/workflow discovery
 - [x] CI #122 passed the Android pipeline after authenticated debug workflow dispatch
 - [x] CI #127 recorded as cancelled by concurrency, not a build failure
-- [ ] Current durable-history + Git index-status implementation final CI validation
+- [ ] Current durable-history + HEAD-aware Git status implementation final CI validation
 - [ ] Maintained unit-test suite
 - [ ] UI tests
 - [ ] Static analysis/lint
@@ -321,7 +325,7 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 - CI #96 exposed an experimental Material3 `NavigationRail` call; it now has a local opt-in.
 - CI #102 exposed `sdkmanager` PATH handling; the workflow now persists the resolved path.
 - CI #103 validated the resulting toolchain/build/test/APK pipeline.
-- CI #126, #127, and subsequent intermediate milestone runs were superseded by newer commits under workflow concurrency; they are not treated as build failures.
+- CI #126, #127, and later intermediate runs were superseded by newer commits under workflow concurrency; they are not treated as build failures.
 
 ## Implementation Rules
 
@@ -360,8 +364,14 @@ Not implemented yet: release-safe workflow inputs, release dispatch, cancellatio
 
 ### 2026-09-17 — Index-aware Git worktree status foundation
 
-- Added a bounded Git index v2/v3 parser for SAF-accessible `.git/index` files.
-- Added Git blob SHA-1 computation for bounded worktree files.
-- Added clean/modified/deleted/untracked/unchecked classification by comparing the worktree against the index.
-- Updated the Git ViewModel and dashboard to expose real index/worktree status and explicit partial/unavailable states.
-- Deliberately left index-vs-HEAD staged state and all Git mutations behind the next capability-controlled execution milestone.
+- Added a bounded Git index v2/v3 parser and real Git blob SHA-1 hashing.
+- Added clean/modified/deleted/untracked/unchecked classification by comparing the bounded worktree against the index.
+- Added index conflict-stage parsing and explicit partial-state limits.
+
+### 2026-09-17 — HEAD-aware Git status
+
+- Added attached-branch HEAD revision resolution plus detached-HEAD support.
+- Added bounded loose-object parsing for Git commits and trees.
+- Added HEAD/index/worktree comparison for clean, modified, staged, staged+modified, deleted, untracked, and conflict states.
+- Added safe fallback to index/worktree-only status when Git object storage is packed or inaccessible through SAF.
+- Updated the Git dashboard to surface the richer state model while keeping stage/commit/push controls disabled behind the future capability execution layer.
