@@ -167,7 +167,8 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - API 37 was not resolvable on the GitHub runner, including the preview-channel installation path.
 - The app therefore uses stable API 36 for `compileSdk` and `targetSdk`.
 - CI requests `platform-tools` and `platforms;android-36` and is intended to reach real Gradle/Kotlin compilation.
-- Build validation is still pending for the newest GitHub/security implementation commits.
+- CI run #86 reached Gradle compilation but failed AAR metadata validation because the Compose BOM and related AndroidX dependencies pulled versions requiring compileSdk 37.
+- The dependency set was aligned back to an API-36-compatible line without changing the app's stable SDK target.
 
 ## In Progress / Next
 
@@ -497,3 +498,10 @@ Room expansion remains planned for open tabs, snapshots, Git metadata, agent tas
 - Added Bearer-token handling behind `SecretStore`, GitHub API version header, explicit repository/workflow/ref inputs, and bounded error-message redaction.
 - Added Android INTERNET permission for the future authenticated GitHub API path.
 - Kept the Build Center capability gate closed until repository selection, credential verification, and end-to-end dispatch wiring are implemented.
+
+### 2026-09-17 — AndroidX dependency alignment for API 36 CI
+
+- CI run #86 exposed 16 AAR metadata failures caused by newer Compose, Navigation, and Adaptive artifacts requiring compileSdk 37 while DevForge intentionally targets stable API 36 on the current runner.
+- Aligned the Compose BOM to `2026.06.01`, Activity Compose to `1.12.4`, Material3 Adaptive to `1.2.0`, and Navigation Compose to `2.9.8`.
+- Kept Material3 `1.4.0`, Room `2.8.5`, Java 17, and the API 36 compile/target configuration unchanged.
+- Preserved the remote-build architecture; this change only restores dependency/SDK compatibility for CI.
