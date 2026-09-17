@@ -5,6 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
 
 sealed interface GitHubDispatchResult {
     data class Started(
@@ -42,13 +43,25 @@ class GitHubActionsGateway(
         if (branch.isBlank()) {
             return GitHubDispatchResult.Failure("A Git reference is required before dispatch.")
         }
+        if (workflowId != TARGET_CONTRACT_WORKFLOW) {
+            return GitHubDispatchResult.Failure(
+                "The selected workflow does not expose DevForge's fixed build-target contract.",
+            )
+        }
 
         val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
             ?: return GitHubDispatchResult.Failure("GitHub is not connected on this device.")
 
         val endpoint = "https://api.github.com/repos/$normalizedOwner/$normalizedRepository/actions/workflows/$workflowId/dispatches"
+        val dispatchStartedAt = Instant.now()
         val payload = JSONObject().apply {
             put("ref", branch)
+            put(
+                "inputs",
+                JSONObject().apply {
+                    put("target", configuration.target.workflowInput),
+                },
+            )
         }.toString()
 
         return runCatching {
@@ -66,7 +79,9 @@ class GitHubActionsGateway(
             http.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
             val code = http.responseCode
             val body = if (code in 200..299) {
-                http.inputStream.bufferedReader().use { it.readText() }
+                runCatching {
+                    http.inputStream.bufferedReader().use { it.readText() }
+                }.getOrDefault("")
             } else {
                 runCatching {
                     (http.errorStream ?: http.inputStream).bufferedReader().use { it.readText() }
@@ -74,25 +89,127 @@ class GitHubActionsGateway(
             }
             http.disconnect()
 
-            if (code in 200..299) {
-                val json = body.takeIf(String::isNotBlank)?.let(::JSONObject)
-                val runId = json?.optLong("workflow_run_id")?.takeIf { it > 0L }
-                if (runId == null) {
-                    return@runCatching GitHubDispatchResult.Failure(
-                        "GitHub accepted the workflow dispatch but did not return a workflow run ID.",
-                    )
-                }
-                GitHubDispatchResult.Started(
-                    runId = runId,
-                    htmlUrl = json.optString("html_url").takeIf(String::isNotBlank),
-                )
-            } else {
+            if (code !in 200..299) {
                 GitHubDispatchResult.Failure(
                     "GitHub rejected the workflow dispatch (HTTP $code)${if (body.isBlank()) "." else ": ${sanitizeError(body)}"}",
                 )
+            } else {
+                val responseJson = body.takeIf(String::isNotBlank)?.let { runCatching { JSONObject(it) }.getOrNull() }
+                val responseRunId = responseJson?.optLong("workflow_run_id")?.takeIf { it > 0L }
+                val responseHtmlUrl = responseJson?.optString("html_url")?.takeIf(String::isNotBlank)
+
+                val run = if (responseRunId != null) {
+                    GitHubRunReference(responseRunId, responseHtmlUrl)
+                } else {
+                    resolveDispatchedRun(
+                        owner = normalizedOwner,
+                        repository = normalizedRepository,
+                        workflowId = workflowId,
+                        branch = branch,
+                        dispatchedAt = dispatchStartedAt,
+                        token = token,
+                    )
+                }
+
+                if (run == null) {
+                    GitHubDispatchResult.Failure(
+                        "GitHub accepted the workflow dispatch, but the new workflow run could not be located yet. Refresh Build Center and try again if no run appears.",
+                    )
+                } else {
+                    GitHubDispatchResult.Started(
+                        runId = run.runId,
+                        htmlUrl = run.htmlUrl,
+                    )
+                }
             }
         }.getOrElse { error ->
             GitHubDispatchResult.Failure("Unable to reach GitHub: ${error.message ?: "network error"}")
+        }
+    }
+
+    private fun resolveDispatchedRun(
+        owner: String,
+        repository: String,
+        workflowId: String,
+        branch: String,
+        dispatchedAt: Instant,
+        token: String,
+    ): GitHubRunReference? {
+        repeat(DISPATCH_RUN_LOOKUP_ATTEMPTS) { attempt ->
+            val runs = fetchWorkflowDispatchRuns(
+                owner = owner,
+                repository = repository,
+                workflowId = workflowId,
+                token = token,
+            )
+            val candidate = runs
+                .asSequence()
+                .filter { it.branch == branch }
+                .filter { createdAt ->
+                    createdAt.createdAt?.let { runCatching { Instant.parse(it).isAfter(dispatchedAt.minusSeconds(3)) }.getOrDefault(false) } == true
+                }
+                .sortedByDescending { run -> run.id }
+                .firstOrNull()
+
+            if (candidate != null) {
+                return GitHubRunReference(candidate.id, candidate.htmlUrl)
+            }
+
+            if (attempt + 1 < DISPATCH_RUN_LOOKUP_ATTEMPTS) {
+                Thread.sleep(DISPATCH_RUN_LOOKUP_DELAY_MS)
+            }
+        }
+        return null
+    }
+
+    private fun fetchWorkflowDispatchRuns(
+        owner: String,
+        repository: String,
+        workflowId: String,
+        token: String,
+    ): List<WorkflowRunReference> {
+        val endpoint = "https://api.github.com/repos/$owner/$repository/actions/workflows/$workflowId/runs?event=workflow_dispatch&per_page=20"
+        val http = connection.open(endpoint).apply {
+            requestMethod = "GET"
+            instanceFollowRedirects = true
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("X-GitHub-Api-Version", API_VERSION)
+            connectTimeout = 15_000
+            readTimeout = 20_000
+        }
+
+        val code = http.responseCode
+        val stream = if (code in 200..299) http.inputStream else (http.errorStream ?: http.inputStream)
+        val body = stream.use { it.readBounded(DISPATCH_RUN_LOOKUP_MAX_BYTES).toString(Charsets.UTF_8) }
+        http.disconnect()
+
+        if (code !in 200..299) {
+            throw IllegalStateException(
+                "GitHub run lookup failed (HTTP $code)${if (body.isBlank()) "." else ": ${sanitizeError(body)}"},
+            )
+        }
+
+        return parseWorkflowRuns(body)
+    }
+
+    private fun parseWorkflowRuns(body: String): List<WorkflowRunReference> {
+        val json = JSONObject(body)
+        val source = json.optJSONArray("workflow_runs") ?: JSONArray()
+        return buildList(source.length()) {
+            for (index in 0 until source.length()) {
+                val run = source.optJSONObject(index) ?: continue
+                val id = run.optLong("id")
+                if (id <= 0L) continue
+                add(
+                    WorkflowRunReference(
+                        id = id,
+                        branch = run.optString("head_branch").takeIf(String::isNotBlank) ?: continue,
+                        createdAt = run.optString("created_at").takeIf(String::isNotBlank),
+                        htmlUrl = run.optString("html_url").takeIf(String::isNotBlank),
+                    ),
+                )
+            }
         }
     }
 
@@ -245,6 +362,18 @@ class GitHubActionsGateway(
         .replace(Regex("(?i)(token|authorization|access[_-]?token)\\s*[:=]\\s*[^,}\\s]+"), "$1=[redacted]")
         .take(280)
 
+    private data class GitHubRunReference(
+        val runId: Long,
+        val htmlUrl: String?,
+    )
+
+    private data class WorkflowRunReference(
+        val id: Long,
+        val branch: String,
+        val createdAt: String?,
+        val htmlUrl: String?,
+    )
+
     private data class JobDescriptor(
         val id: Long,
         val name: String,
@@ -255,6 +384,10 @@ class GitHubActionsGateway(
 
     companion object {
         const val API_VERSION = "2026-03-10"
+        const val TARGET_CONTRACT_WORKFLOW = "android.yml"
+        private const val DISPATCH_RUN_LOOKUP_ATTEMPTS = 6
+        private const val DISPATCH_RUN_LOOKUP_DELAY_MS = 1_500L
+        private const val DISPATCH_RUN_LOOKUP_MAX_BYTES = 180_000
         private val OWNER_OR_REPOSITORY = Regex("^[A-Za-z0-9_.-]+$")
         private val WORKFLOW_NAME = Regex("^[A-Za-z0-9_.-]+$")
 
