@@ -1,7 +1,6 @@
 package com.mrredhood.devforge.core.model
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Description
@@ -25,7 +24,6 @@ enum class DevForgeDestination(
     Diffs("Diffs", Icons.Default.Description),
     Build("Build", Icons.Default.Build),
     Terminal("Terminal", Icons.Default.Terminal),
-    Agents("Agents", Icons.Default.AutoAwesome),
     Automations("Automation", Icons.Default.AutoAwesome),
     Approvals("Approvals", Icons.Default.Security),
     Settings("Settings", Icons.Default.Settings),
