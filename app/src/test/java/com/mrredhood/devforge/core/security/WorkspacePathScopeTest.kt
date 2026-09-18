@@ -39,6 +39,22 @@ class WorkspacePathScopeTest {
     }
 
     @Test
+    fun grantScopeCoversOnlyContainedRequiredScopes() {
+        val grant = WorkspacePathScope(listOf("src", "tests/unit"))
+        assertTrue(grant.covers(WorkspacePathScope(listOf("src/main"))))
+        assertTrue(grant.covers(WorkspacePathScope(listOf("src", "src/main"))))
+        assertFalse(grant.covers(WorkspacePathScope(listOf("tests"))))
+        assertFalse(grant.covers(WorkspacePathScope()))
+    }
+
+    @Test
+    fun wholeWorkspaceScopeCoversEveryRequiredScope() {
+        val grant = WorkspacePathScope()
+        assertTrue(grant.covers(WorkspacePathScope(listOf("src/main"))))
+        assertTrue(grant.covers(WorkspacePathScope()))
+    }
+
+    @Test
     fun rejectsDepthAndPrefixCountLimits() {
         val tooDeep = (1..(WorkspacePathScope.MAX_PATH_DEPTH + 1)).joinToString("/") { "x" }
         assertThrows(IllegalArgumentException::class.java) {
