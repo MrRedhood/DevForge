@@ -127,10 +127,10 @@
 - [ ] Theme/density/editor preferences
 
 ## In Progress / Next Sequence
-1. Terminal capability with strict sandbox/time/argument limits.
-2. Integrate biometric protected secrets into existing credential consumers and security UI.
-3. Maintained unit/UI/security regression suites and broader validation.
-4. Build cancellation and live credential runtime validation.
+1. Maintained unit/UI/security regression suites and broader validation.
+2. Build cancellation and live credential runtime validation.
+3. Path-scoped persistent capability grants.
+4. AI structured patch generation + diff-first approval workflow.
 
 ## Planned
 
