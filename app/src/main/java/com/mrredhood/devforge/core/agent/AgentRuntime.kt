@@ -15,16 +15,17 @@ object AgentRuntime {
         val appContext = context.applicationContext
         val database = DevForgeDatabase.get(appContext)
         val durableState = DurableStateRepository(database)
+        val coordination = AgentCoordinationService(database)
         val registry = AgentToolRegistry()
         WorkspaceAgentToolProvider(appContext.contentResolver, database.workspaceDao()).registerAll(registry)
-        AgentCoordinationToolProvider(AgentCoordinationService(database)).registerAll(registry)
+        AgentCoordinationToolProvider(coordination).registerAll(registry)
         val gateway = AgentToolGateway(
             registry = registry,
             approvals = ApprovalRepository(database.approvalDao()),
             durableState = durableState,
-            coordination = AgentCoordinationService(database),
+            coordination = coordination,
             permissionMode = permissionMode,
         )
-        return AgentTaskEngine(durableState, gateway, AgentCoordinationService(database))
+        return AgentTaskEngine(durableState, gateway, coordination)
     }
 }
