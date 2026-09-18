@@ -42,6 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import org.json.JSONObject
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -188,7 +189,10 @@ fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
 private fun ApprovalActionCard(action: ApprovalEntity, onApprove: (ApprovalEntity) -> Unit, onReject: (ApprovalEntity) -> Unit) {
     val risk = action.riskOrNull()?.name ?: action.risk
     val capability = action.capabilityOrNull()?.name ?: action.capability
-    var patchReady by remember(action.approvalId) { mutableStateOf(capability != Capability.PATCH_FILE.name) }
+    val isPatchApproval = runCatching {
+        JSONObject(action.payload).optString("tool") == com.mrredhood.devforge.core.agent.AgentToolId.PATCH_FILE.wireName
+    }.getOrDefault(false)
+    var patchReady by remember(action.approvalId) { mutableStateOf(!isPatchApproval) }
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(action.summary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -203,7 +207,7 @@ private fun ApprovalActionCard(action: ApprovalEntity, onApprove: (ApprovalEntit
             Text("Workspace: ${action.workspaceId}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Created: ${formatTime(action.createdAtEpochMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Expires: ${formatTime(action.expiresAtEpochMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (capability == Capability.PATCH_FILE.name) {
+            if (isPatchApproval) {
                 PatchApprovalPreview(action) { patchReady = it }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
