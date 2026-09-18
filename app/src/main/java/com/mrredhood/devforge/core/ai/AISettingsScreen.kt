@@ -2,68 +2,133 @@ package com.mrredhood.devforge.core.ai
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun AISettingsScreen(viewModel: AISettingsViewModel = viewModel()) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("AI Providers", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                Text("Choose a provider and store its key securely on this device.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AIProvider.entries.forEach { provider ->
-                        FilterChip(
-                            selected = viewModel.provider == provider,
-                            onClick = { viewModel.selectProvider(provider) },
-                            label = { Text(provider.displayName) },
-                        )
-                    }
-                }
-                OutlinedTextField(
-                    value = viewModel.apiKey,
-                    onValueChange = viewModel::updateApiKey,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("API key") },
-                    placeholder = { Text("Stored with Android Keystore") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = viewModel::save) { Text("Save key") }
-                    TextButton(onClick = viewModel::remove) { Text("Remove") }
-                }
-                Text(viewModel.status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        Text(
+            "AI & models",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "Connect a provider and store its API key securely on this device.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        ProviderMenu(
+            selected = viewModel.provider,
+            onSelect = viewModel::selectProvider,
+        )
+
+        OutlinedTextField(
+            value = viewModel.apiKey,
+            onValueChange = viewModel::updateApiKey,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            singleLine = true,
+            label = { Text("API key") },
+            placeholder = { Text("Enter provider key") },
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        )
+
+        Text(
+            "Keys are encrypted with Android Keystore before being stored.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Button(
+            onClick = viewModel::save,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+        ) {
+            Text("Save API key")
         }
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Live model catalog", fontWeight = FontWeight.Bold)
-                Text(
-                    "Open Chat and tap the model dropdown to fetch live models, pricing/capability filters, and context limits. Provider metadata is preferred; missing context limits use a best-effort internet lookup.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+        OutlinedButton(
+            onClick = viewModel::remove,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+        ) {
+            Text("Remove saved key")
+        }
+
+        Text(
+            viewModel.status,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (viewModel.status.contains("Unable", ignoreCase = true) ||
+                viewModel.status.contains("failed", ignoreCase = true)
+            ) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+
+        Text(
+            "Live models are loaded automatically from the provider when you open Chat or the agent launcher.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ProviderMenu(
+    selected: AIProvider,
+    onSelect: (AIProvider) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Provider",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        ) {
+            Text(selected.displayName, modifier = Modifier.fillMaxWidth())
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            AIProvider.entries.forEach { provider ->
+                DropdownMenuItem(
+                    text = { Text(provider.displayName) },
+                    onClick = {
+                        expanded = false
+                        onSelect(provider)
+                    },
                 )
             }
         }
