@@ -136,7 +136,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         val key = settings.getApiKey(provider) ?: return
         loadingProviders = loadingProviders + provider
         viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching { catalogService.load(provider, key) }
+            val result = runCatching { catalogService.load(provider, key, settings.customBaseUrl(provider)) }
             launch(Dispatchers.Main.immediate) {
                 result.getOrNull()?.let { modelsByProvider = modelsByProvider + (provider to it.models) }
                 loadingProviders = loadingProviders - provider
