@@ -159,11 +159,11 @@ interface AgentHandoffDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(handoff: AgentHandoffEntity)
 
-    @Query("UPDATE agent_handoffs SET status = 'CLAIMED', claimedAtEpochMs = :now WHERE handoffId = :handoffId AND status = 'PENDING' AND (toTaskId IS NULL OR toTaskId = :taskId)")
+    @Query("UPDATE agent_handoffs SET status = 'CLAIMED', claimedAtEpochMs = :now, claimedByTaskId = :taskId WHERE handoffId = :handoffId AND status = 'PENDING' AND (toTaskId IS NULL OR toTaskId = :taskId)")
     suspend fun claim(handoffId: String, taskId: String, now: Long): Int
 
-    @Query("UPDATE agent_handoffs SET status = 'COMPLETED', completedAtEpochMs = :now WHERE handoffId = :handoffId AND status = 'CLAIMED'")
-    suspend fun complete(handoffId: String, now: Long): Int
+    @Query("UPDATE agent_handoffs SET status = 'COMPLETED', completedAtEpochMs = :now WHERE handoffId = :handoffId AND status = 'CLAIMED' AND claimedByTaskId = :taskId")
+    suspend fun complete(handoffId: String, taskId: String, now: Long): Int
 
     @Query("DELETE FROM agent_handoffs WHERE workspaceId = :workspaceId AND status = 'COMPLETED' AND completedAtEpochMs < :cutoff")
     suspend fun pruneCompleted(workspaceId: String, cutoff: Long): Int
