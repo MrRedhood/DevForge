@@ -501,6 +501,26 @@ private class SandboxedTerminal(context: Context) {
         if (input.read() != -1) throw IOException("Workspace file changed while mirroring.")
     }
 
+    private suspend fun readBounded(process: Process, onOutput: suspend (String) -> Unit): String {
+        BufferedInputStream(process.inputStream).use { input ->
+            val output = ByteArrayOutputStream(TerminalCommandPolicy.MAX_OUTPUT_BYTES)
+            val buffer = ByteArray(8192)
+            var total = 0
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                total += read
+                if (total > TerminalCommandPolicy.MAX_OUTPUT_BYTES) {
+                    process.destroyForcibly()
+                    throw OutputLimitExceeded()
+                }
+                output.write(buffer, 0, read)
+                onOutput(buffer.copyOf(read).toString(Charsets.UTF_8))
+            }
+            return output.toString(Charsets.UTF_8.name())
+        }
+    }
+
     private fun normalizeArgument(argument: String): String {
         require(!argument.contains("..")) { "Path traversal is not allowed." }
         return argument

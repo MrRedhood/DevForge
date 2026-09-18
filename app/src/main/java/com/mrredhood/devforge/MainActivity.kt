@@ -674,14 +674,14 @@ private fun WorkspaceSearchResults(workspace: WorkspaceViewModel, editor: Editor
             } else {
                 workspace.searchResults.take(60).forEach { result ->
                     FileRow(
-                        WorkspaceEntry(
+                        entry = WorkspaceEntry(
                             uri = result.uri,
                             name = result.name,
                             isDirectory = result.isDirectory,
                             sizeBytes = result.sizeBytes,
-                        )
-                    ) {
-                        if (result.isDirectory) {
+                        ),
+                        onOpen = {
+                            if (result.isDirectory) {
                             workspace.openDirectory(
                                 WorkspaceEntry(
                                     uri = result.uri,
@@ -701,8 +701,10 @@ private fun WorkspaceSearchResults(workspace: WorkspaceViewModel, editor: Editor
                                 )
                             )
                             workspace.clearSearch()
-                        }
-                    }
+                        },
+                        onRename = {},
+                        onDelete = {},
+                    )
                 }
             }
         }
