@@ -10,13 +10,17 @@ import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.storage.ChatMessageEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
+import com.mrredhood.devforge.core.settings.AiRoutingMode
+import com.mrredhood.devforge.core.settings.DevForgeSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class AIChatViewModel(application: Application) : AndroidViewModel(application) {
     private val settings = AISettingsRepository(application)
+    private val appSettings = DevForgeSettingsRepository(application)
     private val catalogService = ModelCatalogService()
     private val chatGateway = AIChatGateway()
     private val database = DevForgeDatabase.get(application)
@@ -132,9 +136,11 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 models = result.models
                 modelError = result.warning
                 isLoadingModels = false
-                selectedModel = result.models.firstOrNull { it.id == settings.selectedModelId(provider) }
-                    ?: selectedModel?.takeIf { it.provider == provider }?.let { saved -> result.models.firstOrNull { it.id == saved.id } }
-                    ?: result.models.firstOrNull()
+                selectedModel = AIModelRouter.choose(
+                    models = result.models,
+                    savedModelId = settings.selectedModelId(provider),
+                    mode = appSettings.snapshot().aiRoutingMode,
+                ) ?: selectedModel?.takeIf { it.provider == provider }
                 selectedModel?.let { selectModelInternal(it) }
             }
         }
