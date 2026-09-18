@@ -62,18 +62,19 @@ jobs:
           "$ANDROID_SDKMANAGER" --list_installed | grep -E "platform-tools|platforms;${ANDROID_PLATFORM}|build-tools;${ANDROID_BUILD_TOOLS}"
 
       - name: Build unsigned release APK and AAB
-        run: ./gradlew :app:assembleRelease :app:bundleRelease --stacktrace --no-daemon --max-workers=2
-
-      - name: Verify release artifacts
         shell: bash
         run: |
           set -euo pipefail
-          APK="app/build/outputs/apk/release/app-release-unsigned.apk"
-          AAB="app/build/outputs/bundle/release/app-release.aab"
-          for file in "$APK" "$AAB"; do
-            test -s "$file"
-            sha256sum "$file"
-          done
+          START=$(date +%s)
+          ./gradlew :app:assembleRelease :app:bundleRelease --stacktrace --no-daemon --max-workers=2
+          echo "RELEASE_BUILD_SECONDS=$(($(date +%s) - START))" >> "$GITHUB_ENV"
+
+      - name: Verify release artifacts and budgets
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/check-build-budget.sh release-apk app/build/outputs/apk/release/app-release-unsigned.apk 80 "$RELEASE_BUILD_SECONDS" 900
+          bash tools/check-build-budget.sh release-aab app/build/outputs/bundle/release/app-release.aab 80
 
       - name: Upload unsigned release validation artifacts
         uses: actions/upload-artifact@v4
