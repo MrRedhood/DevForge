@@ -58,7 +58,7 @@ class AISettingsRepository(context: Context) {
     }
 
     private fun normalizeCredential(value: String): String =
-        value.trim().removePrefix("Bearer ").trim().removeSurrounding(""").trim()
+        value.trim().replaceFirst(Regex("(?i)^Bearer\\s+"), "").trim().removeSurrounding("\"").trim()
 
     companion object {
         private const val PREFERENCES = "devforge_ai_settings"

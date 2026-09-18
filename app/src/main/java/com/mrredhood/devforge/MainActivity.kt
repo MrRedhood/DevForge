@@ -114,6 +114,7 @@ import com.mrredhood.devforge.core.security.CredentialSecurityScreen
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import com.mrredhood.devforge.ui.theme.DevForgeTheme
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
@@ -488,11 +489,12 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
     var deleteTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
 
     val context = LocalContext.current
+    val currentWorkspaceName by rememberUpdatedState(workspaceName)
 
     LaunchedEffect(Unit) {
         PickerBridge.results.collectLatest { result ->
             if (result.kind == SystemPickerActivity.KIND_WORKSPACE && !result.cancelled && result.uris.size == 1) {
-                workspace.openWorkspace(uri = result.uris.first(), workspaceName = workspaceName)
+                workspace.openWorkspace(uri = result.uris.first(), workspaceName = currentWorkspaceName)
                 workspaceName = ""
             }
         }
@@ -500,10 +502,11 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
 
     fun launchWorkspacePicker() {
         runCatching {
-            context.startActivity(
+            (context as? FragmentActivity)?.startActivityForResult(
                 Intent(context, SystemPickerActivity::class.java)
                     .putExtra(SystemPickerActivity.EXTRA_KIND, SystemPickerActivity.KIND_WORKSPACE),
-            )
+                SystemPickerActivity.PICKER_REQUEST_CODE,
+            ) ?: error("DevForge picker requires an activity context.")
         }.onFailure(workspace::reportWorkspacePickerError)
     }
 

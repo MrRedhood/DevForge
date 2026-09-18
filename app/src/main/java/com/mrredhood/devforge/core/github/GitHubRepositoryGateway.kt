@@ -182,7 +182,7 @@ class GitHubRepositoryGateway(
     }
 
     private fun normalizeToken(value: String): String =
-        value.trim().replaceFirst(Regex("(?i)^Bearer\\s+"), "").removeSurrounding(""").trim()
+        value.trim().replaceFirst(Regex("(?i)^Bearer\\s+"), "").trim().removeSurrounding("\"").trim()
 
     companion object {
         private const val PAGE_SIZE = 100

@@ -131,7 +131,7 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
             message.contains("bad credentials", ignoreCase = true)
 
     private fun normalizeToken(value: String): String =
-        value.trim().replaceFirst(Regex("(?i)^Bearer\\s+"), "").removeSurrounding(""").trim()
+        value.trim().replaceFirst(Regex("(?i)^Bearer\\s+"), "").trim().removeSurrounding("\"").trim()
 
     private fun githubCredentialMessage(message: String): String =
         if (isLikelyInvalidCredential(message)) {

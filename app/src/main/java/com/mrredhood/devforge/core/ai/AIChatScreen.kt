@@ -47,13 +47,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.collectLatest
+import com.mrredhood.devforge.core.picker.PickerBridge
+import com.mrredhood.devforge.core.picker.SystemPickerActivity
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
-import com.mrredhood.devforge.core.picker.PickerBridge
-import com.mrredhood.devforge.core.picker.SystemPickerActivity
-import androidx.compose.runtime.collectAsState
-import com.mrredhood.devforge.core.picker.PickerBridge
-import com.mrredhood.devforge.core.picker.SystemPickerActivity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -316,10 +314,11 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
     fun launchPicker(type: ChatAttachmentType) {
         attachmentMenuOpen = false
         runCatching {
-            context.startActivity(
+            (context as? androidx.fragment.app.FragmentActivity)?.startActivityForResult(
                 Intent(context, SystemPickerActivity::class.java)
                     .putExtra(SystemPickerActivity.EXTRA_KIND, pickerKindForAttachmentType(type)),
-            )
+                SystemPickerActivity.PICKER_REQUEST_CODE,
+            ) ?: viewModel.reportAttachmentPickerError(IllegalStateException("DevForge picker requires an activity context."))
         }.onFailure(viewModel::reportAttachmentPickerError)
     }
 
