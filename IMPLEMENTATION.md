@@ -318,6 +318,10 @@
 - Added a regression test covering the fold-range ceiling on larger generated source input.
 - Release/Android/UI validation remains evidence-driven and is not marked successful until GitHub Actions completes.
 
+### 2026-09-18 — Editor word-wrap behavior
+- Wired the persisted Word wrap preference into the code editor.
+- Word-wrap enabled keeps the editor constrained to the viewport; disabled mode uses bounded horizontal scrolling instead of single-line mode, preserving source newlines.
+
 ### 2026-09-18 — Chat attachment validation hardening
 - Removed the asynchronous-baseline race from attachment selection by merging validated results against the latest main-thread state.
 - Enforced the eight-attachment and 80 MiB pending limits at merge time so overlapping picker callbacks cannot overwrite newer selections.
