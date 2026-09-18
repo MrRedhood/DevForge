@@ -330,7 +330,7 @@ private fun ModelPicker(
     onSelect: (AIModelInfo) -> Unit,
 ) {
     var expanded by remember(provider, selectedId) { mutableStateOf(false) }
-    val models = viewModel.modelOptions(provider).filter { it.supportsTextOutput }.take(120)
+    val models = viewModel.modelOptions(provider).filter { it.isTextCapable }.take(120)
 
     BoxLikeDropdown(
         label = if (selectedName.isBlank()) selectedId.ifBlank { "Select a model" } else selectedName,
