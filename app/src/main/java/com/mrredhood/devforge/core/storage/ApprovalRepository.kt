@@ -2,6 +2,7 @@ package com.mrredhood.devforge.core.storage
 
 import com.mrredhood.devforge.core.policy.Capability
 import com.mrredhood.devforge.core.policy.RiskLevel
+import com.mrredhood.devforge.core.security.SecretRedactor
 import kotlinx.coroutines.flow.Flow
 
 class ApprovalRepository(private val dao: ApprovalDao) {
@@ -30,10 +31,10 @@ class ApprovalRepository(private val dao: ApprovalDao) {
             capability = capability.name,
             risk = risk.name,
             workspaceId = workspaceId,
-            summary = summary,
+            summary = SecretRedactor.redact(summary, MAX_SUMMARY_LENGTH),
             parametersHash = parametersHash,
             preconditionHash = preconditionHash,
-            payload = payload,
+            payload = SecretRedactor.redact(payload, MAX_PAYLOAD_BYTES),
             status = STATUS_PENDING,
             createdAtEpochMs = System.currentTimeMillis(),
             expiresAtEpochMs = expiresAtEpochMs,
@@ -74,6 +75,8 @@ class ApprovalRepository(private val dao: ApprovalDao) {
         const val STATUS_REJECTED = "REJECTED"
         const val STATUS_EXPIRED = "EXPIRED"
         const val MAX_PENDING = 50
+        const val MAX_SUMMARY_LENGTH = 500
+        const val MAX_PAYLOAD_BYTES = 64 * 1024
         const val MAX_APPROVED = 10
         const val STALE_EXECUTION_MAX_AGE_MS = 15L * 60L * 1000L
     }
