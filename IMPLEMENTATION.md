@@ -300,6 +300,17 @@
 - Streaming status is now visible immediately while a request is active, including the pre-first-token wait; response text remains optional until content arrives.
 - Added regression coverage for the animation catalog size, uniqueness and safe index wrapping.
 
+### 2026-09-18 — Chat attachments and agent launch console
+- Streaming animation selection is now randomized at every submitted chat message, with the chosen animation held stable for that generation.
+- Added a bounded device attachment menu in the chat composer for files (15 MiB), photos (15 MiB), videos (50 MiB), audio (30 MiB) and documents (10 MiB), with per-URI size validation and an 80 MiB aggregate pending-attachment budget.
+- Added the 👤 Agents launcher to the Chat top bar.
+- Expanded the agent coordinator to support up to 10 active or queued one-shot agents; execution remains finite and ends when the durable task reaches a terminal state.
+- Added batch agent launch with either one shared provider/model or independent provider/model selections for each agent, using the live model catalog where available.
+- Added persistent premade/custom agent profiles with editable name, description, instructions and access switches.
+- Added explicit agent access policy enforcement at the tool gateway for workspace/file and shared-coordination tools; disabled access cannot be bypassed by model output.
+- Added additional profile declarations for Web, Terminal, Git, Build, Diagnostics and Network capabilities; undeployed capabilities cannot invent or unlock tools that are not registered.
+- Added regression coverage for agent access encoding and enforcement.
+
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
 - AI output is untrusted data and cannot grant authorization.
