@@ -314,9 +314,64 @@ class AIChatGateway(
         return adapter.prepare(apiKey, binary)
     }
 
-    private fun buildOpenAiUserContent(userInstruction: String, attachments: List<ProviderPreparedAttachment>): Any {
-        require(attachments.isEmpty()) { "The selected OpenAI-compatible attachment adapter returned an unsupported payload." }
-        return userInstruction
+    private fun buildOpenAiUserContent(
+        provider: AIProvider,
+        modelId: String,
+        userInstruction: String,
+        attachments: List<ProviderPreparedAttachment>,
+    ): Any {
+        if (attachments.isEmpty()) return userInstruction
+        val parts = JSONArray().put(
+            JSONObject().put("type", "text").put("text", userInstruction),
+        )
+        attachments.forEach { attachment ->
+            when (attachment) {
+                is ProviderPreparedAttachment.OpenAiContentPart -> {
+                    val mime = attachment.mimeType.lowercase()
+                    when {
+                        mime.startsWith("image/") -> {
+                            parts.put(
+                                JSONObject()
+                                    .put("type", "image_url")
+                                    .put(
+                                        "image_url",
+                                        JSONObject().put(
+                                            "url",
+                                            "data:" + attachment.mimeType + ";base64," + attachment.base64Data,
+                                        ),
+                                    ),
+                            )
+                        }
+                        mime == "application/pdf" -> {
+                            parts.put(
+                                JSONObject()
+                                    .put("type", "file")
+                                    .put(
+                                        "file",
+                                        JSONObject()
+                                            .put("filename", attachment.name)
+                                            .put(
+                                                "file_data",
+                                                "data:" + attachment.mimeType + ";base64," + attachment.base64Data,
+                                            ),
+                                    ),
+                            )
+                        }
+                        else -> throw IllegalArgumentException(
+                            "OpenRouter cannot send '" + attachment.name +
+                                "' as an inline binary file. Use an image or PDF attachment, or attach it as text.",
+                        )
+                    }
+                }
+                is ProviderPreparedAttachment.FileUri -> {
+                    require(provider == AIProvider.OPENROUTER || modelId.isNotBlank()) {
+                        "Invalid provider attachment payload."
+                    }
+                    throw IllegalArgumentException("The provider returned a remote URI attachment that this chat protocol cannot send.")
+                }
+            }
+        }
+        return parts
     }
 
     private suspend fun FlowCollector<String>.emitSseResponse(connection: HttpURLConnection, parser: (String) -> String) {
