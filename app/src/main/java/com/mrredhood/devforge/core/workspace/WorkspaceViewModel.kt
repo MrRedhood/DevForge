@@ -11,7 +11,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -220,9 +219,6 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         knowledgeMessage = null
     }
 
-    override fun onCleared() {
-        super.onCleared()
-    }
 }
 
 data class WorkspaceBreadcrumb(
