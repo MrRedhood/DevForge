@@ -23,12 +23,24 @@ class EditorRepository(
     }
 
     fun saveRecoveryDraft(draft: RecoveryDraft) {
+        val contentBytes = draft.content.toByteArray(StandardCharsets.UTF_8)
+        if (contentBytes.size > MAX_RECOVERY_BYTES) {
+            // Durable Room state is the canonical recovery store. Avoid placing large editor
+            // buffers into SharedPreferences, which would duplicate memory and can fail hard.
+            clearRecoveryDraft(draft.uri)
+            return
+        }
         val json = JSONObject()
             .put("uri", draft.uri.toString())
-            .put("name", draft.name)
+            .put("name", draft.name.take(MAX_NAME))
             .put("content", draft.content)
             .put("savedAt", draft.savedAt)
-        preferences.edit().putString(RECOVERY_PREFIX + draft.uri, json.toString()).apply()
+        val encoded = json.toString()
+        if (encoded.toByteArray(StandardCharsets.UTF_8).size > MAX_RECOVERY_BYTES) {
+            clearRecoveryDraft(draft.uri)
+            return
+        }
+        preferences.edit().putString(RECOVERY_PREFIX + draft.uri, encoded).apply()
     }
 
     fun recoveryDraft(uri: Uri): RecoveryDraft? = runCatching {
@@ -48,6 +60,8 @@ class EditorRepository(
     private companion object {
         const val RECOVERY_PREFIX = "recovery::"
         const val MAX_EDITOR_BYTES = 8 * 1024 * 1024
+        const val MAX_RECOVERY_BYTES = 512 * 1024
+        const val MAX_NAME = 200
     }
 }
 
