@@ -195,7 +195,6 @@ class GitRemoteTransportService(
             }
             return
         }
-        }
         val length = metadata.size
         if (length > MAX_FILE_BYTES) throw IOException("Remote transport mirror encountered an oversized file: $relativePath")
         budget.consumeFile(length, relativePath)
