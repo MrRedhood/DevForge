@@ -10,8 +10,12 @@ class WorkspaceFileOperations(private val resolver: ContentResolver) {
     fun createFile(parent: Uri, name: String, mimeType: String = guessMime(name)): Uri {
         val clean = safeName(name, "File name")
         require(clean != ".git") { "The .git directory is protected." }
-        return DocumentsContract.createDocument(resolver, parent, mimeType, clean)
-            ?: throw IOException("Unable to create file: $clean")
+        return DocumentsContract.createDocument(
+            resolver,
+            documentParentUri(parent),
+            mimeType,
+            clean,
+        ) ?: throw IOException("Unable to create file: $clean")
     }
 
     fun createFolder(parent: Uri, name: String): Uri {
@@ -19,10 +23,19 @@ class WorkspaceFileOperations(private val resolver: ContentResolver) {
         require(clean != ".git") { "The .git directory is protected." }
         return DocumentsContract.createDocument(
             resolver,
-            parent,
+            documentParentUri(parent),
             DocumentsContract.Document.MIME_TYPE_DIR,
             clean,
         ) ?: throw IOException("Unable to create folder: $clean")
+    }
+
+    /**
+     * DocumentsContract.createDocument expects a document URI. A workspace root is
+     * persisted as a tree URI, so normalize both forms here before creating a child.
+     */
+    private fun documentParentUri(parent: Uri): Uri {
+        val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(parent) }.getOrNull()
+        return treeDocumentId?.let { DocumentsContract.buildDocumentUriUsingTree(parent, it) } ?: parent
     }
 
     fun delete(uri: Uri, name: String) {
