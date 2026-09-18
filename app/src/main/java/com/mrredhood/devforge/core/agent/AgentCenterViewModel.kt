@@ -67,7 +67,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
 
     fun updateModelId(value: String) {
         modelId = value
-        if (modelName.isBlank() || modelName == modelId) modelName = value
+        modelName = value
     }
 
     fun assign() {
