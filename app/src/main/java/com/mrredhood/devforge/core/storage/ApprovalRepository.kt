@@ -47,7 +47,7 @@ class ApprovalRepository(private val dao: ApprovalDao) {
             "Approval payload exceeds the persistence limit."
         }
         val redactedPayload = SecretRedactor.redact(payload, MAX_PAYLOAD_BYTES)
-        require(redactedPayload == payload || !payload.contains(""tool"")) {
+        require(redactedPayload == payload || !payload.contains("\"tool\"")) {
             "Executable approval payload contains secret-like material and cannot be safely redacted."
         }
         val entity = ApprovalEntity(
