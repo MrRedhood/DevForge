@@ -5,6 +5,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.CompositionLocalProvider
+import com.mrredhood.devforge.core.settings.DensityMode
+import com.mrredhood.devforge.core.settings.ThemeMode
 import androidx.compose.ui.graphics.Color
 
 private val ForgeIndigo = Color(0xFF7C6CFF)
@@ -37,11 +42,23 @@ private val LightScheme = lightColorScheme(
 
 @Composable
 fun DevForgeTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    densityMode: DensityMode = DensityMode.COMFORTABLE,
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkScheme else LightScheme,
-        content = content,
-    )
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = when (themeMode) {
+        ThemeMode.SYSTEM -> systemDark
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+    }
+    val baseDensity = LocalDensity.current
+    val densityScale = if (densityMode == DensityMode.COMPACT) 0.92f else 1f
+    val density = Density(baseDensity.density * densityScale, baseDensity.fontScale)
+    CompositionLocalProvider(LocalDensity provides density) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) DarkScheme else LightScheme,
+            content = content,
+        )
+    }
 }
