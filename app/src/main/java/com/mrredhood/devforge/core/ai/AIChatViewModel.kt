@@ -153,7 +153,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         isLoadingModels = true
         modelError = null
         viewModelScope.launch(Dispatchers.IO) {
-            val result = catalogService.load(provider, key)
+            val result = catalogService.load(provider, key, settings.customBaseUrl(provider))
             launch(Dispatchers.Main.immediate) {
                 models = result.models
                 modelError = result.warning
@@ -299,11 +299,11 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val effectiveInstruction = if (attachmentContext.isBlank()) finalInstruction else finalInstruction + "\n\n" + attachmentContext
                 chatRepository.addMessage(sessionId, "user", userMessage, parsed?.command?.name)
                 if (parsed?.command?.name == "help" || !model.supportsStreaming) {
-                    val response = if (parsed?.command?.name == "help") effectiveInstruction else chatGateway.send(model, key, history, effectiveInstruction, submittedAttachments)
+                    val response = if (parsed?.command?.name == "help") effectiveInstruction else chatGateway.send(model, key, history, effectiveInstruction, submittedAttachments, settings.customBaseUrl(requestProvider))
                     chatRepository.addMessage(sessionId, "assistant", response)
                 } else {
                     val builder = StringBuilder()
-                    chatGateway.stream(model, key, history, effectiveInstruction, submittedAttachments).collect { chunk ->
+                    chatGateway.stream(model, key, history, effectiveInstruction, submittedAttachments, settings.customBaseUrl(requestProvider)).collect { chunk ->
                         builder.append(chunk)
                         partialResponse = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
                         val visible = partialResponse
