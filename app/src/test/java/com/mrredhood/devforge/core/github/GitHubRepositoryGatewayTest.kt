@@ -1,0 +1,66 @@
+package com.mrredhood.devforge.core.github
+
+import com.mrredhood.devforge.core.security.SecretStore
+import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class GitHubRepositoryGatewayTest {
+    @Test
+    fun rejectsUnsafeRepositoryIdentifiersBeforeNetworkAccess() {
+        var opened = false
+        val gateway = GitHubRepositoryGateway(
+            secretStore = FakeSecretStore("token"),
+            connection = HttpConnectionFactory {
+                opened = true
+                FakeConnection(URL(it), 200, """{"login":"ok"}""")
+            },
+        )
+
+        val result = gateway.getRepository("owner/../../", "repo")
+
+        assertTrue(result is GitHubRepositoryResult.Failure)
+        assertTrue(!opened)
+    }
+
+    @Test
+    fun rejectsUnsafeWorkflowRepositoryIdentifiersBeforeNetworkAccess() {
+        var opened = false
+        val gateway = GitHubRepositoryGateway(
+            secretStore = FakeSecretStore("token"),
+            connection = HttpConnectionFactory {
+                opened = true
+                FakeConnection(URL(it), 200, """{"workflows":[]}""")
+            },
+        )
+
+        val result = gateway.listWorkflows("owner", "repo/actions")
+
+        assertTrue(result is GitHubWorkflowListResult.Failure)
+        assertTrue(!opened)
+    }
+
+    private class FakeSecretStore(private var value: String?) : SecretStore {
+        override fun put(key: String, value: String) { this.value = value }
+        override fun get(key: String): String? = value
+        override fun remove(key: String) { value = null }
+    }
+
+    private class FakeConnection(
+        url: URL,
+        status: Int,
+        body: String,
+    ) : HttpURLConnection(url) {
+        private val responseStatus = status
+        private val responseBody = body.toByteArray(Charsets.UTF_8)
+
+        override fun connect() = Unit
+        override fun disconnect() = Unit
+        override fun usingProxy(): Boolean = false
+        override fun getResponseCode(): Int = responseStatus
+        override fun getInputStream() = ByteArrayInputStream(responseBody)
+        override fun getErrorStream() = ByteArrayInputStream(ByteArray(0))
+    }
+}
