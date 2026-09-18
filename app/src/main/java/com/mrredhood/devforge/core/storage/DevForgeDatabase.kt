@@ -27,8 +27,11 @@ import com.mrredhood.devforge.core.security.WorkspacePathScope
         CapabilityGrantEntity::class,
         ChatSessionEntity::class,
         ChatMessageEntity::class,
+        AgentSharedMemoryEntity::class,
+        AgentHandoffEntity::class,
+        AgentFileLeaseEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class DevForgeDatabase : RoomDatabase() {
@@ -44,6 +47,9 @@ abstract class DevForgeDatabase : RoomDatabase() {
     abstract fun capabilityGrantDao(): CapabilityGrantDao
     abstract fun chatSessionDao(): ChatSessionDao
     abstract fun chatMessageDao(): ChatMessageDao
+    abstract fun agentSharedMemoryDao(): AgentSharedMemoryDao
+    abstract fun agentHandoffDao(): AgentHandoffDao
+    abstract fun agentFileLeaseDao(): AgentFileLeaseDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -272,6 +278,45 @@ abstract class DevForgeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""CREATE TABLE IF NOT EXISTS agent_shared_memory (
+                    memoryId TEXT NOT NULL PRIMARY KEY,
+                    workspaceId TEXT NOT NULL,
+                    key TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    sourceTaskId TEXT,
+                    updatedAtEpochMs INTEGER NOT NULL
+                )""")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_agent_shared_memory_workspaceId_key ON agent_shared_memory(workspaceId, key)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_shared_memory_workspaceId_updatedAtEpochMs ON agent_shared_memory(workspaceId, updatedAtEpochMs)")
+                database.execSQL("""CREATE TABLE IF NOT EXISTS agent_handoffs (
+                    handoffId TEXT NOT NULL PRIMARY KEY,
+                    workspaceId TEXT NOT NULL,
+                    fromTaskId TEXT NOT NULL,
+                    toTaskId TEXT,
+                    title TEXT NOT NULL,
+                    summary TEXT NOT NULL,
+                    contextJson TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    createdAtEpochMs INTEGER NOT NULL,
+                    claimedAtEpochMs INTEGER,
+                    completedAtEpochMs INTEGER
+                )""")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_handoffs_workspaceId_status_createdAtEpochMs ON agent_handoffs(workspaceId, status, createdAtEpochMs)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_handoffs_workspaceId_toTaskId_status ON agent_handoffs(workspaceId, toTaskId, status)")
+                database.execSQL("""CREATE TABLE IF NOT EXISTS agent_file_leases (
+                    leaseKey TEXT NOT NULL PRIMARY KEY,
+                    workspaceId TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    taskId TEXT NOT NULL,
+                    acquiredAtEpochMs INTEGER NOT NULL,
+                    expiresAtEpochMs INTEGER NOT NULL
+                )""")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_file_leases_workspaceId_taskId ON agent_file_leases(workspaceId, taskId)")
+            }
+        }
+
         @Volatile private var INSTANCE: DevForgeDatabase? = null
 
         fun get(context: Context): DevForgeDatabase =
@@ -281,7 +326,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     DevForgeDatabase::class.java,
                     "devforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                     .addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
