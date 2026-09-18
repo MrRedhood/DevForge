@@ -47,6 +47,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     private val approvalRepository = ApprovalRepository(database.approvalDao())
     private var monitorJob: Job? = null
     private var approvalJob: Job? = null
+    private var cancelApprovalJob: Job? = null
 
     var configuration by mutableStateOf(BuildConfiguration())
         private set
@@ -73,6 +74,9 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
         }
         approvalJob = viewModelScope.launch(Dispatchers.IO) {
             approvalRepository.observeApproved("build-dispatch:").collect { approvals -> approvals.forEach { executeApprovedBuild(it) } }
+        }
+        cancelApprovalJob = viewModelScope.launch(Dispatchers.IO) {
+            approvalRepository.observeApproved("build-cancel:").collect { approvals -> approvals.forEach { executeApprovedCancellation(it) } }
         }
     }
 
@@ -101,8 +105,60 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
         state = BuildState.Ready(configuration)
     }
 
+    fun cancelRun() {
+        val run = runSnapshot ?: return
+        val request = configuration
+        if (state !is BuildState.Running) return
+        refreshMonitoringCapabilities(runAvailable = true)
+        if (capabilities.cancelBuild != CapabilityAvailability.Available) {
+            state = BuildState.Failed("Build cancellation is unavailable until a valid GitHub credential is available.")
+            return
+        }
+        val action = ActionRequest(
+            actionId = "build-cancel:" + run.id,
+            capability = Capability.CANCEL_BUILD,
+            risk = RiskLevel.R2,
+            workspaceId = "github:" + request.githubOwner + "/" + request.githubRepository,
+            summary = "Cancel GitHub Actions run #" + run.runNumber + ".",
+            parametersHash = cancellationHash(request, run.id),
+            preconditionHash = runPreconditionHash(run),
+        )
+        if (DefaultPolicy.requiresApproval(action, PermissionMode.SOME)) {
+            viewModelScope.launch(Dispatchers.IO) {
+                runCatching {
+                    approvalRepository.createPending(
+                        approvalId = action.actionId,
+                        actionId = action.actionId,
+                        capability = action.capability,
+                        risk = action.risk,
+                        workspaceId = action.workspaceId,
+                        summary = action.summary,
+                        parametersHash = action.parametersHash,
+                        preconditionHash = action.preconditionHash,
+                        payload = JSONObject()
+                            .put("owner", request.githubOwner)
+                            .put("repository", request.githubRepository)
+                            .put("runId", run.id)
+                            .toString(),
+                        expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_WINDOW_MS,
+                    )
+                }.onSuccess {
+                    withContext(Dispatchers.Main.immediate) {
+                        monitoringMessage = "Cancellation request sent to Approval Center."
+                    }
+                }.onFailure { error ->
+                    withContext(Dispatchers.Main.immediate) {
+                        state = BuildState.Failed(error.message ?: "Unable to create the build cancellation approval request.")
+                    }
+                }
+            }
+            return
+        }
+        executeCancellation(request.githubOwner, request.githubRepository, run.id, null)
+    }
+
     fun resetToReady() {
-        if (state is BuildState.Dispatching || state is BuildState.Running || state is BuildState.AwaitingApproval) return
+        if (state is BuildState.Dispatching || state is BuildState.Running || state is BuildState.Cancelling || state is BuildState.AwaitingApproval) return
         monitoringMessage = null
         state = BuildState.Ready(configuration)
     }
@@ -187,7 +243,18 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                 monitoringMessage = null
                 state = BuildState.Dispatching(request)
             }
-            val result = githubGateway.dispatch(request.githubOwner, request.githubRepository, request)
+            when (val credential = githubGateway.validateCredential()) {
+            is com.mrredhood.devforge.core.github.GitHubCredentialValidation.Valid -> Unit
+            is com.mrredhood.devforge.core.github.GitHubCredentialValidation.Invalid -> {
+                if (approvalId != null) approvalRepository.finishFailure(approvalId)
+                withContext(Dispatchers.Main.immediate) {
+                    state = BuildState.Failed("GitHub credential validation failed: " + credential.message)
+                    monitoringMessage = "Live credential validation failed before remote build dispatch."
+                }
+                return@launch
+            }
+        }
+        val result = githubGateway.dispatch(request.githubOwner, request.githubRepository, request)
             when (result) {
                 is GitHubDispatchResult.Started -> {
                     if (approvalId != null) approvalRepository.finishSuccess(approvalId)
@@ -260,9 +327,10 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun refreshDispatchCapability() {
         val repositorySelected = configuration.githubOwner.isNotBlank() && configuration.githubRepository.isNotBlank() && configuration.workflowFile.isNotBlank()
-        val credentialAvailable = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) != null
+        val credentialAvailable = runCatching { secretStore.contains(GitHubConnectionViewModel.TOKEN_KEY) && secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) != null }.getOrDefault(false)
         val workflowContractSelected = configuration.workflowFile.trim().substringAfterLast('/') == GitHubActionsGateway.TARGET_CONTRACT_WORKFLOW
         capabilities = capabilities.copy(
+            cancelBuild = if (credentialAvailable && runSnapshot != null && configuration.githubOwner.isNotBlank() && configuration.githubRepository.isNotBlank()) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             githubDispatch = when {
                 !repositorySelected -> CapabilityAvailability.NotConfigured
                 !credentialAvailable -> CapabilityAvailability.Unavailable
@@ -277,9 +345,74 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     private fun refreshMonitoringCapabilities(runAvailable: Boolean) {
         val credentialAvailable = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) != null
         capabilities = capabilities.copy(
+            cancelBuild = if (credentialAvailable && runAvailable) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             liveLogs = if (credentialAvailable && runAvailable) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             artifacts = if (credentialAvailable && runAvailable) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
         )
+    }
+
+    private suspend fun executeApprovedCancellation(approval: ApprovalEntity) {
+        if (approval.expiresAtEpochMs <= System.currentTimeMillis()) {
+            approvalRepository.expireDue()
+            return
+        }
+        if (!approvalRepository.claimApproved(approval.approvalId)) return
+        val payload = runCatching { JSONObject(approval.payload) }.getOrNull()
+        val owner = payload?.optString("owner").orEmpty()
+        val repository = payload?.optString("repository").orEmpty()
+        val runId = payload?.optLong("runId", -1L) ?: -1L
+        if (owner.isBlank() || repository.isBlank() || runId <= 0L ||
+            cancellationHash(BuildConfiguration(githubOwner = owner, githubRepository = repository), runId) != approval.parametersHash
+        ) {
+            approvalRepository.finishFailure(approval.approvalId)
+            return
+        }
+        withContext(Dispatchers.Main.immediate) {
+            state = BuildState.Cancelling(runId, configuration)
+            monitoringMessage = "Approved cancellation is being sent to GitHub."
+        }
+        executeCancellation(owner, repository, runId, approval.approvalId)
+    }
+
+    private fun executeCancellation(owner: String, repository: String, runId: Long, approvalId: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main.immediate) {
+                state = BuildState.Cancelling(runId, configuration)
+            }
+            val result = githubGateway.cancelRun(owner, repository, runId)
+            when (result) {
+                is GitHubCancelResult.Accepted -> {
+                    if (approvalId != null) approvalRepository.finishSuccess(approvalId)
+                    withContext(Dispatchers.Main.immediate) {
+                        monitoringMessage = "GitHub accepted the cancellation request."
+                        startMonitoring(runId, configuration, immediateOnly = false)
+                    }
+                }
+                is GitHubCancelResult.AlreadyFinished -> {
+                    if (approvalId != null) approvalRepository.finishSuccess(approvalId)
+                    withContext(Dispatchers.Main.immediate) {
+                        monitoringMessage = "The workflow run has already finished."
+                        startMonitoring(runId, configuration, immediateOnly = true)
+                    }
+                }
+                is GitHubCancelResult.Failure -> {
+                    if (approvalId != null) approvalRepository.finishFailure(approvalId)
+                    withContext(Dispatchers.Main.immediate) {
+                        state = BuildState.Failed(result.message)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun runPreconditionHash(run: GitHubRunSnapshot): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest((run.id.toString() + "\u0000" + run.status + "\u0000" + (run.updatedAt ?: "")).toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
+    private fun cancellationHash(configuration: BuildConfiguration, runId: Long): String {
+        val input = listOf(configuration.githubOwner, configuration.githubRepository, configuration.workflowFile, configuration.branch, runId.toString()).joinToString("\u0000")
+        return MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     }
 
     private fun dispatchUnavailableMessage(): String = when {
@@ -312,6 +445,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         monitorJob?.cancel()
         approvalJob?.cancel()
+        cancelApprovalJob?.cancel()
         super.onCleared()
     }
 
