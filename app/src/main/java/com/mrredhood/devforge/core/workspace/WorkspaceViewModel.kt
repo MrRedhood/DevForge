@@ -20,6 +20,9 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     private val resolver: ContentResolver = application.contentResolver
     private val tree = WorkspaceFileTree(resolver)
     private val searchService = WorkspaceSearch(resolver)
+    private val symbolIndex = WorkspaceSymbolIndexStore(application)
+    private val indexer = WorkspaceIndexer(resolver)
+    private val knowledgeRepository = WorkspaceKnowledgeRepository(application)
 
     var workspace by mutableStateOf<Workspace?>(null)
         private set
@@ -40,6 +43,19 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         private set
     var isSearching by mutableStateOf(false)
         private set
+    var isIndexing by mutableStateOf(false)
+        private set
+    var indexedSymbolCount by mutableStateOf(0)
+        private set
+    var symbolQuery by mutableStateOf("")
+    var symbolResults by mutableStateOf<List<WorkspaceSymbol>>(emptyList())
+        private set
+    var knowledge by mutableStateOf<List<WorkspaceKnowledgeNote>>(emptyList())
+        private set
+    var knowledgeTitle by mutableStateOf("")
+    var knowledgeContent by mutableStateOf("")
+    var knowledgeMessage by mutableStateOf<String?>(null)
+        private set
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -51,7 +67,16 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
                 currentUri = active?.treeUri
                 currentName = active?.name ?: "Workspace"
                 breadcrumbs = active?.let { listOf(WorkspaceBreadcrumb(it.treeUri, it.name)) } ?: emptyList()
-                if (active == null) entries = emptyList() else refresh()
+                if (active == null) {
+                    entries = emptyList()
+                    indexedSymbolCount = 0
+                    symbolResults = emptyList()
+                    knowledge = emptyList()
+                } else {
+                    indexedSymbolCount = symbolIndex.list(active.id).size
+                    knowledge = knowledgeRepository.list(active.id)
+                    refresh()
+                }
             }
         }
         viewModelScope.launch {
@@ -141,6 +166,57 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         searchQuery = ""
         searchResults = emptyList()
         isSearching = false
+    }
+
+    fun rebuildSymbolIndex() {
+        val active = workspace ?: return
+        if (isIndexing) return
+        isIndexing = true
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching { indexer.build(active.treeUri) }
+            result.onSuccess { symbols ->
+                symbolIndex.replace(active.id, symbols)
+                launch(Dispatchers.Main.immediate) {
+                    indexedSymbolCount = symbols.size
+                    symbolResults = emptyList()
+                    symbolQuery = ""
+                    isIndexing = false
+                }
+            }.onFailure { error ->
+                launch(Dispatchers.Main.immediate) {
+                    knowledgeMessage = error.message ?: "Workspace index failed."
+                    isIndexing = false
+                }
+            }
+        }
+    }
+
+    fun searchSymbols(query: String) {
+        symbolQuery = query
+        val active = workspace ?: return
+        symbolResults = if (query.isBlank()) emptyList() else symbolIndex.search(active.id, query)
+    }
+
+    fun rememberKnowledge() {
+        val active = workspace ?: return
+        knowledgeRepository.remember(active.id, knowledgeTitle, knowledgeContent, "manual")
+            .onSuccess {
+                knowledge = knowledgeRepository.list(active.id)
+                knowledgeTitle = ""
+                knowledgeContent = ""
+                knowledgeMessage = "Workspace knowledge saved."
+            }
+            .onFailure { knowledgeMessage = it.message ?: "Unable to save workspace knowledge." }
+    }
+
+    fun removeKnowledge(id: String) {
+        val active = workspace ?: return
+        knowledgeRepository.remove(active.id, id)
+        knowledge = knowledgeRepository.list(active.id)
+    }
+
+    fun clearKnowledgeMessage() {
+        knowledgeMessage = null
     }
 
     override fun onCleared() {
