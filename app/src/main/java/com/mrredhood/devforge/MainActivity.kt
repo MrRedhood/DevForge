@@ -158,8 +158,10 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
             DevForgeTopBar(
                 workspaceName = workspace.workspace?.name ?: "No workspace",
                 editing = editing,
+                showAgents = destination == DevForgeDestination.Chat && !editing,
                 onSearch = { showGlobalSearch = true },
                 onSecurity = { navigateTo(DevForgeDestination.Approvals) },
+                onAgents = { navigateTo(DevForgeDestination.Agents) },
             )
         },
         bottomBar = { if (!expanded && !editing) NavigationBottom(destination, ::navigateTo) },
@@ -240,8 +242,10 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
 private fun DevForgeTopBar(
     workspaceName: String,
     editing: Boolean,
+    showAgents: Boolean,
     onSearch: () -> Unit,
     onSecurity: () -> Unit,
+    onAgents: () -> Unit,
 ) {
     TopAppBar(
         title = {
@@ -264,6 +268,11 @@ private fun DevForgeTopBar(
         actions = {
             IconButton(onClick = onSearch) { Icon(Icons.Default.Search, "Search") }
             IconButton(onClick = onSecurity) { Icon(Icons.Default.Security, "Security") }
+            if (showAgents) {
+                IconButton(onClick = onAgents) {
+                    Text("👤", fontSize = 21.sp)
+                }
+            }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
     )
