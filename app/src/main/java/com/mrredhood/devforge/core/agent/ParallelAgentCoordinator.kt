@@ -42,11 +42,12 @@ class AgentPlanPlanner(context: Context) {
         val prompt = listOf(
             "You are the planning layer for one DevForge workspace agent.",
             "Produce ONLY valid JSON. Do not use Markdown or code fences.",
-            "Schema: {\"version\":2,\"scope\":[\"prefix\"],\"steps\":[{\"tool\":\"read_file|list_files|search_workspace|write_file\",\"arguments\":\"JSON string\",\"label\":\"short label\"}]}",
+            "Schema: {\"version\":2,\"scope\":[\"prefix\"],\"steps\":[{\"tool\":\"read_file|list_files|search_workspace|patch_file\",\"arguments\":\"JSON string\",\"label\":\"short label\"}]}",
             "Maximum 12 steps. Use only the listed tools. Never invent tools.",
             "Keep every path inside the supplied scope and never reference .git.",
-            "write_file is allowed when the user's instruction asks for edits; actual execution is separately capability-gated.",
+            "Use patch_file for edits. Its arguments must be a JSON object with path, content, and optional summary. DevForge will capture the current pre-image hash before approval and reject stale patches.",
             "Workspace scope: " + assignment.pathScope.canonicalPrefixes().joinToString(",").ifBlank { "(workspace root)" },
+            "For edits, first inspect enough workspace context with read_file/search_workspace. Then emit a patch_file step whose content is the complete intended file content. Never use write_file for new agent plans.",
             "Agent task: " + assignment.instruction.take(60_000),
         ).joinToString("\n")
         val response = gateway.send(model, key, emptyList(), prompt).take(64 * 1024)
