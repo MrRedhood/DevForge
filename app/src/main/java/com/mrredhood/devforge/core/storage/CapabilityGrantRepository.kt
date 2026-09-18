@@ -57,28 +57,10 @@ class CapabilityGrantRepository(private val dao: CapabilityGrantDao) {
         return dao.revoke(workspaceId, capability.name) > 0
     }
 
-    suspend fun hydrateRegistry(limit: Int = MAX_HYDRATION): Int {
-        val values = dao.listActive(System.currentTimeMillis(), limit.coerceIn(1, MAX_HYDRATION))
-        values.forEach { grant ->
-            val capability = grant.capabilityOrNull() ?: return@forEach
-            val maxRisk = grant.maxRiskOrNull() ?: return@forEach
-            val pathScope = grant.pathScopeOrNull() ?: return@forEach
-            CapabilityGrantRegistry.put(
-                workspaceId = grant.workspaceId,
-                capability = capability,
-                maxRisk = maxRisk,
-                expiresAtEpochMs = grant.expiresAtEpochMs,
-                pathScope = pathScope,
-            )
-        }
-        return values.size
-    }
-
     suspend fun pruneExpired(): Int = dao.pruneExpired(System.currentTimeMillis())
 
     companion object {
         const val MAX_GRANTS = 50
-        const val MAX_HYDRATION = 500
 
         fun isGrantable(capability: Capability): Boolean = capability !in setOf(
             Capability.DELETE_FILES,
