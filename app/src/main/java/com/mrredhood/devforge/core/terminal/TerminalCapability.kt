@@ -46,10 +46,12 @@ data class TerminalCommand(
     val args: List<String> = emptyList(),
     val workingDirectory: String = "",
     val timeoutMs: Long = TerminalCommandPolicy.DEFAULT_TIMEOUT_MS,
+    val sessionId: String? = null,
 ) {
     fun canonicalForm(): String = buildString {
         append(executable.name).append('\n')
         append(workingDirectory).append('\n')
+        append(sessionId.orEmpty()).append('\n')
         args.forEach { append(it.length).append(':').append(it).append('\n') }
         append(timeoutMs)
     }
@@ -220,6 +222,7 @@ class TerminalCapability(
                     .put("args", JSONArray(command.args))
                     .put("workingDirectory", command.workingDirectory)
                     .put("timeoutMs", command.timeoutMs)
+                    .put("sessionId", command.sessionId)
                     .toString()
                     .take(TerminalCommandPolicy.MAX_COMMAND_BYTES),
                 expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_TTL_MS,
