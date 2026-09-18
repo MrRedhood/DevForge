@@ -2,6 +2,9 @@ package com.mrredhood.devforge
 
 import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
+import com.mrredhood.devforge.core.storage.ApprovalRepository
+import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -108,6 +111,9 @@ import com.mrredhood.devforge.ui.theme.DevForgeTheme
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch {
+            ApprovalRepository(DevForgeDatabase.get(this@MainActivity).approvalDao()).recoverStaleExecuting()
+        }
         setContent {
             val settings: DevForgeSettingsViewModel = viewModel()
             DevForgeTheme(
