@@ -20,6 +20,12 @@ enum class AgentToolId(val wireName: String) {
     READ_FILE("read_file"),
     LIST_FILES("list_files"),
     SEARCH_WORKSPACE("search_workspace"),
+    READ_SHARED_MEMORY("read_shared_memory"),
+    WRITE_SHARED_MEMORY("write_shared_memory"),
+    LIST_HANDOFFS("list_handoffs"),
+    CREATE_HANDOFF("create_handoff"),
+    CLAIM_HANDOFF("claim_handoff"),
+    COMPLETE_HANDOFF("complete_handoff"),
     PATCH_FILE("patch_file"),
     WRITE_FILE("write_file"),
 }
