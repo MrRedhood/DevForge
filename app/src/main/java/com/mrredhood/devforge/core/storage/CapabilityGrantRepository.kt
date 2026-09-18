@@ -3,6 +3,8 @@ package com.mrredhood.devforge.core.storage
 import com.mrredhood.devforge.core.policy.Capability
 import com.mrredhood.devforge.core.policy.CapabilityGrantRegistry
 import com.mrredhood.devforge.core.policy.RiskLevel
+import com.mrredhood.devforge.core.security.WorkspacePathScope
+import org.json.JSONArray
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 
@@ -13,11 +15,17 @@ class CapabilityGrantRepository(private val dao: CapabilityGrantDao) {
     suspend fun activeGrant(workspaceId: String, capability: Capability): CapabilityGrantEntity? =
         dao.getActive(workspaceId, capability.name, System.currentTimeMillis())
 
-    suspend fun isGranted(requestCapability: Capability, workspaceId: String, risk: RiskLevel): Boolean {
+    suspend fun isGranted(
+        requestCapability: Capability,
+        workspaceId: String,
+        risk: RiskLevel,
+        pathScope: WorkspacePathScope? = null,
+    ): Boolean {
         if (!isGrantable(requestCapability)) return false
         val grant = activeGrant(workspaceId, requestCapability) ?: return false
         val ceiling = grant.maxRiskOrNull() ?: return false
-        return risk.ordinal <= ceiling.ordinal
+        val grantedScope = grant.pathScopeOrNull() ?: return false
+        return risk.ordinal <= ceiling.ordinal && grantedScope.covers(pathScope ?: WorkspacePathScope())
     }
 
     suspend fun grant(
@@ -25,8 +33,10 @@ class CapabilityGrantRepository(private val dao: CapabilityGrantDao) {
         capability: Capability,
         maxRisk: RiskLevel = RiskLevel.R2,
         expiresAtEpochMs: Long? = null,
+        pathScope: WorkspacePathScope = WorkspacePathScope(),
     ): CapabilityGrantEntity? {
         if (!isGrantable(capability)) return null
+        val canonicalScope = WorkspacePathScope(pathScope.canonicalPrefixes())
         val entity = CapabilityGrantEntity(
             grantId = UUID.randomUUID().toString(),
             workspaceId = workspaceId,
@@ -35,9 +45,10 @@ class CapabilityGrantRepository(private val dao: CapabilityGrantDao) {
             createdAtEpochMs = System.currentTimeMillis(),
             expiresAtEpochMs = expiresAtEpochMs,
             enabled = true,
+            scopeJson = JSONArray(canonicalScope.canonicalPrefixes()).toString(),
         )
         dao.upsert(entity)
-        CapabilityGrantRegistry.put(workspaceId, capability, maxRisk, expiresAtEpochMs)
+        CapabilityGrantRegistry.put(workspaceId, capability, maxRisk, expiresAtEpochMs, canonicalScope)
         return entity
     }
 
