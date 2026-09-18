@@ -2,6 +2,7 @@ package com.mrredhood.devforge.core.ai
 
 import android.app.Application
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -55,6 +56,10 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     var isSending by mutableStateOf(false)
         private set
     var streamingText by mutableStateOf("")
+        private set
+    var streamingAnimationKind by mutableStateOf(StreamingAnimationKind.HAMMER)
+        private set
+    var attachments by mutableStateOf<List<ChatAttachment>>(emptyList())
         private set
     var sendError by mutableStateOf<String?>(null)
         private set
@@ -213,6 +218,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         }
         input = ""
         suggestions = emptyList()
+        val submittedAttachments = attachments
+        attachments = emptyList()
+        streamingAnimationKind = StreamingAnimationKind.random()
         isSending = true
         streamingText = ""
         sendError = null
@@ -253,7 +261,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 val history = buildBoundedHistory(model, messages)
                 val key = settings.getApiKey(provider) ?: error("API key is not configured.")
-                chatRepository.addMessage(sessionId, "user", raw, parsed?.command?.name)
+                val attachmentContext = submittedAttachments.let(::formatAttachmentContext)
+                val userMessage = if (attachmentContext.isBlank()) raw else raw + "\\n\\n" + attachmentContext
+                chatRepository.addMessage(sessionId, "user", userMessage, parsed?.command?.name)
                 if (parsed?.command?.name == "help" || !model.supportsStreaming) {
                     val response = if (parsed?.command?.name == "help") finalInstruction else chatGateway.send(model, key, history, finalInstruction)
                     chatRepository.addMessage(sessionId, "assistant", response)
@@ -300,6 +310,57 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         streamingText = ""
     }
 
+    fun addAttachments(uris: List<Uri>, type: ChatAttachmentType) {
+        val current = attachments.toMutableList()
+        for (uri in uris.take(MAX_ATTACHMENTS - current.size)) {
+            val metadata = runCatching { readAttachmentMetadata(uri) }.getOrNull() ?: continue
+            if (!type.accepts(metadata.mimeType)) continue
+            if (metadata.sizeBytes <= 0L || metadata.sizeBytes > type.maxBytes) continue
+            if (current.any { it.uri == uri }) continue
+            current += ChatAttachment(
+                uri = uri,
+                name = metadata.name,
+                mimeType = metadata.mimeType,
+                sizeBytes = metadata.sizeBytes,
+                type = type,
+            )
+        }
+        val total = current.sumOf { it.sizeBytes }
+        attachments = if (total <= MAX_TOTAL_ATTACHMENT_BYTES) current else current.dropLastWhile {
+            current.sumOf { it.sizeBytes } > MAX_TOTAL_ATTACHMENT_BYTES
+        }
+    }
+
+    fun removeAttachment(uri: Uri) {
+        attachments = attachments.filterNot { it.uri == uri }
+    }
+
+    private fun readAttachmentMetadata(uri: Uri): AttachmentMetadata {
+        var name = uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { "attachment" } ?: "attachment"
+        var mime = resolver.getType(uri).orEmpty().ifBlank { "application/octet-stream" }
+        var size = -1L
+        resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (cursor.moveToFirst()) {
+                if (nameIndex >= 0) name = cursor.getString(nameIndex)?.take(MAX_ATTACHMENT_NAME_CHARS).orEmpty().ifBlank { name }
+                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) size = cursor.getLong(sizeIndex)
+            }
+        }
+        require(size in 1..MAX_TOTAL_ATTACHMENT_BYTES) { "Attachment size could not be validated safely." }
+        return AttachmentMetadata(name, mime, size)
+    }
+
+    private fun formatAttachmentContext(values: List<ChatAttachment>): String = buildString {
+        append("Attachments selected from device (bounded metadata only):\\n")
+        values.forEach { attachment ->
+            append("- ").append(attachment.name)
+                .append(" · ").append(attachment.mimeType)
+                .append(" · ").append(attachment.sizeBytes / (1024L * 1024L))
+                .append(" MB\\n")
+        }
+    }.trimEnd()
+
     fun dismissError() { sendError = null }
 
     private fun buildBoundedHistory(model: AIModelInfo, source: List<ChatMessageEntity>): List<Pair<String, String>> {
@@ -322,12 +383,50 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         super.onCleared()
     }
 
+    private data class AttachmentMetadata(val name: String, val mimeType: String, val sizeBytes: Long)
+
     companion object {
+        private const val MAX_ATTACHMENTS = 8
+        private const val MAX_TOTAL_ATTACHMENT_BYTES = 80L * 1024L * 1024L
+        private const val MAX_ATTACHMENT_NAME_CHARS = 180
         private const val MAX_VISIBLE_MODELS = 120
         private const val MAX_COMMAND_SUGGESTIONS = 12
         private const val CHARS_PER_TOKEN = 4L
         private const val MAX_REQUEST_CHARS = 1_000_000L
         private const val DEFAULT_REQUEST_CHARS = 256_000L
         private const val MAX_STREAM_VISIBLE_CHARS = 512 * 1024
+    }
+}
+
+
+data class ChatAttachment(
+    val uri: Uri,
+    val name: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val type: ChatAttachmentType,
+)
+
+enum class ChatAttachmentType(val maxBytes: Long) {
+    ANY_FILE(15L * 1024L * 1024L),
+    PHOTO(15L * 1024L * 1024L),
+    VIDEO(50L * 1024L * 1024L),
+    AUDIO(30L * 1024L * 1024L),
+    DOCUMENT(10L * 1024L * 1024L);
+
+    fun accepts(mime: String): Boolean = when (this) {
+        ANY_FILE -> true
+        PHOTO -> mime.startsWith("image/")
+        VIDEO -> mime.startsWith("video/")
+        AUDIO -> mime.startsWith("audio/")
+        DOCUMENT -> !mime.startsWith("image/") && !mime.startsWith("video/") && !mime.startsWith("audio/")
+    }
+
+    val label: String get() = when (this) {
+        ANY_FILE -> "File"
+        PHOTO -> "Photo"
+        VIDEO -> "Video"
+        AUDIO -> "Audio"
+        DOCUMENT -> "Document"
     }
 }
