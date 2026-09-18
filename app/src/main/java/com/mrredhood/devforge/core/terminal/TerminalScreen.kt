@@ -83,10 +83,10 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                     Text("devforge:~$", fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
                 }
             } else {
-                items(
+                itemsIndexed(
                     viewModel.output.split('\n'),
-                    key = { index -> index.toString() + ":" + viewModel.output.split('\n')[index].hashCode() },
-                ) { line ->
+                    key = { index, line -> index.toString() + ":" + line.hashCode() },
+                ) { _, line ->
                     Text(line, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
                 }
             }
