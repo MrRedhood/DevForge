@@ -157,4 +157,38 @@ object AgentTaskPlanCodec {
     const val MAX_TOOL_ARGUMENT_BYTES = 64 * 1024
 }
 
+data class AgentFilePatch(
+    val path: String,
+    val content: String,
+    val summary: String = "",
+    val expectedContentHash: String? = null,
+)
+
+object AgentFilePatchCodec {
+    const val MAX_PATCH_CONTENT_BYTES = 128 * 1024
+    const val MAX_PATCH_PATH_CHARS = 500
+    const val MAX_PATCH_SUMMARY_CHARS = 500
+
+    fun decode(argumentsJson: String): AgentFilePatch {
+        val json = JSONObject(argumentsJson)
+        val path = json.optString("path").trim()
+        require(path.isNotBlank() && path.length <= MAX_PATCH_PATH_CHARS) { "Patch path is missing or too long." }
+        val content = json.optString("content", "")
+        require(content.toByteArray(Charsets.UTF_8).size <= MAX_PATCH_CONTENT_BYTES) {
+            "Patch content exceeds the 128 KiB safety limit."
+        }
+        val summary = json.optString("summary", "").take(MAX_PATCH_SUMMARY_CHARS)
+        val expected = json.optString("expectedContentHash", "").trim().takeIf(String::isNotBlank)
+        if (expected != null) require(expected.matches(Regex("^[a-fA-F0-9]{64}$"))) { "Patch content hash is invalid." }
+        return AgentFilePatch(path, content, summary, expected)
+    }
+
+    fun encode(patch: AgentFilePatch): String = JSONObject()
+        .put("path", patch.path)
+        .put("content", patch.content)
+        .put("summary", patch.summary.take(MAX_PATCH_SUMMARY_CHARS))
+        .apply { patch.expectedContentHash?.let { put("expectedContentHash", it) } }
+        .toString()
+}
+
 const val MAX_AGENT_RECEIPT_BYTES = 64 * 1024
