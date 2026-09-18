@@ -25,6 +25,31 @@ class ApprovalRepository(private val dao: ApprovalDao) {
         payload: String,
         expiresAtEpochMs: Long,
     ): ApprovalEntity {
+        require(approvalId.isNotBlank() && approvalId.length <= MAX_ID_LENGTH) {
+            "Approval identifier is invalid."
+        }
+        require(actionId.isNotBlank() && actionId.length <= MAX_ACTION_ID_LENGTH) {
+            "Approval action identifier is invalid."
+        }
+        require(workspaceId.isNotBlank() && workspaceId.length <= MAX_ID_LENGTH) {
+            "Approval workspace identifier is invalid."
+        }
+        require(parametersHash.matches(HASH_PATTERN)) {
+            "Approval parameter hash is invalid."
+        }
+        require(preconditionHash == null || preconditionHash.matches(HASH_PATTERN)) {
+            "Approval precondition hash is invalid."
+        }
+        require(expiresAtEpochMs > System.currentTimeMillis()) {
+            "Approval expiration must be in the future."
+        }
+        require(payload.toByteArray(Charsets.UTF_8).size <= MAX_PAYLOAD_BYTES) {
+            "Approval payload exceeds the persistence limit."
+        }
+        val redactedPayload = SecretRedactor.redact(payload, MAX_PAYLOAD_BYTES)
+        require(redactedPayload == payload || !payload.contains(""tool"")) {
+            "Executable approval payload contains secret-like material and cannot be safely redacted."
+        }
         val entity = ApprovalEntity(
             approvalId = approvalId,
             actionId = actionId,
@@ -34,7 +59,7 @@ class ApprovalRepository(private val dao: ApprovalDao) {
             summary = SecretRedactor.redact(summary, MAX_SUMMARY_LENGTH),
             parametersHash = parametersHash,
             preconditionHash = preconditionHash,
-            payload = SecretRedactor.redact(payload, MAX_PAYLOAD_BYTES),
+            payload = redactedPayload,
             status = STATUS_PENDING,
             createdAtEpochMs = System.currentTimeMillis(),
             expiresAtEpochMs = expiresAtEpochMs,
@@ -78,6 +103,9 @@ class ApprovalRepository(private val dao: ApprovalDao) {
         const val MAX_SUMMARY_LENGTH = 500
         const val MAX_PAYLOAD_BYTES = 64 * 1024
         const val MAX_APPROVED = 10
+        const val MAX_ID_LENGTH = 200
+        const val MAX_ACTION_ID_LENGTH = 500
         const val STALE_EXECUTION_MAX_AGE_MS = 15L * 60L * 1000L
+        val HASH_PATTERN = Regex("^[a-fA-F0-9]{64}$")
     }
 }
