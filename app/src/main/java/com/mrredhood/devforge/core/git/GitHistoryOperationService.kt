@@ -443,20 +443,45 @@ class GitHistoryOperationService(
         }
     }
 
-    private fun listChildren(parent: Uri): List<DocumentRef> = runCatching {
-        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }.getOrElse { DocumentsContract.getTreeDocumentId(parent) }
+    private fun listChildren(parent: Uri): List<DocumentRef> {
+        val documentId = runCatching { DocumentsContract.getDocumentId(parent) }
+            .getOrElse { DocumentsContract.getTreeDocumentId(parent) }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
-        resolver.query(childrenUri, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { cursor ->
-            buildList {
-                while (cursor.moveToNext() && size < MAX_CHILDREN_PER_DIRECTORY) {
-                    val id = cursor.getString(0) ?: continue
-                    val name = cursor.getString(1) ?: continue
-                    val mime = cursor.getString(2).orEmpty()
-                    add(DocumentRef(DocumentsContract.buildDocumentUriUsingTree(parent, id), name, mime == DocumentsContract.Document.MIME_TYPE_DIR, cursor.getLong(3).takeIf { it >= 0L } ?: 0L))
+        val cursor = resolver.query(
+            childrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_SIZE,
+            ),
+            null,
+            null,
+            null,
+        ) ?: throw IOException("Unable to enumerate workspace directory.")
+
+        cursor.use {
+            val result = buildList {
+                while (it.moveToNext()) {
+                    if (size >= MAX_CHILDREN_PER_DIRECTORY) {
+                        throw IOException("History operation encountered a directory larger than $MAX_CHILDREN_PER_DIRECTORY entries.")
+                    }
+                    val id = it.getString(0) ?: continue
+                    val name = it.getString(1) ?: continue
+                    val mime = it.getString(2).orEmpty()
+                    add(
+                        DocumentRef(
+                            DocumentsContract.buildDocumentUriUsingTree(parent, id),
+                            name,
+                            mime == DocumentsContract.Document.MIME_TYPE_DIR,
+                            it.getLong(3).takeIf { value -> value >= 0L } ?: 0L,
+                        ),
+                    )
                 }
             }
-        }.orEmpty()
-    }.getOrDefault(emptyList())
+            return result
+        }
+    }
 
     private fun queryDocument(uri: Uri): DocumentMetadata? = runCatching {
         resolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { cursor ->
