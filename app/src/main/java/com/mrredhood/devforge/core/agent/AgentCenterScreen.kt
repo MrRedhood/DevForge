@@ -122,13 +122,13 @@ fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
         if (viewModel.tasks.isEmpty()) {
             item { Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) { Text("No agents assigned yet.", Modifier.fillMaxWidth().padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         } else {
-            items(viewModel.tasks, key = { it.taskId }) { task -> AgentTaskCard(task, viewModel) }
+            items(viewModel.tasks, key = { it.taskId }) { task -> AgentTaskCard(task, viewModel, viewModel.auditEvents) }
         }
     }
 }
 
 @Composable
-private fun AgentTaskCard(task: AgentTaskEntity, viewModel: AgentCenterViewModel) {
+private fun AgentTaskCard(task: AgentTaskEntity, viewModel: AgentCenterViewModel, auditEvents: List<com.mrredhood.devforge.core.storage.AuditEventEntity>) {
     val status = runCatching { AgentTaskStatus.valueOf(task.status) }.getOrDefault(AgentTaskStatus.FAILED)
     Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -143,6 +143,36 @@ private fun AgentTaskCard(task: AgentTaskEntity, viewModel: AgentCenterViewModel
             Text("Scope: " + scopeSummary(task), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             task.lastToolId?.let { Text("Current tool: " + it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             task.errorMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+
+            val timeline = auditEvents.asSequence()
+                .filter { it.actionId == "agent:" + task.taskId || it.actionId?.startsWith("agent:" + task.taskId + ":") == true }
+                .take(8)
+                .toList()
+            if (timeline.isNotEmpty()) {
+                Text("Execution timeline", fontWeight = FontWeight.Bold)
+                timeline.forEach { event ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Text(
+                            event.eventType.replace('_', ' '),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.width(140.dp),
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(event.summary.take(280), style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                formatTimelineTime(event.createdAtEpochMs),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (status) {
                     AgentTaskStatus.RUNNING, AgentTaskStatus.QUEUED, AgentTaskStatus.PLANNING -> OutlinedButton(onClick = { viewModel.pause(task.taskId) }, modifier = Modifier.weight(1f)) { Text("Hold") }
@@ -161,3 +191,7 @@ private fun AgentTaskCard(task: AgentTaskEntity, viewModel: AgentCenterViewModel
 private fun scopeSummary(task: AgentTaskEntity): String = runCatching {
     AgentTaskPlanCodec.decode(task.payload).pathScope.canonicalPrefixes().joinToString(", ").ifBlank { "workspace root" }
 }.getOrDefault("invalid scope")
+
+
+private fun formatTimelineTime(epochMs: Long): String =
+    java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(epochMs))
