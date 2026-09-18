@@ -120,7 +120,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
             risk = RiskLevel.R2,
             workspaceId = "github:" + request.githubOwner + "/" + request.githubRepository,
             summary = "Cancel GitHub Actions run #" + run.runNumber + ".",
-            parametersHash = cancellationHash(request, run.id),
+            parametersHash = cancellationHash(request.githubOwner, request.githubRepository, run.id),
             preconditionHash = runPreconditionHash(run),
         )
         if (DefaultPolicy.requiresApproval(action, PermissionMode.SOME)) {
@@ -362,7 +362,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
         val repository = payload?.optString("repository").orEmpty()
         val runId = payload?.optLong("runId", -1L) ?: -1L
         if (owner.isBlank() || repository.isBlank() || runId <= 0L ||
-            cancellationHash(BuildConfiguration(githubOwner = owner, githubRepository = repository), runId) != approval.parametersHash
+            cancellationHash(owner, repository, runId) != approval.parametersHash
         ) {
             approvalRepository.finishFailure(approval.approvalId)
             return
@@ -410,8 +410,8 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
             .digest((run.id.toString() + "\u0000" + run.status + "\u0000" + (run.updatedAt ?: "")).toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
 
-    private fun cancellationHash(configuration: BuildConfiguration, runId: Long): String {
-        val input = listOf(configuration.githubOwner, configuration.githubRepository, configuration.workflowFile, configuration.branch, runId.toString()).joinToString("\u0000")
+    private fun cancellationHash(owner: String, repository: String, runId: Long): String {
+        val input = listOf(owner.trim(), repository.trim(), runId.toString()).joinToString("\u0000")
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     }
 
