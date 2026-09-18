@@ -13,6 +13,7 @@ import com.mrredhood.devforge.core.storage.CapabilityGrantEntity
 import com.mrredhood.devforge.core.storage.CapabilityGrantRepository
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
+import com.mrredhood.devforge.core.security.WorkspacePathScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -80,17 +81,25 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    fun grant(capability: Capability) {
+    fun grant(capability: Capability, rawPathScope: String = "") {
         val workspaceId = activeWorkspaceId ?: run {
             actionMessage = "Open a workspace before creating a persistent capability grant."
             return
         }
+        val pathScope = runCatching {
+            val entries = rawPathScope.split(',', '\\n').map(String::trim).filter(String::isNotBlank)
+            WorkspacePathScope(if (entries.isEmpty()) listOf("") else entries)
+        }.getOrElse { error ->
+            actionMessage = error.message ?: "Invalid path scope."
+            return
+        }
         viewModelScope.launch {
-            val result = grantRepository.grant(workspaceId, capability, RiskLevel.R2)
+            val result = grantRepository.grant(workspaceId, capability, RiskLevel.R2, pathScope = pathScope)
             actionMessage = if (result == null) {
                 "${capability.name} cannot be persistently granted."
             } else {
-                "Persistent ${capability.name} grant enabled up to R2."
+                "Persistent ${capability.name} grant enabled up to R2 for " +
+                    if (pathScope.canonicalPrefixes().any { it.isEmpty() }) "the entire workspace." else pathScope.canonicalPrefixes().joinToString(", ") + "."
             }
         }
     }
