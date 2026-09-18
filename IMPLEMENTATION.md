@@ -47,8 +47,8 @@
 - [x] Debug APK, release APK and release AAB targets
 - [x] Workflow dispatch contract and durable build receipts
 - [x] Approval-backed build dispatch
-- [ ] Build cancellation
-- [ ] Live credential runtime validation
+- [x] Build cancellation
+- [x] Live credential runtime validation
 
 ### Approval Center / Security Policy
 - [x] Durable approval queue with expiry and lifecycle
@@ -289,8 +289,16 @@
 - Expanded terminal-policy tests for control separators, unsafe working directories and argument bounds.
 - Expanded automation-trigger tests for encode/decode round trips and stable event keys.
 
-### 2026-09-18 — Terminal capability
-- Added a typed native terminal capability with a fixed executable allowlist; arbitrary executable names and shell invocation are not accepted.
+### 2026-09-18 — Build cancellation and live credential validation
+- Added a typed CANCEL_BUILD capability with R2 policy routing and Approval Center integration.
+- Added normal GitHub Actions workflow-run cancellation through the documented cancel endpoint; force-cancel is intentionally not used.
+- Added exact owner/repository/run binding to cancellation approvals to prevent stale payload reuse.
+- Added a dedicated Cancelling state and Build Center control while preserving polling state until GitHub reports the terminal result.
+- Added live GitHub credential validation through the authenticated /user endpoint during connection setup and on-demand verification.
+- Build dispatch now performs live credential validation immediately before remote dispatch instead of relying only on stored-credential presence.
+- Added deterministic gateway regression tests for credential validation, invalid credentials, cancellation success and cancellation conflicts.
+
+### 2026-09-18 — Terminal capability- Added a typed native terminal capability with a fixed executable allowlist; arbitrary executable names and shell invocation are not accepted.
 - Sandboxed commands run only from an app-private per-workspace directory with inherited environment variables cleared.
 - Added strict argument/path, command-size, output-size and 15-second maximum timeout limits.
 - Added process cancellation/termination handling and Approval Center routing for R2 terminal commands.
