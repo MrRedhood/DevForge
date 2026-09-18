@@ -32,14 +32,14 @@ object WorkspaceSymbolExtractor {
 
 class WorkspaceSymbolIndexStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("devforge_workspace_index", Context.MODE_PRIVATE)
-    fun replace(workspaceId: String, symbols: List<WorkspaceSymbol>) {
+    fun replace(workspaceId: String, symbols: List<WorkspaceSymbol>): Boolean {
         val array = org.json.JSONArray()
         symbols.take(MAX_SYMBOLS).forEach { s ->
             array.put(org.json.JSONObject().put("path", s.path).put("name", s.name).put("kind", s.kind).put("line", s.line))
         }
         val encoded = array.toString()
-        if (encoded.toByteArray(Charsets.UTF_8).size > MAX_INDEX_BYTES) return
-        prefs.edit().putString("index::$workspaceId", encoded).apply()
+        if (encoded.toByteArray(Charsets.UTF_8).size > MAX_INDEX_BYTES) return false
+        return prefs.edit().putString("index::$workspaceId", encoded).commit()
     }
     fun list(workspaceId: String, limit: Int = MAX_SYMBOLS): List<WorkspaceSymbol> = runCatching {
         val array = org.json.JSONArray(prefs.getString("index::$workspaceId", "[]"))
