@@ -9,13 +9,13 @@ data class WorkspacePathScope(
         allowedPrefixes.forEach { normalize(it, allowEmpty = true) }
     }
 
-    fun allows(path: String): Boolean {
+    fun allows(path: String): Boolean = runCatching {
         val normalized = normalize(path, allowEmpty = true)
-        return allowedPrefixes.any { prefix ->
+        allowedPrefixes.any { prefix ->
             val scope = normalize(prefix, allowEmpty = true)
             scope.isEmpty() || normalized == scope || normalized.startsWith("$scope/")
         }
-    }
+    }.getOrDefault(false)
 
     fun requireAllowed(path: String): String {
         val normalized = normalize(path, allowEmpty = true)

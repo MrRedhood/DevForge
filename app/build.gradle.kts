@@ -100,6 +100,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.5")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250517")
 
     // Pure-Java Git transport; DevForge still uses SAF as the canonical workspace boundary.
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r")
