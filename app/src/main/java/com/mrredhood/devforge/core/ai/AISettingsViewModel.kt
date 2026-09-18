@@ -13,17 +13,25 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
         private set
     var apiKey by mutableStateOf("")
         private set
+    var customBaseUrl by mutableStateOf(repository.customBaseUrl(provider).orEmpty())
+        private set
+    var customModelId by mutableStateOf(repository.selectedModelId(provider).orEmpty())
+        private set
     var status by mutableStateOf(statusFor(provider))
         private set
 
     fun selectProvider(value: AIProvider) {
         provider = value
         apiKey = ""
+        customBaseUrl = repository.customBaseUrl(value).orEmpty()
+        customModelId = repository.selectedModelId(value).orEmpty()
         repository.setSelectedProvider(value)
         status = statusFor(value)
     }
 
     fun updateApiKey(value: String) { apiKey = value }
+    fun updateCustomBaseUrl(value: String) { customBaseUrl = value }
+    fun updateCustomModelId(value: String) { customModelId = value }
 
     fun save() {
         val value = apiKey.trim()
@@ -31,16 +39,33 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
             status = "Enter an API key first."
             return
         }
-        runCatching { repository.saveApiKey(provider, value) }
-            .onSuccess {
-                apiKey = ""
-                status = "Saved securely. Open Chat and tap the model dropdown to load models."
+        runCatching {
+            if (provider == AIProvider.OPENAI_COMPATIBLE) {
+                AIProviderRegistry.validateCustomBaseUrl(customBaseUrl.trim())
+                if (customModelId.isNotBlank()) {
+                    require(customModelId.trim().length <= 180) { "Custom model ID is too long." }
+                    require(Regex("^[A-Za-z0-9_.:/-]+$").matches(customModelId.trim())) { "Custom model ID contains unsupported characters." }
+                }
+                repository.setCustomBaseUrl(provider, customBaseUrl.trim())
+                if (customModelId.isNotBlank()) repository.setSelectedModelId(provider, customModelId.trim())
             }
-            .onFailure { error -> status = friendlyCredentialError(error, "Unable to save the API key.") }
+            repository.saveApiKey(provider, value)
+        }.onSuccess {
+            apiKey = ""
+            status = if (provider == AIProvider.OPENAI_COMPATIBLE) {
+                "Saved securely. The custom endpoint will be queried for models; the saved model ID is used as fallback."
+            } else {
+                "Saved securely. Open Chat and tap the model dropdown to load models."
+            }
+        }.onFailure { error -> status = friendlyCredentialError(error, "Unable to save the provider settings.") }
     }
 
     private fun statusFor(value: AIProvider): String = when {
         repository.isApiKeyLocked(value) -> "API key is stored with biometric protection. Unlock protected credentials before using or changing it."
+        value == AIProvider.OPENAI_COMPATIBLE && repository.hasApiKey(value) -> {
+            if (repository.customBaseUrl(value).isNullOrBlank()) "API key is configured, but the custom base URL is missing."
+            else "API key and custom endpoint are configured."
+        }
         repository.hasApiKey(value) -> "API key is configured."
         else -> "No API key saved for this provider."
     }
