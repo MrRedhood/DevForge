@@ -26,6 +26,11 @@ object AgentRuntime {
             coordination = coordination,
             permissionMode = permissionMode,
         )
-        return AgentTaskEngine(durableState, gateway, coordination)
+        return AgentTaskEngine(
+            durableState = durableState,
+            gateway = gateway,
+            coordination = coordination,
+            approvals = approvals,
+        )
     }
 }
