@@ -5,6 +5,7 @@ import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -144,9 +145,10 @@ class AgentTaskEngine(
             auditTask(task, "AGENT_TASK_STARTED", "Agent task execution started.")
         }
 
-        val execution = runCatching {
-            withTimeout(MAX_EXECUTION_MS) {
-                for (index in task.currentStep until plan.steps.size) {
+        val execution = try {
+            runCatching {
+                withTimeout(MAX_EXECUTION_MS) {
+                    for (index in task.currentStep until plan.steps.size) {
                     val persistedBeforeStep = durableState.getAgentTask(taskId) ?: return@withTimeout
                     if (persistedBeforeStep.status == AgentTaskStatus.PAUSED.name ||
                         persistedBeforeStep.status == AgentTaskStatus.CANCELLED.name
@@ -232,9 +234,18 @@ class AgentTaskEngine(
                     completedAtEpochMs = System.currentTimeMillis(),
                     result = appendResult(task.result, "complete", "Agent task completed.", "", null),
                 )
-                durableState.saveAgentTask(task)
-                auditTask(task, "AGENT_TASK_COMPLETED", "Agent task completed.")
+                    durableState.saveAgentTask(task)
+                    auditTask(task, "AGENT_TASK_COMPLETED", "Agent task completed.")
+                }
             }
+        } catch (cancelled: CancellationException) {
+            val persisted = durableState.getAgentTask(taskId)
+            if (persisted?.status == AgentTaskStatus.PAUSED.name ||
+                persisted?.status == AgentTaskStatus.CANCELLED.name
+            ) {
+                return@withContext persisted
+            }
+            throw cancelled
         }
 
         if (execution.isFailure) {
