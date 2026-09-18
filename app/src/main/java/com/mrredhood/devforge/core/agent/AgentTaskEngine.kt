@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.agent
 
 import com.mrredhood.devforge.core.storage.AgentTaskEntity
+import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.UUID
@@ -51,11 +52,18 @@ class AgentTaskEngine(
 
     suspend fun run(taskId: String): AgentTaskEntity? = execute(taskId, approvalId = null)
 
-    suspend fun pause(taskId: String): Boolean = durableState.pauseAgentTask(taskId)
+    suspend fun pause(taskId: String): Boolean {
+        val task = durableState.getAgentTask(taskId) ?: return false
+        val changed = durableState.pauseAgentTask(taskId)
+        if (changed) auditTask(task, "AGENT_TASK_PAUSED", "Agent task paused by user.")
+        return changed
+    }
 
     suspend fun resume(taskId: String): AgentTaskEntity? {
+        val task = durableState.getAgentTask(taskId) ?: return null
         val changed = durableState.resumeAgentTask(taskId)
-        if (!changed) return durableState.getAgentTask(taskId)
+        if (!changed) return task
+        auditTask(task, "AGENT_TASK_RESUMED", "Agent task resumed.")
         return execute(taskId, approvalId = null)
     }
 
@@ -78,6 +86,7 @@ class AgentTaskEngine(
             ),
         )
         coordination?.releaseTaskFileLeases(task.workspaceId, taskId)
+        auditTask(task, "AGENT_TASK_CANCELLED", "Agent task cancelled by user.")
         return true
     }
 
@@ -117,6 +126,7 @@ class AgentTaskEngine(
         }
 
         val startedAt = task.startedAtEpochMs ?: System.currentTimeMillis()
+        val previousStatus = task.status
         task = task.copy(
             status = if (task.currentStep == 0) AgentTaskStatus.PLANNING.name else AgentTaskStatus.RUNNING.name,
             updatedAtEpochMs = System.currentTimeMillis(),
@@ -124,6 +134,9 @@ class AgentTaskEngine(
             errorMessage = null,
         )
         durableState.saveAgentTask(task)
+        if (previousStatus != task.status || previousStatus == AgentTaskStatus.QUEUED.name) {
+            auditTask(task, "AGENT_TASK_STARTED", "Agent task execution started.")
+        }
 
         val execution = runCatching {
             withTimeout(MAX_EXECUTION_MS) {
@@ -211,6 +224,7 @@ class AgentTaskEngine(
                     result = appendResult(task.result, "complete", "Agent task completed.", "", null),
                 )
                 durableState.saveAgentTask(task)
+                auditTask(task, "AGENT_TASK_COMPLETED", "Agent task completed.")
             }
         }
 
@@ -223,8 +237,25 @@ class AgentTaskEngine(
                 completedAtEpochMs = System.currentTimeMillis(),
             )
             durableState.saveAgentTask(task)
+            auditTask(task, "AGENT_TASK_FAILED", task.errorMessage ?: "Agent task execution failed.")
         }
         task
+    }
+
+    private suspend fun auditTask(task: AgentTaskEntity, eventType: String, summary: String) {
+        durableState.recordAudit(
+            AuditEventEntity(
+                eventId = UUID.randomUUID().toString(),
+                workspaceId = task.workspaceId,
+                actionId = "agent:" + task.taskId,
+                capability = null,
+                risk = null,
+                eventType = eventType,
+                summary = SecretRedactor.redact(summary, 500),
+                metadataJson = "{\"taskId\":\"" + task.taskId + "\",\"step\":" + task.currentStep + "}",
+                createdAtEpochMs = System.currentTimeMillis(),
+            ),
+        )
     }
 
     private fun appendResult(
