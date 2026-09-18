@@ -67,7 +67,6 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ModelSelector(viewModel)
-        selected?.let { ModelContextBar(it) }
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (viewModel.messages.isEmpty()) {

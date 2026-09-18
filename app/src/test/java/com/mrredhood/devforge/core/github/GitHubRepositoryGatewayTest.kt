@@ -12,24 +12,21 @@ class GitHubRepositoryGatewayTest {
     @Test
     fun validatesCandidateTokenWithoutOverwritingStoredToken() {
         val store = FakeSecretStore("old-token")
-        var authorizationHeader: String? = null
+        var openedConnection: CapturingConnection? = null
         val gateway = GitHubRepositoryGateway(
             secretStore = store,
             connection = HttpConnectionFactory {
-                FakeConnection(
+                CapturingConnection(
                     url = URL(it),
-                    status = 200,
                     body = """{"login":"candidate-user"}""",
-                ).also { connection ->
-                    authorizationHeader = connection.requestProperty("Authorization")
-                }
+                ).also { openedConnection = it }
             },
         )
 
         val result = gateway.validateCredential("new-token")
 
         assertTrue(result is GitHubCredentialValidation.Valid)
-        assertEquals("new-token", authorizationHeader?.removePrefix("Bearer "))
+        assertEquals("new-token", openedConnection?.requestProperty("Authorization")?.removePrefix("Bearer "))
         assertEquals("old-token", store.value())
     }
 
@@ -74,6 +71,21 @@ class GitHubRepositoryGatewayTest {
         fun value(): String? = value
     }
 
+    private class CapturingConnection(
+        url: URL,
+        body: String,
+    ) : HttpURLConnection(url) {
+        private val responseBody = body.toByteArray(Charsets.UTF_8)
+
+        override fun connect() = Unit
+        override fun disconnect() = Unit
+        override fun usingProxy(): Boolean = false
+        override fun getResponseCode(): Int = 200
+        override fun getInputStream() = ByteArrayInputStream(responseBody)
+        override fun getErrorStream() = ByteArrayInputStream(ByteArray(0))
+        fun requestProperty(name: String): String? = getRequestProperty(name)
+    }
+
     private class FakeConnection(
         url: URL,
         status: Int,
@@ -88,6 +100,5 @@ class GitHubRepositoryGatewayTest {
         override fun getResponseCode(): Int = responseStatus
         override fun getInputStream() = ByteArrayInputStream(responseBody)
         override fun getErrorStream() = ByteArrayInputStream(ByteArray(0))
-        fun requestProperty(name: String): String? = getRequestProperty(name)
     }
 }
