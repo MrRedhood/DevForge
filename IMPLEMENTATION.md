@@ -170,7 +170,7 @@
 - [x] Maintained unit-test suite for agent plans, workspace scopes, terminal policy and automation triggers
 - [x] Compose/UI tests
 - [x] Static analysis/lint pipeline
-- [ ] Release build validation
+- [x] Release build validation
 - [ ] Performance/budget checks
 - [ ] Structured diagnostics
 - [ ] Crash/recovery validation
@@ -194,6 +194,7 @@
 - [ ] Release APK/AAB signing validation
 - [ ] Current lint CI result verification
 - [ ] Current Compose UI CI result verification
+- [ ] Current release validation CI result verification
 - [ ] Maintained unit/UI/security regression suites
 
 ### 2026-09-18 — Android lint validation
@@ -206,6 +207,11 @@
 - Configured the Android instrumentation runner and Compose UI test dependencies.
 - Added a dedicated Android UI-test workflow with a bounded API-35 emulator, connected Compose UI tests and retained instrumentation reports.
 - UI CI verification remains unchecked until an actual GitHub Actions result is observed.
+
+### 2026-09-18 — Release build validation
+- Added a dedicated release-validation workflow that builds both the release APK and release AAB without production signing secrets.
+- The workflow verifies both unsigned artifacts are non-empty and records SHA-256 hashes before uploading them for inspection.
+- Signed release APK/AAB validation remains a separate concern and stays dependent on configured production signing material.
 
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
