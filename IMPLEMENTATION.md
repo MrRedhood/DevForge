@@ -73,7 +73,7 @@
 - [x] Model-scoped persistent chat sessions/messages
 
 ### AI / Agent
-- [x] Provider-neutral model domain with Gemini, OpenRouter and OpenAI providers
+- [x] Provider-neutral model domain with Google Gemini, OpenAI, Anthropic, xAI Grok, DeepInfra, Groq, OpenRouter, and custom OpenAI-compatible providers
 - [x] Secure provider-key storage through Android Keystore
 - [x] Live model catalog loading and model filters
 - [x] Model-specific Room chat sessions and bounded context history
