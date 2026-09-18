@@ -2,6 +2,7 @@ package com.mrredhood.devforge.core.github
 
 sealed interface GitHubConnectionState {
     data object Disconnected : GitHubConnectionState
+    data object CredentialStored : GitHubConnectionState
     data class Connected(val accountName: String? = null) : GitHubConnectionState
 }
 
