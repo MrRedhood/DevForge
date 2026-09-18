@@ -10,6 +10,11 @@ enum class GitHubCredentialMode {
     OAuth,
 }
 
+sealed interface GitHubCredentialValidation {
+    data class Valid(val accountName: String) : GitHubCredentialValidation
+    data class Invalid(val message: String) : GitHubCredentialValidation
+}
+
 data class GitHubConnectionSnapshot(
     val state: GitHubConnectionState = GitHubConnectionState.Disconnected,
     val credentialMode: GitHubCredentialMode = GitHubCredentialMode.ManualToken,
