@@ -76,7 +76,7 @@ class AIChatGateway {
                 val output = StringBuilder()
                 while (true) {
                     currentCoroutineContext().ensureActive()
-                    val line = reader.readLine() ?: break
+                    val line = reader.readBoundedLine(MAX_SSE_LINE_CHARS) ?: break
                     if (!line.startsWith("data:")) continue
                     val data = line.removePrefix("data:").trim()
                     if (data.isBlank()) continue
@@ -140,7 +140,7 @@ class AIChatGateway {
                 var total = 0
                 while (true) {
                     currentCoroutineContext().ensureActive()
-                    val line = reader.readLine() ?: break
+                    val line = reader.readBoundedLine(MAX_SSE_LINE_CHARS) ?: break
                     if (!line.startsWith("data:")) continue
                     val data = line.removePrefix("data:").trim()
                     if (data == "[DONE]" || data.isBlank()) continue
@@ -266,7 +266,26 @@ class AIChatGateway {
         private const val MAX_API_KEY_CHARS = 4_096
         private const val MAX_MODEL_ID_CHARS = 180
         private const val MAX_INSTRUCTION_CHARS = 1_000_000
+        private const val MAX_SSE_LINE_CHARS = 128 * 1024
         private val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
+    }
+}
+
+private fun java.io.BufferedReader.readBoundedLine(maxChars: Int): String? {
+    require(maxChars > 0)
+    val output = StringBuilder(minOf(maxChars, 4 * 1024))
+    val buffer = CharArray(minOf(4 * 1024, maxChars + 1))
+    while (true) {
+        val count = read(buffer, 0, minOf(buffer.size, maxChars + 1 - output.length))
+        if (count < 0) return if (output.isEmpty()) null else output.toString()
+        for (index in 0 until count) {
+            val char = buffer[index]
+            if (char == '\n') return output.toString().removeSuffix("\r")
+            output.append(char)
+            if (output.length > maxChars) {
+                error("AI streaming event line exceeded the DevForge line limit.")
+            }
+        }
     }
 }
 
