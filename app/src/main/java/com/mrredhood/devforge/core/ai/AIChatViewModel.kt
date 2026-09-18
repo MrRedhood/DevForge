@@ -335,9 +335,11 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val history = buildBoundedHistory(model, messages)
                 val key = settings.getApiKey(requestProvider) ?: error("API key is not configured.")
                 val attachmentContext = prepareAttachmentContext(submittedAttachments)
-                val userMessage = if (attachmentContext.isBlank()) raw else raw + "\n\n" + attachmentContext
                 val effectiveInstruction = if (attachmentContext.isBlank()) finalInstruction else finalInstruction + "\n\n" + attachmentContext
-                chatRepository.addMessage(sessionId, "user", userMessage, parsed?.command?.name)
+                val visibleUserMessage = raw.ifBlank {
+                    submittedAttachments.joinToString(", ") { it.name }.ifBlank { "Attachment" }
+                }
+                chatRepository.addMessage(sessionId, "user", visibleUserMessage, parsed?.command?.name)
                 if (parsed?.command?.name == "help" || !model.supportsStreaming) {
                     val response = if (parsed?.command?.name == "help") effectiveInstruction else chatGateway.send(model, key, history, effectiveInstruction, submittedAttachments, settings.customBaseUrl(requestProvider))
                     chatRepository.addMessage(sessionId, "assistant", response)

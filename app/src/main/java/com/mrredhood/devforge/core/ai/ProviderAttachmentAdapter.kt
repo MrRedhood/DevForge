@@ -34,6 +34,20 @@ class UnsupportedProviderAttachmentsException(provider: AIProvider) :
             "Choose a compatible model/provider or attach the file as text when possible.",
     )
 
+class UnsupportedProviderAttachmentAdapter(
+    override val provider: AIProvider,
+) : ProviderAttachmentAdapter {
+    override suspend fun prepare(
+        apiKey: String,
+        attachments: List<ChatAttachment>,
+    ): List<ProviderPreparedAttachment> {
+        if (attachments.any(::isBinaryAttachment)) {
+            throw UnsupportedProviderAttachmentsException(provider)
+        }
+        return emptyList()
+    }
+}
+
 class GeminiProviderAttachmentAdapter(private val resolver: ContentResolver) : ProviderAttachmentAdapter {
     override val provider: AIProvider = AIProvider.GEMINI
 
