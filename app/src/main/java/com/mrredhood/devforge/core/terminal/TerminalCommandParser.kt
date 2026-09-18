@@ -6,11 +6,16 @@ sealed interface TerminalParsedCommand {
     data object Clear : TerminalParsedCommand
     data object History : TerminalParsedCommand
     data object Help : TerminalParsedCommand
+    data class Shell(val commandLine: String) : TerminalParsedCommand
 }
 
 object TerminalCommandParser {
     fun parse(line: String, workingDirectory: String, timeoutMs: Long, sessionId: String?): TerminalParsedCommand {
-        val tokens = tokenize(line.trim())
+        val normalized = line.trim()
+        require(normalized.isNotEmpty()) { "Enter a command." }
+        val tokens = runCatching { tokenize(normalized) }.getOrElse {
+            return TerminalParsedCommand.Shell(normalized)
+        }
         require(tokens.isNotEmpty()) { "Enter a command." }
         return when (val name = tokens.first().lowercase()) {
             "cd" -> {
@@ -20,13 +25,7 @@ object TerminalCommandParser {
             "clear", "cls" -> TerminalParsedCommand.Clear
             "history" -> TerminalParsedCommand.History
             "help" -> TerminalParsedCommand.Help
-            else -> {
-                val executable = terminalExecutableForName(name)
-                    ?: throw IllegalArgumentException("command not found: $name")
-                TerminalParsedCommand.External(
-                    TerminalCommand(executable, tokens.drop(1), workingDirectory, timeoutMs, sessionId),
-                )
-            }
+            else -> TerminalParsedCommand.Shell(normalized)
         }
     }
 
