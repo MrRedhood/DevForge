@@ -40,17 +40,21 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
         runCatching {
-            if (provider == AIProvider.OPENAI_COMPATIBLE) {
+            val normalizedBaseUrl = if (provider == AIProvider.OPENAI_COMPATIBLE) {
                 AIProviderRegistry.validateCustomBaseUrl(customBaseUrl.trim())
-                if (customModelId.isNotBlank()) {
-                    require(customModelId.trim().length <= 180) { "Custom model ID is too long." }
-                    require(Regex("^[A-Za-z0-9_.:/-]+$").matches(customModelId.trim())) { "Custom model ID contains unsupported characters." }
+            } else null
+            val normalizedModelId = if (provider == AIProvider.OPENAI_COMPATIBLE && customModelId.isNotBlank()) {
+                customModelId.trim().also { model ->
+                    require(model.length <= 180) { "Custom model ID is too long." }
+                    require(Regex("^[A-Za-z0-9_.:/-]+$").matches(model)) { "Custom model ID contains unsupported characters." }
                 }
-                repository.setCustomBaseUrl(provider, customBaseUrl.trim())
-                if (customModelId.isNotBlank()) repository.setSelectedModelId(provider, customModelId.trim())
+            } else null
+            repository.saveApiKey(provider, value)
+            if (provider == AIProvider.OPENAI_COMPATIBLE) {
+                repository.setCustomBaseUrl(provider, requireNotNull(normalizedBaseUrl))
+                if (normalizedModelId != null) repository.setSelectedModelId(provider, normalizedModelId)
                 else repository.clearSelectedModelId(provider)
             }
-            repository.saveApiKey(provider, value)
         }.onSuccess {
             apiKey = ""
             status = if (provider == AIProvider.OPENAI_COMPATIBLE) {
