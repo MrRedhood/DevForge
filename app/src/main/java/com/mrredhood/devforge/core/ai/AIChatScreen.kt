@@ -344,7 +344,7 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                 Spacer(Modifier.weight(1f))
                 IconButton(
                     onClick = if (viewModel.isSending) viewModel::stopGeneration else viewModel::submit,
-                    enabled = viewModel.isSending || viewModel.input.isNotBlank(),
+                    enabled = viewModel.isSending || viewModel.input.isNotBlank() || viewModel.attachments.isNotEmpty(),
                 ) {
                     if (viewModel.isSending) Text("■", fontWeight = FontWeight.Black)
                     else Icon(Icons.Default.Send, "Send")
