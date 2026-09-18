@@ -1,5 +1,6 @@
 package com.mrredhood.devforge.core.storage
 
+import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.UUID
 
 class AuditTrailRepository(private val dao: AuditEventDao) {
@@ -20,8 +21,8 @@ class AuditTrailRepository(private val dao: AuditEventDao) {
                 capability = capability,
                 risk = risk,
                 eventType = eventType,
-                summary = summary,
-                metadataJson = metadataJson,
+                summary = SecretRedactor.redact(summary, 500),
+                metadataJson = metadataJson?.let { SecretRedactor.redact(it, 32 * 1024) },
                 createdAtEpochMs = System.currentTimeMillis(),
             ),
         )
