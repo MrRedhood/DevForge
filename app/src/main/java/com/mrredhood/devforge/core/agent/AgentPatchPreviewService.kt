@@ -67,6 +67,7 @@ class AgentPatchPreviewService(
         val approvedPrecondition = approval.preconditionHash
         val payloadPrecondition = payload.optString("preconditionHash", "").takeIf(String::isNotBlank)
         val expected = approvedPrecondition ?: payloadPrecondition
+        require(expected != null) { "Patch approval has no pre-image binding." }
         AgentPatchPreview(
             path = path,
             before = before,
