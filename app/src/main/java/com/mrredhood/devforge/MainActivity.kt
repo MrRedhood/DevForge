@@ -500,6 +500,7 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
     var replaceMessage by remember(active.uri) { mutableStateOf<String?>(null) }
     var lineQuery by remember(active.uri) { mutableStateOf("") }
     var collapsedStarts by remember(active.uri) { mutableStateOf(emptySet<Int>()) }
+    val horizontalEditorScroll = rememberScrollState()
 
     LaunchedEffect(active.content) {
         if (fieldValue.text != active.content) {
@@ -610,13 +611,20 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
         }
 
         Divider()
+        val editorModifier = if (settings.settings.wordWrap) {
+            Modifier.fillMaxSize()
+        } else {
+            Modifier
+                .fillMaxSize()
+                .horizontalScroll(horizontalEditorScroll)
+        }
         BasicTextField(
             value = fieldValue,
             onValueChange = {
                 fieldValue = it
                 editor.updateContent(it.text)
             },
-            modifier = Modifier.fillMaxSize(),
+            modifier = editorModifier,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 fontFamily = FontFamily.Monospace,
                 fontSize = settings.settings.editorFontSize.sp.sp,
