@@ -109,6 +109,12 @@ class DurableStateRepository(
         require(task.instruction.toByteArray(Charsets.UTF_8).size <= MAX_AGENT_INSTRUCTION_BYTES) {
             "Agent task instruction exceeds the persistence limit."
         }
+        require(!SecretRedactor.containsLikelySecret(task.instruction)) {
+            "Agent task instruction contains secret-like material."
+        }
+        require(!SecretRedactor.containsLikelySecret(task.payload.orEmpty())) {
+            "Agent task payload contains secret-like material."
+        }
         require((task.payload ?: "").toByteArray(Charsets.UTF_8).size <= MAX_TASK_PAYLOAD_BYTES) {
             "Agent task payload exceeds the persistence limit."
         }
@@ -229,9 +235,16 @@ class DurableStateRepository(
     fun observeWorkspaceAudit(workspaceId: String, limit: Int = MAX_AUDIT_EVENTS) = audit.observeForWorkspace(workspaceId, limit)
 
     suspend fun recordAudit(event: AuditEventEntity) {
-        require(event.summary.length <= MAX_SUMMARY_LENGTH) { "Audit summary exceeds the limit." }
-        require((event.metadataJson ?: "").toByteArray(Charsets.UTF_8).size <= MAX_AUDIT_METADATA_BYTES) { "Audit metadata exceeds the limit." }
-        audit.insert(event.copy(summary = event.summary.take(MAX_SUMMARY_LENGTH)))
+        val cleanSummary = SecretRedactor.redact(event.summary, MAX_SUMMARY_LENGTH)
+        val cleanMetadata = event.metadataJson?.let { SecretRedactor.redact(it, MAX_AUDIT_METADATA_BYTES) }
+        require(cleanSummary.length <= MAX_SUMMARY_LENGTH) { "Audit summary exceeds the limit." }
+        require((cleanMetadata ?: "").toByteArray(Charsets.UTF_8).size <= MAX_AUDIT_METADATA_BYTES) { "Audit metadata exceeds the limit." }
+        audit.insert(
+            event.copy(
+                summary = cleanSummary,
+                metadataJson = cleanMetadata,
+            ),
+        )
     }
 
     suspend fun pruneAudit(retentionDays: Long = 30): Int =
