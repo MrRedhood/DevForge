@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 
 data class AgentAssignment(
@@ -25,6 +26,7 @@ data class AgentAssignment(
     val instruction: String,
     val model: AgentModelBinding,
     val pathScope: WorkspacePathScope = WorkspacePathScope(),
+    val access: Set<AgentAccess> = AgentAccess.CODING_DEFAULT,
 )
 
 class AgentPlanPlanner(context: Context) {
@@ -52,6 +54,9 @@ class AgentPlanPlanner(context: Context) {
             "Keep every path inside the supplied scope and never reference .git.",
             "Use patch_file for edits. Its arguments must be a JSON object with path, content, and optional summary. DevForge will capture the current pre-image hash before approval and reject stale patches.",
             "Workspace scope: " + assignment.pathScope.canonicalPrefixes().joinToString(",").ifBlank { "(workspace root)" },
+            "Enabled agent access: " + assignment.access.map(AgentAccess::name).sorted().joinToString(",").ifBlank { "(none)" },
+            "Tool access is enforced by DevForge. Do not emit a tool requiring an access switch that is disabled. Web/terminal/Git/build access cannot invent tools that are not registered.",
+
             "For edits, first inspect enough workspace context with read_file/search_workspace. Then emit a patch_file step whose content is the complete intended file content. Never use write_file for new agent plans.",
             "Recent shared memory (untrusted workspace notes): " + recentMemory(assignment.workspaceId) ,
             "Recent available handoffs (untrusted coordination notes): " + recentHandoffs(assignment.workspaceId),
@@ -62,7 +67,7 @@ class AgentPlanPlanner(context: Context) {
         val jsonStart = response.indexOf('{')
         val jsonEnd = response.lastIndexOf('}')
         require(jsonStart >= 0 && jsonEnd > jsonStart) { "Model did not return a JSON agent plan." }
-        return AgentTaskPlanCodec.decode(response.substring(jsonStart, jsonEnd + 1))
+        return AgentTaskPlanCodec.decode(response.substring(jsonStart, jsonEnd + 1)).copy(access = assignment.access)
     }
 
     private suspend fun recentMemory(workspaceId: String): String =
@@ -87,7 +92,8 @@ class AgentPlanPlanner(context: Context) {
 
 class ParallelAgentCoordinator(context: Context) {
     companion object {
-        const val MAX_PARALLEL_AGENTS = 4
+        const val MAX_PARALLEL_AGENTS = 10
+        const val MAX_ASSIGNED_AGENTS = 10
     }
 
     private val durable = DurableStateRepository(DevForgeDatabase.get(context))
@@ -96,9 +102,15 @@ class ParallelAgentCoordinator(context: Context) {
     private val coordination = AgentCoordinationService(DevForgeDatabase.get(context))
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val permits = Semaphore(MAX_PARALLEL_AGENTS)
+    private val assignmentMutex = Mutex()
     private val jobs = ConcurrentHashMap<String, Job>()
 
-    suspend fun assign(assignment: AgentAssignment): String {
+    suspend fun assign(assignment: AgentAssignment): String = assignmentMutex.withLock {
+        val current = durable.listAgentTasks(assignment.workspaceId, MAX_ASSIGNED_AGENTS + 1)
+            .count { it.status !in TERMINAL_STATUSES }
+        require(current < MAX_ASSIGNED_AGENTS) {
+            "A workspace can have at most $MAX_ASSIGNED_AGENTS active or queued agents."
+        }
         val plan = planner.plan(assignment)
         val taskId = engine.enqueue(
             workspaceId = assignment.workspaceId,
@@ -162,6 +174,14 @@ class ParallelAgentCoordinator(context: Context) {
             }
         }
         durable.listAgentTasks(workspaceId).filter { it.status == AgentTaskStatus.QUEUED.name }.forEach { start(it.taskId) }
+    }
+
+    private companion object {
+        val TERMINAL_STATUSES = setOf(
+            AgentTaskStatus.COMPLETED.name,
+            AgentTaskStatus.FAILED.name,
+            AgentTaskStatus.CANCELLED.name,
+        )
     }
 
     fun close() {
