@@ -33,6 +33,9 @@ interface ApprovalDao {
     @Query("UPDATE approval_actions SET status = 'EXPIRED', resolvedAtEpochMs = :now WHERE status IN ('PENDING', 'APPROVED') AND expiresAtEpochMs <= :now")
     suspend fun expire(now: Long): Int
 
+    @Query("UPDATE approval_actions SET status = 'FAILED', resolvedAtEpochMs = :now WHERE status = 'EXECUTING' AND resolvedAtEpochMs IS NOT NULL AND resolvedAtEpochMs < :cutoff")
+    suspend fun recoverStaleExecuting(now: Long, cutoff: Long): Int
+
     @Query("DELETE FROM approval_actions WHERE status NOT IN ('PENDING', 'APPROVED', 'EXECUTING') AND resolvedAtEpochMs IS NOT NULL AND resolvedAtEpochMs < :cutoff")
     suspend fun pruneResolved(cutoff: Long): Int
 
