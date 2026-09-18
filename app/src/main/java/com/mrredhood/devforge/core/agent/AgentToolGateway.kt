@@ -50,7 +50,9 @@ class AgentToolGateway(
             return AgentToolResult.Failure("Tool arguments exceed the 64 KiB safety limit.")
         }
 
-        val action = actionRequest(context, request, tool)
+        val action = runCatching { actionRequest(context, request, tool) }.getOrElse {
+            return AgentToolResult.Failure(it.message ?: "Unable to validate the agent action preconditions.")
+        }
         val needsApproval = DefaultPolicy.requiresApproval(action, permissionMode)
         if (needsApproval) {
             val approvalId = UUID.randomUUID().toString()
@@ -63,7 +65,7 @@ class AgentToolGateway(
                 summary = action.summary,
                 parametersHash = action.parametersHash,
                 preconditionHash = action.preconditionHash,
-                payload = approvalPayload(context, request),
+                payload = approvalPayload(context, request, action.preconditionHash),
                 expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_TTL_MS,
             )
             audit(
@@ -91,7 +93,9 @@ class AgentToolGateway(
         val tool = registry.get(request.toolId) ?: return AgentToolResult.Failure("Tool '${request.toolId.wireName}' is not registered.")
         val contextFailure = validateContext(context, request)
         if (contextFailure != null) return contextFailure
-        val action = actionRequest(context, request, tool)
+        val action = runCatching { actionRequest(context, request, tool) }.getOrElse {
+            return AgentToolResult.Failure(it.message ?: "Unable to validate the approved action preconditions.")
+        }
         val approval = approvals.observeById(approvalId).first()
             ?: return AgentToolResult.Failure("Approval '$approvalId' was not found.")
         if (approval.status != ApprovalRepository.STATUS_APPROVED) {
@@ -194,7 +198,7 @@ class AgentToolGateway(
             .joinToString("") { "%02x".format(it) }
     }
 
-    private fun approvalPayload(context: AgentToolContext, request: AgentToolRequest): String =
+    private fun approvalPayload(context: AgentToolContext, request: AgentToolRequest, preconditionHash: String?): String =
         JSONObject()
             .put("tool", request.toolId.wireName)
             .put("workspaceId", request.workspaceId)
@@ -202,6 +206,7 @@ class AgentToolGateway(
             .put("stepIndex", request.stepIndex)
             .put("arguments", runCatching { JSONObject(request.argumentsJson) }.getOrDefault(request.argumentsJson))
             .put("allowedPrefixes", JSONArray(context.pathScope.canonicalPrefixes()))
+            .put("preconditionHash", preconditionHash)
             .toString()
             .take(MAX_APPROVAL_PAYLOAD_CHARS)
 
