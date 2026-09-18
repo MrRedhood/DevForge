@@ -55,6 +55,15 @@ interface AgentTaskDao {
 
     @Query("DELETE FROM agent_tasks WHERE taskId = :taskId")
     suspend fun delete(taskId: String)
+
+    @Query("UPDATE agent_tasks SET status = 'PAUSED', updatedAtEpochMs = :updatedAt WHERE taskId = :taskId AND status IN ('QUEUED','PLANNING','RUNNING')")
+    suspend fun pause(taskId: String, updatedAt: Long): Int
+
+    @Query("UPDATE agent_tasks SET status = 'QUEUED', updatedAtEpochMs = :updatedAt, errorMessage = NULL, completedAtEpochMs = NULL WHERE taskId = :taskId AND status = 'PAUSED'")
+    suspend fun resume(taskId: String, updatedAt: Long): Int
+
+    @Query("UPDATE agent_tasks SET status = 'PAUSED', updatedAtEpochMs = :updatedAt, errorMessage = :message WHERE workspaceId = :workspaceId AND status IN ('PLANNING','RUNNING')")
+    suspend fun recoverRunning(workspaceId: String, updatedAt: Long, message: String): Int
 }
 
 @Dao
