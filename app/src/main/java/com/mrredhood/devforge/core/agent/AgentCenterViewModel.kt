@@ -196,7 +196,10 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
             val deferred = valid.map { draft ->
                 async {
                     try {
-                        val profile = selectedProfiles.getValue(draft)!!
+                        val profile = selectedProfiles[draft]
+                            ?: return@async Result.failure<Unit>(
+                                IllegalStateException("Agent profile is no longer available."),
+                            )
                         Result.success(agentRuntime.assign(
                         AgentAssignment(
                             workspaceId = workspace,

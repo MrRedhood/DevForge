@@ -311,12 +311,21 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
             viewModel.addAttachments(uris.distinct(), pickerType)
         }.onFailure(viewModel::reportAttachmentPickerError)
     }
+    val fallbackPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        runCatching {
+            viewModel.addAttachments(uris.distinct(), pickerType)
+        }.onFailure(viewModel::reportAttachmentPickerError)
+    }
     fun launchPicker(type: ChatAttachmentType) {
         pickerType = type
         attachmentMenuOpen = false
         runCatching {
             picker.launch(attachmentMimeTypes(type))
-        }.onFailure(viewModel::reportAttachmentPickerError)
+        }.onFailure {
+            runCatching {
+                fallbackPicker.launch(attachmentFallbackMimeType(type))
+            }.onFailure(viewModel::reportAttachmentPickerError)
+        }
     }
 
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
@@ -421,6 +430,14 @@ private fun attachmentMimeTypes(type: ChatAttachmentType): Array<String> = when 
         "application/vnd.ms-powerpoint",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     )
+}
+
+private fun attachmentFallbackMimeType(type: ChatAttachmentType): String = when (type) {
+    ChatAttachmentType.ANY_FILE -> "*/*"
+    ChatAttachmentType.PHOTO -> "image/*"
+    ChatAttachmentType.VIDEO -> "video/*"
+    ChatAttachmentType.AUDIO -> "audio/*"
+    ChatAttachmentType.DOCUMENT -> "*/*"
 }
 
 private fun maxUploadLabel(bytes: Long): String =

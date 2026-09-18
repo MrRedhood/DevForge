@@ -277,6 +277,15 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         knowledge = knowledgeRepository.list(active.id)
     }
 
+    fun reportWorkspacePickerError(error: Throwable?) {
+        val detail = error?.message?.takeIf { it.isNotBlank() }?.take(180)
+        knowledgeMessage = if (detail == null) {
+            "Unable to open the folder picker on this device."
+        } else {
+            "Unable to open the folder picker: $detail"
+        }
+    }
+
     fun clearKnowledgeMessage() {
         knowledgeMessage = null
     }

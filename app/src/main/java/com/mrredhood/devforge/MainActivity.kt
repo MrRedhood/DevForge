@@ -451,7 +451,6 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
 private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) {
     var showCreateWorkspace by rememberSaveable { mutableStateOf(false) }
     var workspaceName by rememberSaveable { mutableStateOf("") }
-    var pickerForCreation by rememberSaveable { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -461,7 +460,12 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
             )
             workspaceName = ""
         }
-        pickerForCreation = false
+    }
+
+    fun launchWorkspacePicker() {
+        runCatching {
+            picker.launch(null)
+        }.onFailure(workspace::reportWorkspacePickerError)
     }
 
     BackHandler(enabled = workspace.breadcrumbs.size > 1) { workspace.goUp() }
@@ -582,8 +586,7 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
                 TextButton(
                     onClick = {
                         showCreateWorkspace = false
-                        pickerForCreation = true
-                        picker.launch(null)
+                        launchWorkspacePicker()
                     },
                 ) { Text("Choose folder") }
             },
