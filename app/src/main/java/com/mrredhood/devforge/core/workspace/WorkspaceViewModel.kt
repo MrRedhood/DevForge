@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -147,6 +148,8 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         isLoading = true
         refreshJob = viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching { tree.list(current) }
+            val error = result.exceptionOrNull()
+            if (error is CancellationException) throw error
             launch(Dispatchers.Main.immediate) {
                 if (currentUri == current) {
                     result.onSuccess { entries = it }
@@ -169,6 +172,8 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         isSearching = true
         searchJob = viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching { searchService.search(root, query) }
+            val error = result.exceptionOrNull()
+            if (error is CancellationException) throw error
             launch(Dispatchers.Main.immediate) {
                 if (workspace?.id == workspaceIdAtStart && workspace?.treeUri == root && searchQuery == query) {
                     result.onSuccess { searchResults = it }
