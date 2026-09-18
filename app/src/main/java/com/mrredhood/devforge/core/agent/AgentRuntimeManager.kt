@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.agent
 
 import android.content.Context
+import com.mrredhood.devforge.core.storage.AgentTaskEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +56,6 @@ class AgentRuntimeManager(context: Context) {
      */
     fun close() {
         coordinator.close()
-        scope.coroutineContext[SupervisorJob]?.cancel()
+        scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
     }
 }
