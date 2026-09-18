@@ -165,6 +165,7 @@ class AgentTaskEngine(
                         taskId = task.taskId,
                         stepIndex = index,
                         pathScope = plan.pathScope,
+                        access = plan.access,
                     )
                     val result = if (approvalId != null && index == task.currentStep) {
                         gateway.executeApproved(toolContext, request, approvalId)
