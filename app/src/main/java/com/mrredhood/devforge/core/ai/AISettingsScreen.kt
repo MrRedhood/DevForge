@@ -47,6 +47,30 @@ fun AISettingsScreen(viewModel: AISettingsViewModel = viewModel()) {
             onSelect = viewModel::selectProvider,
         )
 
+        if (viewModel.provider == AIProvider.OPENAI_COMPATIBLE) {
+            OutlinedTextField(
+                value = viewModel.customBaseUrl,
+                onValueChange = viewModel::updateCustomBaseUrl,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                singleLine = true,
+                label = { Text("Base URL") },
+                placeholder = { Text("https://your-server.example/v1") },
+            )
+            OutlinedTextField(
+                value = viewModel.customModelId,
+                onValueChange = viewModel::updateCustomModelId,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                singleLine = true,
+                label = { Text("Model ID (fallback)") },
+                placeholder = { Text("Used when the /models endpoint is unavailable") },
+            )
+            Text(
+                "HTTPS is required. HTTP is allowed only for localhost custom servers.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         OutlinedTextField(
             value = viewModel.apiKey,
             onValueChange = viewModel::updateApiKey,
