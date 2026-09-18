@@ -10,6 +10,7 @@ import com.mrredhood.devforge.core.ai.AIProvider
 import com.mrredhood.devforge.core.ai.AISettingsRepository
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.DurableStateRepository
+import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,6 +29,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
     private var memoryJob: Job? = null
     private var handoffsJob: Job? = null
     private var leaseRefreshJob: Job? = null
+    private var auditJob: Job? = null
 
     var workspaceId by mutableStateOf<String?>(null)
         private set
@@ -40,6 +42,8 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
     var handoffs by mutableStateOf<List<com.mrredhood.devforge.core.storage.AgentHandoffEntity>>(emptyList())
         private set
     var fileLeases by mutableStateOf<List<com.mrredhood.devforge.core.storage.AgentFileLeaseEntity>>(emptyList())
+        private set
+    var auditEvents by mutableStateOf<List<AuditEventEntity>>(emptyList())
         private set
     var title by mutableStateOf("")
     var instruction by mutableStateOf("")
@@ -61,12 +65,14 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 memoryJob?.cancel()
                 handoffsJob?.cancel()
                 leaseRefreshJob?.cancel()
+                auditJob?.cancel()
                 workspaceId = workspace?.id
                 workspaceName = workspace?.name
                 tasks = emptyList()
                 sharedMemory = emptyList()
                 handoffs = emptyList()
                 fileLeases = emptyList()
+                auditEvents = emptyList()
                 if (workspace == null) return@collectLatest
                 coordinator.recoverWorkspace(workspace.id)
                 tasksJob = launch {
@@ -86,6 +92,9 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                         }
                         kotlinx.coroutines.delay(5_000L)
                     }
+                }
+                auditJob = launch {
+                    durable.observeWorkspaceAudit(workspace.id, 100).collect { values -> auditEvents = values }
                 }
             }
         }
@@ -146,6 +155,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         memoryJob?.cancel()
         handoffsJob?.cancel()
         leaseRefreshJob?.cancel()
+        auditJob?.cancel()
         coordinator.close()
         super.onCleared()
     }
