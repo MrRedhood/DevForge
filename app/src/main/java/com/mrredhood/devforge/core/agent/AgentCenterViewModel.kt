@@ -13,6 +13,7 @@ import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -66,7 +67,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
 
     fun updateModelId(value: String) {
         modelId = value
-        if (modelName.isBlank() || modelName == modelId.dropLast(0)) modelName = value
+        if (modelName.isBlank() || modelName == modelId) modelName = value
     }
 
     fun assign() {
