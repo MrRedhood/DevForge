@@ -13,7 +13,7 @@ import com.mrredhood.devforge.core.storage.CapabilityGrantEntity
 import com.mrredhood.devforge.core.storage.CapabilityGrantRepository
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
-import com.mrredhood.devforge.core.agent.ParallelAgentCoordinator
+import com.mrredhood.devforge.DevForgeApplication
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -25,7 +25,7 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
     private val repository = ApprovalRepository(database.approvalDao())
     private val grantRepository = CapabilityGrantRepository(database.capabilityGrantDao())
     private val workspaces = WorkspaceDatabaseRepository(application)
-    private val agentCoordinator = ParallelAgentCoordinator(application)
+    private val agentRuntime = (application as DevForgeApplication).agentRuntime
     private var pendingJob: Job? = null
     private var auditJob: Job? = null
     private var grantsJob: Job? = null
@@ -83,7 +83,7 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
             if (resolved) {
                 val taskId = runCatching { JSONObject(action.payload).optString("taskId") }.getOrNull().orEmpty()
                 if (taskId.isNotBlank() && action.actionId.startsWith("agent:$taskId:step:")) {
-                    agentCoordinator.resumeAfterApproval(taskId)
+                    agentRuntime.resumeAfterApproval(taskId)
                 }
                 actionMessage = "Approved: ${action.summary}"
             } else {
@@ -148,7 +148,6 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
         pendingJob?.cancel()
         auditJob?.cancel()
         grantsJob?.cancel()
-        agentCoordinator.close()
         super.onCleared()
     }
 
