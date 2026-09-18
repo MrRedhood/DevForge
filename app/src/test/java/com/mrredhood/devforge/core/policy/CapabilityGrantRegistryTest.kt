@@ -123,5 +123,11 @@ class CapabilityGrantRegistryTest {
         )
 
         assertFalse(DefaultPolicy.requiresApproval(action, PermissionMode.SOME))
+        assertTrue(
+            DefaultPolicy.requiresApproval(
+                action.copy(pathScope = WorkspacePathScope(listOf("docs"))),
+                PermissionMode.SOME,
+            ),
+        )
     }
 }
