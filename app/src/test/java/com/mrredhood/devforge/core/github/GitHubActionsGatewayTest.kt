@@ -11,25 +11,29 @@ import org.junit.Test
 class GitHubActionsGatewayTest {
     @Test
     fun validatesAuthenticatedCredentialThroughUserEndpoint() {
-        val connection = FakeConnection(200, "{\"login\":\"devforge-user\"}")
+        var requested: FakeConnection? = null
         val gateway = GitHubActionsGateway(
             secretStore = FakeSecretStore("token"),
-            connection = HttpConnectionFactory { connection },
+            connection = HttpConnectionFactory { url ->
+                FakeConnection(url, 200, "{\"login\":\"devforge-user\"}").also { requested = it }
+            },
         )
 
         val result = gateway.validateCredential()
 
         assertEquals(GitHubCredentialValidation.Valid("devforge-user"), result)
-        assertEquals("GET", connection.requestMethod)
-        assertTrue(connection.url.toString().endsWith("/user"))
+        assertEquals("GET", requested?.requestMethod)
+        assertTrue(requested?.url.toString().endsWith("/user"))
     }
 
     @Test
     fun reportsInvalidCredentialWithoutExposingToken() {
-        val connection = FakeConnection(401, "", "{\"message\":\"Bad credentials\"}")
+        var requested: FakeConnection? = null
         val gateway = GitHubActionsGateway(
             secretStore = FakeSecretStore("secret-token-value"),
-            connection = HttpConnectionFactory { connection },
+            connection = HttpConnectionFactory { url ->
+                FakeConnection(url, 401, "", "{\"message\":\"Bad credentials\"}").also { requested = it }
+            },
         )
 
         val result = gateway.validateCredential()
@@ -42,25 +46,26 @@ class GitHubActionsGatewayTest {
 
     @Test
     fun cancellationUsesNormalCancelEndpoint() {
-        val connection = FakeConnection(202, "")
+        var requested: FakeConnection? = null
         val gateway = GitHubActionsGateway(
             secretStore = FakeSecretStore("token"),
-            connection = HttpConnectionFactory { connection },
+            connection = HttpConnectionFactory { url ->
+                FakeConnection(url, 202, "").also { requested = it }
+            },
         )
 
         val result = gateway.cancelRun("MrRedhood", "DevForge", 12345L)
 
         assertEquals(GitHubCancelResult.Accepted, result)
-        assertEquals("POST", connection.requestMethod)
-        assertTrue(connection.url.toString().endsWith("/repos/MrRedhood/DevForge/actions/runs/12345/cancel"))
+        assertEquals("POST", requested?.requestMethod)
+        assertTrue(requested?.url.toString().endsWith("/repos/MrRedhood/DevForge/actions/runs/12345/cancel"))
     }
 
     @Test
     fun cancellationMapsConflictWithoutPretendingSuccess() {
-        val connection = FakeConnection(409, "", "{\"message\":\"Conflict\"}")
         val gateway = GitHubActionsGateway(
             secretStore = FakeSecretStore("token"),
-            connection = HttpConnectionFactory { connection },
+            connection = HttpConnectionFactory { url -> FakeConnection(url, 409, "", "{\"message\":\"Conflict\"}") },
         )
 
         val result = gateway.cancelRun("owner", "repo", 99L)
@@ -69,10 +74,8 @@ class GitHubActionsGatewayTest {
     }
 
     private class FakeSecretStore(
-        private val token: String?,
+        private var value: String?,
     ) : SecretStore {
-        private var value: String? = token
-
         override fun put(key: String, value: String) {
             this.value = value
         }
@@ -85,10 +88,11 @@ class GitHubActionsGatewayTest {
     }
 
     private class FakeConnection(
+        url: URL,
         status: Int,
         body: String,
         errorBody: String = "",
-    ) : HttpURLConnection(URL("https://api.github.com/placeholder")) {
+    ) : HttpURLConnection(url) {
         private val responseStatus = status
         private val responseBody = body.toByteArray(Charsets.UTF_8)
         private val responseError = errorBody.toByteArray(Charsets.UTF_8)
