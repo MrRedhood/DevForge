@@ -56,6 +56,16 @@ interface AgentTaskDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(task: AgentTaskEntity)
 
+    @Query("SELECT COUNT(*) FROM agent_tasks WHERE workspaceId = :workspaceId AND status NOT IN ('COMPLETED','FAILED','CANCELLED')")
+    suspend fun countNonTerminal(workspaceId: String): Int
+
+    @Transaction
+    suspend fun insertIfBelowLimit(task: AgentTaskEntity, maxNonTerminal: Int): Boolean {
+        if (countNonTerminal(task.workspaceId) >= maxNonTerminal) return false
+        upsert(task)
+        return true
+    }
+
     @Query("DELETE FROM agent_tasks WHERE taskId = :taskId")
     suspend fun delete(taskId: String)
 
