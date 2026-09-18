@@ -54,9 +54,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun GitDashboardScreen(viewModel: GitViewModel = viewModel()) {
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { _ ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(innerPadding),
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {

@@ -3,6 +3,7 @@ package com.mrredhood.devforge.core.security
 import android.util.Base64
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
@@ -45,7 +46,7 @@ class BiometricProtectedSecretStore(context: Context) : SecretStore {
         }
         val prompt = BiometricPrompt(
             activity,
-            activity.mainExecutor,
+            ContextCompat.getMainExecutor(activity),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     unlockedUntilEpochMs = System.currentTimeMillis() + UNLOCK_WINDOW_MS

@@ -146,7 +146,14 @@ class GitRepositoryService(private val resolver: ContentResolver) {
 
     private fun readText(uri: Uri, maxBytes: Int = 64 * 1024): String? = runCatching {
         resolver.openInputStream(uri)?.use { input ->
-            input.readNBytes(maxBytes + 1).let { bytes ->
+            val buffer = ByteArray(maxBytes + 1)
+            var total = 0
+            while (total < buffer.size) {
+                val read = input.read(buffer, total, buffer.size - total)
+                if (read <= 0) break
+                total += read
+            }
+            buffer.copyOf(total).let { bytes ->
                 if (bytes.size > maxBytes || bytes.any { it == 0.toByte() }) null
                 else bytes.toString(Charsets.UTF_8)
             }

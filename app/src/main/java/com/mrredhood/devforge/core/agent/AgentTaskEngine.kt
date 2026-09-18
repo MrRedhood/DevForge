@@ -246,8 +246,8 @@ class AgentTaskEngine(
                     completedAtEpochMs = System.currentTimeMillis(),
                     result = appendResult(task.result, "complete", "Agent task completed.", "", null),
                 )
-                    durableState.saveAgentTask(task)
-                    auditTask(task, "AGENT_TASK_COMPLETED", "Agent task completed.")
+                durableState.saveAgentTask(task)
+                auditTask(task, "AGENT_TASK_COMPLETED", "Agent task completed.")
                 }
             }
         } catch (cancelled: CancellationException) {
