@@ -75,6 +75,10 @@ fun GitHubConnectionScreen(
             ) { Text("Store securely") }
         } else {
             TextButton(
+                onClick = viewModel::validateCredential,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Verify credential now") }
+            TextButton(
                 onClick = { viewModel.disconnect(); onConnectionChanged() },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Disconnect and erase credential") }
