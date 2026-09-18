@@ -1,5 +1,6 @@
 package com.mrredhood.devforge.core.agent
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -64,6 +65,8 @@ fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
     LaunchedEffect(drafts.map { it.provider }.distinct()) {
         drafts.map { it.provider }.distinct().forEach(viewModel::loadModels)
     }
+
+    BackHandler(enabled = showProfiles) { showProfiles = false }
 
     if (showProfiles) {
         AgentProfileManager(
