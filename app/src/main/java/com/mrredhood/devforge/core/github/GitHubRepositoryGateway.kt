@@ -11,6 +11,12 @@ class GitHubRepositoryGateway(
     private val secretStore: SecretStore,
     private val connection: HttpConnectionFactory = DefaultHttpConnectionFactory,
 ) {
+    fun validateCredential(): GitHubCredentialValidation =
+        currentUser().fold(
+            onSuccess = { GitHubCredentialValidation.Valid(it) },
+            onFailure = { GitHubCredentialValidation.Invalid(safeMessage(it)) },
+        )
+
     fun currentUser(): Result<String> = getJson("/user") {
         it.optString("login").takeIf(String::isNotBlank)
             ?: throw IllegalStateException("GitHub did not return an account login.")
