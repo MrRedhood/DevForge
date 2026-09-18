@@ -87,6 +87,7 @@ import com.mrredhood.devforge.core.settings.DevForgeSettingsScreen
 import com.mrredhood.devforge.core.settings.DevForgeSettingsViewModel
 import com.mrredhood.devforge.core.settings.DensityMode
 import com.mrredhood.devforge.core.settings.ThemeMode
+import com.mrredhood.devforge.core.terminal.TerminalScreen
 import com.mrredhood.devforge.core.security.CredentialSecurityScreen
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
@@ -266,6 +267,7 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
         DevForgeDestination.Git -> GitDashboardScreen()
         DevForgeDestination.Diffs -> GitDiffScreen()
         DevForgeDestination.Build -> BuildCenterScreen()
+        DevForgeDestination.Terminal -> TerminalScreen()
         DevForgeDestination.Agents -> AgentCenterScreen()
         DevForgeDestination.Automations -> AutomationCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
