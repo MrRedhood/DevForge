@@ -23,6 +23,10 @@ class AISettingsRepository(context: Context) {
         preferences.edit().putString("$KEY_MODEL_PREFIX${provider.id}", modelId).apply()
     }
 
+    fun clearSelectedModelId(provider: AIProvider) {
+        preferences.edit().remove("$KEY_MODEL_PREFIX${provider.id}").apply()
+    }
+
     fun customBaseUrl(provider: AIProvider): String? =
         preferences.getString("$KEY_BASE_URL_PREFIX${provider.id}", null)?.trim()?.ifBlank { null }
 
