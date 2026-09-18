@@ -14,6 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class WorkspaceViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = WorkspaceDatabaseRepository(application)

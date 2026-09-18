@@ -197,7 +197,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 async {
                     try {
                         val profile = selectedProfiles.getValue(draft)!!
-                    agentRuntime.assign(
+                        Result.success(agentRuntime.assign(
                         AgentAssignment(
                             workspaceId = workspace,
                             title = draft.title.ifBlank { profile.name }.take(200),
@@ -217,11 +217,11 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                             }.getOrElse { throw IllegalArgumentException(it.message ?: "Invalid path scope.") },
                             access = profile.access,
                         )
-                    )
+                        ))
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (error: Throwable) {
-                        Result.failure(error)
+                        Result.failure<Unit>(error)
                     }
                 }
             }

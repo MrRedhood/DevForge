@@ -31,7 +31,7 @@ class ModelCatalogService {
 
     fun resolveMissingContext(model: AIModelInfo): AIModelInfo = model
 
-    private fun loadGemini(apiKey: String): ModelCatalogResult {
+    private suspend fun loadGemini(apiKey: String): ModelCatalogResult {
         val json = request(
             "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000",
             mapOf("x-goog-api-key" to apiKey, "Accept" to "application/json"),
@@ -62,7 +62,7 @@ class ModelCatalogService {
         return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.GEMINI)
     }
 
-    private fun loadAnthropic(apiKey: String): ModelCatalogResult {
+    private suspend fun loadAnthropic(apiKey: String): ModelCatalogResult {
         val json = request(
             AIProviderRegistry.modelsEndpoint(AIProvider.ANTHROPIC, null),
             mapOf("x-api-key" to apiKey, "anthropic-version" to ANTHROPIC_VERSION, "Accept" to "application/json"),
@@ -91,7 +91,7 @@ class ModelCatalogService {
         return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.ANTHROPIC)
     }
 
-    private fun loadXai(apiKey: String): ModelCatalogResult {
+    private suspend fun loadXai(apiKey: String): ModelCatalogResult {
         val json = request(
             "https://api.x.ai/v1/language-models",
             mapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json"),
@@ -122,7 +122,7 @@ class ModelCatalogService {
         return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.XAI_GROK)
     }
 
-    private fun loadOpenRouter(apiKey: String): ModelCatalogResult {
+    private suspend fun loadOpenRouter(apiKey: String): ModelCatalogResult {
         val json = request(
             AIProviderRegistry.modelsEndpoint(AIProvider.OPENROUTER, null),
             mapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json", "X-Title" to "DevForge"),
@@ -132,7 +132,7 @@ class ModelCatalogService {
         return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.OPENROUTER)
     }
 
-    private fun loadOpenAiStyle(provider: AIProvider, apiKey: String, customBaseUrl: String?): ModelCatalogResult {
+    private suspend fun loadOpenAiStyle(provider: AIProvider, apiKey: String, customBaseUrl: String?): ModelCatalogResult {
         val endpoint = AIProviderRegistry.modelsEndpoint(provider, customBaseUrl)
         val headers = mutableMapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json")
         if (provider == AIProvider.OPENROUTER) headers["X-Title"] = "DevForge"
