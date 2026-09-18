@@ -32,7 +32,7 @@ class AgentCoordinationToolProvider(
     }
 
     private inner class WriteSharedMemoryTool : AgentTool {
-        override val definition = AgentToolDefinition(AgentToolId.WRITE_SHARED_MEMORY, "Write one bounded shared workspace note for collaborating agents.", Capability.EDIT_FILES, RiskLevel.R1, true)
+        override val definition = AgentToolDefinition(AgentToolId.WRITE_SHARED_MEMORY, "Write one bounded shared workspace note for collaborating agents.", Capability.COORDINATE_AGENTS, RiskLevel.R1, true)
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
             val args = JSONObject(request.argumentsJson)
             val entry = coordination.putMemory(context.workspaceId, args.optString("key"), args.optString("content"), context.taskId)
@@ -53,7 +53,7 @@ class AgentCoordinationToolProvider(
     }
 
     private inner class CreateHandoffTool : AgentTool {
-        override val definition = AgentToolDefinition(AgentToolId.CREATE_HANDOFF, "Create a bounded durable handoff for another agent or the next available collaborator.", Capability.EDIT_FILES, RiskLevel.R1, true)
+        override val definition = AgentToolDefinition(AgentToolId.CREATE_HANDOFF, "Create a bounded durable handoff for another agent or the next available collaborator.", Capability.COORDINATE_AGENTS, RiskLevel.R1, true)
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
             val args = JSONObject(request.argumentsJson)
             val handoff = coordination.createHandoff(AgentHandoffDraft(
@@ -69,7 +69,7 @@ class AgentCoordinationToolProvider(
     }
 
     private inner class ClaimHandoffTool : AgentTool {
-        override val definition = AgentToolDefinition(AgentToolId.CLAIM_HANDOFF, "Claim one available handoff for the current agent.", Capability.EDIT_FILES, RiskLevel.R1, true)
+        override val definition = AgentToolDefinition(AgentToolId.CLAIM_HANDOFF, "Claim one available handoff for the current agent.", Capability.COORDINATE_AGENTS, RiskLevel.R1, true)
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
             val id = JSONObject(request.argumentsJson).optString("handoffId").trim()
             require(id.isNotBlank()) { "Handoff ID is required." }
@@ -79,7 +79,7 @@ class AgentCoordinationToolProvider(
     }
 
     private inner class CompleteHandoffTool : AgentTool {
-        override val definition = AgentToolDefinition(AgentToolId.COMPLETE_HANDOFF, "Mark a handoff completed after the receiving agent consumes it.", Capability.EDIT_FILES, RiskLevel.R1, true)
+        override val definition = AgentToolDefinition(AgentToolId.COMPLETE_HANDOFF, "Mark a handoff completed after the receiving agent consumes it.", Capability.COORDINATE_AGENTS, RiskLevel.R1, true)
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
             val id = JSONObject(request.argumentsJson).optString("handoffId").trim()
             require(id.isNotBlank()) { "Handoff ID is required." }
