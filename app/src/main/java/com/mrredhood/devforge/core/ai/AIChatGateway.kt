@@ -307,11 +307,6 @@ class AIChatGateway(
         require(model.id.length <= MAX_MODEL_ID_CHARS && SAFE_MODEL_ID.matches(model.id) && !model.id.contains("..") && !model.id.contains('\\') && !model.id.contains('?') && !model.id.contains('#')) {
             "The selected AI model identifier is invalid."
         }
-        if (model.provider == AIProvider.OPENROUTER && attachments.any { it.mimeType.startsWith("image/") }) {
-            require(model.isImageCapable) {
-                "This OpenRouter model does not advertise image input. Choose a model with image/vision input."
-            }
-        }
         if (model.provider == AIProvider.OPENAI_COMPATIBLE) AIProviderRegistry.validateCustomBaseUrl(customBaseUrl.orEmpty())
     }
 
