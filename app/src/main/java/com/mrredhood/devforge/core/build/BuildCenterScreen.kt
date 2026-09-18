@@ -356,7 +356,9 @@ private fun CapabilityRow(label: String, availability: CapabilityAvailability) {
 }
 
 private fun openUrl(context: android.content.Context, url: String) {
-    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    val uri = runCatching { Uri.parse(url.trim()) }.getOrNull() ?: return
+    if (!uri.scheme.equals("https", ignoreCase = true) || !uri.host.equals("github.com", ignoreCase = true)) return
+    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
 }
 
 private fun formatBytes(value: Long): String = when {
