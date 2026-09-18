@@ -207,17 +207,20 @@ class UnsupportedProviderAttachmentAdapter(
 }
 
 fun isTextLikeAttachment(attachment: ChatAttachment): Boolean =
-    attachment.mimeType.startsWith("text/") ||
-        attachment.mimeType == "application/json" ||
-        attachment.mimeType == "application/xml" ||
-        attachment.mimeType == "application/rtf" ||
-        attachment.mimeType == "text/csv" ||
-        attachment.name.endsWith(".kt", true) ||
-        attachment.name.endsWith(".java", true) ||
-        attachment.name.endsWith(".js", true) ||
-        attachment.name.endsWith(".ts", true) ||
-        attachment.name.endsWith(".py", true) ||
-        attachment.name.endsWith(".md", true)
+    isTextLikeAttachment(attachment.name, attachment.mimeType)
+
+fun isTextLikeAttachment(name: String, mimeType: String): Boolean =
+    mimeType.startsWith("text/") ||
+        mimeType == "application/json" ||
+        mimeType == "application/xml" ||
+        mimeType == "application/rtf" ||
+        mimeType == "text/csv" ||
+        name.endsWith(".kt", true) ||
+        name.endsWith(".java", true) ||
+        name.endsWith(".js", true) ||
+        name.endsWith(".ts", true) ||
+        name.endsWith(".py", true) ||
+        name.endsWith(".md", true)
 
 fun isBinaryAttachment(attachment: ChatAttachment): Boolean = !isTextLikeAttachment(attachment)
 
