@@ -85,8 +85,10 @@
 - [x] Capability/policy/approval-aware agent tool gateway
 - [x] Bounded SAF tools: read_file, list_files, search_workspace and write_file
 - [x] Persistent bounded agent-task engine with resumable steps, cancellation, receipts/results and approval waiting
+- [x] Persistent multi-agent workspace coordinator with up to 4 concurrent agents
 - [x] Agent task hard limits: 12 steps, bounded payload/result sizes and 60-second execution window
 - [x] Explicit per-agent-task path scopes persisted in the task plan
+- [x] Per-agent provider/model binding persisted independently
 - [x] Approval parameter hashes include the task path scope to prevent stale approval reuse after scope changes
 - [x] Workspace tool operations enforce path scopes and continue rejecting traversal/.git access
 - [x] Security regression tests for path traversal, scope boundaries, persisted scope and unsafe tool plans
@@ -94,6 +96,7 @@
 - [ ] Structured patch generation + diff-first approval workflow
 - [ ] Workspace symbol extraction/indexing
 - [ ] Workspace memory/knowledge layer
+- [ ] Multi-agent shared memory/handoff protocol
 
 ### Automation
 - [x] Durable automation definitions and run records
@@ -131,6 +134,7 @@
 2. Build cancellation and live credential runtime validation.
 3. Path-scoped persistent capability grants.
 4. AI structured patch generation + diff-first approval workflow.
+5. Multi-agent shared memory, handoffs and conflict-aware workspace coordination.
 
 ## Planned
 
@@ -181,6 +185,7 @@
 - [x] Fixed CI-reported Kotlin compile errors in navigation, automation scrolling/model syntax and Git history parser
 - [ ] Security hardening CI result verification
 - [ ] Biometric credential integration CI result verification
+- [ ] Parallel workspace agents CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
 - [ ] Maintained unit/UI/security regression suites
@@ -258,6 +263,15 @@
 - Added a dedicated Automation destination with rich trigger/action editing, explicit agent path scopes, run-now, enable/disable, delete and run-history controls.
 - Added focused regression coverage for repository/build/condition matching and repository fingerprint changes.
 
+
+### 2026-09-18 — Parallel workspace agents
+- Added a durable multi-agent coordinator allowing up to four independent agents to execute concurrently within a workspace.
+- Added per-agent provider/model bindings so agents can share one model/provider or mix different models and providers.
+- Added model-driven typed planning that converts each agent instruction into the existing bounded tool plan before execution.
+- Added per-agent Hold, Resume and Stop controls; holds are durable and survive process restart as paused work.
+- Added startup recovery that converts interrupted running/planning tasks to PAUSED instead of silently continuing.
+- Added a dedicated Agents primary destination and workspace agent dashboard.
+- Kept all agent tool execution behind the existing typed capability/approval/path-scope gateway; model output cannot bypass authorization.
 
 ### 2026-09-18 — Biometric credential integration
 - Added a centralized security-aware credential facade for AI and GitHub credentials.
