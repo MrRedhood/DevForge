@@ -38,10 +38,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
@@ -207,6 +203,9 @@ private fun ApprovalActionCard(action: ApprovalEntity, onApprove: (ApprovalEntit
             Text("Workspace: ${action.workspaceId}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Created: ${formatTime(action.createdAtEpochMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Expires: ${formatTime(action.expiresAtEpochMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (capability == Capability.PATCH_FILE.name) {
+                PatchApprovalPreview(action) { patchReady = it }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = { onApprove(action) }, enabled = patchReady, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Check, contentDescription = null)
