@@ -13,6 +13,7 @@ import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -143,8 +144,7 @@ class ParallelAgentCoordinator(context: Context) {
     }
 
     fun start(taskId: String) {
-        if (jobs.containsKey(taskId)) return
-        val job = scope.launch {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
             permits.acquire()
             try {
                 engine.run(taskId)
@@ -153,7 +153,12 @@ class ParallelAgentCoordinator(context: Context) {
                 jobs.remove(taskId)
             }
         }
-        jobs[taskId] = job
+        val previous = jobs.putIfAbsent(taskId, job)
+        if (previous == null) {
+            job.start()
+        } else {
+            job.cancel()
+        }
     }
 
     suspend fun pause(taskId: String): Boolean = engine.pause(taskId)
