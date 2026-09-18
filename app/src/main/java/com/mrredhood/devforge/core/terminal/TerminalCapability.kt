@@ -396,8 +396,7 @@ private class SandboxedTerminal(context: Context) {
     }
 
     private fun syncSandboxToWorkspace(sourceRoot: File, targetRoot: Uri) {
-        val budget = MirrorBudget()
-        syncDirectory(sourceRoot, targetRoot, budget, "")
+        syncDirectory(sourceRoot, targetRoot, MirrorBudget(), "")
     }
 
     private fun syncDirectory(source: File, target: Uri, budget: MirrorBudget, relativePath: String) {
@@ -428,13 +427,8 @@ private class SandboxedTerminal(context: Context) {
                 } ?: throw IOException("Unable to write workspace file: " + itemPath)
             }
         }
-        existing.values.forEach { orphan ->
-            if (orphan.name != ".git") {
-                if (!runCatching { DocumentsContract.deleteDocument(resolver, orphan.uri) }.isSuccess) {
-                    throw IOException("Unable to remove workspace entry: " + orphan.name)
-                }
-            }
-        }
+        // Do not delete entries that are absent from the mirrored subset.
+        // Deletion through the terminal is therefore intentionally non-destructive on SAF workspaces.
     }
 
     private fun listChildren(parent: Uri): List<DocumentRef> = runCatching {
