@@ -293,6 +293,13 @@
 - Preserved main-branch CI runs instead of cancelling them on every subsequent push; pull-request concurrency cancellation remains enabled.
 - Final placeholder scan: no TODO/FIXME/HACK/stub/coming-soon implementation placeholders; remaining no-op callbacks are disabled/read-only UI affordances.
 - CI validation remains pending for the current main snapshot and is intentionally not marked successful without a completed GitHub Actions result.
+### 2026-09-18 — AI streaming animation variety
+- Replaced the single streaming progress indicator in Chat with a reusable animated status component.
+- Added 12 lightweight animation variants: hammer, chainsaw, running man, thinking man, typing, rocket, coffee, gear, spark, wave, fire and robot.
+- Each generation selects a stable animation for its lifetime, while the component remains bounded and asset-free for mobile performance.
+- Streaming status is now visible immediately while a request is active, including the pre-first-token wait; response text remains optional until content arrives.
+- Added regression coverage for the animation catalog size, uniqueness and safe index wrapping.
+
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
 - AI output is untrusted data and cannot grant authorization.
