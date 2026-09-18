@@ -16,16 +16,14 @@ class TerminalCommandPolicyTest {
             "src",
             1_000L,
             "s",
-        ) as TerminalParsedCommand.External
-        assertEquals(TerminalExecutable.GREP, parsed.command.executable)
-        assertEquals(listOf("hello world", "Main.kt"), parsed.command.args)
+        ) as TerminalParsedCommand.Shell
+        assertEquals("""grep "hello world" Main.kt""", parsed.commandLine)
     }
 
     @Test
-    fun rejectsShellOperators() {
-        assertThrows(IllegalArgumentException::class.java) {
-            TerminalCommandParser.parse("ls | grep kt", "", 1_000L, "s")
-        }
+    fun parsesShellOperators() {
+        val parsed = TerminalCommandParser.parse("ls | grep kt", "", 1_000L, "s")
+        assertEquals(TerminalParsedCommand.Shell("ls | grep kt"), parsed)
     }
 
 
