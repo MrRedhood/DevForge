@@ -262,14 +262,15 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val history = buildBoundedHistory(model, messages)
                 val key = settings.getApiKey(provider) ?: error("API key is not configured.")
                 val attachmentContext = submittedAttachments.let(::formatAttachmentContext)
-                val userMessage = if (attachmentContext.isBlank()) raw else raw + "\\n\\n" + attachmentContext
+                val userMessage = if (attachmentContext.isBlank()) raw else raw + "\n\n" + attachmentContext
+                val effectiveInstruction = if (attachmentContext.isBlank()) finalInstruction else finalInstruction + "\n\n" + attachmentContext
                 chatRepository.addMessage(sessionId, "user", userMessage, parsed?.command?.name)
                 if (parsed?.command?.name == "help" || !model.supportsStreaming) {
-                    val response = if (parsed?.command?.name == "help") finalInstruction else chatGateway.send(model, key, history, finalInstruction)
+                    val response = if (parsed?.command?.name == "help") effectiveInstruction else chatGateway.send(model, key, history, effectiveInstruction)
                     chatRepository.addMessage(sessionId, "assistant", response)
                 } else {
                     val builder = StringBuilder()
-                    chatGateway.stream(model, key, history, finalInstruction).collect { chunk ->
+                    chatGateway.stream(model, key, history, effectiveInstruction).collect { chunk ->
                         builder.append(chunk)
                         partialResponse = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
                         val visible = partialResponse
@@ -325,10 +326,11 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 type = type,
             )
         }
-        val total = current.sumOf { it.sizeBytes }
-        attachments = if (total <= MAX_TOTAL_ATTACHMENT_BYTES) current else current.dropLastWhile {
-            current.sumOf { it.sizeBytes } > MAX_TOTAL_ATTACHMENT_BYTES
+        var bounded = current
+        while (bounded.sumOf { it.sizeBytes } > MAX_TOTAL_ATTACHMENT_BYTES && bounded.isNotEmpty()) {
+            bounded = bounded.dropLast(1)
         }
+        attachments = bounded
     }
 
     fun removeAttachment(uri: Uri) {
