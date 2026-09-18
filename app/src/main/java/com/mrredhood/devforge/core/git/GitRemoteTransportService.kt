@@ -187,7 +187,6 @@ class GitRemoteTransportService(
     private fun copySafNode(source: Uri, target: File, budget: CopyBudget, relativePath: String) {
         val metadata = queryDocument(source) ?: throw IOException("Unable to inspect workspace document.")
         if (metadata.isDirectory) {
-        if (metadata.isDirectory) {
             target.mkdirs()
             listChildren(source).forEach { child ->
                 val safeName = requireSafeDocumentName(child.name)
