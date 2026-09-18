@@ -20,6 +20,7 @@ enum class AgentToolId(val wireName: String) {
     READ_FILE("read_file"),
     LIST_FILES("list_files"),
     SEARCH_WORKSPACE("search_workspace"),
+    PATCH_FILE("patch_file"),
     WRITE_FILE("write_file"),
 }
 
