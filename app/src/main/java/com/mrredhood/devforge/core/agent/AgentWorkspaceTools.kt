@@ -350,7 +350,7 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         val parent = resolve(root, parts.dropLast(1).joinToString("/"))
         require(isDirectory(parent)) { "Parent path is not a directory." }
         require(findChild(parent, name) == null) { "File already exists: $normalized" }
-        val target = DocumentsContract.createDocument(resolver, parent, "text/plain", name)
+        val target = DocumentsContract.createDocument(resolver, documentParentUri(parent), "text/plain", name)
             ?: throw IOException("Unable to create $normalized")
         resolver.openOutputStream(target, "wt")?.use { it.write(bytes) }
             ?: throw IOException("Unable to write $normalized")
@@ -365,7 +365,7 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         require(findChild(parent, name) == null) { "Path already exists: $normalized" }
         DocumentsContract.createDocument(
             resolver,
-            parent,
+            documentParentUri(parent),
             DocumentsContract.Document.MIME_TYPE_DIR,
             name,
         ) ?: throw IOException("Unable to create folder $normalized")
@@ -391,7 +391,7 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         val parent = resolve(root, parentPath)
         require(isDirectory(parent)) { "Parent path is not a directory: $parentPath" }
         val target = findChild(parent, name)
-            ?: DocumentsContract.createDocument(resolver, parent, "text/plain", name)
+            ?: DocumentsContract.createDocument(resolver, documentParentUri(parent), "text/plain", name)
             ?: throw IOException("Unable to create $normalized")
         require(!isDirectory(target)) { "Cannot overwrite a directory: $normalized" }
         resolver.openOutputStream(target, "wt")?.use { output -> output.write(bytes) }
@@ -414,6 +414,11 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
                 ?: throw IllegalArgumentException("Workspace path does not exist: $normalized")
         }
         return current
+    }
+
+    private fun documentParentUri(parent: Uri): Uri {
+        val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(parent) }.getOrNull()
+        return treeDocumentId?.let { DocumentsContract.buildDocumentUriUsingTree(parent, it) } ?: parent
     }
 
     private fun findChild(parent: Uri, name: String): Uri? =
