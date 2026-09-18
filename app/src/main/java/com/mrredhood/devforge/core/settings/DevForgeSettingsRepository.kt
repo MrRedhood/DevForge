@@ -2,7 +2,7 @@ package com.mrredhood.devforge.core.settings
 
 import android.content.Context
 
-enum class ThemeMode { SYSTEM, DARK, LIGHT }
+enum class ThemeMode { SYSTEM, DARK, LIGHT, OBSIDIAN, NORD, OCEAN, FOREST, AMETHYST, SUNSET, CYBER, DRACULA, MONOKAI, SOLARIZED }
 enum class DensityMode { COMFORTABLE, COMPACT }
 enum class EditorFontSize(val sp: Int) { SMALL(13), MEDIUM(15), LARGE(18) }
 enum class AiRoutingMode { FIXED, BALANCED, LOW_COST, QUALITY }
