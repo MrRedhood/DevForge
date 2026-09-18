@@ -64,7 +64,7 @@ class AIChatGateway {
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             if (status !in 200..299) {
-                val detail = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val detail = stream?.use { it.readBounded(MAX_ERROR_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
                 val message = runCatching { JSONObject(detail).optString("message") }.getOrNull().orEmpty()
                 error(message.ifBlank { "AI streaming request failed (HTTP $status)." })
             }
@@ -126,7 +126,7 @@ class AIChatGateway {
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             if (status !in 200..299) {
-                val detail = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val detail = stream?.use { it.readBounded(MAX_ERROR_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
                 val message = runCatching { JSONObject(detail).optJSONObject("error")?.optString("message") }.getOrNull().orEmpty()
                 error(message.ifBlank { "AI streaming request failed (HTTP $status)." })
             }
@@ -235,7 +235,7 @@ class AIChatGateway {
         connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
         val status = connection.responseCode
         val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-        val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        val response = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
         connection.disconnect()
         if (status !in 200..299) {
             val detail = runCatching { JSONObject(response).optJSONObject("error")?.optString("message") }.getOrNull()
@@ -243,4 +243,25 @@ class AIChatGateway {
         }
         return JSONObject(response)
     }
+}
+
+
+private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 32 * 1024))
+    val buffer = ByteArray(8 * 1024)
+    var total = 0
+    while (total < maxBytes) {
+        val read = read(buffer, 0, minOf(buffer.size, maxBytes - total))
+        if (read <= 0) break
+        output.write(buffer, 0, read)
+        total += read
+    }
+    if (total >= maxBytes) error("AI response exceeded the DevForge response limit.")
+    return output.toByteArray()
+    private companion object {
+        const val MAX_STREAM_CHARS = 512 * 1024
+        const val MAX_RESPONSE_BYTES = 512 * 1024
+        const val MAX_ERROR_BYTES = 16 * 1024
+    }
+
 }
