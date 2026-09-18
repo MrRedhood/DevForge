@@ -187,9 +187,15 @@ class GitRemoteTransportService(
     private fun copySafNode(source: Uri, target: File, budget: CopyBudget, relativePath: String) {
         val metadata = queryDocument(source) ?: throw IOException("Unable to inspect workspace document.")
         if (metadata.isDirectory) {
+        if (metadata.isDirectory) {
             target.mkdirs()
-            listChildren(source).forEach { child -> copySafNode(child.uri, File(target, child.name), budget, if (relativePath.isBlank()) child.name else "$relativePath/${child.name}") }
+            listChildren(source).forEach { child ->
+                val safeName = requireSafeDocumentName(child.name)
+                val childPath = if (relativePath.isBlank()) safeName else relativePath + "/" + safeName
+                copySafNode(child.uri, File(target, safeName), budget, childPath)
+            }
             return
+        }
         }
         val length = metadata.size
         if (length > MAX_FILE_BYTES) throw IOException("Remote transport mirror encountered an oversized file: $relativePath")
@@ -263,6 +269,19 @@ class GitRemoteTransportService(
     }.getOrNull()
 
     private fun findDirectChild(parent: Uri, name: String): Uri? = listChildren(parent).firstOrNull { it.name == name }?.uri
+
+    private fun requireSafeDocumentName(name: String): String {
+        val value = name.trim()
+        require(
+            value.isNotBlank() &&
+                value != "." &&
+                value != ".." &&
+                "/" !in value &&
+                "\\" !in value &&
+                "\u0000" !in value,
+        ) { "Workspace contains an unsafe document name: " + name }
+        return value.take(255)
+    }
 
     private fun parseGitHubRemote(value: String?): ParsedRemote? {
         val raw = value?.trim().orEmpty()
