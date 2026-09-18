@@ -70,6 +70,50 @@ fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
             }
         }
         item {
+            Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Shared coordination", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        viewModel.sharedMemory.size.toString() + " shared notes · " +
+                            viewModel.handoffs.count { it.status != AgentHandoffStatus.COMPLETED.name }.toString() + " active handoffs · " +
+                            viewModel.fileLeases.size.toString() + " file locks",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (viewModel.sharedMemory.isEmpty()) {
+                        Text("No shared memory has been published yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        Text("Recent memory", fontWeight = FontWeight.Bold)
+                        viewModel.sharedMemory.take(5).forEach { memory ->
+                            Column {
+                                Text(memory.key, fontWeight = FontWeight.SemiBold)
+                                Text(memory.content.take(400), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    if (viewModel.handoffs.isNotEmpty()) {
+                        Text("Handoffs", fontWeight = FontWeight.Bold)
+                        viewModel.handoffs.take(5).forEach { handoff ->
+                            Text(
+                                handoff.title + " · " + handoff.status.replace("_", " "),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(handoff.summary.take(400), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (viewModel.fileLeases.isNotEmpty()) {
+                        Text("Active file locks", fontWeight = FontWeight.Bold)
+                        viewModel.fileLeases.take(5).forEach { lease ->
+                            Text(
+                                lease.path + " · agent " + lease.taskId.take(8),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
             Column {
                 Text("Workspace agents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
                 Text(viewModel.tasks.size.toString() + " persistent agent tasks", color = MaterialTheme.colorScheme.onSurfaceVariant)
