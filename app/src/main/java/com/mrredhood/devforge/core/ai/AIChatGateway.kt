@@ -2,6 +2,7 @@ package com.mrredhood.devforge.core.ai
 
 import java.net.HttpURLConnection
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -59,6 +60,7 @@ class AIChatGateway {
         connection.readTimeout = 120_000
         connection.setRequestProperty("x-goog-api-key", apiKey)
         connection.setRequestProperty("Content-Type", "application/json")
+        val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
         try {
             connection.outputStream.use { it.write(JSONObject().put("contents", contents).toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
@@ -94,6 +96,7 @@ class AIChatGateway {
                 }
             }
         } finally {
+            cancellationHandle?.dispose()
             connection.disconnect()
         }
     }
@@ -121,6 +124,7 @@ class AIChatGateway {
             connection.setRequestProperty("X-Title", "DevForge")
             connection.setRequestProperty("HTTP-Referer", "https://github.com/MrRedhood/DevForge")
         }
+        val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
         try {
             connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
@@ -150,6 +154,7 @@ class AIChatGateway {
                 }
             }
         } finally {
+            cancellationHandle?.dispose()
             connection.disconnect()
         }
     }
