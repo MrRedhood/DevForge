@@ -1,5 +1,6 @@
 package com.mrredhood.devforge.core.ai
 
+import android.content.Intent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,16 +47,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.mrredhood.devforge.core.ai.MarkdownText
+import com.mrredhood.devforge.core.picker.PickerBridge
+import com.mrredhood.devforge.core.picker.SystemPickerActivity
+import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
@@ -313,17 +317,44 @@ private fun CommandPalette(commands: List<AICommandDefinition>, onSelect: (AICom
 @Composable
 private fun ChatComposer(viewModel: AIChatViewModel) {
     var attachmentMenuOpen by remember { mutableStateOf(false) }
-    var pendingAttachmentType by remember { mutableStateOf<ChatAttachmentType?>(null) }
-    val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        val type = pendingAttachmentType
-        pendingAttachmentType = null
-        if (type != null && uris.isNotEmpty()) viewModel.addAttachments(uris.distinct(), type)
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        PickerBridge.results.collectLatest { result ->
+            val type = when (result.kind) {
+                SystemPickerActivity.KIND_PHOTO -> ChatAttachmentType.PHOTO
+                SystemPickerActivity.KIND_VIDEO -> ChatAttachmentType.VIDEO
+                SystemPickerActivity.KIND_AUDIO -> ChatAttachmentType.AUDIO
+                SystemPickerActivity.KIND_DOCUMENT -> ChatAttachmentType.DOCUMENT
+                else -> ChatAttachmentType.ANY_FILE
+            }
+            if (!result.cancelled && result.uris.isNotEmpty()) {
+                viewModel.addAttachments(result.uris.distinct(), type)
+            }
+        }
     }
 
     fun launchPicker(type: ChatAttachmentType) {
         attachmentMenuOpen = false
-        pendingAttachmentType = type
-        attachmentPicker.launch(arrayOf(attachmentFallbackMimeType(type)))
+        val activity = context as? FragmentActivity
+        if (activity == null) {
+            viewModel.reportAttachmentPickerError(IllegalStateException("Unable to access the current Activity."))
+            return
+        }
+        val kind = when (type) {
+            ChatAttachmentType.PHOTO -> SystemPickerActivity.KIND_PHOTO
+            ChatAttachmentType.VIDEO -> SystemPickerActivity.KIND_VIDEO
+            ChatAttachmentType.AUDIO -> SystemPickerActivity.KIND_AUDIO
+            ChatAttachmentType.DOCUMENT -> SystemPickerActivity.KIND_DOCUMENT
+            ChatAttachmentType.ANY_FILE -> SystemPickerActivity.KIND_ATTACHMENTS
+        }
+        runCatching {
+            activity.startActivityForResult(
+                Intent(context, SystemPickerActivity::class.java)
+                    .putExtra(SystemPickerActivity.EXTRA_KIND, kind),
+                SystemPickerActivity.PICKER_REQUEST_CODE,
+            )
+        }.onFailure { viewModel.reportAttachmentPickerError(it) }
     }
 
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
