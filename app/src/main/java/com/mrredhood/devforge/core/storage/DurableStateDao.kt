@@ -86,8 +86,18 @@ interface AutomationDao {
     @Query("DELETE FROM automation_definitions WHERE automationId = :automationId")
     suspend fun delete(automationId: String)
 
+    @Query("SELECT * FROM automation_runs WHERE automationId = :automationId AND status IN ('RUNNING','WAITING_APPROVAL') ORDER BY startedAtEpochMs DESC LIMIT 1")
+    suspend fun activeRun(automationId: String): AutomationRunEntity?
+
     @Query("SELECT * FROM automation_runs WHERE automationId = :automationId ORDER BY startedAtEpochMs DESC LIMIT :limit")
     suspend fun recentRuns(automationId: String, limit: Int): List<AutomationRunEntity>
+
+    @androidx.room.Transaction
+    suspend fun insertRunIfNoActive(run: AutomationRunEntity): Boolean {
+        if (activeRun(run.automationId) != null) return false
+        upsertRun(run)
+        return true
+    }
 
     @Query("SELECT * FROM automation_runs WHERE runId = :runId LIMIT 1")
     suspend fun getRun(runId: String): AutomationRunEntity?
