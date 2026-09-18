@@ -27,6 +27,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
     private var tasksJob: Job? = null
     private var memoryJob: Job? = null
     private var handoffsJob: Job? = null
+    private var leaseRefreshJob: Job? = null
 
     var workspaceId by mutableStateOf<String?>(null)
         private set
@@ -37,6 +38,8 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
     var sharedMemory by mutableStateOf<List<com.mrredhood.devforge.core.storage.AgentSharedMemoryEntity>>(emptyList())
         private set
     var handoffs by mutableStateOf<List<com.mrredhood.devforge.core.storage.AgentHandoffEntity>>(emptyList())
+        private set
+    var fileLeases by mutableStateOf<List<com.mrredhood.devforge.core.storage.AgentFileLeaseEntity>>(emptyList())
         private set
     var title by mutableStateOf("")
     var instruction by mutableStateOf("")
@@ -57,11 +60,13 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 tasksJob?.cancel()
                 memoryJob?.cancel()
                 handoffsJob?.cancel()
+                leaseRefreshJob?.cancel()
                 workspaceId = workspace?.id
                 workspaceName = workspace?.name
                 tasks = emptyList()
                 sharedMemory = emptyList()
                 handoffs = emptyList()
+                fileLeases = emptyList()
                 if (workspace == null) return@collectLatest
                 coordinator.recoverWorkspace(workspace.id)
                 tasksJob = launch {
@@ -72,6 +77,12 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 }
                 handoffsJob = launch {
                     coordination.observeHandoffs(workspace.id).collect { values -> handoffs = values }
+                }
+                leaseRefreshJob = launch(Dispatchers.IO) {
+                    while (true) {
+                        fileLeases = coordination.listFileLeases(workspace.id)
+                        kotlinx.coroutines.delay(5_000L)
+                    }
                 }
             }
         }
@@ -131,6 +142,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         tasksJob?.cancel()
         memoryJob?.cancel()
         handoffsJob?.cancel()
+        leaseRefreshJob?.cancel()
         coordinator.close()
         super.onCleared()
     }
