@@ -63,7 +63,7 @@ class CodeSyntaxVisualTransformation(
     }
 
     private companion object {
-        val STRING_REGEX = Regex(""(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'")
+        val STRING_REGEX = Regex("""("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')""")
         val COMMENT_REGEX = Regex("//[^\\n]*|/\\*[\\s\\S]*?\\*/|#[^\\n]*")
         val NUMBER_REGEX = Regex("\\b(?:0x[0-9A-Fa-f]+|\\d+(?:\\.\\d+)?)\\b")
         val COMMON = setOf(
