@@ -23,12 +23,19 @@ data class WorkspacePathScope(
         return normalized
     }
 
-    fun canonicalPrefixes(): List<String> = allowedPrefixes.map { normalize(it, allowEmpty = true) }.distinct().sorted()
+    fun canonicalPrefixes(): List<String> = allowedPrefixes
+        .map { normalize(it, allowEmpty = true) }
+        .filter(String::isNotEmpty)
+        .distinct()
+        .sorted()
 
     /** Returns true when this granted scope completely contains the required action scope. */
     fun covers(required: WorkspacePathScope): Boolean {
         val granted = canonicalPrefixes()
-        if (granted.any { it.isEmpty() }) return true
+        val grantedIsRoot = allowedPrefixes.any { normalize(it, allowEmpty = true).isEmpty() }
+        val requiredIsRoot = required.allowedPrefixes.any { normalize(it, allowEmpty = true).isEmpty() }
+        if (grantedIsRoot) return true
+        if (requiredIsRoot) return false
         return required.canonicalPrefixes().all { requiredPrefix ->
             granted.any { grantedPrefix ->
                 requiredPrefix == grantedPrefix || requiredPrefix.startsWith("$grantedPrefix/")
