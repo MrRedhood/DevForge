@@ -93,10 +93,10 @@
 - [x] Approval parameter hashes include the task path scope to prevent stale approval reuse after scope changes
 - [x] Workspace tool operations enforce path scopes and continue rejecting traversal/.git access
 - [x] Security regression tests for path traversal, scope boundaries, persisted scope and unsafe tool plans
-- [ ] Streaming responses
+- [x] Streaming responses
 - [x] Structured patch generation + diff-first approval workflow
-- [ ] Workspace symbol extraction/indexing
-- [ ] Workspace memory/knowledge layer
+- [x] Workspace symbol extraction/indexing
+- [x] Workspace memory/knowledge layer
 - [x] Multi-agent shared memory/handoff protocol
 - [x] Durable per-file mutation leases and post-lease precondition revalidation
 
@@ -125,24 +125,24 @@
 ### Settings / UX
 - [x] AI provider selection UI
 - [x] Secure API-key save/remove UI with masked key field
-- [ ] AI model defaults/routing settings
-- [ ] GitHub repository settings
-- [ ] Build/terminal/automation/security settings
-- [ ] Privacy/data-retention settings
-- [ ] Theme/density/editor preferences
+- [x] AI model defaults/routing settings
+- [x] GitHub repository settings
+- [x] Build/terminal/automation/security settings
+- [x] Privacy/data-retention settings
+- [x] Theme/density/editor preferences
 
 ## In Progress / Next Sequence
-1. Maintained unit/UI/security regression suites and broader validation.
-2. Reliability/observability improvements as needed.
+1. Current CI validation and evidence capture for the newly implemented feature set.
+2. Production release-signing validation when production signing material is configured.
 
 ## Planned
 
 ### Editor Intelligence
-- [ ] Syntax highlighting/language-aware editing
-- [ ] Problems/diagnostics panel
-- [ ] Undo/redo, find/replace and go-to-line/symbol
-- [ ] Code folding and selection/edit actions
-- [ ] Large-file safeguards/editor preferences
+- [x] Syntax highlighting/language-aware editing
+- [x] Problems/diagnostics panel
+- [x] Undo/redo, find/replace and go-to-line/symbol
+- [x] Code folding and selection/edit actions
+- [x] Large-file safeguards/editor preferences
 
 ### Terminal / Execution
 - [x] Sandboxed terminal capability
@@ -151,8 +151,8 @@
 - [x] Cancel/terminate handling for the native process runner
 - [x] No unrestricted arbitrary AI shell access
 - [x] Terminal capability remains separate from the provider-neutral AI agent tool registry
-- [ ] Streaming terminal output
-- [ ] Terminal sessions/tabs
+- [x] Streaming terminal output
+- [x] Terminal sessions/tabs
 
 ### Automation Expansion
 - [x] Repository-change triggers
@@ -160,7 +160,7 @@
 - [x] Capability-scoped action graphs through typed agent plans
 - [x] Approval checkpoints through the shared agent gateway
 - [x] Initial event idempotency/deduplication guard through durable trigger state and WorkManager unique work
-- [ ] Cross-event orchestration and richer recovery semantics
+- [x] Cross-event orchestration and richer recovery semantics
 - [x] Pause/enable/disable controls and automation editor
 
 ### Quality / Observability
@@ -175,7 +175,6 @@
 - [x] Structured diagnostics
 - [x] Crash/recovery validation
 - [x] Security/redaction regression tests
-- [x] Agent execution timeline and lifecycle correlation
 - [x] Agent execution timeline and lifecycle correlation
 
 ## Validation
@@ -200,7 +199,7 @@
 - [ ] Current crash/recovery CI result verification
 - [ ] Current security/redaction CI result verification
 - [ ] Current agent observability CI result verification
-- [ ] Maintained unit/UI/security regression suites
+- [x] Maintained unit/UI/security regression suites
 
 ### 2026-09-18 — Android lint validation
 - Extended the Android CI workflow with an explicit `:app:lintDebug` validation step after the maintained unit-test suite.
@@ -246,6 +245,35 @@
 - Startup recovery now releases interrupted task file leases immediately instead of waiting for lease expiry.
 - Agents UI now shows a bounded execution timeline correlated to each task through its task-scoped audit action IDs.
 - Lifecycle summaries and persisted metadata remain redacted/bounded at the audit boundary.
+
+### 2026-09-18 — Comprehensive settings and retention
+- Added durable DevForge preferences for AI routing, GitHub repository defaults, build/terminal/automation limits, privacy retention and appearance/editor preferences.
+- Wired build polling, automation monitoring cadence and startup data-retention pruning to those settings.
+- Integrated configurable theme/density and editor font/wrap/visible-whitespace behavior.
+
+### 2026-09-18 — AI streaming and routing
+- Added bounded SSE streaming for Gemini, OpenRouter and OpenAI-compatible chat endpoints.
+- Added deterministic cancellation cleanup with partial-response persistence and a Stop control.
+- Added fixed, balanced, low-cost and quality model-routing modes while preserving explicit saved-model selection.
+
+### 2026-09-18 — Workspace intelligence
+- Added a bounded SAF-backed symbol extractor/index with workspace-wide file budgets.
+- Added durable workspace knowledge notes with size limits and likely-secret rejection.
+- Fed workspace knowledge into agent planning explicitly as untrusted context.
+
+### 2026-09-18 — Editor intelligence
+- Added lightweight language detection, syntax highlighting, bracket/string diagnostics and fold ranges.
+- Added undo/redo with bounded memory, find/replace, go-to-line, symbol navigation and selection actions.
+- Added large-file safeguards and visible-whitespace transformation.
+
+### 2026-09-18 — Terminal sessions and streaming
+- Added bounded terminal sessions/tabs and live chunked native process output.
+- Preserved the existing executable allowlist, sandbox, timeout/output limits and approval checks.
+
+### 2026-09-18 — Automation orchestration and recovery
+- Extended condition triggers to match multiple repository/build event types through bounded event sets and wildcard conditions.
+- Stale automation recovery now cancels linked agent tasks, records recovery audit events and preserves the durable run as the source of truth.
+- User cancellation is now explicitly audited.
 
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
