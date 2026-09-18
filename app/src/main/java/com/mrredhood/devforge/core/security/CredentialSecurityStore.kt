@@ -22,10 +22,6 @@ class CredentialSecurityStore(context: Context) : SecretStore {
     fun canAuthenticate(): Boolean = biometric.canAuthenticate()
 
     fun unlock(activity: FragmentActivity, onResult: (Boolean, String?) -> Unit) {
-        if (!isProtectionEnabled) {
-            onResult(true, null)
-            return
-        }
         biometric.authenticate(activity, onResult)
     }
 
