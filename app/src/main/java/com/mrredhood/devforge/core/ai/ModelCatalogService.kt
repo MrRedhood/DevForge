@@ -207,14 +207,20 @@ class ModelCatalogService {
     private fun isSafeModelId(value: String): Boolean =
         value.length <= 180 && SAFE_MODEL_ID.matches(value) && !value.contains("..")
 
+    private fun isSafeModelId(value: String): Boolean =
+        value.length <= 180 && SAFE_MODEL_ID.matches(value) && !value.contains("..")
+
     private fun jsonArrayStrings(array: org.json.JSONArray?): Set<String> = buildSet {
         if (array == null) return@buildSet
-        for (index in 0 until array.length()) array.optString(index).takeIf { it.isNotBlank() }?.let(::add)
+        for (index in 0 until array.length()) {
+            array.optString(index).takeIf { it.isNotBlank() }?.let(::add)
+        }
+    }
+
     private companion object {
         private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
         private const val MAX_WEB_RESPONSE_BYTES = 512 * 1024
         private val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
-    }
     }
 }
 
@@ -223,7 +229,6 @@ private fun JSONObject.optLongOrNull(key: String): Long? =
 
 private fun JSONObject.optDoubleOrNull(key: String): Double? =
     if (!has(key) || isNull(key)) null else optDouble(key).takeIf { !it.isNaN() }
-
 
 private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
     val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 32 * 1024))
