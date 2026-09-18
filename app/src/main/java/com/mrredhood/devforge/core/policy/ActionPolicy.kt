@@ -8,6 +8,7 @@ enum class RiskLevel { R0, R1, R2, R3, R4, R5 }
 enum class Capability {
     READ_WORKSPACE,
     EDIT_FILES,
+    COORDINATE_AGENTS,
     DELETE_FILES,
     RUN_CHECK,
     RUN_TERMINAL,
