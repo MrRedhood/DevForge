@@ -8,6 +8,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.ai.AIProvider
 import com.mrredhood.devforge.core.ai.AISettingsRepository
+import com.mrredhood.devforge.core.ai.AIModelInfo
+import com.mrredhood.devforge.core.ai.ModelCatalogService
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.storage.AuditEventEntity
@@ -16,11 +18,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 
+data class AgentLaunchDraft(
+    val id: String,
+    val profileId: String,
+    val title: String,
+    val instruction: String,
+    val provider: AIProvider,
+    val modelId: String,
+    val modelName: String,
+    val scopeText: String,
+)
+
 class AgentCenterViewModel(application: Application) : AndroidViewModel(application) {
+    companion object {
+        const val MAX_LAUNCH_AGENTS = 10
+    }
+
     private val workspaceRepository = WorkspaceDatabaseRepository(application)
     private val settings = AISettingsRepository(application)
+    private val catalogService = ModelCatalogService()
+    private val profileRepository = AgentProfileRepository(application)
     private val database = com.mrredhood.devforge.core.storage.DevForgeDatabase.get(application)
     private val durable = DurableStateRepository(database)
     private val coordinator = ParallelAgentCoordinator(application)
@@ -56,6 +77,12 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
     var message by mutableStateOf<String?>(null)
         private set
     var assigning by mutableStateOf(false)
+        private set
+    var profiles by mutableStateOf<List<AgentProfile>>(profileRepository.list())
+        private set
+    var modelsByProvider by mutableStateOf<Map<AIProvider, List<AIModelInfo>>>(emptyMap())
+        private set
+    var loadingProviders by mutableStateOf<Set<AIProvider>>(emptySet())
         private set
 
     init {
@@ -95,6 +122,100 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 }
                 auditJob = launch {
                     durable.observeWorkspaceAudit(workspace.id, 100).collect { values -> auditEvents = values }
+                }
+            }
+        }
+    }
+
+    fun modelOptions(provider: AIProvider): List<AIModelInfo> = modelsByProvider[provider].orEmpty()
+
+    fun loadModels(provider: AIProvider, force: Boolean = false) {
+        if (loadingProviders.contains(provider)) return
+        if (!force && !modelsByProvider[provider].isNullOrEmpty()) return
+        val key = settings.getApiKey(provider) ?: return
+        loadingProviders = loadingProviders + provider
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching { catalogService.load(provider, key) }
+            launch(Dispatchers.Main.immediate) {
+                result.getOrNull()?.let { modelsByProvider = modelsByProvider + (provider to it.models) }
+                loadingProviders = loadingProviders - provider
+                result.exceptionOrNull()?.message?.let { message = it }
+            }
+        }
+    }
+
+    fun saveProfile(profile: AgentProfile) {
+        runCatching { profileRepository.save(profile) }
+            .onSuccess { values -> profiles = values; message = "Saved agent profile." }
+            .onFailure { error -> message = error.message ?: "Unable to save agent profile." }
+    }
+
+    fun deleteProfile(profileId: String) {
+        runCatching { profileRepository.delete(profileId) }
+            .onSuccess { values -> profiles = values; message = "Deleted custom agent profile." }
+            .onFailure { error -> message = error.message ?: "Unable to delete agent profile." }
+    }
+
+    fun assignBatch(drafts: List<AgentLaunchDraft>) {
+        val workspace = workspaceId
+        if (workspace == null) {
+            message = "Choose a workspace before launching agents."
+            return
+        }
+        if (assigning) return
+        val valid = drafts.filter { it.instruction.isNotBlank() }.take(MAX_LAUNCH_AGENTS)
+        if (valid.isEmpty()) {
+            message = "Add at least one agent task."
+            return
+        }
+        val selectedProfiles = valid.associateWith { draft -> profiles.firstOrNull { it.id == draft.profileId } }
+        if (selectedProfiles.values.any { it == null }) {
+            message = "Select a valid agent profile for every task."
+            return
+        }
+        if (valid.any { it.modelId.isBlank() }) {
+            message = "Every agent needs a model."
+            return
+        }
+
+        assigning = true
+        message = null
+        viewModelScope.launch(Dispatchers.IO) {
+            val deferred = valid.map { draft ->
+                async {
+                    val profile = selectedProfiles.getValue(draft)!!
+                    coordinator.assign(
+                        AgentAssignment(
+                            workspaceId = workspace,
+                            title = draft.title.ifBlank { profile.name }.take(200),
+                            instruction = buildString {
+                                append(profile.instructions)
+                                append("\n\nUser-assigned task:\n")
+                                append(draft.instruction.take(60_000))
+                            },
+                            model = AgentModelBinding(
+                                draft.provider,
+                                draft.modelId.trim(),
+                                draft.modelName.ifBlank { draft.modelId.trim() },
+                            ),
+                            pathScope = runCatching {
+                                val values = draft.scopeText.split(',').map(String::trim).filter(String::isNotBlank)
+                                WorkspacePathScope(if (values.isEmpty()) listOf("") else values)
+                            }.getOrElse { throw IllegalArgumentException(it.message ?: "Invalid path scope.") },
+                            access = profile.access,
+                        )
+                    )
+                }
+            }
+            val results = deferred.map { runCatching { it.await() } }.awaitAll()
+            val successes = results.count { it.isSuccess }
+            val failures = results.mapNotNull { it.exceptionOrNull()?.message }.take(2)
+            launch(Dispatchers.Main.immediate) {
+                assigning = false
+                message = if (failures.isEmpty()) {
+                    "Started " + successes + " agent" + if (successes == 1) "" else "s" + "."
+                } else {
+                    "Started " + successes + " agent" + if (successes == 1) "" else "s" + "; " + failures.joinToString(" · ")
                 }
             }
         }
