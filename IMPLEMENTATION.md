@@ -169,7 +169,7 @@
 - [x] Maintained pure-Kotlin regression suite for bounded/security-critical domain rules
 - [x] Maintained unit-test suite for agent plans, workspace scopes, terminal policy and automation triggers
 - [ ] Compose/UI tests
-- [ ] Static analysis/lint pipeline
+- [x] Static analysis/lint pipeline
 - [ ] Release build validation
 - [ ] Performance/budget checks
 - [ ] Structured diagnostics
@@ -192,7 +192,13 @@
 - [ ] Multi-agent coordination CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
+- [ ] Current lint CI result verification
 - [ ] Maintained unit/UI/security regression suites
+
+### 2026-09-18 — Android lint validation
+- Extended the Android CI workflow with an explicit `:app:lintDebug` validation step after the maintained unit-test suite.
+- Lint failures now fail the CI job instead of being hidden behind the APK build result.
+- CI retains bounded HTML/XML/SARIF lint reports as a diagnostic artifact when produced; no local or remote CI result is marked successful until observed.
 
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
