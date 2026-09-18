@@ -25,6 +25,6 @@ object AgentRuntime {
             coordination = AgentCoordinationService(database),
             permissionMode = permissionMode,
         )
-        return AgentTaskEngine(durableState, gateway)
+        return AgentTaskEngine(durableState, gateway, AgentCoordinationService(database))
     }
 }
