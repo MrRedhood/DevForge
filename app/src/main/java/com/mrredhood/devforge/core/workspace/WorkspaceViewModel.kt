@@ -95,17 +95,33 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun openWorkspace(uri: Uri, takePersistablePermission: Boolean = true) {
         if (takePersistablePermission) {
-            runCatching {
+            val persisted = runCatching {
                 resolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                 )
+                true
+            }.getOrElse {
+                knowledgeMessage = "DevForge could not persist access to that folder. Choose the folder again or use a provider that supports persistent document permissions."
+                false
             }
+            if (!persisted) return
         }
+
         val name = uri.lastPathSegment?.substringAfterLast(':')?.ifBlank { null } ?: "Workspace"
         val newWorkspace = Workspace(name = name, treeUri = uri)
         clearSearch()
-        viewModelScope.launch(Dispatchers.IO) { repository.saveAndActivate(newWorkspace) }
+        knowledgeMessage = null
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching { tree.list(uri, 1) }
+            result.onSuccess {
+                repository.saveAndActivate(newWorkspace)
+            }.onFailure { error ->
+                launch(Dispatchers.Main.immediate) {
+                    knowledgeMessage = error.message ?: "The selected workspace could not be opened."
+                }
+            }
+        }
     }
 
     fun switchWorkspace(id: String) {
