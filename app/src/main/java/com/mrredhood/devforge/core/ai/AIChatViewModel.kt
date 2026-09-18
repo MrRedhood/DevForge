@@ -315,9 +315,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     fun addAttachments(uris: List<Uri>, type: ChatAttachmentType) {
         if (uris.isEmpty()) return
-        val baseline = attachments
         viewModelScope.launch(Dispatchers.IO) {
-            val additions = uris.take(MAX_ATTACHMENTS - baseline.size).mapNotNull { uri ->
+            val additions = uris.mapNotNull { uri ->
                 runCatching {
                     runCatching {
                         resolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -329,14 +328,20 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }.getOrNull()
             }
             withContext(Dispatchers.Main.immediate) {
+                val baseline = attachments
+                val baselineUris = baseline.asSequence().map { it.uri }.toSet()
                 var bounded = (baseline + additions).distinctBy { it.uri }
+                while (bounded.size > MAX_ATTACHMENTS && bounded.isNotEmpty()) {
+                    bounded = bounded.dropLast(1)
+                }
                 while (bounded.sumOf { it.sizeBytes } > MAX_TOTAL_ATTACHMENT_BYTES && bounded.isNotEmpty()) {
                     bounded = bounded.dropLast(1)
                 }
                 attachments = bounded
-                val rejected = uris.size - additions.size
+                val accepted = additions.count { it.uri in bounded.asSequence().map { item -> item.uri }.toSet() && it.uri !in baselineUris }
+                val rejected = uris.size - accepted
                 if (rejected > 0) {
-                    sendError = rejected.toString() + " attachment(s) were rejected by type or size validation."
+                    sendError = rejected.toString() + " attachment(s) were rejected by type, size, or pending limits."
                 }
             }
         }
@@ -491,7 +496,7 @@ enum class ChatAttachmentType(val maxBytes: Long) {
         PHOTO -> mime.startsWith("image/")
         VIDEO -> mime.startsWith("video/")
         AUDIO -> mime.startsWith("audio/")
-        DOCUMENT -> !mime.startsWith("image/") && !mime.startsWith("video/") && !mime.startsWith("audio/")
+        DOCUMENT -> mime.startsWith("text/") || mime == "application/pdf" || mime == "application/json" || mime == "application/xml" || mime == "application/rtf" || mime == "text/csv" || mime == "application/msword" || mime == "application/vnd.ms-excel" || mime == "application/vnd.ms-powerpoint" || mime.startsWith("application/vnd.openxmlformats-officedocument.") || mime == "application/epub+zip"
     }
 
     val label: String get() = when (this) {
