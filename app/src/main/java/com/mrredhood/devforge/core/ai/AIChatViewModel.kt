@@ -155,12 +155,33 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             val result = catalogService.load(provider, key, settings.customBaseUrl(provider))
             launch(Dispatchers.Main.immediate) {
-                models = result.models
-                modelError = result.warning
+                val savedModelId = settings.selectedModelId(provider)
+                val fallbackModels = if (
+                    provider == AIProvider.OPENAI_COMPATIBLE &&
+                    result.models.isEmpty() &&
+                    !savedModelId.isNullOrBlank()
+                ) {
+                    listOf(
+                        AIModelInfo(
+                            provider = provider,
+                            id = savedModelId,
+                            displayName = savedModelId,
+                            metadataSource = "Saved custom model",
+                        ),
+                    )
+                } else {
+                    result.models
+                }
+                models = fallbackModels
+                modelError = if (fallbackModels !== result.models && result.warning != null) {
+                    result.warning + " Using the saved custom model ID."
+                } else {
+                    result.warning
+                }
                 isLoadingModels = false
                 selectedModel = AIModelRouter.choose(
-                    models = result.models,
-                    savedModelId = settings.selectedModelId(provider),
+                    models = fallbackModels,
+                    savedModelId = savedModelId,
                     mode = appSettings.snapshot().aiRoutingMode,
                 ) ?: selectedModel?.takeIf { it.provider == provider }
                 selectedModel?.let { selectModelInternal(it) }
