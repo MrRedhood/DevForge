@@ -36,7 +36,7 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
                 apiKey = ""
                 status = "Saved securely. Open Chat and tap the model dropdown to load models."
             }
-            .onFailure { error -> status = error.message ?: "Unable to save the API key." }
+            .onFailure { error -> status = friendlyCredentialError(error, "Unable to save the API key.") }
     }
 
     private fun statusFor(value: AIProvider): String = when {
@@ -51,6 +51,20 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
                 apiKey = ""
                 status = "API key removed."
             }
-            .onFailure { error -> status = error.message ?: "Unable to remove the API key." }
+            .onFailure { error -> status = friendlyCredentialError(error, "Unable to remove the API key.") }
     }
+
+    private fun friendlyCredentialError(error: Throwable, fallback: String): String {
+        val message = error.message.orEmpty()
+        return when {
+            message.contains("KeyGenParameterSpec", ignoreCase = true) ||
+                message.contains("AndroidKeyStore", ignoreCase = true) ||
+                message.contains("keystore", ignoreCase = true) ->
+                "Android Keystore could not initialize. No credential was stored."
+            message.contains("biometric authentication", ignoreCase = true) ->
+                "Unlock protected credentials before changing this key."
+            else -> fallback
+        }
+    }
+
 }
