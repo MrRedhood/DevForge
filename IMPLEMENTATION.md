@@ -171,7 +171,7 @@
 - [x] Compose/UI tests
 - [x] Static analysis/lint pipeline
 - [x] Release build validation
-- [ ] Performance/budget checks
+- [x] Performance/budget checks
 - [ ] Structured diagnostics
 - [ ] Crash/recovery validation
 - [ ] Security/redaction regression tests
@@ -212,6 +212,11 @@
 - Added a dedicated release-validation workflow that builds both the release APK and release AAB without production signing secrets.
 - The workflow verifies both unsigned artifacts are non-empty and records SHA-256 hashes before uploading them for inspection.
 - Signed release APK/AAB validation remains a separate concern and stays dependent on configured production signing material.
+
+### 2026-09-18 — Performance and build budgets
+- Added a reusable `tools/check-build-budget.sh` guard for bounded artifact size, SHA-256 reporting and optional build-time budgets.
+- Release validation now enforces an 80 MiB ceiling for the unsigned APK and AAB and a 15-minute combined Gradle release-build budget.
+- Budgets are explicit CI guardrails rather than runtime limits; observed CI results remain tracked separately.
 
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
