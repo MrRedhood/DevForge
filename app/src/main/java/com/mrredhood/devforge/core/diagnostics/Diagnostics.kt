@@ -108,7 +108,7 @@ object DiagnosticTextParser {
             val groups = match.groupValues
             val path = groups[1].trim().ifBlank { null }
             val lineNumber = groups[2].toIntOrNull()
-            val column = groups[3].toIntOrNull().takeIf { groups.size > 3 && it > 0 }
+            val column = groups.getOrNull(3)?.toIntOrNull()?.takeIf { it > 0 }
             val rawMessage = groups.last().trim()
             val severity = when {
                 Regex("\\berror\\b", RegexOption.IGNORE_CASE).containsMatchIn(text) -> DiagnosticSeverity.ERROR
