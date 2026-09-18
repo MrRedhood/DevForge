@@ -41,7 +41,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
     private val workspaceRepository = WorkspaceDatabaseRepository(application)
     private val settings = AISettingsRepository(application)
     private val catalogService = ModelCatalogService()
-    private val profileRepository = AgentProfileRepository(application)
+    private val profileRepository = AgentProfileRepository()
     private val database = com.mrredhood.devforge.core.storage.DevForgeDatabase.get(application)
     private val durable = DurableStateRepository(database)
     private val coordinator = ParallelAgentCoordinator(application)
@@ -142,18 +142,6 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 result.exceptionOrNull()?.message?.let { message = it }
             }
         }
-    }
-
-    fun saveProfile(profile: AgentProfile) {
-        runCatching { profileRepository.save(profile) }
-            .onSuccess { values -> profiles = values; message = "Saved agent profile." }
-            .onFailure { error -> message = error.message ?: "Unable to save agent profile." }
-    }
-
-    fun deleteProfile(profileId: String) {
-        runCatching { profileRepository.delete(profileId) }
-            .onSuccess { values -> profiles = values; message = "Deleted custom agent profile." }
-            .onFailure { error -> message = error.message ?: "Unable to delete agent profile." }
     }
 
     fun assignBatch(drafts: List<AgentLaunchDraft>) {
