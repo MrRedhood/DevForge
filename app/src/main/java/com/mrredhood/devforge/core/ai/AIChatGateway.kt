@@ -164,7 +164,18 @@ class AIChatGateway {
     private fun validateRequest(model: AIModelInfo, apiKey: String, userInstruction: String) {
         require(apiKey.isNotBlank() && apiKey.length <= MAX_API_KEY_CHARS) { "The AI credential is invalid or too large." }
         require(userInstruction.length <= MAX_INSTRUCTION_CHARS) { "The AI instruction exceeds the supported request limit." }
-        require(model.id.length <= MAX_MODEL_ID_CHARS && SAFE_MODEL_ID.matches(model.id) && !model.id.contains("..")) {
+        val modelPattern = when (model.provider) {
+            AIProvider.GEMINI -> GEMINI_MODEL_ID
+            AIProvider.OPENROUTER, AIProvider.OPENAI -> SAFE_MODEL_ID
+        }
+        require(
+            model.id.length <= MAX_MODEL_ID_CHARS &&
+                modelPattern.matches(model.id) &&
+                !model.id.contains("..") &&
+                !model.id.contains('\\') &&
+                !model.id.contains('?') &&
+                !model.id.contains('#')
+        ) {
             "The selected AI model identifier is invalid."
         }
     }
@@ -243,6 +254,7 @@ class AIChatGateway {
     private fun request(url: String, body: JSONObject, headers: Map<String, String>): JSONObject {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
+        connection.instanceFollowRedirects = false
         connection.doOutput = true
         connection.connectTimeout = 15_000
         connection.readTimeout = 120_000
@@ -267,6 +279,7 @@ class AIChatGateway {
         private const val MAX_MODEL_ID_CHARS = 180
         private const val MAX_INSTRUCTION_CHARS = 1_000_000
         private const val MAX_SSE_LINE_CHARS = 128 * 1024
+        private val GEMINI_MODEL_ID = Regex("^[A-Za-z0-9_.-]+$")
         private val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
     }
 }
