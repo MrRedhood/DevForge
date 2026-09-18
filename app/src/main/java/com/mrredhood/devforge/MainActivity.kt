@@ -1033,5 +1033,6 @@ private fun WorkspaceIntelligenceCard(workspace: WorkspaceViewModel) {
             }
         }
     }
-private const val MAX_DESTINATION_HISTORY = 32
 }
+
+private const val MAX_DESTINATION_HISTORY = 32
