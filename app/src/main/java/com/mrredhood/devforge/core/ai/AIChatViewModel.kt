@@ -475,34 +475,34 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         if (values.isEmpty()) return ""
         return buildString {
             var remainingTextBytes = MAX_ATTACHMENT_CONTEXT_BYTES
-        append("Device attachments:")
-        values.forEach { attachment ->
-            append("\n- ").append(attachment.name)
-                .append(" · ").append(attachment.mimeType)
-                .append(" · ").append(formatSize(attachment.sizeBytes))
-            val textAllowed = remainingTextBytes > 0 && (
-                attachment.mimeType.startsWith("text/") ||
-                    attachment.mimeType == "application/json" ||
-                    attachment.mimeType == "application/xml" ||
-                    attachment.name.endsWith(".kt", true) ||
-                    attachment.name.endsWith(".java", true) ||
-                    attachment.name.endsWith(".js", true) ||
-                    attachment.name.endsWith(".ts", true) ||
-                    attachment.name.endsWith(".py", true) ||
-                    attachment.name.endsWith(".md", true)
-            )
-            if (textAllowed) {
-                val snippet = readTextSnippet(attachment.uri, remainingTextBytes)
-                if (snippet.isNotBlank()) {
-                    append("\n  Text content:\n").append(snippet)
-                    remainingTextBytes -= snippet.toByteArray(Charsets.UTF_8).size.toLong()
+            append("Device attachments:")
+            values.forEach { attachment ->
+                append("\n- ").append(attachment.name)
+                    .append(" · ").append(attachment.mimeType)
+                    .append(" · ").append(formatSize(attachment.sizeBytes))
+                val textAllowed = remainingTextBytes > 0 && (
+                    attachment.mimeType.startsWith("text/") ||
+                        attachment.mimeType == "application/json" ||
+                        attachment.mimeType == "application/xml" ||
+                        attachment.name.endsWith(".kt", true) ||
+                        attachment.name.endsWith(".java", true) ||
+                        attachment.name.endsWith(".js", true) ||
+                        attachment.name.endsWith(".ts", true) ||
+                        attachment.name.endsWith(".py", true) ||
+                        attachment.name.endsWith(".md", true)
+                )
+                if (textAllowed) {
+                    val snippet = readTextSnippet(attachment.uri, remainingTextBytes)
+                    if (snippet.isNotBlank()) {
+                        append("\n  Text content:\n").append(snippet)
+                        remainingTextBytes -= snippet.toByteArray(Charsets.UTF_8).size.toLong()
+                    }
+                } else {
+                    append("\n  Binary content will be uploaded using the selected provider attachment adapter when supported.")
                 }
-            } else {
-                append("\n  Binary content will be uploaded using the selected provider attachment adapter when supported.")
             }
         }.trimEnd()
     }
-
     private fun readTextSnippet(uri: Uri, maxBytes: Long): String {
         val limit = maxBytes.coerceAtMost(MAX_TEXT_ATTACHMENT_BYTES).toInt()
         val bytes = java.io.ByteArrayOutputStream()
