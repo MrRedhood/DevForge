@@ -22,7 +22,7 @@ import com.mrredhood.devforge.core.policy.Capability
 import com.mrredhood.devforge.core.policy.DefaultPolicy
 import com.mrredhood.devforge.core.policy.PermissionMode
 import com.mrredhood.devforge.core.policy.RiskLevel
-import com.mrredhood.devforge.core.security.AndroidSecretStore
+import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import com.mrredhood.devforge.core.security.SecretStore
 import com.mrredhood.devforge.core.storage.ApprovalEntity
 import com.mrredhood.devforge.core.storage.ApprovalRepository
@@ -40,7 +40,7 @@ import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 
 class BuildViewModel(application: Application) : AndroidViewModel(application) {
-    private val secretStore: SecretStore = AndroidSecretStore(application)
+    private val secretStore: SecretStore = CredentialSecurityStore(application)
     private val githubGateway = GitHubActionsGateway.forBuildStore(secretStore)
     private val database = DevForgeDatabase.get(application)
     private val buildReceiptDao = database.buildReceiptDao()
