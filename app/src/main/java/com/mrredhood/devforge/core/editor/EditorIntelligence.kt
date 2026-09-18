@@ -182,42 +182,64 @@ class FoldingVisualTransformation(
         }
 
     override fun filter(text: AnnotatedString): TransformedText {
-        if (text.text != source || ranges.isEmpty()) {
-            return TransformedText(text, OffsetMapping.Identity)
-        }
-        val out = StringBuilder()
+        if (text.text != source || ranges.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
+        val output = StringBuilder()
+        val originalToTransformed = IntArray(source.length + 1)
+        val transformedToOriginal = mutableListOf<Int>()
         var sourceCursor = 0
+        var outputCursor = 0
+        originalToTransformed[0] = 0
         ranges.forEach { range ->
-            out.append(source, sourceCursor, range.startOffset + 1)
-            out.append('…')
+            while (sourceCursor <= range.startOffset && sourceCursor < source.length) {
+                output.append(source[sourceCursor])
+                transformedToOriginal += sourceCursor
+                outputCursor++
+                sourceCursor++
+                originalToTransformed[sourceCursor] = outputCursor
+            }
+            val placeholderPosition = outputCursor
+            for (offset in sourceCursor until range.endOffset) {
+                originalToTransformed[offset] = placeholderPosition
+            }
+            output.append('…')
+            transformedToOriginal += range.startOffset + 1
+            outputCursor++
             sourceCursor = range.endOffset
+            originalToTransformed[sourceCursor] = outputCursor
         }
-        out.append(source, sourceCursor, source.length)
+        while (sourceCursor < source.length) {
+            output.append(source[sourceCursor])
+            transformedToOriginal += sourceCursor
+            outputCursor++
+            sourceCursor++
+            originalToTransformed[sourceCursor] = outputCursor
+        }
+        val reverse = IntArray(output.length + 1)
+        transformedToOriginal.forEachIndexed { index, original -> reverse[index] = original }
+        reverse[output.length] = source.length
+        return TransformedText(
+            AnnotatedString(output.toString()),
+            object : OffsetMapping {
+                override fun originalToTransformed(offset: Int): Int = originalToTransformed[offset.coerceIn(0, source.length)].coerceIn(0, output.length)
+                override fun transformedToOriginal(offset: Int): Int = reverse[offset.coerceIn(0, output.length)].coerceIn(0, source.length)
+            },
+        )
+    }
+}
 
+class ChainedVisualTransformation(
+    private val first: VisualTransformation,
+    private val second: VisualTransformation,
+) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val a = first.filter(text)
+        val b = second.filter(a.text)
         val mapping = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int {
-                var transformed = offset
-                for (range in ranges) {
-                    val hiddenStart = range.startOffset + 1
-                    val hiddenEnd = range.endOffset
-                    if (offset <= range.startOffset) break
-                    if (offset < hiddenEnd) return transformed - (hiddenStart - transformed + 1).coerceAtMost(0)
-                    transformed -= (hiddenEnd - hiddenStart - 1)
-                }
-                return transformed.coerceIn(0, out.length)
-            }
-
-            override fun transformedToOriginal(offset: Int): Int {
-                var original = offset
-                for (range in ranges) {
-                    val transformedStart = range.startOffset + 1 - (range.endOffset - range.startOffset - 2)
-                    if (offset < transformedStart) break
-                    if (offset <= transformedStart + 1) return range.startOffset + 1
-                    original += range.endOffset - range.startOffset - 2
-                }
-                return original.coerceIn(0, source.length)
-            }
+            override fun originalToTransformed(offset: Int): Int =
+                b.offsetMapping.originalToTransformed(a.offsetMapping.originalToTransformed(offset))
+            override fun transformedToOriginal(offset: Int): Int =
+                a.offsetMapping.transformedToOriginal(b.offsetMapping.transformedToOriginal(offset))
         }
-        return TransformedText(AnnotatedString(out.toString()), mapping)
+        return TransformedText(b.text, mapping)
     }
 }
