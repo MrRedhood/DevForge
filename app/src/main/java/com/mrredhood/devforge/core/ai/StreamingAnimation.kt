@@ -46,6 +46,8 @@ enum class StreamingAnimationKind(
             val values = entries
             return values[Math.floorMod(index, values.size)]
         }
+
+        fun random(): StreamingAnimationKind = entries[Random.nextInt(entries.size)]
     }
 }
 
