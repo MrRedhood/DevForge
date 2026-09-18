@@ -14,7 +14,7 @@ sealed interface GitHubDispatchResult {
 
 sealed interface GitHubCancelResult {
     data object Accepted : GitHubCancelResult
-    data class AlreadyFinished(val run: GitHubRunSnapshot? = null) : GitHubCancelResult
+    data object Conflict : GitHubCancelResult
     data class Failure(val message: String) : GitHubCancelResult
 }
 
@@ -61,7 +61,7 @@ class GitHubActionsGateway(
             http.disconnect()
             when (code) {
                 202 -> GitHubCancelResult.Accepted
-                409 -> GitHubCancelResult.AlreadyFinished()
+                409 -> GitHubCancelResult.Conflict
                 401, 403 -> GitHubCancelResult.Failure("GitHub rejected the cancellation request (HTTP " + code + "). Verify the credential has Actions write permission.")
                 else -> GitHubCancelResult.Failure("GitHub rejected the cancellation request (HTTP " + code + ")" + if (body.isBlank()) "." else ": " + sanitizeError(body))
             }
