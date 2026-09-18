@@ -122,3 +122,67 @@ interface AuditEventDao {
     @Query("DELETE FROM audit_events WHERE createdAtEpochMs < :cutoff")
     suspend fun prune(cutoff: Long): Int
 }
+
+
+@Dao
+interface AgentSharedMemoryDao {
+    @Query("SELECT * FROM agent_shared_memory WHERE workspaceId = :workspaceId ORDER BY updatedAtEpochMs DESC LIMIT :limit")
+    fun observe(workspaceId: String, limit: Int): Flow<List<AgentSharedMemoryEntity>>
+
+    @Query("SELECT * FROM agent_shared_memory WHERE workspaceId = :workspaceId ORDER BY updatedAtEpochMs DESC LIMIT :limit")
+    suspend fun list(workspaceId: String, limit: Int): List<AgentSharedMemoryEntity>
+
+    @Query("SELECT * FROM agent_shared_memory WHERE workspaceId = :workspaceId AND key = :key LIMIT 1")
+    suspend fun get(workspaceId: String, key: String): AgentSharedMemoryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(memory: AgentSharedMemoryEntity)
+
+    @Query("DELETE FROM agent_shared_memory WHERE workspaceId = :workspaceId AND key = :key")
+    suspend fun delete(workspaceId: String, key: String)
+
+    @Query("DELETE FROM agent_shared_memory WHERE workspaceId = :workspaceId AND memoryId NOT IN (SELECT memoryId FROM agent_shared_memory WHERE workspaceId = :workspaceId ORDER BY updatedAtEpochMs DESC LIMIT :keep)")
+    suspend fun prune(workspaceId: String, keep: Int)
+}
+
+@Dao
+interface AgentHandoffDao {
+    @Query("SELECT * FROM agent_handoffs WHERE workspaceId = :workspaceId ORDER BY createdAtEpochMs DESC LIMIT :limit")
+    fun observe(workspaceId: String, limit: Int): Flow<List<AgentHandoffEntity>>
+
+    @Query("SELECT * FROM agent_handoffs WHERE workspaceId = :workspaceId AND (toTaskId IS NULL OR toTaskId = :taskId) AND status IN ('PENDING','CLAIMED') ORDER BY createdAtEpochMs DESC LIMIT :limit")
+    suspend fun available(workspaceId: String, taskId: String, limit: Int): List<AgentHandoffEntity>
+
+    @Query("SELECT * FROM agent_handoffs WHERE handoffId = :handoffId LIMIT 1")
+    suspend fun get(handoffId: String): AgentHandoffEntity?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(handoff: AgentHandoffEntity)
+
+    @Query("UPDATE agent_handoffs SET status = 'CLAIMED', claimedAtEpochMs = :now WHERE handoffId = :handoffId AND status = 'PENDING' AND (toTaskId IS NULL OR toTaskId = :taskId)")
+    suspend fun claim(handoffId: String, taskId: String, now: Long): Int
+
+    @Query("UPDATE agent_handoffs SET status = 'COMPLETED', completedAtEpochMs = :now WHERE handoffId = :handoffId AND status = 'CLAIMED'")
+    suspend fun complete(handoffId: String, now: Long): Int
+
+    @Query("DELETE FROM agent_handoffs WHERE workspaceId = :workspaceId AND status = 'COMPLETED' AND completedAtEpochMs < :cutoff")
+    suspend fun pruneCompleted(workspaceId: String, cutoff: Long): Int
+}
+
+@Dao
+interface AgentFileLeaseDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun acquire(lease: AgentFileLeaseEntity): Long
+
+    @Query("DELETE FROM agent_file_leases WHERE expiresAtEpochMs <= :now")
+    suspend fun pruneExpired(now: Long): Int
+
+    @Query("DELETE FROM agent_file_leases WHERE workspaceId = :workspaceId AND taskId = :taskId AND path = :path")
+    suspend fun release(workspaceId: String, taskId: String, path: String): Int
+
+    @Query("DELETE FROM agent_file_leases WHERE workspaceId = :workspaceId AND taskId = :taskId")
+    suspend fun releaseAll(workspaceId: String, taskId: String): Int
+
+    @Query("SELECT * FROM agent_file_leases WHERE workspaceId = :workspaceId ORDER BY acquiredAtEpochMs DESC LIMIT :limit")
+    suspend fun list(workspaceId: String, limit: Int): List<AgentFileLeaseEntity>
+}
