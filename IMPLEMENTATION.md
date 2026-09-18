@@ -173,7 +173,7 @@
 - [x] Release build validation
 - [x] Performance/budget checks
 - [x] Structured diagnostics
-- [ ] Crash/recovery validation
+- [x] Crash/recovery validation
 - [ ] Security/redaction regression tests
 
 ## Validation
@@ -195,6 +195,7 @@
 - [ ] Current lint CI result verification
 - [ ] Current Compose UI CI result verification
 - [ ] Current release validation CI result verification
+- [ ] Current crash/recovery CI result verification
 - [ ] Maintained unit/UI/security regression suites
 
 ### 2026-09-18 — Android lint validation
@@ -223,6 +224,12 @@
 - Added compiler-text and SARIF parsers for normalized diagnostic ingestion.
 - Added a versioned JSON codec with bounded output for persistence/transport and fail-closed handling of malformed or unknown data.
 - Added regression coverage for parsing, round-tripping, input caps and malformed SARIF.
+
+### 2026-09-18 — Crash and recovery validation
+- Centralized interruption recovery policy for agent tasks and stale automation runs.
+- Agent planning/running states continue to recover to PAUSED after process interruption; terminal, approval-waiting and completed states are not treated as interrupted work.
+- Automation RUNNING/WAITING_APPROVAL runs older than the bounded five-minute threshold are explicitly recoverable; fresh active runs remain protected by overlap checks.
+- Added pure-Kotlin regression coverage for recovery state classification and the stale-run boundary.
 
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
