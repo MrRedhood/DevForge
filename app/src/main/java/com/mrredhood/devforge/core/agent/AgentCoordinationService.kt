@@ -7,6 +7,7 @@ import com.mrredhood.devforge.core.storage.AgentSharedMemoryEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
+import org.json.JSONObject
 import kotlinx.coroutines.flow.first
 import androidx.room.withTransaction
 
@@ -79,6 +80,7 @@ class AgentCoordinationService(
         require(context.toByteArray(Charsets.UTF_8).size <= MAX_HANDOFF_CONTEXT_BYTES) {
             "Handoff context exceeds the 16 KiB limit."
         }
+        runCatching { JSONObject(context) }.getOrElse { throw IllegalArgumentException("Handoff context must be valid JSON.") }
         require(!looksLikeSecret(summary) && !looksLikeSecret(context)) { "Potential secret material cannot be stored in agent handoffs." }
         val now = System.currentTimeMillis()
         val handoff = AgentHandoffEntity(
@@ -146,6 +148,9 @@ class AgentCoordinationService(
     private fun normalizeContent(value: String): String {
         val content = value.trim().take(MAX_MEMORY_CONTENT)
         require(content.isNotBlank()) { "Shared memory content is required." }
+        require(content.toByteArray(Charsets.UTF_8).size <= MAX_MEMORY_CONTENT_BYTES) {
+            "Shared memory content exceeds the 8 KiB limit."
+        }
         require(!looksLikeSecret(content)) { "Potential secret material cannot be stored in shared memory." }
         return content
     }
