@@ -63,7 +63,7 @@
 - [x] Expanded bounded agent execution receipts with scope/capability/risk/approval metadata
 
 ### Durable Room State
-- [x] Room v10 schema and migrations
+- [x] Room v12 schema and migrations
 - [x] Durable editor tabs/snapshots
 - [x] Persistent agent-task state and resumable step pointers
 - [x] Automation definition/run persistence foundation
@@ -83,7 +83,8 @@
 - [x] Shared agent command bridge/catalog
 - [x] Provider-neutral typed agent tool definitions and registry
 - [x] Capability/policy/approval-aware agent tool gateway
-- [x] Bounded SAF tools: read_file, list_files, search_workspace and write_file
+- [x] Bounded SAF tools: read_file, list_files, search_workspace, patch_file and write_file
+- [x] Typed shared-memory and agent-handoff coordination tools
 - [x] Persistent bounded agent-task engine with resumable steps, cancellation, receipts/results and approval waiting
 - [x] Persistent multi-agent workspace coordinator with up to 4 concurrent agents
 - [x] Agent task hard limits: 12 steps, bounded payload/result sizes and 60-second execution window
@@ -97,6 +98,7 @@
 - [ ] Workspace symbol extraction/indexing
 - [ ] Workspace memory/knowledge layer
 - [x] Multi-agent shared memory/handoff protocol
+- [x] Durable per-file mutation leases and post-lease precondition revalidation
 
 ### Automation
 - [x] Durable automation definitions and run records
@@ -131,7 +133,7 @@
 
 ## In Progress / Next Sequence
 1. Maintained unit/UI/security regression suites and broader validation.
-2. Multi-agent shared memory, handoffs and conflict-aware workspace coordination.
+2. Reliability/observability improvements as needed.
 
 ## Planned
 
@@ -340,3 +342,15 @@
 - Added post-lease precondition revalidation so a file change between initial review and execution causes a safe retry failure instead of an overwrite.
 - Added Agents UI visibility for shared memory, active handoffs and current file locks.
 - Added regression coverage for the expanded coordination tool set.
+
+### 2026-09-18 — Multi-agent shared memory, handoffs and conflict-aware editing
+- Upgraded Room to v12 with durable shared-memory, handoff and file-lease records plus sequential migrations.
+- Added bounded workspace shared memory with key-level replacement, source-task attribution, retention limits and rejection of common credential/secret patterns.
+- Added targeted and broadcast-style durable handoffs with pending/claimed/completed lifecycle and claim ownership enforced by task identity.
+- Added typed coordination tools for shared memory and handoff creation/consumption, all inside the existing agent capability gateway.
+- Agent planning now receives recent shared memory and available handoffs as untrusted workspace coordination context.
+- Added durable per-file mutation leases with a two-minute maximum lifetime; overlapping agent mutations of the same file are serialized or rejected.
+- Added post-lease precondition revalidation to close the race between initial review and mutation lock acquisition.
+- Added Agents UI visibility for recent shared memory, active handoffs and active file locks.
+- Added regression coverage for the expanded coordination tool set.
+- CI result remains unchecked until a real GitHub Actions run is observed.
