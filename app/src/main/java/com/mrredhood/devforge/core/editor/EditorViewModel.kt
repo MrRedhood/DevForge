@@ -34,6 +34,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         private set
 
     private var recoveryJobs = mutableMapOf<Uri, Job>()
+    private var openJob: Job? = null
+    private var openGeneration = 0L
     private val undoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
     private val redoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
 
@@ -52,21 +54,29 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun open(entry: WorkspaceEntry) {
         if (entry.isDirectory) return
+        openGeneration += 1
+        val generation = openGeneration
+        openJob?.cancel()
         val existing = tabs.firstOrNull { it.uri == entry.uri }
         if (existing != null) {
+            isLoading = false
             activeUri = existing.uri
             viewModelScope.launch(Dispatchers.IO) { durable.saveEditorTab(existing, active = true) }
             return
         }
         isLoading = true
         error = null
-        viewModelScope.launch {
+        openJob = viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { repository.read(entry.uri) }
+            if (generation != openGeneration) return@launch
             result.onSuccess { content ->
                 val legacyRecovery = withContext(Dispatchers.IO) { repository.recoveryDraft(entry.uri) }
-                val persisted = withContext(Dispatchers.IO) { durable.loadEditorTabs().firstOrNull { it.uri == entry.uri } }
+                val persisted = withContext(Dispatchers.IO) {
+                    durable.loadEditorTabs().firstOrNull { it.uri == entry.uri }
+                }
                 val initial = persisted?.content ?: legacyRecovery?.content ?: content
                 val tab = EditorTab(entry.uri, entry.name, initial, persisted?.savedContent ?: content)
+                if (generation != openGeneration) return@onSuccess
                 tabs = tabs.filterNot { it.uri == entry.uri } + tab
                 activeUri = entry.uri
                 diagnostics = EditorDiagnostics.analyze(entry.name, initial).diagnostics
@@ -79,9 +89,14 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             }.onFailure { throwable ->
-                error = throwable.message ?: "Unable to open file"
-                isLoading = false
+                if (generation == openGeneration) {
+                    error = throwable.message ?: "Unable to open file"
+                    isLoading = false
+                }
             }
+        }
+        openJob?.invokeOnCompletion {
+            if (generation == openGeneration) isLoading = false
         }
     }
 
@@ -178,35 +193,59 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun saveActive() {
         val tab = activeTab ?: return
+        val targetUri = tab.uri
+        val contentToSave = tab.content
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
+            val result = withContext(Dispatchers.IO) { repository.write(targetUri, contentToSave) }
             result.onSuccess {
-                val persisted = tab.copy(savedContent = tab.content, updatedAt = System.currentTimeMillis())
-                tabs = tabs.map { if (it.uri == tab.uri) persisted else it }
+                val current = tabs.firstOrNull { it.uri == targetUri } ?: return@onSuccess
+                val changedDuringSave = current.content != contentToSave
+                val persisted = current.copy(
+                    savedContent = contentToSave,
+                    updatedAt = System.currentTimeMillis(),
+                )
+                tabs = tabs.map { if (it.uri == targetUri) persisted else it }
                 withContext(Dispatchers.IO) {
-                    durable.saveEditorTab(persisted, active = true)
-                    saveSnapshotIfChanged(tab.uri, tab.name, tab.content, SnapshotReason.MANUAL)
-                    repository.clearRecoveryDraft(tab.uri)
+                    durable.saveEditorTab(persisted, active = persisted.uri == activeUri)
+                    saveSnapshotIfChanged(targetUri, current.name, contentToSave, SnapshotReason.MANUAL)
+                    if (!changedDuringSave) repository.clearRecoveryDraft(targetUri)
                 }
-                recoveryJobs.remove(tab.uri)?.cancel()
+                if (!changedDuringSave) recoveryJobs.remove(targetUri)?.cancel()
+                else scheduleRecovery(targetUri)
             }.onFailure { throwable -> error = throwable.message ?: "Unable to save file" }
         }
     }
 
     fun saveAndCloseActive() {
         val tab = activeTab ?: return
+        val targetUri = tab.uri
+        val contentToSave = tab.content
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) { repository.write(tab.uri, tab.content) }
+            val result = withContext(Dispatchers.IO) { repository.write(targetUri, contentToSave) }
             result.onSuccess {
-                val persisted = tab.copy(savedContent = tab.content, updatedAt = System.currentTimeMillis())
-                tabs = tabs.map { if (it.uri == tab.uri) persisted else it }
+                val current = tabs.firstOrNull { it.uri == targetUri } ?: return@onSuccess
+                val changedDuringSave = current.content != contentToSave
+                val persisted = current.copy(
+                    savedContent = contentToSave,
+                    updatedAt = System.currentTimeMillis(),
+                )
+                tabs = tabs.map { if (it.uri == targetUri) persisted else it }
                 withContext(Dispatchers.IO) {
-                    saveSnapshotIfChanged(tab.uri, tab.name, tab.content, SnapshotReason.MANUAL)
-                    repository.clearRecoveryDraft(tab.uri)
-                    durable.deleteEditorTab(tab.uri)
+                    saveSnapshotIfChanged(targetUri, current.name, contentToSave, SnapshotReason.MANUAL)
+                    if (!changedDuringSave) {
+                        repository.clearRecoveryDraft(targetUri)
+                        durable.deleteEditorTab(targetUri)
+                    } else {
+                        durable.saveEditorTab(persisted, active = persisted.uri == activeUri)
+                    }
                 }
-                recoveryJobs.remove(tab.uri)?.cancel()
-                close(tab.uri)
+                if (!changedDuringSave) {
+                    recoveryJobs.remove(targetUri)?.cancel()
+                    close(targetUri)
+                } else {
+                    scheduleRecovery(targetUri)
+                    error = "The file changed while saving; the newer edits were kept open."
+                }
             }.onFailure { throwable -> error = throwable.message ?: "Unable to save file" }
         }
     }
@@ -259,6 +298,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
+        openJob?.cancel()
+        openJob = null
         recoveryJobs.values.forEach(Job::cancel)
         recoveryJobs.clear()
         super.onCleared()
