@@ -74,12 +74,25 @@ object AICommandRegistry {
                 ?: return@mapNotNull FileMention("@$query", query, null, query)
             val content = runCatching {
                 resolver.openInputStream(result.uri)?.use { input ->
-                    val bytes = input.readBytes().take(MAX_MENTION_BYTES)
-                    bytes.toByteArray().toString(Charsets.UTF_8)
+                    readBoundedText(input, MAX_MENTION_BYTES)
                 }
             }.getOrNull()
             FileMention("@$query", query, result.uri.toString(), result.name, content)
         }
+    }
+
+    private fun readBoundedText(input: java.io.InputStream, maxBytes: Int): String {
+        val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 8 * 1024))
+        val buffer = ByteArray(8 * 1024)
+        var total = 0
+        while (total < maxBytes) {
+            val read = input.read(buffer, 0, minOf(buffer.size, maxBytes - total))
+            if (read < 0) break
+            if (read == 0) continue
+            output.write(buffer, 0, read)
+            total += read
+        }
+        return output.toByteArray().toString(Charsets.UTF_8)
     }
 
     private const val MAX_MENTION_BYTES = 32 * 1024
