@@ -70,7 +70,7 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(viewModel.messages, key = { it.messageId }) { message -> MessageBubble(message) }
-                    if (viewModel.streamingText.isNotBlank()) {
+                    if (viewModel.isSending) {
                         item { StreamingBubble(viewModel.streamingText) }
                     }
                 }
@@ -207,11 +207,15 @@ private fun StreamingBubble(content: String) {
         ) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    StreamingAnimation()
+                    Spacer(Modifier.width(6.dp))
                     Text("Generating", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
                     CircularProgressIndicator(Modifier.width(14.dp).height(14.dp), strokeWidth = 2.dp)
                 }
-                Text(content)
+                if (content.isNotBlank()) {
+                    Text(content)
+                }
             }
         }
     }
