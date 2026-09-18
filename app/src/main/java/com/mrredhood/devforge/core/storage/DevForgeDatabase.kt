@@ -314,6 +314,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     expiresAtEpochMs INTEGER NOT NULL
                 )""")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_file_leases_workspaceId_taskId ON agent_file_leases(workspaceId, taskId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_file_leases_workspaceId_path ON agent_file_leases(workspaceId, path)")
             }
         }
 
