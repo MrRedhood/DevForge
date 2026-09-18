@@ -29,12 +29,28 @@ class TerminalCommandPolicyTest {
     }
 
     @Test
+    fun rejectsUnsafeWorkingDirectorySegmentsAndControlSeparators() {
+        assertThrows(IllegalArgumentException::class.java) {
+            TerminalCommand(TerminalExecutable.PWD, workingDirectory = ".git").also(TerminalCommandPolicy::validate)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            TerminalCommand(TerminalExecutable.ECHO, listOf("safe\nunsafe")).also(TerminalCommandPolicy::validate)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            TerminalCommand(TerminalExecutable.ECHO, listOf("safe\u0000unsafe")).also(TerminalCommandPolicy::validate)
+        }
+    }
+
+    @Test
     fun rejectsBounds() {
         assertThrows(IllegalArgumentException::class.java) {
             TerminalCommand(TerminalExecutable.ECHO, List(TerminalCommandPolicy.MAX_ARGS + 1) { "x" }).also(TerminalCommandPolicy::validate)
         }
         assertThrows(IllegalArgumentException::class.java) {
             TerminalCommand(TerminalExecutable.PWD, timeoutMs = TerminalCommandPolicy.MAX_TIMEOUT_MS + 1).also(TerminalCommandPolicy::validate)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            TerminalCommand(TerminalExecutable.ECHO, listOf("x".repeat(TerminalCommandPolicy.MAX_ARG_LENGTH + 1))).also(TerminalCommandPolicy::validate)
         }
     }
 
