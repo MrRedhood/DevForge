@@ -144,10 +144,7 @@ private fun AgentTaskCard(task: AgentTaskEntity, viewModel: AgentCenterViewModel
             task.lastToolId?.let { Text("Current tool: " + it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             task.errorMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
 
-            val timeline = auditEvents.asSequence()
-                .filter { it.actionId == "agent:" + task.taskId || it.actionId?.startsWith("agent:" + task.taskId + ":") == true }
-                .take(8)
-                .toList()
+            val timeline = AgentExecutionTimeline.forTask(auditEvents, task.taskId)
             if (timeline.isNotEmpty()) {
                 Text("Execution timeline", fontWeight = FontWeight.Bold)
                 timeline.forEach { event ->
