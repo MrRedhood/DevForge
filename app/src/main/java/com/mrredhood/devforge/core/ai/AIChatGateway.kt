@@ -358,7 +358,7 @@ class AIChatGateway(
     private companion object {
         const val ANTHROPIC_VERSION = "2023-06-01"
         const val MAX_STREAM_CHARS = 512 * 1024
-        const val MAX_RESPONSE_BYTES = 512 * 1024
+        const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
         const val MAX_ERROR_BYTES = 16 * 1024
         const val MAX_API_KEY_CHARS = 4_096
         const val MAX_MODEL_ID_CHARS = 180
