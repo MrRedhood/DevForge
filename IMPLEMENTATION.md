@@ -322,6 +322,12 @@
 - Wired the persisted Word wrap preference into the code editor.
 - Word-wrap enabled keeps the editor constrained to the viewport; disabled mode uses bounded horizontal scrolling instead of single-line mode, preserving source newlines.
 
+### 2026-09-18 — Validation follow-up
+- Fixed a malformed workspace-symbol unit-test fixture that caused debug unit-test compilation to fail even though the production app compiled successfully.
+- Stabilized the Compose navigation regression test by targeting the unique Files navigation content description instead of ambiguous visible text.
+- Migrated the navigation test to the Compose UI-test v2 rule API to remove the deprecated test harness.
+- Release validation has already completed successfully on the preceding snapshot; fresh Android/unit/UI validation is required for this latest correction.
+
 ### 2026-09-18 — Chat attachment validation hardening
 - Removed the asynchronous-baseline race from attachment selection by merging validated results against the latest main-thread state.
 - Enforced the eight-attachment and 80 MiB pending limits at merge time so overlapping picker callbacks cannot overwrite newer selections.
