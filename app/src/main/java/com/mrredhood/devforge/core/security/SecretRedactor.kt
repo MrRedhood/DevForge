@@ -24,12 +24,12 @@ object SecretRedactor {
 
     fun redact(input: String, maxChars: Int = MAX_OUTPUT_CHARS): String {
         var value = input
-        value = sensitiveKeyPattern.replace(value) { match -> match.groupValues[1] + REDACTED }
         value = bearerPattern.replace(value, "Bearer $REDACTED")
         value = basicPattern.replace(value, "Basic $REDACTED")
         commonTokenPatterns.forEach { pattern ->
             value = pattern.replace(value, REDACTED)
         }
+        value = sensitiveKeyPattern.replace(value) { match -> match.groupValues[1] + REDACTED }
         return value.take(maxChars.coerceIn(1, MAX_OUTPUT_CHARS))
     }
 

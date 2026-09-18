@@ -91,8 +91,8 @@ data class DiagnosticReport(
 
 object DiagnosticTextParser {
     private val locationPatterns = listOf(
-        Regex("""^(?:e:|w:)?\\s*(.+?):(\\d+)(?::(\\d+))?:\\s*(?:error|warning|info|hint)?:?\\s*(.+)$""", RegexOption.IGNORE_CASE),
-        Regex("""^(.+?):(\\d+)(?::(\\d+))?:\\s*(.+)$"""),
+        Regex("""^(?:e:|w:)?\s*(.+?):(\d+)(?::(\d+))?:\s*(?:error|warning|info|hint)?:?\s*(.+)$""", RegexOption.IGNORE_CASE),
+        Regex("""^(.+?):(\d+)(?::(\d+))?:\s*(.+)$"""),
     )
 
     fun parseCompilerOutput(

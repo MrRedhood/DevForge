@@ -17,9 +17,9 @@ class EditorIntelligenceTest {
     fun foldingCapsRangesWithoutRepeatedWholePrefixScans() {
         val content = buildString {
             repeat(120) { index ->
-                append("block$index {\\n")
-                append("  value = $index\\n")
-                append("}\\n")
+                append("block$index {\n")
+                append("  value = $index\n")
+                append("}\n")
             }
         }
         val ranges = EditorFolding.ranges(content)

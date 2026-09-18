@@ -267,9 +267,9 @@ class VisibleWhitespaceVisualTransformation : VisualTransformation {
                 output.append(visible)
                 transformedOffset++
             }
-            transformedToOriginal += index + 1
             originalToTransformed[index + 1] = transformedOffset
         }
+        transformedToOriginal += text.text.length
         return TransformedText(
             AnnotatedString(output.toString()),
             object : OffsetMapping {
