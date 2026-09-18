@@ -8,7 +8,7 @@ class WorkspaceFileTree(private val resolver: ContentResolver) {
     fun listRoot(root: Uri, maxEntries: Int = 200): List<WorkspaceEntry> = list(root, maxEntries)
 
     fun list(parent: Uri, maxEntries: Int = 200): List<WorkspaceEntry> =
-        listChildren(parent, maxEntries.coerceAtLeast(0))
+        listChildren(parent, maxEntries.coerceIn(0, MAX_ENTRIES_PER_CALL))
             .sortedWith(compareBy<WorkspaceEntry> { !it.isDirectory }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 
     private fun listChildren(parent: Uri, maxEntries: Int): List<WorkspaceEntry> {
@@ -45,5 +45,9 @@ class WorkspaceFileTree(private val resolver: ContentResolver) {
             }
         }
         return results
+    }
+
+    companion object {
+        private const val MAX_ENTRIES_PER_CALL = 500
     }
 }
