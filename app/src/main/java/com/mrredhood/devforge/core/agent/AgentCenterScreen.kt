@@ -140,7 +140,6 @@ fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
                         onValueChange = { task = it.take(60_000) },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Task") },
-                        placeholder = { Text("Describe exactly what the agent should do") },
                         minLines = 4,
                         maxLines = 8,
                     )
@@ -166,8 +165,7 @@ fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
                         value = scope,
                         onValueChange = { scope = it.take(1_500) },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Path scope (optional)") },
-                        placeholder = { Text("src, tests/unit") },
+                        label = { Text("Files / folders") },
                         singleLine = true,
                     )
 

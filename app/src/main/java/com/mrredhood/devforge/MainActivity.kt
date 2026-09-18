@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
@@ -317,7 +318,7 @@ private fun DevForgeTopBar(
             IconButton(onClick = onSearch) { Icon(Icons.Default.Search, "Search") }
             if (showAgents) {
                 IconButton(onClick = onAgents) {
-                    Text("👤", fontSize = 21.sp)
+                    Icon(Icons.Default.Person, contentDescription = "Agents")
                 }
             }
         },
