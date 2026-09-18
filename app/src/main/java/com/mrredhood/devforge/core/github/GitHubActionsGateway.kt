@@ -375,7 +375,7 @@ class GitHubActionsGateway(
             }
             val limit = safeMaxBytes - usedBytes
             val text = getText(
-                "/actions/jobs/" + job.id + "/logs",
+                "/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/jobs/" + job.id + "/logs",
                 limit,
             ).getOrElse { error ->
                 return GitHubLogsResult.Failure(
