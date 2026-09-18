@@ -95,7 +95,7 @@ class AgentProfileRepository(context: Context) {
                 "Coder",
                 "Implements focused code changes and keeps edits bounded.",
                 "Inspect the relevant files, make the smallest safe implementation, validate assumptions, and report exactly what changed.",
-                setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS, AgentAccess.DIAGNOSTICS_ACCESS),
+                setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS),
                 true,
             ),
             AgentProfile(
