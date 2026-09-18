@@ -20,6 +20,7 @@ class AIChatGateway {
         history: List<Pair<String, String>>,
         userInstruction: String,
     ): String {
+        validateRequest(model, apiKey, userInstruction)
         return when (model.provider) {
             AIProvider.GEMINI -> sendGemini(model.id, apiKey, history, userInstruction)
             AIProvider.OPENROUTER -> sendOpenAiCompatible("https://openrouter.ai/api/v1/chat/completions", apiKey, model.id, history, userInstruction, openRouter = true)
@@ -33,6 +34,7 @@ class AIChatGateway {
         history: List<Pair<String, String>>,
         userInstruction: String,
     ): Flow<String> = flow {
+        validateRequest(model, apiKey, userInstruction)
         when (model.provider) {
             AIProvider.GEMINI -> streamGemini(model.id, apiKey, history, userInstruction).collect { emit(it) }
             AIProvider.OPENROUTER -> streamOpenAiCompatible(
@@ -159,6 +161,14 @@ class AIChatGateway {
         }
     }
 
+    private fun validateRequest(model: AIModelInfo, apiKey: String, userInstruction: String) {
+        require(apiKey.isNotBlank() && apiKey.length <= MAX_API_KEY_CHARS) { "The AI credential is invalid or too large." }
+        require(userInstruction.length <= MAX_INSTRUCTION_CHARS) { "The AI instruction exceeds the supported request limit." }
+        require(model.id.length <= MAX_MODEL_ID_CHARS && SAFE_MODEL_ID.matches(model.id) && !model.id.contains("..")) {
+            "The selected AI model identifier is invalid."
+        }
+    }
+
     private fun buildContents(history: List<Pair<String, String>>, userInstruction: String): JSONArray {
         val contents = JSONArray()
         history.filter { it.first == "user" || it.first == "assistant" }.forEach { (role, content) ->
@@ -250,6 +260,13 @@ class AIChatGateway {
     }
 
     private companion object {
+        const val MAX_STREAM_CHARS = 512 * 1024
+        const val MAX_RESPONSE_BYTES = 512 * 1024
+        const val MAX_ERROR_BYTES = 16 * 1024
+        private const val MAX_API_KEY_CHARS = 4_096
+        private const val MAX_MODEL_ID_CHARS = 180
+        private const val MAX_INSTRUCTION_CHARS = 1_000_000
+        private val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
         const val MAX_STREAM_CHARS = 512 * 1024
         const val MAX_RESPONSE_BYTES = 512 * 1024
         const val MAX_ERROR_BYTES = 16 * 1024
