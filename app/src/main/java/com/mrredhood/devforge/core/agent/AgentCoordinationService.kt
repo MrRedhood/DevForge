@@ -64,6 +64,9 @@ class AgentCoordinationService(
     suspend fun availableHandoffs(workspaceId: String, taskId: String, limit: Int = MAX_HANDOFFS): List<AgentHandoffEntity> =
         handoffs.available(workspaceId, taskId.take(MAX_TASK_ID_LENGTH), limit.coerceIn(1, MAX_HANDOFFS))
 
+    suspend fun listHandoffs(workspaceId: String, limit: Int = MAX_HANDOFFS): List<AgentHandoffEntity> =
+        handoffs.observe(workspaceId, limit.coerceIn(1, MAX_HANDOFFS)).first()
+
     suspend fun createHandoff(draft: AgentHandoffDraft): AgentHandoffEntity {
         require(draft.workspaceId.isNotBlank()) { "Handoff workspace is required." }
         require(draft.fromTaskId.isNotBlank()) { "Handoff source task is required." }
