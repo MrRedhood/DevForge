@@ -120,6 +120,20 @@ class DurableStateRepository(
             message = RecoveryPolicy.AGENT_RECOVERY_MESSAGE,
         )
 
+    suspend fun failWaitingAgentApproval(taskId: String, approvalId: String, message: String): Boolean =
+        agentTasks.failWaitingApproval(
+            taskId = taskId,
+            approvalId = approvalId,
+            updatedAt = System.currentTimeMillis(),
+            message = message.take(MAX_ERROR_LENGTH),
+        ) > 0
+
+    suspend fun reconcileWaitingAgentApprovals(message: String = "Approval is no longer available."): Int =
+        agentTasks.reconcileWaitingApprovals(
+            updatedAt = System.currentTimeMillis(),
+            message = message.take(MAX_ERROR_LENGTH),
+        )
+
     fun observeAgentTasks(workspaceId: String, limit: Int = MAX_AGENT_TASKS) = agentTasks.observe(workspaceId, limit)
 
     suspend fun saveAutomation(automation: AutomationEntity) {
