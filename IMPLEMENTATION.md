@@ -59,7 +59,7 @@
 - [x] Protected destructive/high-risk capabilities cannot receive persistent bypass grants
 - [ ] Path-scoped persistent capability grants
 - [x] Biometric-protected secret-store primitive for high-security credentials
-- [ ] Biometric integration across all existing credential consumers/UI
+- [x] Biometric integration across all existing credential consumers/UI
 - [x] Expanded bounded agent execution receipts with scope/capability/risk/approval metadata
 
 ### Durable Room State
@@ -180,6 +180,7 @@
 - [ ] Current automation event-trigger/UI CI result verification
 - [x] Fixed CI-reported Kotlin compile errors in navigation, automation scrolling/model syntax and Git history parser
 - [ ] Security hardening CI result verification
+- [ ] Biometric credential integration CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
 - [ ] Maintained unit/UI/security regression suites
@@ -257,6 +258,14 @@
 - Added a dedicated Automation destination with rich trigger/action editing, explicit agent path scopes, run-now, enable/disable, delete and run-history controls.
 - Added focused regression coverage for repository/build/condition matching and repository fingerprint changes.
 
+
+### 2026-09-18 — Biometric credential integration
+- Added a centralized security-aware credential facade for AI and GitHub credentials.
+- Migrated AI settings, AI chat, GitHub connection/repository discovery, remote Git transport and Build Center to the security-aware credential layer.
+- Removed eager API-key decryption from AI settings ViewModel state; stored credentials are now represented only by presence/lock status until explicitly needed for a request.
+- Added Settings controls for strong-biometric protection, unlock, immediate lock, safe migration and disable.
+- Added the biometric manifest permission and FragmentActivity host support for the AndroidX biometric prompt.
+- Kept protected credential migration fail-closed when any known credential cannot be read.
 
 ### 2026-09-18 — Terminal capability
 - Added a typed native terminal capability with a fixed executable allowlist; arbitrary executable names and shell invocation are not accepted.
