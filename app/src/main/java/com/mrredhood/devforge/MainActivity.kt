@@ -1,7 +1,7 @@
 package com.mrredhood.devforge
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -82,11 +82,12 @@ import com.mrredhood.devforge.core.git.GitDashboardScreen
 import com.mrredhood.devforge.core.git.GitDiffScreen
 import com.mrredhood.devforge.core.model.DevForgeDestination
 import com.mrredhood.devforge.core.policy.ApprovalCenterScreen
+import com.mrredhood.devforge.core.security.CredentialSecurityScreen
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import com.mrredhood.devforge.ui.theme.DevForgeTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { DevForgeTheme { DevForgeApp() } }
@@ -377,7 +378,7 @@ private fun SettingsScreen() {
         item { Text("Settings", fontSize = 30.sp, fontWeight = FontWeight.Black) }
         item { AISettingsScreen() }
         item { PulseCard("Workspace", "Indexing, recovery, snapshots and storage", "Active") }
-        item { PulseCard("Security", "Approvals, secrets and privacy controls", "Planned") }
+        item { CredentialSecurityScreen() }
         item { PulseCard("Appearance", "Theme, density, motion and editor style", "Planned") }
     }
 }
