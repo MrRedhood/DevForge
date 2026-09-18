@@ -56,6 +56,7 @@ class AgentPlanPlanner(context: Context) {
             "Use patch_file for edits. Its arguments must be a JSON object with path, content, and optional summary. DevForge will capture the current pre-image hash before approval and reject stale patches.",
             "Workspace scope: " + assignment.pathScope.canonicalPrefixes().joinToString(",").ifBlank { "(workspace root)" },
             "Enabled agent access: " + assignment.access.map(AgentAccess::name).sorted().joinToString(",").ifBlank { "(none)" },
+            "Allowed registered tools: " + AgentToolId.entries.filter { AgentAccessRules.canUse(it, assignment.access) }.joinToString(",") { it.wireName }.ifBlank { "(none; report that the task cannot proceed with current access)" },
             "Tool access is enforced by DevForge. Do not emit a tool requiring an access switch that is disabled. Web/terminal/Git/build access cannot invent tools that are not registered.",
 
             "For edits, first inspect enough workspace context with read_file/search_workspace. Then emit a patch_file step whose content is the complete intended file content. Never use write_file for new agent plans.",
