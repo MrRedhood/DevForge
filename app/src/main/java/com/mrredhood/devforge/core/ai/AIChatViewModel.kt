@@ -212,14 +212,15 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         }
         if (isSending) return
         val raw = input.trim()
-        if (raw.isBlank()) return
+        val pendingAttachments = attachments
+        if (raw.isBlank() && pendingAttachments.isEmpty()) return
         val sessionId = activeSessionId ?: run {
             sendError = "Chat session is not ready yet."
             return
         }
         input = ""
         suggestions = emptyList()
-        val submittedAttachments = attachments
+        val submittedAttachments = pendingAttachments
         attachments = emptyList()
         streamingAnimationKind = StreamingAnimationKind.random()
         isSending = true
@@ -262,7 +263,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 val history = buildBoundedHistory(model, messages)
                 val key = settings.getApiKey(provider) ?: error("API key is not configured.")
-                val attachmentContext = submittedAttachments.let(::formatAttachmentContext)
+                val attachmentContext = prepareAttachmentContext(submittedAttachments)
                 val userMessage = if (attachmentContext.isBlank()) raw else raw + "\n\n" + attachmentContext
                 val effectiveInstruction = if (attachmentContext.isBlank()) finalInstruction else finalInstruction + "\n\n" + attachmentContext
                 chatRepository.addMessage(sessionId, "user", userMessage, parsed?.command?.name)
@@ -313,34 +314,41 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun addAttachments(uris: List<Uri>, type: ChatAttachmentType) {
-        val current = attachments.toMutableList()
-        for (uri in uris.take(MAX_ATTACHMENTS - current.size)) {
-            val metadata = runCatching { readAttachmentMetadata(uri) }.getOrNull() ?: continue
-            if (!type.accepts(metadata.mimeType)) continue
-            if (metadata.sizeBytes <= 0L || metadata.sizeBytes > type.maxBytes) continue
-            if (current.any { it.uri == uri }) continue
-            current += ChatAttachment(
-                uri = uri,
-                name = metadata.name,
-                mimeType = metadata.mimeType,
-                sizeBytes = metadata.sizeBytes,
-                type = type,
-            )
+        if (uris.isEmpty()) return
+        val baseline = attachments
+        viewModelScope.launch(Dispatchers.IO) {
+            val additions = uris.take(MAX_ATTACHMENTS - baseline.size).mapNotNull { uri ->
+                runCatching {
+                    runCatching {
+                        resolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    val metadata = readAttachmentMetadata(uri, type.maxBytes)
+                    require(type.accepts(metadata.mimeType))
+                    require(metadata.sizeBytes in 1..type.maxBytes)
+                    ChatAttachment(uri, metadata.name, metadata.mimeType, metadata.sizeBytes, type)
+                }.getOrNull()
+            }
+            withContext(Dispatchers.Main.immediate) {
+                var bounded = (baseline + additions).distinctBy { it.uri }
+                while (bounded.sumOf { it.sizeBytes } > MAX_TOTAL_ATTACHMENT_BYTES && bounded.isNotEmpty()) {
+                    bounded = bounded.dropLast(1)
+                }
+                attachments = bounded
+                val rejected = uris.size - additions.size
+                if (rejected > 0) {
+                    sendError = rejected.toString() + " attachment(s) were rejected by type or size validation."
+                }
+            }
         }
-        var bounded = current
-        while (bounded.sumOf { it.sizeBytes } > MAX_TOTAL_ATTACHMENT_BYTES && bounded.isNotEmpty()) {
-            bounded = bounded.dropLast(1)
-        }
-        attachments = bounded
     }
 
     fun removeAttachment(uri: Uri) {
         attachments = attachments.filterNot { it.uri == uri }
     }
 
-    private fun readAttachmentMetadata(uri: Uri): AttachmentMetadata {
+    private fun readAttachmentMetadata(uri: Uri, maxBytes: Long): AttachmentMetadata {
         var name = uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { "attachment" } ?: "attachment"
-        var mime = resolver.getType(uri).orEmpty().ifBlank { "application/octet-stream" }
+        val mime = resolver.getType(uri).orEmpty().ifBlank { "application/octet-stream" }
         var size = -1L
         resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -350,19 +358,77 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) size = cursor.getLong(sizeIndex)
             }
         }
-        require(size in 1..MAX_TOTAL_ATTACHMENT_BYTES) { "Attachment size could not be validated safely." }
+        if (size <= 0L || size > maxBytes) size = countBytesBounded(uri, maxBytes)
+        require(size in 1..maxBytes)
         return AttachmentMetadata(name, mime, size)
     }
 
-    private fun formatAttachmentContext(values: List<ChatAttachment>): String = buildString {
-        append("Attachments selected from device (bounded metadata only):\\n")
+    private fun countBytesBounded(uri: Uri, maxBytes: Long): Long {
+        var total = 0L
+        resolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArray(16 * 1024)
+            while (total <= maxBytes) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                total += read
+                if (total > maxBytes) return total
+            }
+        } ?: return -1L
+        return total
+    }
+
+    private suspend fun prepareAttachmentContext(values: List<ChatAttachment>): String = buildString {
+        var remainingTextBytes = MAX_ATTACHMENT_CONTEXT_BYTES
+        append("Device attachments:")
         values.forEach { attachment ->
-            append("- ").append(attachment.name)
+            append("\n- ").append(attachment.name)
                 .append(" · ").append(attachment.mimeType)
-                .append(" · ").append(attachment.sizeBytes / (1024L * 1024L))
-                .append(" MB\\n")
+                .append(" · ").append(formatSize(attachment.sizeBytes))
+            val textAllowed = remainingTextBytes > 0 && (
+                attachment.mimeType.startsWith("text/") ||
+                    attachment.mimeType == "application/json" ||
+                    attachment.mimeType == "application/xml" ||
+                    attachment.name.endsWith(".kt", true) ||
+                    attachment.name.endsWith(".java", true) ||
+                    attachment.name.endsWith(".js", true) ||
+                    attachment.name.endsWith(".ts", true) ||
+                    attachment.name.endsWith(".py", true) ||
+                    attachment.name.endsWith(".md", true)
+            )
+            if (textAllowed) {
+                val snippet = readTextSnippet(attachment.uri, remainingTextBytes)
+                if (snippet.isNotBlank()) {
+                    append("\n  Text content:\n").append(snippet)
+                    remainingTextBytes -= snippet.toByteArray(Charsets.UTF_8).size.toLong()
+                }
+            } else {
+                append("\n  Binary content remains local; this provider gateway currently sends bounded metadata only.")
+            }
         }
     }.trimEnd()
+
+    private fun readTextSnippet(uri: Uri, maxBytes: Long): String {
+        val limit = maxBytes.coerceAtMost(MAX_TEXT_ATTACHMENT_BYTES).toInt()
+        val bytes = java.io.ByteArrayOutputStream()
+        resolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArray(8 * 1024)
+            while (bytes.size() < limit) {
+                val read = input.read(buffer, 0, minOf(buffer.size, limit - bytes.size()))
+                if (read < 0) break
+                if (read == 0) continue
+                bytes.write(buffer, 0, read)
+            }
+        } ?: return ""
+        val data = bytes.toByteArray()
+        if (data.any { it == 0.toByte() }) return ""
+        return data.toString(Charsets.UTF_8).take(MAX_TEXT_ATTACHMENT_CHARS)
+    }
+
+    private fun formatSize(bytes: Long): String = when {
+        bytes >= 1024L * 1024L -> (bytes / (1024L * 1024L)).toString() + " MB"
+        bytes >= 1024L -> (bytes / 1024L).toString() + " KB"
+        else -> bytes.toString() + " B"
+    }
 
     fun dismissError() { sendError = null }
 
@@ -392,6 +458,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private const val MAX_ATTACHMENTS = 8
         private const val MAX_TOTAL_ATTACHMENT_BYTES = 80L * 1024L * 1024L
         private const val MAX_ATTACHMENT_NAME_CHARS = 180
+        private const val MAX_ATTACHMENT_CONTEXT_BYTES = 256 * 1024L
+        private const val MAX_TEXT_ATTACHMENT_BYTES = 128 * 1024L
+        private const val MAX_TEXT_ATTACHMENT_CHARS = 128 * 1024
         private const val MAX_VISIBLE_MODELS = 120
         private const val MAX_COMMAND_SUGGESTIONS = 12
         private const val CHARS_PER_TOKEN = 4L
