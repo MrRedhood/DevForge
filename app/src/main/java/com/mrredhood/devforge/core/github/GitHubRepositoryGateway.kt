@@ -48,7 +48,7 @@ class GitHubRepositoryGateway(
             ?: return GitHubRepositoryResult.Failure("The GitHub owner is invalid.")
         val normalizedRepository = validateName(repository)
             ?: return GitHubRepositoryResult.Failure("The GitHub repository is invalid.")
-        val path = "/repos/$" + "normalizedOwner/$" + "normalizedRepository"
+        val path = "/repos/" + normalizedOwner + "/" + normalizedRepository
         return getJson(path) { parseRepository(it) }.fold(
             onSuccess = { GitHubRepositoryResult.Success(it) },
             onFailure = { GitHubRepositoryResult.Failure(safeMessage(it)) },
@@ -60,7 +60,7 @@ class GitHubRepositoryGateway(
             ?: return GitHubWorkflowListResult.Failure("The GitHub owner is invalid.")
         val normalizedRepository = validateName(repository)
             ?: return GitHubWorkflowListResult.Failure("The GitHub repository is invalid.")
-        val path = "/repos/$" + "normalizedOwner/$" + "normalizedRepository/actions/workflows?per_page=$" + "PAGE_SIZE&page=1"
+        val path = "/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/workflows?per_page=" + PAGE_SIZE + "&page=1"
         return getJson(path) { json ->
             val workflows = json.optJSONArray("workflows") ?: JSONArray()
             buildList(workflows.length()) {
