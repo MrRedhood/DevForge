@@ -93,6 +93,8 @@ class BiometricProtectedSecretStore(context: Context) : SecretStore {
         preferences.edit().remove(key).apply()
     }
 
+    fun contains(key: String): Boolean = preferences.contains(key)
+
     private fun requireUnlocked() {
         check(isUnlocked()) { "Biometric authentication is required to access protected secrets." }
     }
