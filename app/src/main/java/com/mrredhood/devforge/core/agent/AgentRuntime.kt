@@ -22,6 +22,7 @@ object AgentRuntime {
             registry = registry,
             approvals = ApprovalRepository(database.approvalDao()),
             durableState = durableState,
+            coordination = AgentCoordinationService(database),
             permissionMode = permissionMode,
         )
         return AgentTaskEngine(durableState, gateway)
