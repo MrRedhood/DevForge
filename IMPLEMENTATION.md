@@ -63,7 +63,7 @@
 - [x] Expanded bounded agent execution receipts with scope/capability/risk/approval metadata
 
 ### Durable Room State
-- [x] Room v8 schema and migrations
+- [x] Room v9 schema and migrations
 - [x] Durable editor tabs/snapshots
 - [x] Persistent agent-task state and resumable step pointers
 - [x] Automation definition/run persistence foundation
@@ -167,7 +167,8 @@
 ### Quality / Observability
 - [x] Focused agent security regression tests
 - [x] Focused automation trigger regression tests
-- [ ] Maintained unit-test suite
+- [x] Maintained pure-Kotlin regression suite for bounded/security-critical domain rules
+- [x] Maintained unit-test suite for agent plans, workspace scopes, terminal policy and automation triggers
 - [ ] Compose/UI tests
 - [ ] Static analysis/lint pipeline
 - [ ] Release build validation
@@ -186,6 +187,7 @@
 - [ ] Security hardening CI result verification
 - [ ] Biometric credential integration CI result verification
 - [ ] Parallel workspace agents CI result verification
+- [ ] Maintained regression suite CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
 - [ ] Maintained unit/UI/security regression suites
@@ -280,6 +282,12 @@
 - Added Settings controls for strong-biometric protection, unlock, immediate lock, safe migration and disable.
 - Added the biometric manifest permission and FragmentActivity host support for the AndroidX biometric prompt.
 - Kept protected credential migration fail-closed when any known credential cannot be read.
+
+### 2026-09-18 — Maintained regression suite
+- Expanded agent-plan tests for legacy-version compatibility, unknown tools and step/argument bounds.
+- Expanded workspace path-scope tests for canonicalization, required-path enforcement and structural limits.
+- Expanded terminal-policy tests for control separators, unsafe working directories and argument bounds.
+- Expanded automation-trigger tests for encode/decode round trips and stable event keys.
 
 ### 2026-09-18 — Terminal capability
 - Added a typed native terminal capability with a fixed executable allowlist; arbitrary executable names and shell invocation are not accepted.
