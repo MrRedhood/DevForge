@@ -110,24 +110,32 @@ class ParallelAgentCoordinator(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val permits = Semaphore(MAX_PARALLEL_AGENTS)
     private val assignmentMutex = Mutex()
+    private var assignmentReservations = 0
     private val jobs = ConcurrentHashMap<String, Job>()
 
-    suspend fun assign(assignment: AgentAssignment): String = assignmentMutex.withLock {
-        val current = durable.listAgentTasks(assignment.workspaceId, MAX_ASSIGNED_AGENTS + 1)
-            .count { it.status !in TERMINAL_STATUSES }
-        require(current < MAX_ASSIGNED_AGENTS) {
-            "A workspace can have at most $MAX_ASSIGNED_AGENTS active or queued agents."
+    suspend fun assign(assignment: AgentAssignment): String {
+        assignmentMutex.withLock {
+            val current = durable.listAgentTasks(assignment.workspaceId, MAX_ASSIGNED_AGENTS + 1)
+                .count { it.status !in TERMINAL_STATUSES } + assignmentReservations
+            require(current < MAX_ASSIGNED_AGENTS) {
+                "A workspace can have at most $MAX_ASSIGNED_AGENTS active or queued agents."
+            }
+            assignmentReservations += 1
         }
-        val plan = planner.plan(assignment)
-        val taskId = engine.enqueue(
-            workspaceId = assignment.workspaceId,
-            title = assignment.title.take(200),
-            instruction = assignment.instruction.take(64 * 1024),
-            plan = plan.copy(pathScope = assignment.pathScope),
-            model = assignment.model,
-        )
-        start(taskId)
-        return taskId
+        return try {
+            val plan = planner.plan(assignment)
+            val taskId = engine.enqueue(
+                workspaceId = assignment.workspaceId,
+                title = assignment.title.take(200),
+                instruction = assignment.instruction.take(64 * 1024),
+                plan = plan.copy(pathScope = assignment.pathScope),
+                model = assignment.model,
+            )
+            start(taskId)
+            taskId
+        } finally {
+            assignmentMutex.withLock { assignmentReservations = (assignmentReservations - 1).coerceAtLeast(0) }
+        }
     }
 
     fun start(taskId: String) {
