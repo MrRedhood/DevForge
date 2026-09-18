@@ -111,6 +111,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     fun selectProvider(value: AIProvider) {
         if (provider == value) return
+        messageJob?.cancel()
+        messageJob = null
         provider = value
         settings.setSelectedProvider(value)
         apiKeyConfigured = settings.hasApiKey(value)
@@ -210,6 +212,12 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             sendError = "Select a model first."
             return
         }
+        val requestProvider = provider
+        if (model.provider != requestProvider) {
+            sendError = "The selected model belongs to a different provider. Select it again."
+            selectedModel = null
+            return
+        }
         if (isSending) return
         val raw = input.trim()
         val pendingAttachments = attachments
@@ -229,7 +237,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         sendJob = viewModelScope.launch(Dispatchers.IO) {
             var partialResponse = ""
             try {
-                if (settings.isApiKeyLocked(provider)) {
+                if (settings.isApiKeyLocked(requestProvider)) {
                     error("Unlock protected credentials in Settings before sending AI requests.")
                 }
                 val mentions = AICommandRegistry.resolveMentions(resolver, workspaceRoot, raw)
@@ -262,7 +270,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
                 val history = buildBoundedHistory(model, messages)
-                val key = settings.getApiKey(provider) ?: error("API key is not configured.")
+                val key = settings.getApiKey(requestProvider) ?: error("API key is not configured.")
                 val attachmentContext = prepareAttachmentContext(submittedAttachments)
                 val userMessage = if (attachmentContext.isBlank()) raw else raw + "\n\n" + attachmentContext
                 val effectiveInstruction = if (attachmentContext.isBlank()) finalInstruction else finalInstruction + "\n\n" + attachmentContext
@@ -438,7 +446,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     fun dismissError() { sendError = null }
 
     private fun buildBoundedHistory(model: AIModelInfo, source: List<ChatMessageEntity>): List<Pair<String, String>> {
-        val hardLimit = model.contextLimit?.let { (it * CHARS_PER_TOKEN).coerceAtMost(MAX_REQUEST_CHARS) } ?: DEFAULT_REQUEST_CHARS
+        val hardLimit = model.contextLimit?.let {
+            minOf(it.coerceAtLeast(0L), MAX_REQUEST_CHARS / CHARS_PER_TOKEN) * CHARS_PER_TOKEN
+        }?.coerceAtLeast(1L) ?: DEFAULT_REQUEST_CHARS
         val result = ArrayDeque<Pair<String, String>>()
         var used = 0L
         source.asReversed().forEach { message ->
