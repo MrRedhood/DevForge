@@ -454,7 +454,7 @@ private fun AgentProfileEditorDialog(
                     )
                 }
                 Text(
-                    "Access switches are policy declarations. Only capabilities with registered DevForge tools can currently be exercised; disabled access is enforced before any tool runs.",
+                    "Only implemented DevForge capabilities are shown. Disabled access is enforced before any tool runs.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
