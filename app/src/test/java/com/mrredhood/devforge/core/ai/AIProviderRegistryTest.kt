@@ -1,7 +1,7 @@
 package com.mrredhood.devforge.core.ai
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFailsWith
+import org.junit.Assert.fail
 import org.junit.Test
 
 class AIProviderRegistryTest {
@@ -44,9 +44,18 @@ class AIProviderRegistryTest {
 
     @Test
     fun rejectsUnsafeCustomEndpoint() {
-        assertFailsWith<IllegalArgumentException> { AIProviderRegistry.validateCustomBaseUrl("http://example.com/v1") }
-        assertFailsWith<IllegalArgumentException> { AIProviderRegistry.validateCustomBaseUrl("https://user:pass@example.com/v1") }
-        assertFailsWith<IllegalArgumentException> { AIProviderRegistry.validateCustomBaseUrl("https://example.com/v1?key=secret") }
-        assertFailsWith<IllegalArgumentException> { AIProviderRegistry.validateCustomBaseUrl("https://example.com/v1/../admin") }
+        assertRejected { AIProviderRegistry.validateCustomBaseUrl("http://example.com/v1") }
+        assertRejected { AIProviderRegistry.validateCustomBaseUrl("https://user:pass@example.com/v1") }
+        assertRejected { AIProviderRegistry.validateCustomBaseUrl("https://example.com/v1?key=secret") }
+        assertRejected { AIProviderRegistry.validateCustomBaseUrl("https://example.com/v1/../admin") }
+    }
+
+    private fun assertRejected(block: () -> Unit) {
+        try {
+            block()
+        } catch (_: IllegalArgumentException) {
+            return
+        }
+        fail("Expected IllegalArgumentException.")
     }
 }
