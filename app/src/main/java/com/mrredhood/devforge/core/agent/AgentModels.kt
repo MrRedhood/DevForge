@@ -28,6 +28,9 @@ enum class AgentToolId(val wireName: String) {
     COMPLETE_HANDOFF("complete_handoff"),
     PATCH_FILE("patch_file"),
     WRITE_FILE("write_file"),
+    CREATE_FILE("create_file"),
+    CREATE_FOLDER("create_folder"),
+    DELETE_PATH("delete_path"),
 }
 
 data class AgentModelBinding(

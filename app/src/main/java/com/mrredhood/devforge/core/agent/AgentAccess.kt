@@ -47,7 +47,10 @@ object AgentAccessRules {
         AgentToolId.LIST_FILES,
         AgentToolId.SEARCH_WORKSPACE,
         AgentToolId.PATCH_FILE,
-        AgentToolId.WRITE_FILE -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS)
+        AgentToolId.WRITE_FILE,
+        AgentToolId.CREATE_FILE,
+        AgentToolId.CREATE_FOLDER,
+        AgentToolId.DELETE_PATH -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS)
 
         AgentToolId.READ_SHARED_MEMORY,
         AgentToolId.WRITE_SHARED_MEMORY,

@@ -29,6 +29,9 @@ class WorkspaceAgentToolProvider(
         .register(SearchWorkspaceTool())
         .register(PatchFileTool())
         .register(WriteFileTool())
+        .register(CreateFileTool())
+        .register(CreateFolderTool())
+        .register(DeletePathTool())
 
     private abstract inner class WorkspaceTool : AgentTool {
         protected suspend fun root(context: AgentToolContext): Uri {
@@ -201,6 +204,84 @@ class WorkspaceAgentToolProvider(
         }
     }
 
+    private inner class CreateFileTool : WorkspaceTool() {
+        override val definition = AgentToolDefinition(
+            AgentToolId.CREATE_FILE,
+            "Create a new bounded UTF-8 text file inside the selected workspace.",
+            Capability.EDIT_FILES,
+            RiskLevel.R2,
+            sideEffecting = true,
+        )
+
+        override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
+            listOf(JSONObject(request.argumentsJson).optString("path").trim())
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val args = JSONObject(request.argumentsJson)
+            val path = scopedPath(context.pathScope, args.optString("path").trim())
+            val content = args.optString("content", "")
+            access.createText(root(context), path, content)
+            AgentToolResult.Success(
+                summary = "Created $path.",
+                output = JSONObject().put("path", path).put("bytes", content.toByteArray(Charsets.UTF_8).size).toString(),
+                affectedPaths = listOf(path),
+            )
+        } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to create file.")
+        }
+    }
+
+    private inner class CreateFolderTool : WorkspaceTool() {
+        override val definition = AgentToolDefinition(
+            AgentToolId.CREATE_FOLDER,
+            "Create one new folder inside the selected workspace.",
+            Capability.EDIT_FILES,
+            RiskLevel.R2,
+            sideEffecting = true,
+        )
+
+        override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
+            listOf(JSONObject(request.argumentsJson).optString("path").trim())
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val path = scopedPath(context.pathScope, JSONObject(request.argumentsJson).optString("path").trim())
+            access.createDirectory(root(context), path)
+            AgentToolResult.Success(
+                summary = "Created folder $path.",
+                output = JSONObject().put("path", path).toString(),
+                affectedPaths = listOf(path),
+            )
+        } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to create folder.")
+        }
+    }
+
+    private inner class DeletePathTool : WorkspaceTool() {
+        override val definition = AgentToolDefinition(
+            AgentToolId.DELETE_PATH,
+            "Delete one workspace file or folder.",
+            Capability.DELETE_FILES,
+            RiskLevel.R3,
+            sideEffecting = true,
+        )
+
+        override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
+            listOf(JSONObject(request.argumentsJson).optString("path").trim())
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val path = scopedPath(context.pathScope, JSONObject(request.argumentsJson).optString("path").trim())
+            require(path != ".git" && !path.startsWith(".git/")) { "The .git directory is protected." }
+            access.delete(root(context), path)
+            AgentToolResult.Success(
+                summary = "Deleted $path.",
+                output = JSONObject().put("path", path).toString(),
+                affectedPaths = listOf(path),
+            )
+        } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to delete path.")
+        }
+    }
+
     private inner class WriteFileTool : WorkspaceTool() {
         override val definition = AgentToolDefinition(
             AgentToolId.WRITE_FILE,
@@ -258,6 +339,46 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         val bytes = readBounded(file, MAX_READ_BYTES)
         require(!bytes.contains(0.toByte())) { "Binary files are not readable through the agent text tool." }
         bytes.toString(Charsets.UTF_8)
+    }
+
+    suspend fun createText(root: Uri, path: String, content: String) = withContext(Dispatchers.IO) {
+        val normalized = WorkspacePathScope.normalize(path)
+        val bytes = content.toByteArray(Charsets.UTF_8)
+        require(bytes.size <= MAX_WRITE_BYTES) { "Agent file writes are limited to 128 KiB." }
+        val parts = normalized.split('/')
+        val name = parts.last()
+        val parent = resolve(root, parts.dropLast(1).joinToString("/"))
+        require(isDirectory(parent)) { "Parent path is not a directory." }
+        require(findChild(parent, name) == null) { "File already exists: $normalized" }
+        val target = DocumentsContract.createDocument(resolver, parent, "text/plain", name)
+            ?: throw IOException("Unable to create $normalized")
+        resolver.openOutputStream(target, "wt")?.use { it.write(bytes) }
+            ?: throw IOException("Unable to write $normalized")
+    }
+
+    suspend fun createDirectory(root: Uri, path: String) = withContext(Dispatchers.IO) {
+        val normalized = WorkspacePathScope.normalize(path)
+        val parts = normalized.split('/')
+        val name = parts.last()
+        val parent = resolve(root, parts.dropLast(1).joinToString("/"))
+        require(isDirectory(parent)) { "Parent path is not a directory." }
+        require(findChild(parent, name) == null) { "Path already exists: $normalized" }
+        DocumentsContract.createDocument(
+            resolver,
+            parent,
+            DocumentsContract.Document.MIME_TYPE_DIR,
+            name,
+        ) ?: throw IOException("Unable to create folder $normalized")
+    }
+
+    suspend fun delete(root: Uri, path: String) = withContext(Dispatchers.IO) {
+        val normalized = WorkspacePathScope.normalize(path)
+        require(normalized != ".git" && !normalized.startsWith(".git/")) { "The .git directory is protected." }
+        val target = resolve(root, normalized)
+        require(target != root) { "The workspace root cannot be deleted." }
+        require(DocumentsContract.deleteDocument(resolver, target)) {
+            "Unable to delete $normalized"
+        }
     }
 
     suspend fun writeText(root: Uri, path: String, content: String) = withContext(Dispatchers.IO) {
