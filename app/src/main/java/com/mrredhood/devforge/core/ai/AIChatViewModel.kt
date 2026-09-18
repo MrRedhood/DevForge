@@ -34,8 +34,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private val chatGateway = AIChatGateway(
         attachmentAdapters = mapOf(
             AIProvider.GEMINI to GeminiProviderAttachmentAdapter(resolver),
-            AIProvider.OPENROUTER to UnsupportedProviderAttachmentAdapter(AIProvider.OPENROUTER),
-            AIProvider.OPENAI to UnsupportedProviderAttachmentAdapter(AIProvider.OPENAI),
+            AIProvider.OPENROUTER to OpenRouterProviderAttachmentAdapter(resolver),
         ),
     )
     private val database = DevForgeDatabase.get(application)

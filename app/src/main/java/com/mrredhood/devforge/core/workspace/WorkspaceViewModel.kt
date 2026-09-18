@@ -100,18 +100,16 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         workspaceName: String? = null,
         takePersistablePermission: Boolean = true,
     ) {
+        var persistenceWarning: String? = null
         if (takePersistablePermission) {
-            val persisted = runCatching {
+            runCatching {
                 resolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                 )
-                true
-            }.getOrElse {
-                knowledgeMessage = "DevForge could not persist access to that folder. Choose the folder again or use a provider that supports persistent document permissions."
-                false
+            }.onFailure {
+                persistenceWarning = "Folder access is available for this session, but this provider did not allow persistent access."
             }
-            if (!persisted) return
         }
 
         val fallbackName = uri.lastPathSegment?.substringAfterLast(':')?.ifBlank { null } ?: "Workspace"
@@ -123,7 +121,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
             ?: fallbackName
         val newWorkspace = Workspace(name = cleanName, treeUri = uri)
         clearSearch()
-        knowledgeMessage = null
+        knowledgeMessage = persistenceWarning
         viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching { tree.list(uri, 1) }
             result.onSuccess {

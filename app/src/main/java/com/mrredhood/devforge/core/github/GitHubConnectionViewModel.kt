@@ -61,7 +61,7 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
                             } else {
                                 GitHubConnectionState.Disconnected
                             },
-                            message = "GitHub credential validation failed: " + result.message,
+                            message = githubCredentialMessage(result.message),
                         )
                     }
                 }
@@ -86,10 +86,20 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
                         state = GitHubConnectionState.Connected(result.accountName),
                         message = "GitHub credential is valid for @" + result.accountName + ".",
                     )
-                    is GitHubCredentialValidation.Invalid -> snapshot.copy(
-                        state = GitHubConnectionState.Disconnected,
-                        message = "GitHub credential validation failed: " + result.message,
-                    )
+                    is GitHubCredentialValidation.Invalid -> {
+                        if (isLikelyInvalidCredential(result.message)) {
+                            runCatching { secretStore.remove(TOKEN_KEY) }
+                            snapshot.copy(
+                                state = GitHubConnectionState.Disconnected,
+                                message = "The saved GitHub token was rejected (HTTP 401 / bad credentials) and has been removed. Paste a fresh GitHub token and connect again.",
+                            )
+                        } else {
+                            snapshot.copy(
+                                state = GitHubConnectionState.CredentialStored,
+                                message = githubCredentialMessage(result.message),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -115,6 +125,17 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
     } else {
         GitHubConnectionSnapshot()
     }
+
+    private fun isLikelyInvalidCredential(message: String): Boolean =
+        message.contains("HTTP 401", ignoreCase = true) ||
+            message.contains("bad credentials", ignoreCase = true)
+
+    private fun githubCredentialMessage(message: String): String =
+        if (isLikelyInvalidCredential(message)) {
+            "GitHub rejected the saved token (HTTP 401 / bad credentials). The token may be expired, revoked, or incorrectly copied. Use a fresh GitHub token."
+        } else {
+            "GitHub credential validation failed: " + message
+        }
 
     override fun onCleared() {
         validationJob?.cancel()
