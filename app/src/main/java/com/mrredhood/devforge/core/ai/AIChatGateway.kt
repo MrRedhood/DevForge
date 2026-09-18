@@ -43,7 +43,7 @@ class AIChatGateway(
         validateRequest(model, apiKey, userInstruction, customBaseUrl)
         when (AIProviderRegistry.spec(model.provider).wireProtocol) {
             AIWireProtocol.GEMINI -> streamGemini(model, apiKey, history, userInstruction, attachments, customBaseUrl).collect(::emit)
-            AIWireProtocol.ANTHROPIC_MESSAGES -> streamAnthropic(model, apiKey, history, userInstruction, customBaseUrl).collect(::emit)
+            AIWireProtocol.ANTHROPIC_MESSAGES -> streamAnthropic(model, apiKey, history, userInstruction, attachments, customBaseUrl).collect(::emit)
             AIWireProtocol.OPENAI_CHAT -> streamOpenAiCompatible(model.provider, apiKey, model.id, history, userInstruction, attachments, customBaseUrl).collect(::emit)
         }
     }
