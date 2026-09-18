@@ -86,7 +86,7 @@
 - [x] Bounded SAF tools: read_file, list_files, search_workspace, patch_file and write_file
 - [x] Typed shared-memory and agent-handoff coordination tools
 - [x] Persistent bounded agent-task engine with resumable steps, cancellation, receipts/results and approval waiting
-- [x] Persistent multi-agent workspace coordinator with up to 4 concurrent agents
+- [x] Persistent multi-agent workspace coordinator with up to 10 concurrent agents
 - [x] Agent task hard limits: 12 steps, bounded payload/result sizes and 60-second execution window
 - [x] Explicit per-agent-task path scopes persisted in the task plan
 - [x] Per-agent provider/model binding persisted independently
@@ -308,8 +308,15 @@
 - Added batch agent launch with either one shared provider/model or independent provider/model selections for each agent, using the live model catalog where available.
 - Added persistent premade/custom agent profiles with editable name, description, instructions and access switches.
 - Added explicit agent access policy enforcement at the tool gateway for workspace/file and shared-coordination tools; disabled access cannot be bypassed by model output.
-- Added additional profile declarations for Web, Terminal, Git, Build, Diagnostics and Network capabilities; undeployed capabilities cannot invent or unlock tools that are not registered.
+- Agent profiles expose only currently registered execution capabilities; undeployed capabilities are intentionally not presented as permission toggles.
 - Added regression coverage for agent access encoding and enforcement.
+
+### 2026-09-18 — Compile and editor hardening follow-up
+- Fixed release-compiler integration errors by importing the existing editor-intelligence types in the app shell.
+- Updated terminal Compose/coroutine integration for the current Compose API surface and approved-output callback scope.
+- Optimized editor fold-range discovery from repeated prefix scans to a single bounded pass, preserving the 80-range ceiling.
+- Added a regression test covering the fold-range ceiling on larger generated source input.
+- Release/Android/UI validation remains evidence-driven and is not marked successful until GitHub Actions completes.
 
 ### 2026-09-18 — Deep repository audit and hardening
 - Repaired concrete Kotlin/Compose compile blockers found by GitHub Actions in AI gateway, chat, diagnostics and editor integration.
