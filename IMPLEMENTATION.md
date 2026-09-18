@@ -318,6 +318,12 @@
 - Added a regression test covering the fold-range ceiling on larger generated source input.
 - Release/Android/UI validation remains evidence-driven and is not marked successful until GitHub Actions completes.
 
+### 2026-09-18 — Chat attachment validation hardening
+- Removed the asynchronous-baseline race from attachment selection by merging validated results against the latest main-thread state.
+- Enforced the eight-attachment and 80 MiB pending limits at merge time so overlapping picker callbacks cannot overwrite newer selections.
+- Restricted the Document picker category to recognized text/document MIME families instead of accepting arbitrary non-media binaries.
+- Added regression tests for media separation and document MIME validation.
+
 ### 2026-09-18 — Deep repository audit and hardening
 - Repaired concrete Kotlin/Compose compile blockers found by GitHub Actions in AI gateway, chat, diagnostics and editor integration.
 - Removed stale/fake agent access controls that had no registered execution capabilities; agent permissions now fail closed and are enforced both at planning and execution boundaries.
