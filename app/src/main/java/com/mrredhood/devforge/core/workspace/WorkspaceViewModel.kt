@@ -20,6 +20,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     private val repository = WorkspaceDatabaseRepository(application)
     private val resolver: ContentResolver = application.contentResolver
     private val tree = WorkspaceFileTree(resolver)
+    private val fileOperations = WorkspaceFileOperations(resolver)
     private val searchService = WorkspaceSearch(resolver)
     private val symbolIndex = WorkspaceSymbolIndexStore(application)
     private val indexer = WorkspaceIndexer(resolver)
@@ -148,6 +149,42 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         breadcrumbs = breadcrumbs + WorkspaceBreadcrumb(entry.uri, entry.name)
         clearSearch()
         refresh()
+    }
+
+    fun createFile(name: String) {
+        val parent = currentUri ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { fileOperations.createFile(parent, name) }
+                .onSuccess { launch(Dispatchers.Main.immediate) { knowledgeMessage = "Created " + name.trim() + "."; refresh() } }
+                .onFailure { launch(Dispatchers.Main.immediate) { knowledgeMessage = it.message ?: "Unable to create file." } }
+        }
+    }
+
+    fun createFolder(name: String) {
+        val parent = currentUri ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { fileOperations.createFolder(parent, name) }
+                .onSuccess { launch(Dispatchers.Main.immediate) { knowledgeMessage = "Created " + name.trim() + "."; refresh() } }
+                .onFailure { launch(Dispatchers.Main.immediate) { knowledgeMessage = it.message ?: "Unable to create folder." } }
+        }
+    }
+
+    fun deleteEntry(entry: WorkspaceEntry) {
+        if (entry.name == ".git") return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { fileOperations.delete(entry.uri, entry.name) }
+                .onSuccess { launch(Dispatchers.Main.immediate) { knowledgeMessage = "Deleted " + entry.name + "."; refresh() } }
+                .onFailure { launch(Dispatchers.Main.immediate) { knowledgeMessage = it.message ?: "Unable to delete " + entry.name + "." } }
+        }
+    }
+
+    fun renameEntry(entry: WorkspaceEntry, newName: String) {
+        if (entry.name == ".git") return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { fileOperations.rename(entry.uri, entry.name, newName) }
+                .onSuccess { launch(Dispatchers.Main.immediate) { knowledgeMessage = "Renamed to " + newName.trim() + "."; refresh() } }
+                .onFailure { launch(Dispatchers.Main.immediate) { knowledgeMessage = it.message ?: "Unable to rename " + entry.name + "." } }
+        }
     }
 
     fun goToBreadcrumb(index: Int) {
