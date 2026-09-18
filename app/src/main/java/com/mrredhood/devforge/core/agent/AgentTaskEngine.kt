@@ -22,6 +22,12 @@ class AgentTaskEngine(
         plan: AgentTaskPlan,
         model: AgentModelBinding? = null,
     ): String = withContext(Dispatchers.IO) {
+        require(!SecretRedactor.containsLikelySecret(instruction)) {
+            "Agent instruction contains secret-like material and cannot be persisted."
+        }
+        require(plan.steps.all { !SecretRedactor.containsLikelySecret(it.argumentsJson) }) {
+            "Agent plan contains secret-like tool arguments and cannot be persisted."
+        }
         val taskId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
         val payload = AgentTaskPlanCodec.encode(plan)
