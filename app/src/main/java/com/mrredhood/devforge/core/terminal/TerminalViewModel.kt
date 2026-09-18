@@ -110,6 +110,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             args = args,
             workingDirectory = session.workingDirectory,
             timeoutMs = settings.snapshot().terminalTimeoutMs,
+            sessionId = session.id,
         )
         isRunning = true
         statusMessage = null
@@ -143,11 +144,18 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         val args = buildList {
             for (i in 0 until minOf(array.length(), TerminalCommandPolicy.MAX_ARGS)) add(array.optString(i))
         }
+        val sessionId = payload.optString("sessionId").takeIf { it.isNotBlank() } ?: return
+        if (sessions.none { it.id == sessionId }) return
+        withContext(Dispatchers.Main.immediate) {
+            activeSessionId = sessionId
+            output = ""
+        }
         val command = TerminalCommand(
             executable = executable,
             args = args,
             workingDirectory = payload.optString("workingDirectory"),
             timeoutMs = payload.optLong("timeoutMs", settings.snapshot().terminalTimeoutMs),
+            sessionId = sessionId,
         )
         isRunning = true
         statusMessage = "Executing approved command…"
