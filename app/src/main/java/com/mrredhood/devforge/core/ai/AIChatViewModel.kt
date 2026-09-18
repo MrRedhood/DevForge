@@ -36,6 +36,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private var messageJob: Job? = null
     private var sendJob: Job? = null
     private var workspaceJob: Job? = null
+    private var selectionJob: Job? = null
+    private var selectionGeneration = 0L
     private var workspaceRoot: Uri? = null
 
     var provider by mutableStateOf(settings.selectedProvider())
@@ -111,6 +113,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     fun selectProvider(value: AIProvider) {
         if (provider == value) return
+        selectionGeneration += 1
+        selectionJob?.cancel()
         messageJob?.cancel()
         messageJob = null
         provider = value
@@ -175,21 +179,34 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun selectModelInternal(model: AIModelInfo) {
+        selectionGeneration += 1
+        val generation = selectionGeneration
+        selectionJob?.cancel()
         val scope = workspaceId ?: ChatRepository.GLOBAL_SCOPE
-        viewModelScope.launch(Dispatchers.IO) {
+        selectionJob = viewModelScope.launch(Dispatchers.IO) {
             val enriched = catalogService.resolveMissingContext(model)
-            launch(Dispatchers.Main.immediate) {
-                selectedModel = enriched
-                models = models.map { if (it.provider == enriched.provider && it.id == enriched.id) enriched else it }
+            if (generation != selectionGeneration) return@launch
+            withContext(Dispatchers.Main.immediate) {
+                if (generation == selectionGeneration) {
+                    selectedModel = enriched
+                    models = models.map { if (it.provider == enriched.provider && it.id == enriched.id) enriched else it }
+                }
             }
             val session = chatRepository.getOrCreateSession(scope, enriched)
+            if (generation != selectionGeneration) return@launch
             messageJob?.cancel()
             messageJob = launch {
                 chatRepository.observeMessages(session.sessionId).collectLatest { values ->
-                    launch(Dispatchers.Main.immediate) { messages = values }
+                    if (generation == selectionGeneration) {
+                        launch(Dispatchers.Main.immediate) {
+                            if (generation == selectionGeneration) messages = values
+                        }
+                    }
                 }
             }
-            launch(Dispatchers.Main.immediate) { activeSessionId = session.sessionId }
+            withContext(Dispatchers.Main.immediate) {
+                if (generation == selectionGeneration) activeSessionId = session.sessionId
+            }
         }
     }
 
@@ -212,13 +229,13 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             sendError = "Select a model first."
             return
         }
+        if (isSending) return
         val requestProvider = provider
         if (model.provider != requestProvider) {
             sendError = "The selected model belongs to a different provider. Select it again."
             selectedModel = null
             return
         }
-        if (isSending) return
         val raw = input.trim()
         val pendingAttachments = attachments
         if (raw.isBlank() && pendingAttachments.isEmpty()) return
@@ -464,6 +481,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         workspaceJob?.cancel()
         messageJob?.cancel()
         sendJob?.cancel()
+        selectionJob?.cancel()
         super.onCleared()
     }
 
