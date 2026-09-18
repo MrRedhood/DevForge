@@ -65,12 +65,13 @@ class WorkspaceIndexer(private val resolver: ContentResolver) {
             require(maxFiles in 1..2_000)
             require(maxBytesPerFile in 4 * 1024..512 * 1024)
             val result = mutableListOf<WorkspaceSymbol>()
-            walk(root, "", result, maxFiles, maxBytesPerFile)
+            val budget = ScanBudget(maxFiles)
+            walk(root, "", result, budget, maxBytesPerFile)
             result.take(WorkspaceSymbolIndexStore.MAX_SYMBOLS)
         }
 
-    private fun walk(parent: Uri, prefix: String, result: MutableList<WorkspaceSymbol>, maxFiles: Int, maxBytesPerFile: Int) {
-        if (result.size >= WorkspaceSymbolIndexStore.MAX_SYMBOLS || maxFiles <= 0) return
+    private fun walk(parent: Uri, prefix: String, result: MutableList<WorkspaceSymbol>, budget: ScanBudget, maxBytesPerFile: Int) {
+        if (result.size >= WorkspaceSymbolIndexStore.MAX_SYMBOLS || budget.remainingFiles <= 0) return
         val documentId = runCatching { DocumentsContract.getDocumentId(parent) }.getOrElse { DocumentsContract.getTreeDocumentId(parent) }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
         resolver.query(
@@ -88,8 +89,9 @@ class WorkspaceIndexer(private val resolver: ContentResolver) {
             val mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
             val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
             var visited = 0
-            while (cursor.moveToNext() && visited < maxFiles && result.size < WorkspaceSymbolIndexStore.MAX_SYMBOLS) {
+            while (cursor.moveToNext() && budget.remainingFiles > 0 && result.size < WorkspaceSymbolIndexStore.MAX_SYMBOLS) {
                 visited++
+                budget.remainingFiles--
                 val id = cursor.getString(idIndex)
                 val name = cursor.getString(nameIndex) ?: "Unnamed"
                 val mime = cursor.getString(mimeIndex)
@@ -97,7 +99,7 @@ class WorkspaceIndexer(private val resolver: ContentResolver) {
                 val child = DocumentsContract.buildDocumentUriUsingTree(parent, id)
                 val childPath = if (prefix.isBlank()) name else "$prefix/$name"
                 if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                    walk(child, childPath, result, maxFiles - visited, maxBytesPerFile)
+                    walk(child, childPath, result, budget, maxBytesPerFile)
                 } else if (isSourceName(name) && (size == null || size <= maxBytesPerFile)) {
                     val bytes = runCatching { resolver.openInputStream(child)?.use { it.readBytesLimited(maxBytesPerFile) } }.getOrNull()
                     if (bytes != null && bytes.indexOf(0) < 0) result += WorkspaceSymbolExtractor.extract(childPath, bytes.toString(StandardCharsets.UTF_8))
@@ -111,6 +113,8 @@ class WorkspaceIndexer(private val resolver: ContentResolver) {
         val SOURCE_EXTENSIONS = setOf(".kt",".java",".kts",".js",".jsx",".ts",".tsx",".py",".go",".rs",".swift",".c",".h",".cpp",".hpp")
     }
 }
+
+private data class ScanBudget(var remainingFiles: Int)
 
 private fun java.io.InputStream.readBytesLimited(maxBytes: Int): ByteArray {
     val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 64 * 1024))
