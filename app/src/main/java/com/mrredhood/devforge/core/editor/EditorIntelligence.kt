@@ -87,23 +87,24 @@ object EditorFolding {
     fun ranges(content: String, maxRanges: Int = 80): List<EditorFoldRange> {
         require(maxRanges in 1..80)
         val stack = ArrayDeque<Pair<Int, Int>>()
-        val ranges = mutableListOf<EditorFoldRange>()
-        content.forEachIndexed { index, char ->
-            when (char) {
-                '{' -> stack.addLast(index to lineAt(content, index))
+        val ranges = ArrayList<EditorFoldRange>(maxRanges)
+        var line = 1
+
+        for (index in content.indices) {
+            when (content[index]) {
+                '{' -> stack.addLast(index to line)
                 '}' -> {
-                    val open = stack.removeLastOrNull() ?: return@forEachIndexed
-                    if (index > open.first + 1 && open.second < lineAt(content, index)) {
-                        ranges += EditorFoldRange(open.first, index, open.second, lineAt(content, index))
+                    val open = stack.removeLastOrNull()
+                    if (open != null && index > open.first + 1 && open.second < line) {
+                        ranges += EditorFoldRange(open.first, index, open.second, line)
+                        if (ranges.size >= maxRanges) break
                     }
-                    if (ranges.size >= maxRanges) return@forEachIndexed
                 }
             }
+            if (content[index] == '\n') line++
         }
         return ranges
     }
-
-    private fun lineAt(content: String, offset: Int): Int = content.take(offset).count { it == '\n' } + 1
 }
 
 object EditorDiagnostics {
