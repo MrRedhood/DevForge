@@ -3,7 +3,7 @@ package com.mrredhood.devforge.core.automation
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.mrredhood.devforge.core.agent.AgentRuntime
+import com.mrredhood.devforge.DevForgeApplication
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import kotlinx.coroutines.CancellationException
@@ -18,7 +18,8 @@ class AutomationWorker(
         val triggerPayload = inputData.getString(KEY_TRIGGER_PAYLOAD)?.take(AutomationScheduler.MAX_EVENT_PAYLOAD_BYTES)
         val database = DevForgeDatabase.get(applicationContext)
         val durable = DurableStateRepository(database)
-        val engine = AutomationRunEngine(applicationContext, durable, AgentRuntime.create(applicationContext))
+        val agentRuntime = (applicationContext.applicationContext as DevForgeApplication).agentRuntime
+        val engine = AutomationRunEngine(applicationContext, durable, agentRuntime.taskEngine)
 
         return try {
             val outcome = engine.execute(automationId, attempt, triggerPayload)
