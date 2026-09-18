@@ -9,6 +9,7 @@ enum class AgentTaskStatus {
     QUEUED,
     PLANNING,
     RUNNING,
+    PAUSED,
     WAITING_APPROVAL,
     COMPLETED,
     FAILED,
@@ -21,6 +22,12 @@ enum class AgentToolId(val wireName: String) {
     SEARCH_WORKSPACE("search_workspace"),
     WRITE_FILE("write_file"),
 }
+
+data class AgentModelBinding(
+    val provider: com.mrredhood.devforge.core.ai.AIProvider,
+    val modelId: String,
+    val modelName: String = modelId,
+)
 
 data class AgentToolDefinition(
     val id: AgentToolId,
