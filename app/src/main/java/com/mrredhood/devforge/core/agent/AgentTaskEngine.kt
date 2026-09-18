@@ -262,6 +262,7 @@ class AgentTaskEngine(
 
         if (execution.isFailure) {
             val failure = execution.exceptionOrNull()
+            if (failure is CancellationException) throw failure
             task = task.copy(
                 status = AgentTaskStatus.FAILED.name,
                 errorMessage = (failure?.message ?: "Agent task execution failed.").take(600),
