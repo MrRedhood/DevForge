@@ -176,6 +176,24 @@ class ParallelAgentCoordinator(context: Context) {
         return changed
     }
 
+    fun resumeAfterApproval(taskId: String) {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            permits.acquire()
+            try {
+                engine.resumeAfterApproval(taskId)
+            } finally {
+                permits.release()
+                jobs.remove(taskId)
+            }
+        }
+        val previous = jobs.putIfAbsent(taskId, job)
+        if (previous == null) {
+            job.start()
+        } else {
+            job.cancel()
+        }
+    }
+
     suspend fun recoverWorkspace(workspaceId: String) {
         val interrupted = durable.listAgentTasks(workspaceId)
             .filter { it.status == AgentTaskStatus.PLANNING.name || it.status == AgentTaskStatus.RUNNING.name }
