@@ -16,6 +16,7 @@ import java.io.IOException
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -231,7 +232,12 @@ class TerminalCapability(
             return TerminalCapabilityResult.ApprovalRequired(id, action.summary)
         }
 
-        val execution = runCatching { terminal.execute(workspaceId, command, onOutput) }.getOrElse { error ->
+        val execution = try {
+            terminal.execute(workspaceId, command, onOutput)
+        } catch (cancelled: CancellationException) {
+            if (approvalId != null) runCatching { approvals.finishFailure(approvalId) }
+            throw cancelled
+        } catch (error: Throwable) {
             val message = error.message ?: "Terminal execution failed."
             if (approvalId != null) approvals.finishFailure(approvalId)
             audit(workspaceId, action, "TERMINAL_FAILED", message, approvalId)
