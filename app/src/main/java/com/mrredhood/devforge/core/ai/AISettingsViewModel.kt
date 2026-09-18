@@ -11,16 +11,16 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
 
     var provider by mutableStateOf(repository.selectedProvider())
         private set
-    var apiKey by mutableStateOf(repository.getApiKey(provider).orEmpty())
+    var apiKey by mutableStateOf("")
         private set
-    var status by mutableStateOf(if (repository.hasApiKey(provider)) "API key is configured." else "No API key saved for this provider.")
+    var status by mutableStateOf(statusFor(provider))
         private set
 
     fun selectProvider(value: AIProvider) {
         provider = value
-        apiKey = repository.getApiKey(value).orEmpty()
+        apiKey = ""
         repository.setSelectedProvider(value)
-        status = if (repository.hasApiKey(value)) "API key is configured." else "No API key saved for this provider."
+        status = statusFor(value)
     }
 
     fun updateApiKey(value: String) { apiKey = value }
@@ -31,14 +31,26 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
             status = "Enter an API key first."
             return
         }
-        repository.saveApiKey(provider, value)
-        apiKey = value
-        status = "Saved securely. Open Chat and tap the model dropdown to load models."
+        runCatching { repository.saveApiKey(provider, value) }
+            .onSuccess {
+                apiKey = ""
+                status = "Saved securely. Open Chat and tap the model dropdown to load models."
+            }
+            .onFailure { error -> status = error.message ?: "Unable to save the API key." }
+    }
+
+    private fun statusFor(value: AIProvider): String = when {
+        repository.isApiKeyLocked(value) -> "API key is stored with biometric protection. Unlock protected credentials before using or changing it."
+        repository.hasApiKey(value) -> "API key is configured."
+        else -> "No API key saved for this provider."
     }
 
     fun remove() {
-        repository.removeApiKey(provider)
-        apiKey = ""
-        status = "API key removed."
+        runCatching { repository.removeApiKey(provider) }
+            .onSuccess {
+                apiKey = ""
+                status = "API key removed."
+            }
+            .onFailure { error -> status = error.message ?: "Unable to remove the API key." }
     }
 }
