@@ -217,10 +217,10 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         isIndexing = true
         indexJob?.cancel()
         indexJob = viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching { indexer.build(active.treeUri) }
-            result.onSuccess { symbols ->
+            try {
+                val symbols = indexer.build(active.treeUri)
                 val persisted = symbolIndex.replace(active.id, symbols)
-                launch(Dispatchers.Main.immediate) {
+                withContext(Dispatchers.Main.immediate) {
                     if (workspace?.id == active.id) {
                         indexedSymbolCount = if (persisted) symbols.size else symbolIndex.list(active.id).size
                         symbolResults = emptyList()
@@ -229,8 +229,10 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
                         isIndexing = false
                     }
                 }
-            }.onFailure { error ->
-                launch(Dispatchers.Main.immediate) {
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                withContext(Dispatchers.Main.immediate) {
                     if (workspace?.id == active.id) {
                         knowledgeMessage = error.message ?: "Workspace index failed."
                         isIndexing = false
