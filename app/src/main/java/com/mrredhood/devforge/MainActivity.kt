@@ -84,7 +84,13 @@ import com.mrredhood.devforge.core.ai.AISettingsScreen
 import com.mrredhood.devforge.core.automation.AutomationCenterScreen
 import com.mrredhood.devforge.core.agent.AgentCenterScreen
 import com.mrredhood.devforge.core.build.BuildCenterScreen
+import com.mrredhood.devforge.core.editor.ChainedVisualTransformation
+import com.mrredhood.devforge.core.editor.CodeSyntaxVisualTransformation
+import com.mrredhood.devforge.core.editor.EditorFolding
+import com.mrredhood.devforge.core.editor.EditorLanguage
 import com.mrredhood.devforge.core.editor.EditorViewModel
+import com.mrredhood.devforge.core.editor.FoldingVisualTransformation
+import com.mrredhood.devforge.core.editor.VisibleWhitespaceVisualTransformation
 import com.mrredhood.devforge.core.git.GitDashboardScreen
 import com.mrredhood.devforge.core.git.GitDiffScreen
 import com.mrredhood.devforge.core.model.DevForgeDestination
@@ -617,7 +623,6 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
                 color = MaterialTheme.colorScheme.onBackground,
             ),
             visualTransformation = transformation,
-            softWrap = settings.settings.wordWrap,
             decorationBox = { inner -> Box(Modifier.fillMaxSize()) { inner() } },
         )
     }
