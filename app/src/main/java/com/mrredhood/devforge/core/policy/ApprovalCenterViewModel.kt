@@ -87,7 +87,7 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
             return
         }
         val pathScope = runCatching {
-            val entries = rawPathScope.split(',', '\\n').map(String::trim).filter(String::isNotBlank)
+            val entries = rawPathScope.split(',', '\n').map(String::trim).filter(String::isNotBlank)
             WorkspacePathScope(if (entries.isEmpty()) listOf("") else entries)
         }.getOrElse { error ->
             actionMessage = error.message ?: "Invalid path scope."
