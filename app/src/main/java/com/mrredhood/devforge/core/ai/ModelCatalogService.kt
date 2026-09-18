@@ -75,6 +75,7 @@ class ModelCatalogService {
             for (index in 0 until array.length()) {
                 val model = array.optJSONObject(index) ?: continue
                 val id = model.optString("id")
+                if (!isSafeModelId(id)) continue
                 if (id.isBlank()) continue
                 val architecture = model.optJSONObject("architecture")
                 val input = jsonArrayStrings(architecture?.optJSONArray("input_modalities"))
@@ -121,6 +122,7 @@ class ModelCatalogService {
             for (index in 0 until array.length()) {
                 val model = array.optJSONObject(index) ?: continue
                 val id = model.optString("id")
+                if (!isSafeModelId(id)) continue
                 if (id.isBlank()) continue
                 val modalities = inferModalities(id, "")
                 add(
@@ -207,8 +209,6 @@ class ModelCatalogService {
     private fun isSafeModelId(value: String): Boolean =
         value.length <= 180 && SAFE_MODEL_ID.matches(value) && !value.contains("..")
 
-    private fun isSafeModelId(value: String): Boolean =
-        value.length <= 180 && SAFE_MODEL_ID.matches(value) && !value.contains("..")
 
     private fun jsonArrayStrings(array: org.json.JSONArray?): Set<String> = buildSet {
         if (array == null) return@buildSet
