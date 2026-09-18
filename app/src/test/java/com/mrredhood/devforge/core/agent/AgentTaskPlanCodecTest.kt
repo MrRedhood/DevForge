@@ -45,6 +45,20 @@ class AgentTaskPlanCodecTest {
         assertTrue(restored.pathScope.allows("src/Main.kt"))
     }
     @Test
+    fun acceptsCoordinationToolsInBoundedPlans() {
+        val ids = listOf(
+            AgentToolId.READ_SHARED_MEMORY,
+            AgentToolId.WRITE_SHARED_MEMORY,
+            AgentToolId.LIST_HANDOFFS,
+            AgentToolId.CREATE_HANDOFF,
+            AgentToolId.CLAIM_HANDOFF,
+            AgentToolId.COMPLETE_HANDOFF,
+        )
+        val plan = AgentTaskPlan(ids.map { id -> AgentTaskStep(id, "{}", id.wireName) })
+        val restored = AgentTaskPlanCodec.decode(AgentTaskPlanCodec.encode(plan))
+        assertEquals(ids, restored.steps.map { it.toolId })
+    }
+    @Test
     fun rejectsUnknownToolInPersistedPlan() {
         val invalid = "{\"version\":2,\"scope\":[\"src\"],\"steps\":[{\"tool\":\"shell\",\"arguments\":{},\"label\":\"bad\"}]}"
         assertThrows(IllegalArgumentException::class.java) {
