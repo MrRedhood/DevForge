@@ -14,6 +14,19 @@ class EditorIntelligenceTest {
     }
 
     @Test
+    fun foldingCapsRangesWithoutRepeatedWholePrefixScans() {
+        val content = buildString {
+            repeat(120) { index ->
+                append("block$index {\\n")
+                append("  value = $index\\n")
+                append("}\\n")
+            }
+        }
+        val ranges = EditorFolding.ranges(content)
+        assertEquals(80, ranges.size)
+    }
+
+    @Test
     fun diagnosticsFindsUnclosedBracket() {
         val report = EditorDiagnostics.analyze("Demo.kt", "fun demo() {")
         assertTrue(report.diagnostics.any { it.code == "EDITOR_BRACKET" })
