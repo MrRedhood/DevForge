@@ -80,7 +80,8 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
 
-    implementation("androidx.activity:activity-compose:1.12.4")
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.fragment:fragment-ktx:1.9.0")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.foundation:foundation")

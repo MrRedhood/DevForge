@@ -472,7 +472,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         return total
     }
 
-    private suspend fun prepareAttachmentContext(values: List<ChatAttachment>): String = buildString {
+    private suspend fun prepareAttachmentContext(values: List<ChatAttachment>): String {
+        if (values.isEmpty()) return ""
+        return buildString {
         var remainingTextBytes = MAX_ATTACHMENT_CONTEXT_BYTES
         append("Device attachments:")
         values.forEach { attachment ->
@@ -499,8 +501,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             } else {
                 append("\n  Binary content will be uploaded using the selected provider attachment adapter when supported.")
             }
+        }.trimEnd()
         }
-    }.trimEnd()
 
     private fun readTextSnippet(uri: Uri, maxBytes: Long): String {
         val limit = maxBytes.coerceAtMost(MAX_TEXT_ATTACHMENT_BYTES).toInt()

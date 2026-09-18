@@ -307,12 +307,7 @@ private fun CommandPalette(commands: List<AICommandDefinition>, onSelect: (AICom
 private fun ChatComposer(viewModel: AIChatViewModel) {
     var attachmentMenuOpen by remember { mutableStateOf(false) }
     var pickerType by remember { mutableStateOf(ChatAttachmentType.ANY_FILE) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        runCatching {
-            viewModel.addAttachments(uris.distinct(), pickerType)
-        }.onFailure(viewModel::reportAttachmentPickerError)
-    }
-    val fallbackPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         runCatching {
             viewModel.addAttachments(uris.distinct(), pickerType)
         }.onFailure(viewModel::reportAttachmentPickerError)
@@ -321,12 +316,8 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
         pickerType = type
         attachmentMenuOpen = false
         runCatching {
-            picker.launch(attachmentMimeTypes(type))
-        }.onFailure {
-            runCatching {
-                fallbackPicker.launch(attachmentFallbackMimeType(type))
-            }.onFailure(viewModel::reportAttachmentPickerError)
-        }
+            picker.launch(attachmentFallbackMimeType(type))
+        }.onFailure(viewModel::reportAttachmentPickerError)
     }
 
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
@@ -416,22 +407,6 @@ private fun contextLabel(value: Long?): String {
 }
 
 
-private fun attachmentMimeTypes(type: ChatAttachmentType): Array<String> = when (type) {
-    ChatAttachmentType.ANY_FILE -> arrayOf("*/*")
-    ChatAttachmentType.PHOTO -> arrayOf("image/*")
-    ChatAttachmentType.VIDEO -> arrayOf("video/*")
-    ChatAttachmentType.AUDIO -> arrayOf("audio/*")
-    ChatAttachmentType.DOCUMENT -> arrayOf(
-        "application/pdf",
-        "text/*",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-powerpoint",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    )
-}
 
 private fun attachmentFallbackMimeType(type: ChatAttachmentType): String = when (type) {
     ChatAttachmentType.ANY_FILE -> "*/*"
