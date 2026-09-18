@@ -7,6 +7,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -299,7 +300,7 @@ class AIChatGateway(
         return userInstruction
     }
 
-    private suspend fun emitSseResponse(connection: HttpURLConnection, parser: (String) -> String) {
+    private suspend fun FlowCollector<String>.emitSseResponse(connection: HttpURLConnection, parser: (String) -> String) {
         val status = connection.responseCode
         val stream = if (status in 200..299) connection.inputStream else connection.errorStream
         if (status !in 200..299) {
