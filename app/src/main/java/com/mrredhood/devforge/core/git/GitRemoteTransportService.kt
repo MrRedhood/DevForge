@@ -5,7 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.mrredhood.devforge.core.github.GitHubConnectionViewModel
-import com.mrredhood.devforge.core.security.AndroidSecretStore
+import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
@@ -34,7 +34,7 @@ class GitRemoteTransportService(
     private val context: Context,
     private val resolver: ContentResolver = context.contentResolver,
 ) {
-    private val secretStore = AndroidSecretStore(context)
+    private val secretStore = CredentialSecurityStore(context)
 
     fun validateConfigured(remoteUrl: String?): GitRemoteValidation {
         if (remoteUrl.isNullOrBlank()) return GitRemoteValidation(false, reason = "No origin remote is configured.")
