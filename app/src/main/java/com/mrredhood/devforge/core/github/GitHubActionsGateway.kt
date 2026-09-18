@@ -60,6 +60,7 @@ class GitHubActionsGateway(
         return runCatching {
             val http = connection.open(endpoint).apply {
                 requestMethod = "POST"
+                instanceFollowRedirects = false
                 setRequestProperty("Accept", "application/vnd.github+json")
                 setRequestProperty("Authorization", "Bearer " + token)
                 setRequestProperty("X-GitHub-Api-Version", API_VERSION)
@@ -218,7 +219,7 @@ class GitHubActionsGateway(
                 "/actions/workflows/" + workflowId + "/runs?event=workflow_dispatch&per_page=20"
         val http = connection.open(endpoint).apply {
             requestMethod = "GET"
-            instanceFollowRedirects = true
+            instanceFollowRedirects = false
             setRequestProperty("Accept", "application/vnd.github+json")
             setRequestProperty("Authorization", "Bearer " + token)
             setRequestProperty("X-GitHub-Api-Version", API_VERSION)
