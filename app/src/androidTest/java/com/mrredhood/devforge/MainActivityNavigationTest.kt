@@ -27,16 +27,16 @@ class MainActivityNavigationTest {
     @Test
     fun filesShowsWorkspaceCreationUi() {
         composeRule.onNodeWithText("Files", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("Create", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("Create workspace", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Workspace name", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("New workspace", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Name", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Choose folder", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Cancel", useUnmergedTree = true).performClick()
     }
 
     @Test
     fun backNavigatesOneDestinationAtATimeAndConfirmsExitAtRoot() {
         composeRule.onNodeWithText("Files", useUnmergedTree = true).assertIsDisplayed().performClick()
-        composeRule.onNodeWithText("Choose a workspace to begin", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Create a workspace", useUnmergedTree = true).assertIsDisplayed()
 
         pressBack()
 
