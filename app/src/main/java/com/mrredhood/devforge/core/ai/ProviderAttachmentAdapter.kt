@@ -1,10 +1,10 @@
 package com.mrredhood.devforge.core.ai
 
 import android.content.ContentResolver
+import android.net.Uri
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import org.json.JSONObject
@@ -58,7 +58,7 @@ class GeminiProviderAttachmentAdapter(
 
         val startConnection = URL(
             "https://generativelanguage.googleapis.com/upload/v1beta/files?key=" +
-                URLEncoder.encode(apiKey, Charsets.UTF_8),
+                Uri.encode(apiKey),
         ).openConnection() as HttpURLConnection
         startConnection.requestMethod = "POST"
         startConnection.instanceFollowRedirects = false
@@ -143,6 +143,9 @@ class GeminiProviderAttachmentAdapter(
             val file = JSONObject(detail).optJSONObject("file")
                 ?: error("Gemini returned an invalid attachment response.")
             val remoteUri = file.optString("uri").trim()
+            require(remoteUri.startsWith("https://", ignoreCase = true)) {
+                "Gemini returned an invalid attachment URI."
+            }
             val remoteMime = file.optString("mimeType").trim().ifBlank { attachment.mimeType }
 
             require(remoteUri.isNotBlank()) { "Gemini returned no attachment URI." }
