@@ -94,7 +94,11 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun openWorkspace(uri: Uri, takePersistablePermission: Boolean = true) {
+    fun openWorkspace(
+        uri: Uri,
+        workspaceName: String? = null,
+        takePersistablePermission: Boolean = true,
+    ) {
         if (takePersistablePermission) {
             val persisted = runCatching {
                 resolver.takePersistableUriPermission(
@@ -109,8 +113,14 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
             if (!persisted) return
         }
 
-        val name = uri.lastPathSegment?.substringAfterLast(':')?.ifBlank { null } ?: "Workspace"
-        val newWorkspace = Workspace(name = name, treeUri = uri)
+        val fallbackName = uri.lastPathSegment?.substringAfterLast(':')?.ifBlank { null } ?: "Workspace"
+        val cleanName = workspaceName
+            ?.replace(Regex("[\\r\\n]"), " ")
+            ?.trim()
+            ?.take(120)
+            ?.takeIf { it.isNotBlank() }
+            ?: fallbackName
+        val newWorkspace = Workspace(name = cleanName, treeUri = uri)
         clearSearch()
         knowledgeMessage = null
         viewModelScope.launch(Dispatchers.IO) {

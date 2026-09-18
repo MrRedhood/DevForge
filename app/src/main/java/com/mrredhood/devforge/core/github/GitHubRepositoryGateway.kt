@@ -12,13 +12,21 @@ class GitHubRepositoryGateway(
     private val connection: HttpConnectionFactory = DefaultHttpConnectionFactory,
 ) {
     fun validateCredential(): GitHubCredentialValidation =
-        currentUser().fold(
+        validateCredential(null)
+
+    fun validateCredential(token: String): GitHubCredentialValidation {
+        val normalized = token.trim()
+        if (normalized.isBlank()) {
+            return GitHubCredentialValidation.Invalid("GitHub access token is empty.")
+        }
+        return currentUser(normalized).fold(
             onSuccess = { GitHubCredentialValidation.Valid(it) },
             onFailure = { GitHubCredentialValidation.Invalid(safeMessage(it)) },
         )
+    }
 
-    fun currentUser(): Result<String> =
-        getJson("/user") {
+    fun currentUser(token: String? = null): Result<String> =
+        getJson("/user", token) {
             it.optString("login").takeIf(String::isNotBlank)
                 ?: throw IllegalStateException("GitHub did not return an account login.")
         }
@@ -87,14 +95,19 @@ class GitHubRepositoryGateway(
         )
     }
 
-    private fun <T> getJson(path: String, parser: (JSONObject) -> T): Result<T> =
-        readBody(path).map { parser(JSONObject(it)) }
+    private fun <T> getJson(
+        path: String,
+        tokenOverride: String? = null,
+        parser: (JSONObject) -> T,
+    ): Result<T> =
+        readBody(path, tokenOverride).map { parser(JSONObject(it)) }
 
     private fun getJsonArray(path: String): Result<JSONArray> =
         readBody(path).map(::JSONArray)
 
-    private fun readBody(path: String): Result<String> {
-        val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
+    private fun readBody(path: String, tokenOverride: String? = null): Result<String> {
+        val token = tokenOverride?.trim()?.takeIf { it.isNotBlank() }
+            ?: secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
             ?: return Result.failure(
                 IllegalStateException("GitHub is not connected on this device."),
             )

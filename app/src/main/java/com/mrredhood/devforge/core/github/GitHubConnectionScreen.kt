@@ -30,8 +30,10 @@ fun GitHubConnectionScreen(
     onConnectionChanged: () -> Unit = {},
 ) {
     var token by rememberSaveable { mutableStateOf("") }
+    var replacingToken by rememberSaveable { mutableStateOf(false) }
     val connected = viewModel.snapshot.state is GitHubConnectionState.Connected
     val credentialStored = connected || viewModel.snapshot.state is GitHubConnectionState.CredentialStored
+    val canEditToken = !credentialStored || replacingToken
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
@@ -68,8 +70,14 @@ fun GitHubConnectionScreen(
             placeholder = { Text("Paste a token with the minimum required repository permissions") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
-            enabled = !credentialStored,
+            enabled = canEditToken && !viewModel.isValidating,
         )
+        if (viewModel.isValidating) {
+            Text(
+                "Checking the token with GitHub…",
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
         Text(
             "Repository discovery reads repositories and Actions workflows. Workflow dispatch will remain separately gated until its execution path is enabled.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -80,18 +88,44 @@ fun GitHubConnectionScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
         )
-        if (!credentialStored) {
+        if (canEditToken) {
             Button(
-                onClick = { viewModel.connectWithToken(token); token = ""; onConnectionChanged() },
+                onClick = {
+                    viewModel.connectWithToken(token)
+                    token = ""
+                    replacingToken = false
+                },
+                enabled = token.isNotBlank() && !viewModel.isValidating,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Store securely") }
+            ) {
+                Text(if (credentialStored) "Verify & replace token" else "Connect with token")
+            }
+            if (replacingToken) {
+                TextButton(
+                    onClick = {
+                        replacingToken = false
+                        token = ""
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Cancel replacement") }
+            }
         } else {
             TextButton(
                 onClick = viewModel::validateCredential,
+                enabled = !viewModel.isValidating,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Verify credential now") }
             TextButton(
+                onClick = {
+                    replacingToken = true
+                    token = ""
+                },
+                enabled = !viewModel.isValidating,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Replace token") }
+            TextButton(
                 onClick = { viewModel.disconnect(); onConnectionChanged() },
+                enabled = !viewModel.isValidating,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Disconnect and erase credential") }
         }

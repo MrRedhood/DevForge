@@ -136,7 +136,10 @@ class MainActivity : FragmentActivity() {
 @Composable
 private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
     val context = LocalContext.current
-    val windowSize = calculateWindowSizeClass(context as FragmentActivity)
+    val activity = context as? FragmentActivity
+    val expanded = activity?.let {
+        calculateWindowSizeClass(it).widthSizeClass != WindowWidthSizeClass.Compact
+    } ?: false
     var destinationName by rememberSaveable { mutableStateOf(DevForgeDestination.Chat.name) }
     var destinationHistory by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
@@ -146,7 +149,6 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
     var showAgentPanel by rememberSaveable { mutableStateOf(false) }
 
     val destination = DevForgeDestination.entries.firstOrNull { it.name == destinationName } ?: DevForgeDestination.Chat
-    val expanded = windowSize.widthSizeClass != WindowWidthSizeClass.Compact
     val workspace: WorkspaceViewModel = viewModel()
     val editor: EditorViewModel = viewModel()
     val editing = editor.activeTab != null || editor.isLoading
@@ -447,8 +449,23 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
 
 @Composable
 private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) {
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(workspace::openWorkspace) }
+    var showCreateWorkspace by rememberSaveable { mutableStateOf(false) }
+    var workspaceName by rememberSaveable { mutableStateOf("") }
+    var pickerForCreation by rememberSaveable { mutableStateOf(false) }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            workspace.openWorkspace(
+                uri = uri,
+                workspaceName = workspaceName,
+            )
+            workspaceName = ""
+        }
+        pickerForCreation = false
+    }
+
     BackHandler(enabled = workspace.breadcrumbs.size > 1) { workspace.goUp() }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -459,22 +476,35 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
                 Column(Modifier.weight(1f)) {
                     Text("Files", fontSize = 30.sp, fontWeight = FontWeight.Black)
                     Text(
-                        if (workspace.workspace == null) "Choose a workspace to begin" else "Workspace browser",
+                        if (workspace.workspace == null) "Create or choose a workspace" else "Workspace browser",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Button(onClick = { picker.launch(null) }) {
-                    Icon(Icons.Default.Folder, null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (workspace.workspace == null) "Choose" else "Change")
-                }
-                if (workspace.workspace != null) {
-                    IconButton(onClick = workspace::refresh) { Icon(Icons.Default.Refresh, "Refresh") }
+                if (workspace.workspace == null) {
+                    Button(onClick = { showCreateWorkspace = true }) {
+                        Icon(Icons.Default.Folder, null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Create")
+                    }
+                } else {
+                    TextButton(onClick = {
+                        workspaceName = ""
+                        showCreateWorkspace = true
+                    }) { Text("New workspace") }
+                    IconButton(onClick = workspace::refresh) {
+                        Icon(Icons.Default.Refresh, "Refresh")
+                    }
                 }
             }
         }
+
         if (workspace.workspace == null) {
-            item { InfoCard("Bring your code into DevForge", "DevForge uses an Android document-tree permission for the folder you explicitly choose.") }
+            item {
+                InfoCard(
+                    "Create a workspace",
+                    "Give the workspace a name, then choose the project folder. DevForge will remember the folder across launches.",
+                )
+            }
         } else {
             item { Breadcrumbs(workspace) }
             item { WorkspaceIntelligenceCard(workspace) }
@@ -486,10 +516,86 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
                 item { InfoCard("Nothing in this folder", "Create a file here and refresh.") }
             } else {
                 items(workspace.entries, key = { it.uri.toString() }) { entry ->
-                    FileRow(entry) { if (entry.isDirectory) workspace.openDirectory(entry) else editor.open(entry) }
+                    FileRow(entry) {
+                        if (entry.isDirectory) workspace.openDirectory(entry) else editor.open(entry)
+                    }
                 }
             }
         }
+
+        if (workspace.workspaces.isNotEmpty()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text("Workspaces", fontWeight = FontWeight.Bold)
+                        workspace.workspaces.forEach { item ->
+                            val active = item.id == workspace.workspace?.id
+                            TextButton(
+                                onClick = { workspace.switchWorkspace(item.id) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    (if (active) "✓ " else "") + item.name,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCreateWorkspace) {
+        AlertDialog(
+            onDismissRequest = {
+                showCreateWorkspace = false
+                workspaceName = ""
+            },
+            title = { Text("Create workspace") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = workspaceName,
+                        onValueChange = {
+                            workspaceName = it.replace(Regex("[\\r\\n]"), " ").take(120)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Workspace name") },
+                        placeholder = { Text("My project") },
+                        singleLine = true,
+                    )
+                    Text(
+                        "Next, DevForge will ask you to choose the project folder.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCreateWorkspace = false
+                        pickerForCreation = true
+                        picker.launch(null)
+                    },
+                ) { Text("Choose folder") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showCreateWorkspace = false
+                        workspaceName = ""
+                    },
+                ) { Text("Cancel") }
+            },
+        )
     }
 }
 

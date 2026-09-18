@@ -17,6 +17,9 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
     private val repositoryGateway = GitHubRepositoryGateway(secretStore)
     private var validationJob: Job? = null
 
+    var isValidating by mutableStateOf(false)
+        private set
+
     var snapshot: GitHubConnectionSnapshot by mutableStateOf(initialSnapshot())
         private set
 
@@ -26,26 +29,38 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
             snapshot = snapshot.copy(message = "Enter a GitHub token before connecting.")
             return
         }
+
         validationJob?.cancel()
-        runCatching { secretStore.put(TOKEN_KEY, normalized) }.onFailure { error ->
-            snapshot = snapshot.copy(message = error.message ?: "Unable to store the GitHub credential.")
-            return
-        }
-        snapshot = GitHubConnectionSnapshot(message = "Verifying the GitHub credential with the live API…")
+        isValidating = true
+        snapshot = snapshot.copy(message = "Verifying the GitHub credential with the live API…")
+
         validationJob = viewModelScope.launch(Dispatchers.IO) {
-            val result = repositoryGateway.validateCredential()
+            val result = repositoryGateway.validateCredential(normalized)
             withContext(Dispatchers.Main.immediate) {
+                isValidating = false
                 when (result) {
                     is GitHubCredentialValidation.Valid -> {
-                        snapshot = GitHubConnectionSnapshot(
-                            state = GitHubConnectionState.Connected(result.accountName),
-                            credentialMode = GitHubCredentialMode.ManualToken,
-                            message = "GitHub credential verified for @" + result.accountName + ".",
-                        )
+                        val stored = runCatching { secretStore.put(TOKEN_KEY, normalized) }
+                        snapshot = if (stored.isSuccess) {
+                            GitHubConnectionSnapshot(
+                                state = GitHubConnectionState.Connected(result.accountName),
+                                credentialMode = GitHubCredentialMode.ManualToken,
+                                message = "GitHub credential verified for @" + result.accountName + " and stored securely.",
+                            )
+                        } else {
+                            GitHubConnectionSnapshot(
+                                message = stored.exceptionOrNull()?.message
+                                    ?: "GitHub verified the token, but DevForge could not store it securely.",
+                            )
+                        }
                     }
                     is GitHubCredentialValidation.Invalid -> {
-                        runCatching { secretStore.remove(TOKEN_KEY) }
-                        snapshot = GitHubConnectionSnapshot(
+                        snapshot = snapshot.copy(
+                            state = if (secretStore.contains(TOKEN_KEY)) {
+                                GitHubConnectionState.CredentialStored
+                            } else {
+                                GitHubConnectionState.Disconnected
+                            },
                             message = "GitHub credential validation failed: " + result.message,
                         )
                     }
@@ -61,9 +76,11 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
         }
         validationJob?.cancel()
         snapshot = snapshot.copy(message = "Verifying the stored GitHub credential with the live API…")
+        isValidating = true
         validationJob = viewModelScope.launch(Dispatchers.IO) {
             val result = repositoryGateway.validateCredential()
             withContext(Dispatchers.Main.immediate) {
+                isValidating = false
                 snapshot = when (result) {
                     is GitHubCredentialValidation.Valid -> snapshot.copy(
                         state = GitHubConnectionState.Connected(result.accountName),
@@ -80,6 +97,7 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
 
     fun disconnect() {
         validationJob?.cancel()
+        isValidating = false
         runCatching { secretStore.remove(TOKEN_KEY) }
             .onSuccess { snapshot = GitHubConnectionSnapshot(message = "GitHub credentials removed from this device.") }
             .onFailure { error -> snapshot = snapshot.copy(message = error.message ?: "Unlock protected credentials before disconnecting.") }
@@ -100,6 +118,7 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
 
     override fun onCleared() {
         validationJob?.cancel()
+        isValidating = false
         super.onCleared()
     }
 

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,7 +27,6 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TagFaces
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 
 @Composable
@@ -105,26 +106,65 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
 
 @Composable
 private fun ModelSelector(viewModel: AIChatViewModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Model", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            FilterChip(
-                selected = true,
-                onClick = {},
-                enabled = false,
-                label = { Text(viewModel.provider.displayName) },
-            )
+    var providerMenuOpen by remember { mutableStateOf(false) }
+
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(0.40f)) {
+            OutlinedButton(
+                onClick = { providerMenuOpen = true },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text(
+                    viewModel.provider.displayName,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Icon(Icons.Default.ArrowDropDown, contentDescription = "Providers")
+            }
+            DropdownMenu(
+                expanded = providerMenuOpen,
+                onDismissRequest = { providerMenuOpen = false },
+            ) {
+                AIProvider.entries.forEach { provider ->
+                    DropdownMenuItem(
+                        text = { Text(provider.displayName) },
+                        onClick = {
+                            providerMenuOpen = false
+                            viewModel.selectProvider(provider)
+                        },
+                    )
+                }
+            }
         }
-        Box {
-            OutlinedButton(onClick = { viewModel.updateModelMenuOpen(true) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                Text(viewModel.selectedModel?.displayName ?: "Select a model", modifier = Modifier.weight(1f))
+
+        Box(Modifier.weight(0.60f)) {
+            OutlinedButton(
+                onClick = { viewModel.updateModelMenuOpen(true) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text(
+                    viewModel.selectedModel?.displayName ?: "Select model",
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Models")
             }
             DropdownMenu(
                 expanded = viewModel.isModelMenuOpen,
                 onDismissRequest = { viewModel.updateModelMenuOpen(false) },
             ) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     ModelFilter.entries.forEach { filter ->
                         FilterChip(
                             selected = viewModel.activeFilter == filter,
@@ -141,7 +181,10 @@ private fun ModelSelector(viewModel: AIChatViewModel) {
                     modifier = Modifier.fillMaxWidth().padding(12.dp),
                 )
                 if (viewModel.isLoadingModels) {
-                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         CircularProgressIndicator(Modifier.width(18.dp).height(18.dp))
                         Spacer(Modifier.width(10.dp))
                         Text("Loading live models…")
@@ -175,18 +218,6 @@ private fun ModelSelector(viewModel: AIChatViewModel) {
                     onClick = { viewModel.refreshModels() },
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ModelContextBar(model: AIModelInfo) {
-    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(contextLabel(model.contextLimit), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(model.metadataSource, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            if (model.supportsTools) Text("Tools", style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -277,16 +308,20 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
     var attachmentMenuOpen by remember { mutableStateOf(false) }
     var pickerType by remember { mutableStateOf(ChatAttachmentType.ANY_FILE) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        viewModel.addAttachments(uris, pickerType)
+        runCatching {
+            viewModel.addAttachments(uris.distinct(), pickerType)
+        }.onFailure(viewModel::reportAttachmentPickerError)
     }
     fun launchPicker(type: ChatAttachmentType) {
         pickerType = type
         attachmentMenuOpen = false
-        picker.launch(attachmentMimeTypes(type))
+        runCatching {
+            picker.launch(attachmentMimeTypes(type))
+        }.onFailure(viewModel::reportAttachmentPickerError)
     }
 
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (viewModel.attachments.isNotEmpty()) {
                 Row(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -312,9 +347,9 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
             BasicTextField(
                 value = viewModel.input,
                 onValueChange = viewModel::updateInput,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                minLines = 2,
-                maxLines = 7,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp, max = 92.dp).padding(horizontal = 8.dp),
+                minLines = 1,
+                maxLines = 4,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 decorationBox = { inner ->
                     Box {
@@ -340,7 +375,6 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                         }
                     }
                 }
-                Icon(Icons.Default.TagFaces, null, Modifier.padding(start = 2.dp))
                 Spacer(Modifier.weight(1f))
                 IconButton(
                     onClick = if (viewModel.isSending) viewModel::stopGeneration else viewModel::submit,

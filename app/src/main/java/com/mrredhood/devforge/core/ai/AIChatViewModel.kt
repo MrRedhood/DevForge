@@ -141,6 +141,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         messages = emptyList()
         modelError = null
         isModelMenuOpen = false
+        activeFilter = ModelFilter.ALL
+        modelQuery = ""
+        sendError = null
         val savedId = settings.selectedModelId(value)
         if (!savedId.isNullOrBlank()) selectedModel = AIModelInfo(value, savedId, savedId)
     }
@@ -527,6 +530,16 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             runCatching {
                 resolver.releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
+        }
+    }
+
+    fun reportAttachmentPickerError(error: Throwable?) {
+        if (error is CancellationException) return
+        val detail = error?.message?.takeIf { it.isNotBlank() }?.take(180)
+        sendError = if (detail == null) {
+            "Unable to open the attachment picker on this device."
+        } else {
+            "Unable to open the attachment picker: $detail"
         }
     }
 

@@ -4,10 +4,35 @@ import com.mrredhood.devforge.core.security.SecretStore
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GitHubRepositoryGatewayTest {
+    @Test
+    fun validatesCandidateTokenWithoutOverwritingStoredToken() {
+        val store = FakeSecretStore("old-token")
+        var authorizationHeader: String? = null
+        val gateway = GitHubRepositoryGateway(
+            secretStore = store,
+            connection = HttpConnectionFactory {
+                FakeConnection(
+                    url = URL(it),
+                    status = 200,
+                    body = """{"login":"candidate-user"}""",
+                ).also { connection ->
+                    authorizationHeader = connection.requestProperty("Authorization")
+                }
+            },
+        )
+
+        val result = gateway.validateCredential("new-token")
+
+        assertTrue(result is GitHubCredentialValidation.Valid)
+        assertEquals("new-token", authorizationHeader?.removePrefix("Bearer "))
+        assertEquals("old-token", store.value())
+    }
+
     @Test
     fun rejectsUnsafeRepositoryIdentifiersBeforeNetworkAccess() {
         var opened = false
@@ -46,6 +71,7 @@ class GitHubRepositoryGatewayTest {
         override fun put(key: String, value: String) { this.value = value }
         override fun get(key: String): String? = value
         override fun remove(key: String) { value = null }
+        fun value(): String? = value
     }
 
     private class FakeConnection(
@@ -62,5 +88,6 @@ class GitHubRepositoryGatewayTest {
         override fun getResponseCode(): Int = responseStatus
         override fun getInputStream() = ByteArrayInputStream(responseBody)
         override fun getErrorStream() = ByteArrayInputStream(ByteArray(0))
+        fun requestProperty(name: String): String? = getRequestProperty(name)
     }
 }
