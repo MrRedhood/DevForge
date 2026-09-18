@@ -15,7 +15,7 @@ class GitHubActionsGatewayTest {
         val gateway = GitHubActionsGateway(
             secretStore = FakeSecretStore("token"),
             connection = HttpConnectionFactory { url ->
-                FakeConnection(url, 200, "{\"login\":\"devforge-user\"}").also { requested = it }
+                FakeConnection(URL(url), 200, "{\"login\":\"devforge-user\"}").also { requested = it }
             },
         )
 
@@ -32,7 +32,7 @@ class GitHubActionsGatewayTest {
         val gateway = GitHubActionsGateway(
             secretStore = FakeSecretStore("secret-token-value"),
             connection = HttpConnectionFactory { url ->
-                FakeConnection(url, 401, "", "{\"message\":\"Bad credentials\"}").also { requested = it }
+                FakeConnection(URL(url), 401, "", "{\"message\":\"Bad credentials\"}").also { requested = it }
             },
         )
 
@@ -50,7 +50,7 @@ class GitHubActionsGatewayTest {
         val gateway = GitHubActionsGateway(
             secretStore = FakeSecretStore("token"),
             connection = HttpConnectionFactory { url ->
-                FakeConnection(url, 202, "").also { requested = it }
+                FakeConnection(URL(url), 202, "").also { requested = it }
             },
         )
 
@@ -65,7 +65,7 @@ class GitHubActionsGatewayTest {
     fun cancellationMapsConflictWithoutPretendingSuccess() {
         val gateway = GitHubActionsGateway(
             secretStore = FakeSecretStore("token"),
-            connection = HttpConnectionFactory { url -> FakeConnection(url, 409, "", "{\"message\":\"Conflict\"}") },
+            connection = HttpConnectionFactory { url -> FakeConnection(URL(url), 409, "", "{\"message\":\"Conflict\"}") },
         )
 
         val result = gateway.cancelRun("owner", "repo", 99L)
