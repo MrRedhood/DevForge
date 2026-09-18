@@ -105,7 +105,7 @@ class GitHubActionsGateway(
             val body = if (code in 200..299) {
                 runCatching { http.inputStream.bufferedReader().use { it.readText() } }.getOrDefault("")
             } else {
-                runCatching { (http.errorStream ?: http.inputStream).bufferedReader().use { it.readText() } }.getOrDefault("")
+                runCatching { (http.errorStream ?: http.inputStream).use { it.readBounded(MAX_DIRECT_RESPONSE_BYTES).toString(Charsets.UTF_8) } }.getOrDefault("")
             }
             http.disconnect()
             if (code !in 200..299) {
@@ -181,9 +181,9 @@ class GitHubActionsGateway(
         return result
     }
 
-    fun getRun(owner: String, repository: String, runId: Long): GitHubRunResult =
-        getJson("/repos/${owner.trim()}/${repository.trim()}/actions/runs/$runId") { json ->
-            GitHubRunSnapshot(
+    fun getRun(owner: String, repository: String, runId: Long): GitHubRunResult {
+        val normalizedOwner = validateRepositoryPart(owner) ?: return GitHubRunResult.Failure("The GitHub owner is invalid.")
+        val normalizedRepository = validateRepositoryPart(repository) ?: return GitHubRunResult.Failure("The GitHub repository is invalid.")
                 id = json.optLong("id"), runNumber = json.optLong("run_number"), name = json.optString("name", "GitHub Actions run"),
                 status = json.optString("status", "unknown"), conclusion = json.optString("conclusion").takeIf(String::isNotBlank),
                 htmlUrl = json.optString("html_url").takeIf(String::isNotBlank), branch = json.optString("head_branch", "unknown"),
@@ -193,7 +193,7 @@ class GitHubActionsGateway(
         }.fold(onSuccess = { GitHubRunResult.Success(it) }, onFailure = { GitHubRunResult.Failure(safeMessage(it)) })
 
     fun listArtifacts(owner: String, repository: String, runId: Long): GitHubArtifactsResult =
-        getJson("/repos/${owner.trim()}/${repository.trim()}/actions/runs/$runId/artifacts?per_page=100") { json ->
+        getJson("/repos/${normalizedOwner}/${normalizedRepository}/actions/runs/$runId/artifacts?per_page=100") { json ->
             val source = json.optJSONArray("artifacts") ?: JSONArray()
             val result = mutableListOf<GitHubArtifact>()
             for (index in 0 until source.length()) {
@@ -242,10 +242,16 @@ class GitHubActionsGateway(
 
     private fun getText(path: String, maxBytes: Int): Result<String> = requestBody(path, "GET", maxBytes)
 
+    private fun validatedPath(path: String): String {
+        require(path.length <= MAX_PATH_LENGTH) { "GitHub API path is too long." }
+        require(!path.contains("..")) { "GitHub API path contains invalid traversal markers." }
+        return path
+    }
+
     private fun requestBody(path: String, method: String, maxBytes: Int = 320_000): Result<String> {
         val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) ?: return Result.failure(IllegalStateException("GitHub is not connected on this device."))
         return runCatching {
-            val endpoint = "https://api.github.com$path"
+            val endpoint = "https://api.github.com" + validatedPath(path)
             val http = connection.open(endpoint).apply {
                 requestMethod = method
                 instanceFollowRedirects = true
@@ -275,6 +281,10 @@ class GitHubActionsGateway(
     private data class WorkflowRunReference(val id: Long, val branch: String, val createdAt: String?, val htmlUrl: String?)
     private data class JobDescriptor(val id: Long, val name: String, val status: String, val conclusion: String?, val htmlUrl: String?)
 
+    private fun validateRepositoryPart(value: String): String? = value.trim().takeIf { it.isNotBlank() && it.length <= 100 && OWNER_OR_REPOSITORY.matches(it) }
+
+        private const val MAX_DIRECT_RESPONSE_BYTES = 320_000
+        private const val MAX_PATH_LENGTH = 500
     companion object {
         const val API_VERSION = "2026-03-10"
         const val TARGET_CONTRACT_WORKFLOW = "android.yml"
@@ -303,3 +313,5 @@ private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
 fun interface HttpConnectionFactory { fun open(url: String): HttpURLConnection }
 
 private val DefaultHttpConnectionFactory = HttpConnectionFactory { url -> URL(url).openConnection() as HttpURLConnection }
+    }
+
