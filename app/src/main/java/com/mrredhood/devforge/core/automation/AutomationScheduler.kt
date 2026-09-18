@@ -10,6 +10,7 @@ import androidx.work.workDataOf
 import com.mrredhood.devforge.core.storage.AutomationEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.DurableStateRepository
+import com.mrredhood.devforge.core.settings.DevForgeSettingsRepository
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,10 +31,11 @@ object AutomationScheduler {
                 if (automation.status == AutomationStatus.ENABLED.name) scheduleNext(appContext, automation)
             }
         }
+        val monitorMinutes = DevForgeSettingsRepository(appContext).snapshot().automationEventIntervalMinutes
         WorkManager.getInstance(appContext).enqueueUniquePeriodicWork(
             EVENT_MONITOR_WORK,
-            ExistingPeriodicWorkPolicy.KEEP,
-            PeriodicWorkRequestBuilder<AutomationEventMonitorWorker>(15, TimeUnit.MINUTES).build(),
+            ExistingPeriodicWorkPolicy.UPDATE,
+            PeriodicWorkRequestBuilder<AutomationEventMonitorWorker>(monitorMinutes, TimeUnit.MINUTES).build(),
         )
     }
 
