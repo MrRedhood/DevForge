@@ -1,5 +1,6 @@
 package com.mrredhood.devforge.core.ai
 
+import com.mrredhood.devforge.core.security.SecretRedactor
 import com.mrredhood.devforge.core.storage.ChatMessageDao
 import com.mrredhood.devforge.core.storage.ChatMessageEntity
 import com.mrredhood.devforge.core.storage.ChatSessionDao
@@ -42,12 +43,13 @@ class ChatRepository(
         commandName: String? = null,
     ) {
         require(content.length <= MAX_MESSAGE_CHARS) { "Chat message is too large." }
+        val durableContent = SecretRedactor.redact(content, MAX_MESSAGE_CHARS)
         messages.insert(
             ChatMessageEntity(
                 messageId = UUID.randomUUID().toString(),
                 sessionId = sessionId,
                 role = role,
-                content = content,
+                content = durableContent,
                 commandName = commandName,
                 createdAtEpochMs = System.currentTimeMillis(),
             ),
