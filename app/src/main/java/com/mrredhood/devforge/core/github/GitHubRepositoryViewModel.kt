@@ -6,12 +6,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.mrredhood.devforge.core.security.AndroidSecretStore
+import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class GitHubRepositoryViewModel(application: Application) : AndroidViewModel(application) {
-    private val gateway = GitHubRepositoryGateway(AndroidSecretStore(application))
+    private val gateway = GitHubRepositoryGateway(CredentialSecurityStore(application))
 
     var state by mutableStateOf(GitHubRepositoryState())
         private set
