@@ -98,7 +98,7 @@ class MainActivity : FragmentActivity() {
 @Composable
 private fun DevForgeApp() {
     val context = LocalContext.current
-    val windowSize = calculateWindowSizeClass(context as ComponentActivity)
+    val windowSize = calculateWindowSizeClass(context as FragmentActivity)
     var destinationName by rememberSaveable { mutableStateOf(DevForgeDestination.Chat.name) }
     var destinationHistory by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
