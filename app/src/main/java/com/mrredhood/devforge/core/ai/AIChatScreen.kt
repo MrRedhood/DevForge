@@ -280,7 +280,13 @@ private fun MessageBubble(message: com.mrredhood.devforge.core.storage.ChatMessa
                     }
                     Spacer(Modifier.height(6.dp))
                 }
-                if (message.role == "assistant") MarkdownText(message.content) else Text(message.content)
+                val visibleContent = if (message.role == "user") {
+                    message.content.substringBefore("\n\nDevice attachments:")
+                        .ifBlank { message.content }
+                } else {
+                    message.content
+                }
+                if (message.role == "assistant") MarkdownText(visibleContent) else Text(visibleContent)
             }
         }
     }
