@@ -166,3 +166,58 @@ object EditorDiagnostics {
         )
     }
 }
+
+
+class FoldingVisualTransformation(
+    private val source: String,
+    ranges: List<EditorFoldRange>,
+) : VisualTransformation {
+    private val ranges = ranges
+        .sortedBy { it.startOffset }
+        .fold(mutableListOf<EditorFoldRange>()) { result, range ->
+            if (range.startOffset >= 0 && range.endOffset > range.startOffset &&
+                result.none { range.startOffset < it.endOffset && range.endOffset > it.startOffset }
+            ) result += range
+            result
+        }
+
+    override fun filter(text: AnnotatedString): TransformedText {
+        if (text.text != source || ranges.isEmpty()) {
+            return TransformedText(text, OffsetMapping.Identity)
+        }
+        val out = StringBuilder()
+        var sourceCursor = 0
+        ranges.forEach { range ->
+            out.append(source, sourceCursor, range.startOffset + 1)
+            out.append('…')
+            sourceCursor = range.endOffset
+        }
+        out.append(source, sourceCursor, source.length)
+
+        val mapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                var transformed = offset
+                for (range in ranges) {
+                    val hiddenStart = range.startOffset + 1
+                    val hiddenEnd = range.endOffset
+                    if (offset <= range.startOffset) break
+                    if (offset < hiddenEnd) return transformed - (hiddenStart - transformed + 1).coerceAtMost(0)
+                    transformed -= (hiddenEnd - hiddenStart - 1)
+                }
+                return transformed.coerceIn(0, out.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                var original = offset
+                for (range in ranges) {
+                    val transformedStart = range.startOffset + 1 - (range.endOffset - range.startOffset - 2)
+                    if (offset < transformedStart) break
+                    if (offset <= transformedStart + 1) return range.startOffset + 1
+                    original += range.endOffset - range.startOffset - 2
+                }
+                return original.coerceIn(0, source.length)
+            }
+        }
+        return TransformedText(AnnotatedString(out.toString()), mapping)
+    }
+}
