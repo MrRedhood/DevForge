@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Source
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -23,6 +24,7 @@ enum class DevForgeDestination(
     Git("Git", Icons.Default.Source),
     Diffs("Diffs", Icons.Default.Description),
     Build("Build", Icons.Default.Build),
+    Terminal("Terminal", Icons.Default.Terminal),
     Agents("Agents", Icons.Default.AutoAwesome),
     Automations("Automation", Icons.Default.AutoAwesome),
     Approvals("Approvals", Icons.Default.Security),
