@@ -146,10 +146,11 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         refreshJob?.cancel()
         isLoading = true
         refreshJob = viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching { tree.list(current) }.getOrDefault(emptyList())
+            val result = runCatching { tree.list(current) }
             launch(Dispatchers.Main.immediate) {
                 if (currentUri == current) {
-                    entries = result
+                    result.onSuccess { entries = it }
+                        .onFailure { knowledgeMessage = it.message ?: "Unable to read this folder." }
                     isLoading = false
                 }
             }
@@ -167,10 +168,14 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         searchJob?.cancel()
         isSearching = true
         searchJob = viewModelScope.launch(Dispatchers.IO) {
-            val result = searchService.search(root, query)
+            val result = runCatching { searchService.search(root, query) }
             launch(Dispatchers.Main.immediate) {
                 if (workspace?.id == workspaceIdAtStart && workspace?.treeUri == root && searchQuery == query) {
-                    searchResults = result
+                    result.onSuccess { searchResults = it }
+                        .onFailure {
+                            searchResults = emptyList()
+                            knowledgeMessage = it.message ?: "Workspace search failed."
+                        }
                     isSearching = false
                 }
             }
