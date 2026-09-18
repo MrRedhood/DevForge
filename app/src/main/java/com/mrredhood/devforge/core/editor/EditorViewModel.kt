@@ -9,6 +9,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.DurableStateRepository
+import com.mrredhood.devforge.core.diagnostics.Diagnostic
+import com.mrredhood.devforge.core.workspace.WorkspaceSymbolExtractor
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -264,6 +266,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     private companion object {
         const val PREFERENCES = "devforge_editor"
+        const val MAX_CONTENT_BYTES = 8 * 1024 * 1024
+        const val MAX_UNDO = 100
+        const val MAX_UNDO_CONTENT_BYTES = 512 * 1024
+        const val MAX_UNDO_TOTAL_BYTES = 4 * 1024 * 1024
     }
 }
 
