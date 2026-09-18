@@ -16,6 +16,9 @@ interface AgentTool {
     val definition: AgentToolDefinition
 
     suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult
+
+    /** Optional exact pre-image hash used to bind approvals to the content reviewed. */
+    suspend fun preconditionHash(context: AgentToolContext, request: AgentToolRequest): String? = null
 }
 
 class AgentToolRegistry {
@@ -47,7 +50,7 @@ class AgentToolGateway(
             return AgentToolResult.Failure("Tool arguments exceed the 64 KiB safety limit.")
         }
 
-        val action = actionRequest(context, request, tool.definition)
+        val action = actionRequest(context, request, tool)
         val needsApproval = DefaultPolicy.requiresApproval(action, permissionMode)
         if (needsApproval) {
             val approvalId = UUID.randomUUID().toString()
@@ -98,7 +101,7 @@ class AgentToolGateway(
             approvals.expireDue()
             return AgentToolResult.Failure("Approval '$approvalId' has expired.")
         }
-        if (approval.workspaceId != request.workspaceId || approval.actionId != action.actionId || approval.parametersHash != action.parametersHash) {
+        if (approval.workspaceId != request.workspaceId || approval.actionId != action.actionId || approval.parametersHash != action.parametersHash || approval.preconditionHash != action.preconditionHash) {
             return AgentToolResult.Failure("Approval '$approvalId' does not match the current tool request or path scope.")
         }
         if (approval.capability != tool.definition.capability.name || approval.risk != tool.definition.risk.name) {
@@ -158,11 +161,12 @@ class AgentToolGateway(
         return finalResult
     }
 
-    private fun actionRequest(
+    private suspend fun actionRequest(
         context: AgentToolContext,
         request: AgentToolRequest,
-        definition: AgentToolDefinition,
+        tool: AgentTool,
     ): ActionRequest {
+        val definition = tool.definition
         val actionId = "agent:${request.taskId}:step:${request.stepIndex}:${definition.id.wireName}"
         return ActionRequest(
             actionId = actionId,
@@ -172,6 +176,7 @@ class AgentToolGateway(
             summary = "${definition.id.wireName}: ${definition.description}".take(500),
             parametersHash = hash(context, request),
             pathScope = context.pathScope,
+            preconditionHash = tool.preconditionHash(context, request),
         )
     }
 
