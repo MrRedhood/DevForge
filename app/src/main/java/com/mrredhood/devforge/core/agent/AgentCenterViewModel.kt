@@ -20,15 +20,23 @@ import kotlinx.coroutines.launch
 class AgentCenterViewModel(application: Application) : AndroidViewModel(application) {
     private val workspaceRepository = WorkspaceDatabaseRepository(application)
     private val settings = AISettingsRepository(application)
-    private val durable = DurableStateRepository(com.mrredhood.devforge.core.storage.DevForgeDatabase.get(application))
+    private val database = com.mrredhood.devforge.core.storage.DevForgeDatabase.get(application)
+    private val durable = DurableStateRepository(database)
     private val coordinator = ParallelAgentCoordinator(application)
+    private val coordination = AgentCoordinationService(database)
     private var tasksJob: Job? = null
+    private var memoryJob: Job? = null
+    private var handoffsJob: Job? = null
 
     var workspaceId by mutableStateOf<String?>(null)
         private set
     var workspaceName by mutableStateOf<String?>(null)
         private set
     var tasks by mutableStateOf<List<com.mrredhood.devforge.core.storage.AgentTaskEntity>>(emptyList())
+        private set
+    var sharedMemory by mutableStateOf<List<com.mrredhood.devforge.core.storage.AgentSharedMemoryEntity>>(emptyList())
+        private set
+    var handoffs by mutableStateOf<List<com.mrredhood.devforge.core.storage.AgentHandoffEntity>>(emptyList())
         private set
     var title by mutableStateOf("")
     var instruction by mutableStateOf("")
@@ -47,13 +55,23 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             workspaceRepository.activeWorkspace.collectLatest { workspace ->
                 tasksJob?.cancel()
+                memoryJob?.cancel()
+                handoffsJob?.cancel()
                 workspaceId = workspace?.id
                 workspaceName = workspace?.name
                 tasks = emptyList()
+                sharedMemory = emptyList()
+                handoffs = emptyList()
                 if (workspace == null) return@collectLatest
                 coordinator.recoverWorkspace(workspace.id)
                 tasksJob = launch {
                     durable.observeAgentTasks(workspace.id).collect { values -> tasks = values }
+                }
+                memoryJob = launch {
+                    coordination.observeMemory(workspace.id).collect { values -> sharedMemory = values }
+                }
+                handoffsJob = launch {
+                    coordination.observeHandoffs(workspace.id).collect { values -> handoffs = values }
                 }
             }
         }
@@ -111,6 +129,8 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
 
     override fun onCleared() {
         tasksJob?.cancel()
+        memoryJob?.cancel()
+        handoffsJob?.cancel()
         coordinator.close()
         super.onCleared()
     }
