@@ -275,6 +275,12 @@
 - Stale automation recovery now cancels linked agent tasks, records recovery audit events and preserves the durable run as the source of truth.
 - User cancellation is now explicitly audited.
 
+### 2026-09-18 — Roadmap implementation completion
+- Completed all previously unchecked implementation items across AI streaming/routing, workspace symbols/knowledge, settings/retention, editor intelligence, terminal streaming/sessions, and cross-event automation recovery.
+- Added regression coverage for model routing, workspace symbol extraction, editor intelligence and cross-event automation matching.
+- Corrected source-level integration issues found during review, including editor syntax-regex generation and app-shell editor wiring.
+- CI/signing/remote-service validation checkboxes remain separate and are only marked after observable GitHub/remote evidence.
+
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
 - AI output is untrusted data and cannot grant authorization.
