@@ -24,6 +24,7 @@ import com.mrredhood.devforge.core.policy.DefaultPolicy
 import com.mrredhood.devforge.core.policy.PermissionMode
 import com.mrredhood.devforge.core.policy.RiskLevel
 import com.mrredhood.devforge.core.security.CredentialSecurityStore
+import com.mrredhood.devforge.core.settings.DevForgeSettingsRepository
 import com.mrredhood.devforge.core.security.SecretStore
 import com.mrredhood.devforge.core.storage.ApprovalEntity
 import com.mrredhood.devforge.core.storage.ApprovalRepository
@@ -44,13 +45,14 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     private val secretStore: SecretStore = CredentialSecurityStore(application)
     private val githubGateway = GitHubActionsGateway.forBuildStore(secretStore)
     private val database = DevForgeDatabase.get(application)
+    private val appSettings = DevForgeSettingsRepository(application)
     private val buildReceiptDao = database.buildReceiptDao()
     private val approvalRepository = ApprovalRepository(database.approvalDao())
     private var monitorJob: Job? = null
     private var approvalJob: Job? = null
     private var cancelApprovalJob: Job? = null
 
-    var configuration by mutableStateOf(BuildConfiguration())
+    var configuration by mutableStateOf(initialConfiguration())
         private set
     var state by mutableStateOf<BuildState>(BuildState.Ready(configuration))
         private set
@@ -102,6 +104,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     fun configureGitHubRepository(owner: String, repository: String, defaultBranch: String, workflowFile: String) {
         if (state is BuildState.Dispatching || state is BuildState.Running || state is BuildState.AwaitingApproval) return
         configuration = configuration.copy(githubOwner = owner, githubRepository = repository, branch = defaultBranch.ifBlank { "main" }, workflowFile = workflowFile)
+        appSettings.setGithub(owner, repository, defaultBranch, workflowFile)
         refreshDispatchCapability()
         state = BuildState.Ready(configuration)
     }
@@ -306,7 +309,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                     refreshMonitoringCapabilities(runAvailable = true)
                 }
                 if (immediateOnly || snapshot.status !in ACTIVE_RUN_STATUSES) break
-                delay(POLL_INTERVAL_MS)
+                delay(appSettings.snapshot().buildPollSeconds * 1_000L)
             } while (isActive)
         }
     }
@@ -448,6 +451,16 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
         approvalJob?.cancel()
         cancelApprovalJob?.cancel()
         super.onCleared()
+    }
+
+    private fun initialConfiguration(): BuildConfiguration {
+        val saved = appSettings.snapshot()
+        return BuildConfiguration(
+            githubOwner = saved.githubOwner,
+            githubRepository = saved.githubRepository,
+            workflowFile = saved.githubWorkflow.ifBlank { ".github/workflows/android.yml" },
+            branch = saved.githubBranch.ifBlank { "main" },
+        )
     }
 
     companion object {
