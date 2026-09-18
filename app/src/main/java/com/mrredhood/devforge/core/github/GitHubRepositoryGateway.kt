@@ -184,22 +184,3 @@ private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
 }
     }
 }
-
-
-private val DefaultHttpConnectionFactory: HttpConnectionFactory = HttpConnectionFactory { url ->
-    URL(url).openConnection() as HttpURLConnection
-}
-
-private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
-    val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 32 * 1024))
-    val buffer = ByteArray(8 * 1024)
-    var total = 0
-    while (total < maxBytes) {
-        val read = read(buffer, 0, minOf(buffer.size, maxBytes - total))
-        if (read <= 0) break
-        output.write(buffer, 0, read)
-        total += read
-    }
-    if (total >= maxBytes) error("GitHub response exceeded the DevForge response limit.")
-    return output.toByteArray()
-}
