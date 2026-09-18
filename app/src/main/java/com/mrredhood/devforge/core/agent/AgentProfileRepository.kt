@@ -77,7 +77,7 @@ class AgentProfileRepository(context: Context) {
         name = json.optString("name").take(MAX_NAME_CHARS),
         description = json.optString("description").take(MAX_DESCRIPTION_CHARS),
         instructions = json.optString("instructions").take(MAX_INSTRUCTION_CHARS),
-        access = AgentAccess.decode(json.optJSONArray("access")?.toString()),
+        access = AgentAccess.decode(json.optJSONArray("access")?.toString(), AgentAccess.DEFAULT),
         builtin = json.optBoolean("builtin", false),
     )
 
