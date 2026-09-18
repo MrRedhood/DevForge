@@ -40,7 +40,7 @@ class CredentialSecurityStore(context: Context) : SecretStore {
         try {
             keys.distinct().forEach { key ->
                 if (ordinary.contains(key)) {
-                    val value = ordinary.get(key) ?: return@forEach
+                    val value = ordinary.get(key) ?: throw IllegalStateException("Unable to read credential during biometric migration.")
                     biometric.put(key, value)
                     migrated += key
                 }
@@ -63,7 +63,7 @@ class CredentialSecurityStore(context: Context) : SecretStore {
         try {
             keys.distinct().forEach { key ->
                 if (biometric.contains(key)) {
-                    val value = biometric.get(key) ?: return@forEach
+                    val value = biometric.get(key) ?: throw IllegalStateException("Unable to unlock credential during biometric migration.")
                     ordinary.put(key, value)
                     copied += key
                 }
