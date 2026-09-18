@@ -151,12 +151,15 @@ class ModelCatalogService {
         connection.readTimeout = 20_000
         connection.useCaches = true
         headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
-        val responseCode = connection.responseCode
-        val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-        val body = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
-        connection.disconnect()
-        if (responseCode !in 200..299) error("Model catalog request failed (HTTP $responseCode).")
-        return JSONObject(body)
+        return try {
+            val responseCode = connection.responseCode
+            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+            val body = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
+            if (responseCode !in 200..299) error("Model catalog request failed (HTTP $responseCode).")
+            JSONObject(body)
+        } finally {
+            connection.disconnect()
+        }
     }
 
     private fun resolveContextLimitFromWeb(modelId: String): Long? {
@@ -167,8 +170,11 @@ class ModelCatalogService {
             connection.setRequestProperty("User-Agent", "DevForge/0.1 Android")
             connection.connectTimeout = 8_000
             connection.readTimeout = 12_000
-            val body = connection.inputStream.use { it.readBounded(MAX_WEB_RESPONSE_BYTES) }.toString(Charsets.UTF_8)
-            connection.disconnect()
+            val body = try {
+                connection.inputStream.use { it.readBounded(MAX_WEB_RESPONSE_BYTES) }.toString(Charsets.UTF_8)
+            } finally {
+                connection.disconnect()
+            }
             val patterns = listOf(
                 Regex("(?i)([0-9][0-9,]*(?:\\.[0-9]+)?)[ ]*(k|m)?[ ]*(?:token|tokens)[^<]{0,40}(?:context|context window|context length)"),
                 Regex("(?i)(?:context window|context length)[^0-9]{0,40}([0-9][0-9,]*(?:\\.[0-9]+)?)[ ]*(k|m)?[ ]*(?:token|tokens)"),
