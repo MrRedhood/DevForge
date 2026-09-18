@@ -30,7 +30,7 @@ class UnsupportedProviderAttachmentsException(provider: AIProvider) :
     IllegalStateException(
         "Binary attachments are not yet supported for " +
             provider.displayName +
-            ". Remove the binary attachment or use Google Gemini.",
+            ". Remove the binary attachment or use a provider with binary attachment support.",
     )
 
 class GeminiProviderAttachmentAdapter(
