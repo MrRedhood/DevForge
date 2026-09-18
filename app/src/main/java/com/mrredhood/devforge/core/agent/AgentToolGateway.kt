@@ -19,6 +19,9 @@ interface AgentTool {
 
     /** Optional exact pre-image hash used to bind approvals to the content reviewed. */
     suspend fun preconditionHash(context: AgentToolContext, request: AgentToolRequest): String? = null
+
+    /** Workspace-relative paths that will be mutated by this action. */
+    suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> = emptyList()
 }
 
 class AgentToolRegistry {
@@ -39,6 +42,7 @@ class AgentToolGateway(
     private val registry: AgentToolRegistry,
     private val approvals: ApprovalRepository,
     private val durableState: DurableStateRepository,
+    private val coordination: AgentCoordinationService,
     private val permissionMode: PermissionMode = PermissionMode.SOME,
 ) {
     suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult {
@@ -131,8 +135,22 @@ class AgentToolGateway(
         tool: AgentTool,
         approvalId: String?,
     ): AgentToolResult {
-        val result = runCatching { tool.execute(context, request) }
-            .getOrElse { AgentToolResult.Failure(it.message ?: "Agent tool execution failed.") }
+        val mutationPaths = runCatching { tool.mutationPaths(context, request).map { context.pathScope.requireAllowed(it) }.distinct() }
+            .getOrElse { return AgentToolResult.Failure(it.message ?: "Unable to determine mutation paths.") }
+        val acquired = mutableListOf<String>()
+        for (path in mutationPaths) {
+            if (!coordination.acquireFileLease(context.workspaceId, context.taskId, path)) {
+                acquired.forEach { runCatching { coordination.releaseFileLease(context.workspaceId, context.taskId, it) } }
+                return AgentToolResult.Failure("File '$path' is currently reserved by another agent. Retry after it finishes or is released.")
+            }
+            acquired += path
+        }
+        val result = try {
+            runCatching { tool.execute(context, request) }
+                .getOrElse { AgentToolResult.Failure(it.message ?: "Agent tool execution failed.") }
+        } finally {
+            acquired.forEach { runCatching { coordination.releaseFileLease(context.workspaceId, context.taskId, it) } }
+        }
         val receipt = buildReceipt(context, request, tool.definition, result, approvalId)
         val finalResult = when (result) {
             is AgentToolResult.Success -> result.copy(receiptJson = receipt)
