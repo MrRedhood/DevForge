@@ -201,6 +201,7 @@ class AgentTaskEngine(
                                 updatedAtEpochMs = System.currentTimeMillis(),
                             )
                             durableState.saveAgentTask(task)
+                            auditTask(task, "AGENT_TASK_WAITING_APPROVAL", "Agent task is waiting for approval.")
                             return@withTimeout
                         }
                         is AgentToolResult.Failure -> {
@@ -211,6 +212,7 @@ class AgentTaskEngine(
                                 completedAtEpochMs = System.currentTimeMillis(),
                             )
                             durableState.saveAgentTask(task)
+                            auditTask(task, "AGENT_TASK_FAILED", task.errorMessage ?: "Agent task failed.")
                             return@withTimeout
                         }
                     }
