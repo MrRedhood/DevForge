@@ -29,13 +29,14 @@ enum class AgentAccess(
         fun decode(value: String?, fallback: Set<AgentAccess> = emptySet()): Set<AgentAccess> {
             val raw = value ?: return fallback
             val array = runCatching { JSONArray(raw) }.getOrElse { return fallback }
-            return buildSet {
-                for (index in 0 until array.length()) {
-                    runCatching { AgentAccess.valueOf(array.optString(index)) }
-                        .getOrNull()
-                        ?.let(::add)
-                }
+            val decoded = LinkedHashSet<AgentAccess>(array.length())
+            for (index in 0 until array.length()) {
+                val name = array.optString(index).trim()
+                val access = runCatching { AgentAccess.valueOf(name) }.getOrNull()
+                    ?: return fallback
+                decoded += access
             }
+            return decoded
         }
     }
 }
