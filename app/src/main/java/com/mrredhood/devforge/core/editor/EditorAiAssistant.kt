@@ -54,8 +54,7 @@ class EditorAiAssistant(context: Context) {
 
     private fun extractCode(response: String): String {
         val fence = Regex("(?s)```(?:[A-Za-z0-9_+#.-]+)?\\s*\\n?(.*?)```").find(response)
-        return fence?.groupValues?.getOrNull(1)?.trimEnd('
-') ?: response.trim()
+        return fence?.groupValues?.getOrNull(1)?.trimEnd('\n') ?: response.trim()
     }
 }
 

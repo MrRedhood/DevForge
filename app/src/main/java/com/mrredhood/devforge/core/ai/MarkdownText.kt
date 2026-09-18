@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -29,11 +30,11 @@ fun MarkdownText(markdown: String) {
         var index = 0
         while (index < lines.size) {
             val line = lines[index]
-            if (line.trimStart().startsWith("${bt}${bt}${bt}")) {
-                val language = line.trim().removePrefix("${bt}${bt}${bt}").trim()
+            if (line.trimStart().startsWith("```") ) {
+                val language = line.trim().removePrefix("```").trim()
                 val code = buildString {
                     index++
-                    while (index < lines.size && !lines[index].trimStart().startsWith("${bt}${bt}${bt}")) {
+                    while (index < lines.size && !lines[index].trimStart().startsWith("```")) {
                         append(lines[index])
                         if (index < lines.lastIndex) append('\n')
                         index++
@@ -106,8 +107,8 @@ private fun inlineMarkdown(value: String): AnnotatedString {
                     index = end + 2
                 } else { builder.append(value[index]); index++ }
             }
-            value[index] == bt[0] -> {
-                val end = value.indexOf(bt[0], index + 1)
+            value[index] == '`' -> {
+                val end = value.indexOf('`', index + 1)
                 if (end >= 0) {
                     builder.withStyle(SpanStyle(fontFamily = FontFamily.Monospace)) { append(value.substring(index + 1, end)) }
                     index = end + 1

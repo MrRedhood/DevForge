@@ -85,9 +85,9 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
             } else {
                 items(
                     viewModel.output.split('\n'),
-                    key = { index, line -> index.toString() + ":" + line.hashCode() },
-                ) {
-                    Text(it, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
+                    key = { index -> index.toString() + ":" + viewModel.output.split('\n')[index].hashCode() },
+                ) { line ->
+                    Text(line, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
                 }
             }
         }

@@ -701,6 +701,7 @@ private fun WorkspaceSearchResults(workspace: WorkspaceViewModel, editor: Editor
                                 )
                             )
                             workspace.clearSearch()
+                            }
                         },
                         onRename = {},
                         onDelete = {},
