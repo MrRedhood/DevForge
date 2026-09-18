@@ -24,6 +24,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private val workspaceRepository = WorkspaceDatabaseRepository(application)
     private val resolver = application.contentResolver
     private var messageJob: Job? = null
+    private var sendJob: Job? = null
     private var workspaceJob: Job? = null
     private var workspaceRoot: Uri? = null
 
@@ -44,6 +45,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     var input by mutableStateOf("")
         private set
     var isSending by mutableStateOf(false)
+        private set
+    var streamingText by mutableStateOf("")
         private set
     var sendError by mutableStateOf<String?>(null)
         private set
@@ -201,8 +204,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         input = ""
         suggestions = emptyList()
         isSending = true
+        streamingText = ""
         sendError = null
-        viewModelScope.launch(Dispatchers.IO) {
+        sendJob = viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 if (settings.isApiKeyLocked(provider)) error("Unlock protected credentials in Settings before sending AI requests.")
                 val mentions = AICommandRegistry.resolveMentions(resolver, workspaceRoot, raw)
@@ -226,18 +230,45 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 val history = buildBoundedHistory(model, messages)
                 val key = settings.getApiKey(provider) ?: error("API key is not configured.")
-                val response = if (parsed?.command?.name == "help") {
-                    finalInstruction
-                } else {
-                    chatGateway.send(model, key, history, finalInstruction)
-                }
                 chatRepository.addMessage(sessionId, "user", raw, parsed?.command?.name)
-                chatRepository.addMessage(sessionId, "assistant", response)
+                val response: String
+                if (parsed?.command?.name == "help" || !model.supportsStreaming) {
+                    response = if (parsed?.command?.name == "help") {
+                        finalInstruction
+                    } else {
+                        chatGateway.send(model, key, history, finalInstruction)
+                    }
+                    chatRepository.addMessage(sessionId, "assistant", response)
+                } else {
+                    val builder = StringBuilder()
+                    chatGateway.stream(model, key, history, finalInstruction).collect { chunk ->
+                        builder.append(chunk)
+                        val visible = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
+                        launch(Dispatchers.Main.immediate) { streamingText = visible }
+                    }
+                    response = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
+                    chatRepository.addMessage(sessionId, "assistant", response.ifBlank { "The model returned an empty response." })
+                }
             }.onFailure { error ->
-                launch(Dispatchers.Main.immediate) { sendError = error.message ?: "AI request failed." }
+                launch(Dispatchers.Main.immediate) {
+                    if (streamingText.isNotBlank()) {
+                        chatRepository.addMessage(sessionId, "assistant", streamingText + "\n\n[Generation interrupted]")
+                        streamingText = ""
+                    }
+                    sendError = error.message ?: "AI request failed."
+                }
             }
-            launch(Dispatchers.Main.immediate) { isSending = false }
+            launch(Dispatchers.Main.immediate) {
+                streamingText = ""
+                isSending = false
+            }
         }
+    }
+
+    fun stopGeneration() {
+        sendJob?.cancel()
+        isSending = false
+        streamingText = ""
     }
 
     fun dismissError() { sendError = null }
@@ -258,6 +289,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         workspaceJob?.cancel()
         messageJob?.cancel()
+        sendJob?.cancel()
         super.onCleared()
     }
 
@@ -267,5 +299,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private const val CHARS_PER_TOKEN = 4L
         private const val MAX_REQUEST_CHARS = 1_000_000L
         private const val DEFAULT_REQUEST_CHARS = 256_000L
+        private const val MAX_STREAM_VISIBLE_CHARS = 512 * 1024
     }
 }
