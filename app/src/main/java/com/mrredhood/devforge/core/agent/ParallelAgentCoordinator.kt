@@ -8,6 +8,8 @@ import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.AgentTaskEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.DurableStateRepository
+import com.mrredhood.devforge.core.storage.AuditEventEntity
+import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +85,7 @@ class ParallelAgentCoordinator(context: Context) {
     private val durable = DurableStateRepository(DevForgeDatabase.get(context))
     private val engine = AgentRuntime.create(context)
     private val planner = AgentPlanPlanner(context)
+    private val coordination = AgentCoordinationService(DevForgeDatabase.get(context))
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val permits = Semaphore(MAX_PARALLEL_AGENTS)
     private val jobs = ConcurrentHashMap<String, Job>()
@@ -126,7 +129,30 @@ class ParallelAgentCoordinator(context: Context) {
     suspend fun cancel(taskId: String): Boolean = engine.cancel(taskId)
 
     suspend fun recoverWorkspace(workspaceId: String) {
-        durable.recoverRunningAgentTasks(workspaceId)
+        val interrupted = durable.listAgentTasks(workspaceId)
+            .filter { it.status == AgentTaskStatus.PLANNING.name || it.status == AgentTaskStatus.RUNNING.name }
+        if (interrupted.isNotEmpty()) {
+            durable.recoverRunningAgentTasks(workspaceId)
+            interrupted.forEach { task ->
+                coordination.releaseTaskFileLeases(workspaceId, task.taskId)
+                durable.recordAudit(
+                    AuditEventEntity(
+                        eventId = java.util.UUID.randomUUID().toString(),
+                        workspaceId = workspaceId,
+                        actionId = "agent:" + task.taskId,
+                        capability = null,
+                        risk = null,
+                        eventType = "AGENT_TASK_RECOVERED",
+                        summary = SecretRedactor.redact(
+                            "Agent '" + task.title + "' was paused after process interruption.",
+                            500,
+                        ),
+                        metadataJson = "{\"taskId\":\"" + task.taskId + "\",\"step\":" + task.currentStep + "}",
+                        createdAtEpochMs = System.currentTimeMillis(),
+                    ),
+                )
+            }
+        }
         durable.listAgentTasks(workspaceId).filter { it.status == AgentTaskStatus.QUEUED.name }.forEach { start(it.taskId) }
     }
 
