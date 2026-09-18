@@ -43,6 +43,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -352,7 +354,7 @@ private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDe
             onClick = { moreExpanded = true },
             icon = {
                 Box {
-                    Icon(Icons.Default.MoreVert, "More")
+                    Text("⋮", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     DropdownMenu(
                         expanded = moreExpanded,
                         onDismissRequest = { moreExpanded = false },
