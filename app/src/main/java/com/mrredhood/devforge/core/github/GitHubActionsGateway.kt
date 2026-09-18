@@ -182,58 +182,106 @@ class GitHubActionsGateway(
     }
 
     fun getRun(owner: String, repository: String, runId: Long): GitHubRunResult {
-        val normalizedOwner = validateRepositoryPart(owner) ?: return GitHubRunResult.Failure("The GitHub owner is invalid.")
-        val normalizedRepository = validateRepositoryPart(repository) ?: return GitHubRunResult.Failure("The GitHub repository is invalid.")
-                id = json.optLong("id"), runNumber = json.optLong("run_number"), name = json.optString("name", "GitHub Actions run"),
-                status = json.optString("status", "unknown"), conclusion = json.optString("conclusion").takeIf(String::isNotBlank),
-                htmlUrl = json.optString("html_url").takeIf(String::isNotBlank), branch = json.optString("head_branch", "unknown"),
-                event = json.optString("event", "unknown"), createdAt = json.optString("created_at").takeIf(String::isNotBlank),
+        val normalizedOwner = validateRepositoryPart(owner)
+            ?: return GitHubRunResult.Failure("The GitHub owner is invalid.")
+        val normalizedRepository = validateRepositoryPart(repository)
+            ?: return GitHubRunResult.Failure("The GitHub repository is invalid.")
+        if (runId <= 0L) return GitHubRunResult.Failure("The workflow run identifier is invalid.")
+        val path = "/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/runs/" + runId
+        return getJson(path) { json ->
+            GitHubRunSnapshot(
+                id = json.optLong("id"),
+                runNumber = json.optLong("run_number"),
+                name = json.optString("name", "GitHub Actions run"),
+                status = json.optString("status", "unknown"),
+                conclusion = json.optString("conclusion").takeIf(String::isNotBlank),
+                htmlUrl = json.optString("html_url").takeIf(String::isNotBlank),
+                branch = json.optString("head_branch", "unknown"),
+                event = json.optString("event", "unknown"),
+                createdAt = json.optString("created_at").takeIf(String::isNotBlank),
                 updatedAt = json.optString("updated_at").takeIf(String::isNotBlank),
             )
-        }.fold(onSuccess = { GitHubRunResult.Success(it) }, onFailure = { GitHubRunResult.Failure(safeMessage(it)) })
+        }.fold(
+            onSuccess = { GitHubRunResult.Success(it) },
+            onFailure = { GitHubRunResult.Failure(safeMessage(it)) },
+        )
+    }
 
-    fun listArtifacts(owner: String, repository: String, runId: Long): GitHubArtifactsResult =
-        getJson("/repos/${normalizedOwner}/${normalizedRepository}/actions/runs/$runId/artifacts?per_page=100") { json ->
+    fun listArtifacts(owner: String, repository: String, runId: Long): GitHubArtifactsResult {
+        val normalizedOwner = validateRepositoryPart(owner)
+            ?: return GitHubArtifactsResult.Failure("The GitHub owner is invalid.")
+        val normalizedRepository = validateRepositoryPart(repository)
+            ?: return GitHubArtifactsResult.Failure("The GitHub repository is invalid.")
+        if (runId <= 0L) return GitHubArtifactsResult.Failure("The workflow run identifier is invalid.")
+        val path = "/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/runs/" + runId + "/artifacts?per_page=100"
+        return getJson(path) { json ->
             val source = json.optJSONArray("artifacts") ?: JSONArray()
-            val result = mutableListOf<GitHubArtifact>()
-            for (index in 0 until source.length()) {
-                val artifact = source.optJSONObject(index) ?: continue
-                result += GitHubArtifact(
-                    id = artifact.optLong("id"), name = artifact.optString("name", "Unnamed artifact"), sizeBytes = artifact.optLong("size_in_bytes"),
-                    expired = artifact.optBoolean("expired", false), archiveDownloadUrl = artifact.optString("archive_download_url").takeIf(String::isNotBlank),
-                    createdAt = artifact.optString("created_at").takeIf(String::isNotBlank), expiresAt = artifact.optString("expires_at").takeIf(String::isNotBlank),
-                )
+            buildList(source.length()) {
+                for (index in 0 until source.length()) {
+                    val artifact = source.optJSONObject(index) ?: continue
+                    add(
+                        GitHubArtifact(
+                            id = artifact.optLong("id"),
+                            name = artifact.optString("name", "Unnamed artifact"),
+                            sizeBytes = artifact.optLong("size_in_bytes"),
+                            expired = artifact.optBoolean("expired", false),
+                            archiveDownloadUrl = artifact.optString("archive_download_url").takeIf(String::isNotBlank),
+                            createdAt = artifact.optString("created_at").takeIf(String::isNotBlank),
+                            expiresAt = artifact.optString("expires_at").takeIf(String::isNotBlank),
+                        ),
+                    )
+                }
             }
-            result
-        }.fold(onSuccess = { GitHubArtifactsResult.Success(it) }, onFailure = { GitHubArtifactsResult.Failure(safeMessage(it)) })
+        }.fold(
+            onSuccess = { GitHubArtifactsResult.Success(it) },
+            onFailure = { GitHubArtifactsResult.Failure(safeMessage(it)) },
+        )
+    }
 
     fun fetchLogs(owner: String, repository: String, runId: Long, maxJobs: Int = 4, maxBytes: Int = 220_000): GitHubLogsResult {
-        val jobs = getJson("/repos/${owner.trim()}/${repository.trim()}/actions/runs/$runId/jobs?per_page=100") { json ->
+        val normalizedOwner = validateRepositoryPart(owner)
+            ?: return GitHubLogsResult.Failure("The GitHub owner is invalid.")
+        val normalizedRepository = validateRepositoryPart(repository)
+            ?: return GitHubLogsResult.Failure("The GitHub repository is invalid.")
+        if (runId <= 0L) return GitHubLogsResult.Failure("The workflow run identifier is invalid.")
+        val safeMaxJobs = maxJobs.coerceIn(1, MAX_LOG_JOBS)
+        val safeMaxBytes = maxBytes.coerceIn(4 * 1024, MAX_LOG_BYTES)
+        val path = "/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/runs/" + runId + "/jobs?per_page=100"
+        val jobs = getJson(path) { json ->
             val source = json.optJSONArray("jobs") ?: JSONArray()
-            val result = mutableListOf<JobDescriptor>()
-            for (index in 0 until source.length()) {
-                val job = source.optJSONObject(index) ?: continue
-                result += JobDescriptor(
-                    id = job.optLong("id"), name = job.optString("name", "job"), status = job.optString("status", "unknown"),
-                    conclusion = job.optString("conclusion").takeIf(String::isNotBlank), htmlUrl = job.optString("html_url").takeIf(String::isNotBlank),
-                )
+            buildList(source.length()) {
+                for (index in 0 until source.length()) {
+                    val job = source.optJSONObject(index) ?: continue
+                    add(
+                        JobDescriptor(
+                            id = job.optLong("id"),
+                            name = job.optString("name", "job"),
+                            status = job.optString("status", "unknown"),
+                            conclusion = job.optString("conclusion").takeIf(String::isNotBlank),
+                            htmlUrl = job.optString("html_url").takeIf(String::isNotBlank),
+                        ),
+                    )
+                }
             }
-            result
         }.getOrElse { return GitHubLogsResult.Failure(safeMessage(it)) }
-        val selected = jobs.filter { it.status != "queued" }.sortedByDescending { it.id }.take(maxJobs)
+        val selected = jobs.filter { it.status != "queued" }.sortedByDescending { it.id }.take(safeMaxJobs)
         var usedBytes = 0
         var truncated = false
         val result = mutableListOf<GitHubJobLog>()
         for (job in selected) {
-            if (usedBytes >= maxBytes) { truncated = true; break }
-            val limit = maxBytes - usedBytes
-            val text = getText("/actions/jobs/${job.id}/logs", limit).getOrElse { error -> return GitHubLogsResult.Failure("Unable to read logs for ${job.name}: ${safeMessage(error)}") }
-            usedBytes += text.toByteArray(Charsets.UTF_8).size
-            if (text.toByteArray(Charsets.UTF_8).size >= limit) truncated = true
+            if (usedBytes >= safeMaxBytes) { truncated = true; break }
+            val limit = safeMaxBytes - usedBytes
+            val text = getText("/actions/jobs/" + job.id + "/logs", limit).getOrElse { error ->
+                return GitHubLogsResult.Failure("Unable to read logs for " + job.name + ": " + safeMessage(error))
+            }
+            val bytes = text.toByteArray(Charsets.UTF_8).size
+            usedBytes += bytes
+            if (bytes >= limit) truncated = true
             result += GitHubJobLog(jobId = job.id, jobName = job.name, status = job.status, conclusion = job.conclusion, htmlUrl = job.htmlUrl, text = text)
         }
         return GitHubLogsResult.Success(result, truncated)
     }
+    private fun validateRepositoryPart(value: String): String? = value.trim().takeIf { it.isNotBlank() && it.length <= 100 && OWNER_OR_REPOSITORY.matches(it) }
 
     private fun <T> getJson(path: String, parser: (JSONObject) -> T): Result<T> {
         val body = requestBody(path, "GET").getOrElse { return Result.failure(it) }
@@ -291,10 +339,15 @@ class GitHubActionsGateway(
         private const val DISPATCH_RUN_LOOKUP_ATTEMPTS = 6
         private const val DISPATCH_RUN_LOOKUP_DELAY_MS = 1_500L
         private const val DISPATCH_RUN_LOOKUP_MAX_BYTES = 180_000
+        private const val MAX_DIRECT_RESPONSE_BYTES = 320_000
+        private const val MAX_LOG_JOBS = 8
+        private const val MAX_LOG_BYTES = 512 * 1024
+        private const val MAX_PATH_LENGTH = 500
         private val OWNER_OR_REPOSITORY = Regex("^[A-Za-z0-9_.-]+$")
         private val WORKFLOW_NAME = Regex("^[A-Za-z0-9_.-]+$")
         fun forBuildStore(secretStore: com.mrredhood.devforge.core.security.SecretStore): GitHubActionsGateway = GitHubActionsGateway(secretStore)
     }
+} }
 }
 
 private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
