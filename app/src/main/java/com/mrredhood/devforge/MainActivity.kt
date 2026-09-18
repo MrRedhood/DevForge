@@ -174,7 +174,7 @@ private fun DevForgeApp() {
             confirmButton = {
                 TextButton(onClick = {
                     showExitDialog = false
-                    (context as? ComponentActivity)?.finish()
+                    (context as? FragmentActivity)?.finish()
                 }) { Text("Exit") }
             },
             dismissButton = { TextButton(onClick = { showExitDialog = false }) { Text("Cancel") } },
