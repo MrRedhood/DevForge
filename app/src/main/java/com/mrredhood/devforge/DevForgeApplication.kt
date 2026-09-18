@@ -11,9 +11,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class DevForgeApplication : Application() {
+    val agentRuntime: com.mrredhood.devforge.core.agent.AgentRuntimeManager by lazy {
+        com.mrredhood.devforge.core.agent.AgentRuntimeManager(this)
+    }
+
     override fun onCreate() {
         super.onCreate()
         AutomationScheduler.initialize(this)
+        agentRuntime
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             runCatching {
                 DevForgeDataRetentionService(
