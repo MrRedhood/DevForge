@@ -139,6 +139,34 @@ class TerminalCapability(
     suspend fun execute(workspaceId: String, command: TerminalCommand): TerminalCapabilityResult =
         executeStreaming(workspaceId, command) {}
 
+    /**
+     * Execute a command typed directly by the user through a real Android shell.
+     * This path is intentionally only used by TerminalViewModel; agent/tool execution
+     * continues through the policy-gated TerminalCommand API above.
+     */
+    suspend fun executeInteractiveShell(
+        workspaceId: String,
+        workingDirectory: String,
+        commandLine: String,
+        timeoutMs: Long,
+        onOutput: suspend (String) -> Unit,
+    ): TerminalExecution {
+        val normalized = commandLine.trim()
+        require(normalized.isNotBlank()) { "Enter a command." }
+        require(normalized.length <= TerminalCommandPolicy.MAX_COMMAND_BYTES) { "Command is too long." }
+        require('\u0000' !in normalized && '\r' !in normalized && '\n' !in normalized) {
+            "Control characters are not allowed."
+        }
+        TerminalCommandPolicy.validate(
+            TerminalCommand(
+                executable = TerminalExecutable.PWD,
+                workingDirectory = workingDirectory,
+                timeoutMs = timeoutMs,
+            ),
+        )
+        return terminal.executeShell(workspaceId, workingDirectory, normalized, timeoutMs, onOutput)
+    }
+
     suspend fun executeStreaming(
         workspaceId: String,
         command: TerminalCommand,
@@ -284,6 +312,112 @@ private class SandboxedTerminal(context: Context) {
     suspend fun prepareWorkspace(workspaceId: String, workspaceRoot: Uri) = withContext(Dispatchers.IO) {
         workspaceRoots[workspaceId] = workspaceRoot
         mirrorIntoSandbox(workspaceRoot, sandboxRoot(workspaceId))
+    }
+
+    suspend fun executeShell(
+        workspaceId: String,
+        workingDirectory: String,
+        commandLine: String,
+        timeoutMs: Long,
+        onOutput: suspend (String) -> Unit,
+    ): TerminalExecution = withContext(Dispatchers.IO) {
+        require(commandLine.isNotBlank())
+        val workspaceRoot = workspaceRoots[workspaceId]
+            ?: throw IOException("Terminal workspace is not prepared.")
+        val sandboxRoot = sandboxRoot(workspaceId)
+        mirrorIntoSandbox(workspaceRoot, sandboxRoot)
+        val workingDirectoryFile = resolveDirectory(sandboxRoot, workingDirectory)
+        val startedAt = System.nanoTime()
+
+        val process = try {
+            ProcessBuilder(
+                "/system/bin/sh",
+                "-c",
+                commandLine,
+            )
+                .directory(workingDirectoryFile)
+                .redirectErrorStream(true)
+                .apply {
+                    environment().clear()
+                    environment()["PATH"] = "/system/bin:/system/xbin"
+                    environment()["HOME"] = sandboxRoot.absolutePath
+                    environment()["PWD"] = workingDirectoryFile.absolutePath
+                    environment()["TMPDIR"] = File(sandboxRoot, "tmp").apply { mkdirs() }.absolutePath
+                    environment()["SHELL"] = "/system/bin/sh"
+                    environment()["TERM"] = "xterm-256color"
+                    environment()["LANG"] = "C.UTF-8"
+                }
+                .start()
+        } catch (error: IOException) {
+            return@withContext TerminalExecution(
+                TerminalCommand(
+                    executable = TerminalExecutable.PWD,
+                    workingDirectory = workingDirectory,
+                    timeoutMs = timeoutMs,
+                ),
+                TerminalRunStatus.START_FAILED,
+                null,
+                (error.message ?: "Unable to start shell.").take(2_000),
+                elapsed(startedAt),
+            )
+        }
+
+        val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { cause ->
+            if (cause != null && process.isAlive) process.destroyForcibly()
+        }
+
+        val execution = try {
+            val outputDeferred = async(Dispatchers.IO) { readBounded(process, onOutput) }
+            if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
+                process.destroyForcibly()
+                process.waitFor(500, TimeUnit.MILLISECONDS)
+                TerminalExecution(
+                    TerminalCommand(
+                        executable = TerminalExecutable.PWD,
+                        workingDirectory = workingDirectory,
+                        timeoutMs = timeoutMs,
+                    ),
+                    TerminalRunStatus.TIMED_OUT,
+                    null,
+                    runCatching { outputDeferred.await() }.getOrDefault("Command timed out."),
+                    elapsed(startedAt),
+                )
+            } else {
+                try {
+                    TerminalExecution(
+                        TerminalCommand(
+                            executable = TerminalExecutable.PWD,
+                            workingDirectory = workingDirectory,
+                            timeoutMs = timeoutMs,
+                        ),
+                        TerminalRunStatus.EXITED,
+                        process.exitValue(),
+                        outputDeferred.await(),
+                        elapsed(startedAt),
+                    )
+                } catch (_: OutputLimitExceeded) {
+                    TerminalExecution(
+                        TerminalCommand(
+                            executable = TerminalExecutable.PWD,
+                            workingDirectory = workingDirectory,
+                            timeoutMs = timeoutMs,
+                        ),
+                        TerminalRunStatus.OUTPUT_LIMIT_EXCEEDED,
+                        null,
+                        "Output exceeded the terminal limit.",
+                        elapsed(startedAt),
+                    )
+                }
+            }
+        } finally {
+            cancellationHandle?.dispose()
+            if (process.isAlive) process.destroyForcibly()
+        }
+
+        if (execution.status == TerminalRunStatus.EXITED) {
+            syncSandboxToWorkspace(sandboxRoot, workspaceRoot)
+        }
+        execution
     }
 
     suspend fun execute(
