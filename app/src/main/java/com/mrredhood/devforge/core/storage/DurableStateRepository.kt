@@ -100,6 +100,9 @@ class DurableStateRepository(
 
     suspend fun getAgentTask(taskId: String): AgentTaskEntity? = agentTasks.get(taskId)
 
+    suspend fun listAgentTasks(workspaceId: String, limit: Int = MAX_AGENT_TASKS): List<AgentTaskEntity> =
+        agentTasks.list(workspaceId, limit)
+
     suspend fun deleteAgentTask(taskId: String) = agentTasks.delete(taskId)
 
     suspend fun pauseAgentTask(taskId: String): Boolean =
