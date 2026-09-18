@@ -298,21 +298,55 @@ private fun DevForgeTopBar(
 
 @Composable
 private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDestination) -> Unit) {
+    var moreExpanded by remember { mutableStateOf(false) }
+    val primary = listOf(
+        DevForgeDestination.Chat,
+        DevForgeDestination.Files,
+        DevForgeDestination.Build,
+        DevForgeDestination.Agents,
+        DevForgeDestination.Settings,
+    )
+    val secondary = listOf(
+        DevForgeDestination.Git,
+        DevForgeDestination.Diffs,
+        DevForgeDestination.Terminal,
+        DevForgeDestination.Automations,
+        DevForgeDestination.Approvals,
+    )
+
     NavigationBar {
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DevForgeDestination.entries.forEach { item ->
-                NavigationBarItem(
-                    modifier = Modifier.width(88.dp),
-                    selected = current == item,
-                    onClick = { onSelect(item) },
-                    icon = { Icon(item.icon, item.label) },
-                    label = { Text(item.label) },
-                )
-            }
+        primary.forEach { item ->
+            NavigationBarItem(
+                selected = current == item,
+                onClick = { onSelect(item) },
+                icon = { Icon(item.icon, item.label) },
+                label = { Text(item.label, maxLines = 1) },
+            )
         }
+        NavigationBarItem(
+            selected = current in secondary,
+            onClick = { moreExpanded = true },
+            icon = {
+                Box {
+                    Icon(Icons.Default.MoreVert, "More")
+                    DropdownMenu(
+                        expanded = moreExpanded,
+                        onDismissRequest = { moreExpanded = false },
+                    ) {
+                        secondary.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item.label) },
+                                onClick = {
+                                    moreExpanded = false
+                                    onSelect(item)
+                                },
+                            )
+                        }
+                    }
+                }
+            },
+            label = { Text("More") },
+        )
     }
 }
 
@@ -731,15 +765,117 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
 
 @Composable
 private fun SettingsScreen(settings: DevForgeSettingsViewModel) {
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    var section by rememberSaveable { mutableStateOf("home") }
+
+    BackHandler(enabled = section != "home") {
+        section = "home"
+    }
+
+    when (section) {
+        "ai" -> SimpleSettingsSection(
+            title = "AI & models",
+            onBack = { section = "home" },
+        ) {
+            AISettingsScreen()
+        }
+
+        "security" -> SimpleSettingsSection(
+            title = "Security",
+            onBack = { section = "home" },
+        ) {
+            CredentialSecurityScreen()
+        }
+
+        "app" -> SimpleSettingsSection(
+            title = "App settings",
+            onBack = { section = "home" },
+        ) {
+            DevForgeSettingsScreen(settings)
+        }
+
+        else -> LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Text(
+                    "Settings",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Keep setup and maintenance in a few clear sections.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            item {
+                SimpleSettingsTile(
+                    title = "AI & models",
+                    subtitle = "Provider keys and model connections",
+                    onClick = { section = "ai" },
+                )
+            }
+            item {
+                SimpleSettingsTile(
+                    title = "Security",
+                    subtitle = "Keystore and biometric protection",
+                    onClick = { section = "security" },
+                )
+            }
+            item {
+                SimpleSettingsTile(
+                    title = "App settings",
+                    subtitle = "GitHub, build, terminal, privacy, appearance and editor",
+                    onClick = { section = "app" },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimpleSettingsSection(
+    title: String,
+    onBack: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onBack) { Text("Back") }
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+        content()
+    }
+}
+
+@Composable
+private fun SimpleSettingsTile(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
-        item { Text("Settings", fontSize = 30.sp, fontWeight = FontWeight.Black) }
-        item { AISettingsScreen() }
-        item { DevForgeSettingsScreen(settings) }
-        item { CredentialSecurityScreen() }
+        Column(
+            Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
