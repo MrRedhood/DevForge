@@ -84,6 +84,7 @@ object DefaultPolicy {
         grantActive: Boolean,
         grantRiskCeiling: RiskLevel? = null,
     ): Boolean {
+        if (mode == PermissionMode.NEVER) return true
         if (!requiresApproval(request, mode)) return false
         if (!grantActive || !isGrantable(request.capability)) return true
         val ceiling = grantRiskCeiling ?: return true
