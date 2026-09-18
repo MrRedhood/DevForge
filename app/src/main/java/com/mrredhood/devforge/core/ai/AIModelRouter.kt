@@ -8,25 +8,30 @@ object AIModelRouter {
         savedModelId: String?,
         mode: AiRoutingMode,
     ): AIModelInfo? {
-        if (models.isEmpty()) return null
+        val chatModels = models.filter {
+            it.isTextCapable &&
+                (it.outputModalities.isEmpty() || "text" in it.outputModalities) &&
+                !it.isEmbedding
+        }
+        if (chatModels.isEmpty()) return null
         if (mode == AiRoutingMode.FIXED) {
-            return savedModelId?.let { id -> models.firstOrNull { it.id == id } } ?: models.first()
+            return savedModelId?.let { id -> chatModels.firstOrNull { it.id == id } } ?: chatModels.first()
         }
         return when (mode) {
-            AiRoutingMode.LOW_COST -> models.minWithOrNull(compareBy<AIModelInfo>(
+            AiRoutingMode.LOW_COST -> chatModels.minWithOrNull(compareBy<AIModelInfo>(
                 { if (it.priceClass == ModelPriceClass.FREE) 0 else 1 },
                 { it.inputPricePerMillion ?: Double.MAX_VALUE },
                 { it.outputPricePerMillion ?: Double.MAX_VALUE },
                 { it.id },
             ))
-            AiRoutingMode.QUALITY -> models.maxWithOrNull(compareBy<AIModelInfo>(
+            AiRoutingMode.QUALITY -> chatModels.maxWithOrNull(compareBy<AIModelInfo>(
                 { if (it.supportsTools) 1 else 0 },
                 { it.contextLimit ?: 0L },
                 { it.outputTokenLimit ?: 0L },
                 { if (it.priceClass == ModelPriceClass.PAID) 1 else 0 },
                 { it.id },
             ))
-            AiRoutingMode.BALANCED -> models.minWithOrNull(compareBy<AIModelInfo>(
+            AiRoutingMode.BALANCED -> chatModels.minWithOrNull(compareBy<AIModelInfo>(
                 { if (it.supportsTools) 0 else 1 },
                 { if (it.priceClass == ModelPriceClass.FREE) 0 else 1 },
                 { it.inputPricePerMillion ?: Double.MAX_VALUE },
