@@ -55,10 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun AIChatScreen(
-    viewModel: AIChatViewModel = viewModel(),
-    onOpenAgents: () -> Unit = {},
-) {
+fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
     val listState = rememberLazyListState()
     val selected = viewModel.selectedModel
 
