@@ -1,5 +1,7 @@
 package com.mrredhood.devforge.core.policy
 
+import com.mrredhood.devforge.core.security.WorkspacePathScope
+
 /** Capability-first policy primitives shared by future AI, Git and build execution. */
 enum class RiskLevel { R0, R1, R2, R3, R4, R5 }
 
@@ -36,6 +38,7 @@ data class ActionRequest(
     val summary: String,
     val parametersHash: String,
     val preconditionHash: String? = null,
+    val pathScope: WorkspacePathScope? = null,
 )
 
 data class Approval(
@@ -62,7 +65,12 @@ object DefaultPolicy {
             )
         }
         if (!baseRequiresApproval) return false
-        return !CapabilityGrantRegistry.allows(request.workspaceId, request.capability, request.risk)
+        return !CapabilityGrantRegistry.allows(
+            request.workspaceId,
+            request.capability,
+            request.risk,
+            request.pathScope,
+        )
     }
 
     /** A persistent grant may relax the normal approval gate only for explicitly grantable capabilities. */
