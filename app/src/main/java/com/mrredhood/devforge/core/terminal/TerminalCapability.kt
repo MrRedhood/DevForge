@@ -372,7 +372,7 @@ private class SandboxedTerminal(context: Context) {
     }
 
     private fun resolveDirectory(root: File, relativePath: String): File {
-        val normalized = relativePath.replace('\', '/').trim('/')
+        val normalized = relativePath.replace('\\', '/').trim('/')
         if (normalized.isEmpty()) return root
         val candidate = File(root, normalized).canonicalFile
         val canonicalRoot = root.canonicalFile
