@@ -48,6 +48,7 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
                 }
                 repository.setCustomBaseUrl(provider, customBaseUrl.trim())
                 if (customModelId.isNotBlank()) repository.setSelectedModelId(provider, customModelId.trim())
+                else repository.clearSelectedModelId(provider)
             }
             repository.saveApiKey(provider, value)
         }.onSuccess {
