@@ -246,7 +246,7 @@ class AgentToolGateway(
             .put("allowedPrefixes", JSONArray(context.pathScope.canonicalPrefixes()))
             .put("preconditionHash", preconditionHash)
             .toString()
-            .take(MAX_APPROVAL_PAYLOAD_CHARS)
+            .let { SecretRedactor.redact(it, MAX_APPROVAL_PAYLOAD_CHARS) }
 
     private fun buildReceipt(
         context: AgentToolContext,
@@ -293,8 +293,8 @@ class AgentToolGateway(
                 capability = definition.capability.name,
                 risk = definition.risk.name,
                 eventType = eventType,
-                summary = summary.take(500),
-                metadataJson = metadata.take(32 * 1024),
+                summary = SecretRedactor.redact(summary, 500),
+                metadataJson = SecretRedactor.redact(metadata, 32 * 1024),
                 createdAtEpochMs = System.currentTimeMillis(),
             ),
         )
