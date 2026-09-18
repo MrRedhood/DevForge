@@ -19,7 +19,7 @@ class MainActivityNavigationTest {
     @Test
     fun backNavigatesOneDestinationAtATimeAndConfirmsExitAtRoot() {
         composeRule.onNodeWithText("Files").assertIsDisplayed().performClick()
-        composeRule.onNodeWithText("Workspace browser", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Choose a workspace to begin", useUnmergedTree = true).assertIsDisplayed()
 
         pressBack()
 
