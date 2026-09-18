@@ -183,7 +183,8 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch(Dispatchers.IO) {
             val deferred = valid.map { draft ->
                 async {
-                    val profile = selectedProfiles.getValue(draft)!!
+                    runCatching {
+                        val profile = selectedProfiles.getValue(draft)!!
                     coordinator.assign(
                         AgentAssignment(
                             workspaceId = workspace,
@@ -205,17 +206,18 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                             access = profile.access,
                         )
                     )
+                    }
                 }
             }
-            val results = deferred.map { runCatching { it.await() } }.awaitAll()
+            val results = deferred.awaitAll()
             val successes = results.count { it.isSuccess }
             val failures = results.mapNotNull { it.exceptionOrNull()?.message }.take(2)
             launch(Dispatchers.Main.immediate) {
                 assigning = false
                 message = if (failures.isEmpty()) {
-                    "Started " + successes + " agent" + if (successes == 1) "" else "s" + "."
+                    "Started " + successes + " agent" + (if (successes == 1) "" else "s") + "."
                 } else {
-                    "Started " + successes + " agent" + if (successes == 1) "" else "s" + "; " + failures.joinToString(" · ")
+                    "Started " + successes + " agent" + (if (successes == 1) "" else "s") + "; " + failures.joinToString(" · ")
                 }
             }
         }
