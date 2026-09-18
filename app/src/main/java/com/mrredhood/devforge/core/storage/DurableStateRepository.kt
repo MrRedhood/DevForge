@@ -165,6 +165,22 @@ class DurableStateRepository(
 
     suspend fun getAutomationRun(runId: String): AutomationRunEntity? = automations.getRun(runId)
 
+    suspend fun tryStartAutomationRun(run: AutomationRunEntity): Boolean {
+        require(run.status == "RUNNING") { "Only RUNNING automation runs may be started atomically." }
+        require((run.receiptJson ?: "").toByteArray(Charsets.UTF_8).size <= MAX_RECEIPT_BYTES) {
+            "Automation receipt exceeds the persistence limit."
+        }
+        return automations.insertRunIfNoActive(
+            run.copy(
+                errorMessage = run.errorMessage?.let { SecretRedactor.redact(it, MAX_ERROR_LENGTH) },
+                receiptJson = run.receiptJson?.let { SecretRedactor.redact(it, MAX_RECEIPT_BYTES) },
+            ),
+        )
+    }
+
+    suspend fun activeAutomationRun(automationId: String): AutomationRunEntity? =
+        automations.activeRun(automationId)
+
     suspend fun recentAutomationRuns(automationId: String, limit: Int = MAX_AUTOMATION_RUNS): List<AutomationRunEntity> =
         automations.recentRuns(automationId, limit)
 
