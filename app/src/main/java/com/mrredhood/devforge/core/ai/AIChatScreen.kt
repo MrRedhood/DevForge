@@ -70,6 +70,9 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(viewModel.messages, key = { it.messageId }) { message -> MessageBubble(message) }
+                    if (viewModel.streamingText.isNotBlank()) {
+                        item { StreamingBubble(viewModel.streamingText) }
+                    }
                 }
             }
         }
@@ -195,6 +198,26 @@ private fun EmptyChat(viewModel: AIChatViewModel, selected: AIModelInfo?) {
 }
 
 @Composable
+private fun StreamingBubble(content: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+        Card(
+            modifier = Modifier.fillMaxWidth(.94f),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        ) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Generating", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
+                    CircularProgressIndicator(Modifier.width(14.dp).height(14.dp), strokeWidth = 2.dp)
+                }
+                Text(content)
+            }
+        }
+    }
+}
+
+@Composable
 private fun MessageBubble(message: com.mrredhood.devforge.core.storage.ChatMessageEntity) {
     val user = message.role == "user"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (user) Arrangement.End else Arrangement.Start) {
@@ -257,8 +280,11 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.TagFaces, null, Modifier.padding(start = 6.dp))
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = viewModel::submit, enabled = !viewModel.isSending && viewModel.input.isNotBlank()) {
-                    if (viewModel.isSending) CircularProgressIndicator(Modifier.width(20.dp).height(20.dp))
+                IconButton(
+                    onClick = if (viewModel.isSending) viewModel::stopGeneration else viewModel::submit,
+                    enabled = viewModel.isSending || viewModel.input.isNotBlank(),
+                ) {
+                    if (viewModel.isSending) Text("■", fontWeight = FontWeight.Black)
                     else Icon(Icons.Default.Send, "Send")
                 }
             }
