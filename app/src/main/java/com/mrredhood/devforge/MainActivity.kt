@@ -113,7 +113,12 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         lifecycleScope.launch {
-            ApprovalRepository(DevForgeDatabase.get(this@MainActivity).approvalDao()).recoverStaleExecuting()
+            val database = DevForgeDatabase.get(this@MainActivity)
+            val approvals = ApprovalRepository(database.approvalDao())
+            approvals.expireDue()
+            approvals.recoverStaleExecuting()
+            com.mrredhood.devforge.core.storage.DurableStateRepository(database)
+                .reconcileWaitingAgentApprovals()
         }
         setContent {
             val settings: DevForgeSettingsViewModel = viewModel()
