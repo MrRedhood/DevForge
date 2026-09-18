@@ -14,7 +14,7 @@ interface ChatSessionDao {
     @Query("SELECT * FROM chat_sessions WHERE sessionId = :sessionId LIMIT 1")
     suspend fun get(sessionId: String): ChatSessionEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun upsert(session: ChatSessionEntity)
 
     @Query("UPDATE chat_sessions SET updatedAtEpochMs = :updatedAt WHERE sessionId = :sessionId")
