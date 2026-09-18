@@ -126,6 +126,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         modelLoadGeneration += 1
         modelLoadJob?.cancel()
         modelLoadJob = null
+        isLoadingModels = false
         messageJob?.cancel()
         messageJob = null
         provider = value
