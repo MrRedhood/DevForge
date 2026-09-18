@@ -167,34 +167,6 @@ class TerminalCapability(
         workspaceId: String,
         command: TerminalCommand,
     ): TerminalCapabilityResult = executeApprovedStreaming(approvalId, workspaceId, command) {}
-        val validation = runCatching { TerminalCommandPolicy.validate(command) }.exceptionOrNull()
-        if (validation != null) {
-            return TerminalCapabilityResult.Failure(validation.message ?: "Invalid terminal command.")
-        }
-        val action = actionRequest(workspaceId, command)
-        val approval = approvals.observeById(approvalId).first()
-            ?: return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' was not found.")
-        if (approval.status != ApprovalRepository.STATUS_APPROVED) {
-            return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' is not approved.")
-        }
-        if (approval.expiresAtEpochMs <= System.currentTimeMillis()) {
-            approvals.expireDue()
-            return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' has expired.")
-        }
-        if (
-            approval.workspaceId != workspaceId ||
-            approval.actionId != action.actionId ||
-            approval.parametersHash != action.parametersHash ||
-            approval.capability != Capability.RUN_TERMINAL.name ||
-            approval.risk != command.executable.risk.name
-        ) {
-            return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' does not match this terminal command.")
-        }
-        if (!approvals.claimApproved(approvalId)) {
-            return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' is no longer executable.")
-        }
-        return authorizeAndExecute(workspaceId, command, approvalId) {}
-    }
 
     suspend fun executeApprovedStreaming(
         approvalId: String,
@@ -212,8 +184,11 @@ class TerminalCapability(
             approvals.expireDue()
             return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' has expired.")
         }
-        if (approval.workspaceId != workspaceId || approval.actionId != action.actionId ||
-            approval.parametersHash != action.parametersHash || approval.capability != Capability.RUN_TERMINAL.name ||
+        if (
+            approval.workspaceId != workspaceId ||
+            approval.actionId != action.actionId ||
+            approval.parametersHash != action.parametersHash ||
+            approval.capability != Capability.RUN_TERMINAL.name ||
             approval.risk != command.executable.risk.name
         ) return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' does not match this terminal command.")
         if (!approvals.claimApproved(approvalId)) return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' is no longer executable.")
