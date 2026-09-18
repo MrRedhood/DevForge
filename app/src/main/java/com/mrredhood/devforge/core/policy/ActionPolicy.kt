@@ -21,6 +21,7 @@ enum class Capability {
     REBASE_BRANCH,
     CHERRY_PICK,
     DISPATCH_BUILD,
+    CANCEL_BUILD,
     MANAGE_RELEASE,
     ACCESS_SECRET,
 }
