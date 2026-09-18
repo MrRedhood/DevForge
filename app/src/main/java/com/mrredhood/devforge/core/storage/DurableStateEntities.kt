@@ -145,6 +145,7 @@ data class AgentSharedMemoryEntity(
     indices = [
         Index(value = ["workspaceId", "status", "createdAtEpochMs"]),
         Index(value = ["workspaceId", "toTaskId", "status"]),
+        Index(value = ["workspaceId", "claimedByTaskId"]),
     ],
 )
 data class AgentHandoffEntity(
@@ -164,7 +165,10 @@ data class AgentHandoffEntity(
 
 @Entity(
     tableName = "agent_file_leases",
-    indices = [Index(value = ["workspaceId", "taskId"])],
+    indices = [
+        Index(value = ["workspaceId", "taskId"]),
+        Index(value = ["workspaceId", "path"]),
+    ],
 )
 data class AgentFileLeaseEntity(
     @PrimaryKey val leaseKey: String,
