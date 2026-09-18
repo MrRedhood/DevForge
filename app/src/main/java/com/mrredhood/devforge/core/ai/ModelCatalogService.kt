@@ -134,8 +134,15 @@ class ModelCatalogService {
 
     private suspend fun loadOpenAiStyle(provider: AIProvider, apiKey: String, customBaseUrl: String?): ModelCatalogResult {
         val endpoint = AIProviderRegistry.modelsEndpoint(provider, customBaseUrl)
-        val headers = mutableMapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json")
-        if (provider == AIProvider.OPENROUTER) headers["X-Title"] = "DevForge"
+        val headers = mutableMapOf(
+            "Authorization" to "Bearer ${apiKey.trim()}",
+            "Accept" to "application/json",
+        )
+        if (provider == AIProvider.OPENROUTER) {
+            headers["X-Title"] = "DevForge"
+            headers["HTTP-Referer"] = "https://github.com/MrRedhood/DevForge"
+            headers["User-Agent"] = "DevForge/0.1.0"
+        }
         val json = request(endpoint, headers)
         val array = json.optJSONArray("data") ?: return ModelCatalogResult(emptyList(), provider, warning = provider.displayName + " returned no models.")
         val models = buildOpenAiStyleModels(provider, array)

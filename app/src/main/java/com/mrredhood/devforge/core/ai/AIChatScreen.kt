@@ -46,12 +46,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.platform.LocalContext
-import android.content.Intent
-import com.mrredhood.devforge.core.picker.PickerBridge
-import com.mrredhood.devforge.core.picker.SystemPickerActivity
-import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -281,8 +278,9 @@ private fun MessageBubble(message: com.mrredhood.devforge.core.storage.ChatMessa
                     Spacer(Modifier.height(6.dp))
                 }
                 val visibleContent = if (message.role == "user") {
-                    message.content.substringBefore("\n\nDevice attachments:")
-                        .ifBlank { message.content }
+                    message.content.substringBefore("Device attachments:")
+                        .trimEnd()
+                        .ifBlank { message.content.substringBefore("Device attachment:").trimEnd() }
                 } else {
                     message.content
                 }
@@ -315,28 +313,17 @@ private fun CommandPalette(commands: List<AICommandDefinition>, onSelect: (AICom
 @Composable
 private fun ChatComposer(viewModel: AIChatViewModel) {
     var attachmentMenuOpen by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    LaunchedEffect(Unit) {
-        PickerBridge.results.collectLatest { result ->
-            val type = attachmentTypeForPickerKind(result.kind)
-            if (type != null && !result.cancelled) {
-                runCatching {
-                    viewModel.addAttachments(result.uris.distinct(), type)
-                }.onFailure(viewModel::reportAttachmentPickerError)
-            }
-        }
+    var pendingAttachmentType by remember { mutableStateOf<ChatAttachmentType?>(null) }
+    val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val type = pendingAttachmentType
+        pendingAttachmentType = null
+        if (type != null && uris.isNotEmpty()) viewModel.addAttachments(uris.distinct(), type)
     }
 
     fun launchPicker(type: ChatAttachmentType) {
         attachmentMenuOpen = false
-        runCatching {
-            (context as? androidx.fragment.app.FragmentActivity)?.startActivityForResult(
-                Intent(context, SystemPickerActivity::class.java)
-                    .putExtra(SystemPickerActivity.EXTRA_KIND, pickerKindForAttachmentType(type)),
-                SystemPickerActivity.PICKER_REQUEST_CODE,
-            ) ?: error("DevForge picker requires an activity context.")
-        }.onFailure(viewModel::reportAttachmentPickerError)
+        pendingAttachmentType = type
+        attachmentPicker.launch(arrayOf(attachmentFallbackMimeType(type)))
     }
 
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
@@ -437,20 +424,3 @@ private fun attachmentFallbackMimeType(type: ChatAttachmentType): String = when 
 
 private fun maxUploadLabel(bytes: Long): String =
     if (bytes >= 1024L * 1024L) (bytes / (1024L * 1024L)).toString() + " MB max" else bytes.toString() + " B max"
-
-private fun pickerKindForAttachmentType(type: ChatAttachmentType): String = when (type) {
-    ChatAttachmentType.ANY_FILE -> SystemPickerActivity.KIND_ATTACHMENTS
-    ChatAttachmentType.PHOTO -> SystemPickerActivity.KIND_PHOTO
-    ChatAttachmentType.VIDEO -> SystemPickerActivity.KIND_VIDEO
-    ChatAttachmentType.AUDIO -> SystemPickerActivity.KIND_AUDIO
-    ChatAttachmentType.DOCUMENT -> SystemPickerActivity.KIND_DOCUMENT
-}
-
-private fun attachmentTypeForPickerKind(kind: String): ChatAttachmentType? = when (kind) {
-    SystemPickerActivity.KIND_ATTACHMENTS -> ChatAttachmentType.ANY_FILE
-    SystemPickerActivity.KIND_PHOTO -> ChatAttachmentType.PHOTO
-    SystemPickerActivity.KIND_VIDEO -> ChatAttachmentType.VIDEO
-    SystemPickerActivity.KIND_AUDIO -> ChatAttachmentType.AUDIO
-    SystemPickerActivity.KIND_DOCUMENT -> ChatAttachmentType.DOCUMENT
-    else -> null
-}

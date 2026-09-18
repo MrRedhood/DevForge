@@ -284,11 +284,13 @@ class AIChatGateway(
     )
 
     private fun openAiHeaders(provider: AIProvider, apiKey: String): Map<String, String> = buildMap {
-        put("Authorization", "Bearer $apiKey")
+        put("Authorization", "Bearer ${apiKey.trim().removePrefix("Bearer ").trim()}")
         put("Content-Type", "application/json")
+        put("Accept", "application/json")
         if (provider == AIProvider.OPENROUTER) {
             put("X-Title", "DevForge")
             put("HTTP-Referer", "https://github.com/MrRedhood/DevForge")
+            put("User-Agent", "DevForge/0.1.0")
         }
     }
 
