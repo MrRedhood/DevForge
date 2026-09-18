@@ -1,6 +1,8 @@
 package com.mrredhood.devforge.core.security
 
 import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
@@ -37,7 +39,11 @@ class AndroidSecretStore(context: Context) : SecretStore {
             val iv = combined.copyOfRange(0, GCM_IV_BYTES)
             val ciphertext = combined.copyOfRange(GCM_IV_BYTES, combined.size)
             val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
+            cipher.init(
+                Cipher.DECRYPT_MODE,
+                getOrCreateKey(),
+                GCMParameterSpec(GCM_TAG_BITS, iv),
+            )
             String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8)
         }.getOrNull()
     }
@@ -53,9 +59,18 @@ class AndroidSecretStore(context: Context) : SecretStore {
         val existing = keyStore.getKey(KEY_ALIAS, null)
         if (existing is SecretKey) return existing
 
-        val generator = KeyGenerator.getInstance("AES", ANDROID_KEYSTORE)
-        // AES-256 is not available on every Android Keystore provider.
-        generator.init(128)
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(KEY_SIZE_BITS)
+                .setRandomizedEncryptionRequired(true)
+                .build(),
+        )
         return generator.generateKey()
     }
 
@@ -66,5 +81,6 @@ class AndroidSecretStore(context: Context) : SecretStore {
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val GCM_IV_BYTES = 12
         const val GCM_TAG_BITS = 128
+        const val KEY_SIZE_BITS = 128
     }
 }
