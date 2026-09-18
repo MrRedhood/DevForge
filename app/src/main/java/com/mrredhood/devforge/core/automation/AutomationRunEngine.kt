@@ -159,6 +159,7 @@ class AutomationRunEngine(
                 .toString(),
             60_000,
         )
+    )
 
     private fun finish(run: AutomationRunEntity, status: AutomationRunStatus, error: String?, receipt: String? = run.receiptJson, completedAt: Long = System.currentTimeMillis()) =
         run.copy(status = status.name, errorMessage = error?.take(600), completedAtEpochMs = completedAt, receiptJson = receipt)
