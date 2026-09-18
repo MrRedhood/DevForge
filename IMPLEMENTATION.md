@@ -538,6 +538,21 @@
 
 `main` currently advances rapidly because each direct commit triggers the push workflows. GitHub Actions is the validation authority; the latest runs must be matched to the newest `main` SHA before claiming validation success.
 
+
+## Multi-provider AI expansion — 2026-09-18
+
+- [x] Expanded provider registry from Gemini/OpenAI/OpenRouter to Google Gemini, OpenAI, Anthropic Claude, xAI Grok, DeepInfra, Groq, OpenRouter, and a configurable OpenAI-compatible endpoint.
+- [x] Added a single provider configuration registry for wire protocol, default API base URL, chat endpoint and model-catalog endpoint resolution.
+- [x] Added native Anthropic Messages API transport with `x-api-key`, `anthropic-version`, bounded non-streaming responses and SSE text streaming.
+- [x] Added OpenAI-compatible chat transport for xAI Grok, DeepInfra, Groq, OpenRouter, OpenAI, and custom compatible servers.
+- [x] Added live model discovery for Anthropic, xAI, DeepInfra, Groq, OpenRouter, OpenAI, and custom OpenAI-compatible `/models` endpoints.
+- [x] Added custom OpenAI-compatible base URL and optional fallback model ID settings. HTTPS is required; insecure HTTP is limited to localhost.
+- [x] Removed the previous device-side DuckDuckGo context-window lookup fallback; unknown provider context limits now remain unknown instead of triggering an unsolicited external search.
+- [x] Agent planning and agent model discovery now use the same provider-specific settings, so newly supported providers are available to agent tasks as well as Chat.
+- [x] Preserved provider-safe binary attachment behavior: Gemini has a real Files API adapter; unsupported binary transports remain explicitly rejected rather than silently downgraded.
+- [x] Added pure-Kotlin regression coverage for provider registration, endpoint construction, and custom URL safety validation.
+
+Current provider API notes: xAI exposes `/v1/chat/completions` as an OpenAI-compatible predecessor to its newer Responses API; Groq exposes OpenAI-compatible `/openai/v1/chat/completions`; DeepInfra exposes OpenAI-compatible `/v1/openai/chat/completions`; Anthropic uses its Messages API. DevForge uses these documented transports while keeping provider-specific auth and endpoint construction explicit.
 ## Provider-aware binary attachments — 2026-09-18
 
 - [x] Added a provider-neutral attachment adapter contract.
