@@ -13,7 +13,8 @@ import com.mrredhood.devforge.core.diagnostics.DiagnosticSeverity
 import com.mrredhood.devforge.core.diagnostics.DiagnosticSource
 
 enum class EditorLanguage {
-    KOTLIN, JAVA, JAVASCRIPT, TYPESCRIPT, PYTHON, GO, RUST, C_LIKE, PLAIN;
+    KOTLIN, JAVA, JAVASCRIPT, TYPESCRIPT, PYTHON, GO, RUST, C_LIKE,
+    JSON, XML, HTML, CSS, SQL, YAML, SHELL, MARKDOWN, DART, PLAIN;
 
     companion object {
         fun detect(name: String): EditorLanguage {
@@ -25,7 +26,17 @@ enum class EditorLanguage {
                 name.endsWith(".py", true) -> PYTHON
                 name.endsWith(".go", true) -> GO
                 name.endsWith(".rs", true) -> RUST
-                name.endsWith(".c", true) || name.endsWith(".h", true) || name.endsWith(".cpp", true) || name.endsWith(".hpp", true) -> C_LIKE
+                name.endsWith(".c", true) || name.endsWith(".h", true) || name.endsWith(".cpp", true) ||
+                    name.endsWith(".cc", true) || name.endsWith(".cxx", true) || name.endsWith(".hpp", true) -> C_LIKE
+                name.endsWith(".json", true) -> JSON
+                name.endsWith(".xml", true) || name.endsWith(".xsd", true) -> XML
+                name.endsWith(".html", true) || name.endsWith(".htm", true) -> HTML
+                name.endsWith(".css", true) -> CSS
+                name.endsWith(".sql", true) -> SQL
+                name.endsWith(".yaml", true) || name.endsWith(".yml", true) -> YAML
+                name.endsWith(".sh", true) || name.endsWith(".bash", true) || name.equals("Dockerfile", true) -> SHELL
+                name.endsWith(".md", true) || name.endsWith(".markdown", true) -> MARKDOWN
+                name.endsWith(".dart", true) -> DART
                 else -> PLAIN
             }
         }
@@ -53,7 +64,13 @@ class CodeSyntaxVisualTransformation(
         STRING_REGEX.findAll(text.text).forEach { match ->
             builder.addStyle(SpanStyle(color = stringColor), match.range.first, match.range.last + 1)
         }
-        COMMENT_REGEX.findAll(text.text).forEach { match ->
+        val commentRegex = when (language) {
+            EditorLanguage.PYTHON, EditorLanguage.SHELL, EditorLanguage.YAML -> Regex("#[^\\n]*")
+            EditorLanguage.SQL -> Regex("--[^\\n]*|/\\*[\\s\\S]*?\\*/")
+            EditorLanguage.XML, EditorLanguage.HTML -> Regex("<!--(?:.|\\n)*?-->")
+            else -> COMMENT_REGEX
+        }
+        commentRegex.findAll(text.text).forEach { match ->
             builder.addStyle(SpanStyle(color = commentColor), match.range.first, match.range.last + 1)
         }
         NUMBER_REGEX.findAll(text.text).forEach { match ->
@@ -66,13 +83,26 @@ class CodeSyntaxVisualTransformation(
         val STRING_REGEX = Regex("""("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')""")
         val COMMENT_REGEX = Regex("//[^\\n]*|/\\*[\\s\\S]*?\\*/|#[^\\n]*")
         val NUMBER_REGEX = Regex("\\b(?:0x[0-9A-Fa-f]+|\\d+(?:\\.\\d+)?)\\b")
-        val COMMON = setOf(
-            "class","interface","object","fun","function","def","return","if","else","when","for","while",
-            "in","is","as","val","var","const","let","new","this","public","private","protected","static",
-            "extends","implements","import","from","package","try","catch","finally","throw","async","await",
-            "true","false","null","fun","struct","enum","type","fn","impl","match","use","mod",
+        val KEYWORDS = mapOf(
+            EditorLanguage.KOTLIN to setOf("class","interface","object","fun","val","var","const","return","if","else","when","for","while","in","is","as","import","package","public","private","protected","internal","override","suspend","data","sealed","open","true","false","null"),
+            EditorLanguage.JAVA to setOf("class","interface","enum","return","if","else","for","while","switch","case","break","continue","new","this","extends","implements","import","package","public","private","protected","static","final","abstract","try","catch","finally","throw","throws","true","false","null"),
+            EditorLanguage.JAVASCRIPT to setOf("function","return","if","else","for","while","const","let","var","new","this","class","extends","import","from","export","default","async","await","try","catch","throw","true","false","null","undefined"),
+            EditorLanguage.TYPESCRIPT to setOf("function","return","if","else","for","while","const","let","var","new","this","class","interface","type","extends","implements","import","from","export","default","async","await","public","private","readonly","true","false","null","undefined"),
+            EditorLanguage.PYTHON to setOf("def","return","if","elif","else","for","while","in","is","import","from","class","try","except","finally","raise","async","await","with","as","lambda","yield","True","False","None"),
+            EditorLanguage.GO to setOf("package","import","func","return","if","else","for","range","switch","case","type","struct","interface","go","defer","map","chan","var","const","true","false","nil"),
+            EditorLanguage.RUST to setOf("fn","let","mut","const","struct","enum","trait","impl","match","if","else","for","while","loop","use","mod","pub","crate","self","Self","return","async","await","true","false"),
+            EditorLanguage.C_LIKE to setOf("int","char","float","double","void","bool","class","struct","enum","namespace","using","return","if","else","for","while","switch","case","break","continue","const","static","public","private","protected","true","false","nullptr"),
+            EditorLanguage.JSON to emptySet(),
+            EditorLanguage.XML to setOf("xml","version","encoding"),
+            EditorLanguage.HTML to setOf("html","head","body","div","span","script","style","class","id","href","src","meta","title"),
+            EditorLanguage.CSS to setOf("color","background","display","position","margin","padding","width","height","font","grid","flex","border"),
+            EditorLanguage.SQL to setOf("select","from","where","join","left","right","inner","outer","group","by","order","having","insert","into","values","update","set","delete","create","table","alter","drop","and","or","not","null"),
+            EditorLanguage.YAML to emptySet(),
+            EditorLanguage.SHELL to setOf("if","then","else","fi","for","in","do","done","case","esac","function","export","local","return"),
+            EditorLanguage.MARKDOWN to emptySet(),
+            EditorLanguage.DART to setOf("class","mixin","extension","enum","typedef","final","const","var","late","void","int","double","String","bool","return","if","else","for","while","switch","case","import","export","async","await","true","false","null"),
+            EditorLanguage.PLAIN to emptySet(),
         )
-        val KEYWORDS = EditorLanguage.entries.associateWith { COMMON }
     }
 }
 

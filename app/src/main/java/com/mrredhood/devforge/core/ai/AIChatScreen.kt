@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import com.mrredhood.devforge.core.ai.MarkdownText
 
 @Composable
 fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
@@ -253,7 +254,7 @@ private fun StreamingBubble(content: String, animationKind: StreamingAnimationKi
                     CircularProgressIndicator(Modifier.width(14.dp).height(14.dp), strokeWidth = 2.dp)
                 }
                 if (content.isNotBlank()) {
-                    Text(content)
+                    MarkdownText(content)
                 }
             }
         }
@@ -276,7 +277,7 @@ private fun MessageBubble(message: com.mrredhood.devforge.core.storage.ChatMessa
                     }
                     Spacer(Modifier.height(6.dp))
                 }
-                Text(message.content)
+                if (message.role == "assistant") MarkdownText(message.content) else Text(message.content)
             }
         }
     }

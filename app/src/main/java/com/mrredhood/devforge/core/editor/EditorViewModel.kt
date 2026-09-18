@@ -21,6 +21,7 @@ import kotlinx.coroutines.withContext
 class EditorViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = EditorRepository(application.contentResolver, application.getSharedPreferences(PREFERENCES, 0))
     private val durable = DurableStateRepository(DevForgeDatabase.get(application))
+    private val aiAssistant = EditorAiAssistant(application)
 
     var tabs by mutableStateOf<List<EditorTab>>(emptyList())
         private set
@@ -31,6 +32,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     var error by mutableStateOf<String?>(null)
         private set
     var diagnostics by mutableStateOf<List<Diagnostic>>(emptyList())
+        private set
+    var aiProposal by mutableStateOf<EditorAiProposal?>(null)
+        private set
+    var isAiBusy by mutableStateOf(false)
         private set
 
     private var recoveryJobs = mutableMapOf<Uri, Job>()
@@ -267,6 +272,46 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun dismissError() { error = null }
+
+    fun requestAiEdit(instruction: String) {
+        val tab = activeTab ?: return
+        val request = instruction.trim().take(2_000)
+        if (request.isBlank() || isAiBusy) return
+        val targetUri = tab.uri
+        val contentAtRequest = tab.content
+        isAiBusy = true
+        error = null
+        viewModelScope.launch {
+            val result = aiAssistant.propose(tab.name, contentAtRequest, request)
+            if (activeUri != targetUri) {
+                isAiBusy = false
+                return@launch
+            }
+            result.onSuccess { proposed ->
+                aiProposal = EditorAiProposal(
+                    uri = targetUri,
+                    fileName = tab.name,
+                    original = contentAtRequest,
+                    proposed = proposed,
+                    instruction = request,
+                )
+            }.onFailure { throwable ->
+                error = throwable.message ?: "AI edit failed."
+            }
+            isAiBusy = false
+        }
+    }
+
+    fun acceptAiProposal() {
+        val proposal = aiProposal ?: return
+        if (activeUri != proposal.uri) return
+        updateContent(proposal.proposed)
+        aiProposal = null
+    }
+
+    fun rejectAiProposal() {
+        aiProposal = null
+    }
 
     private fun scheduleRecovery(uri: Uri) {
         recoveryJobs.remove(uri)?.cancel()

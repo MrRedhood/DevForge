@@ -776,6 +776,8 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
     var replaceMessage by remember(active.uri) { mutableStateOf<String?>(null) }
     var lineQuery by remember(active.uri) { mutableStateOf("") }
     var collapsedStarts by remember(active.uri) { mutableStateOf(emptySet<Int>()) }
+    var showAiEdit by remember(active.uri) { mutableStateOf(false) }
+    var aiInstruction by remember(active.uri) { mutableStateOf("") }
     val horizontalEditorScroll = rememberScrollState()
 
     LaunchedEffect(active.content) {
@@ -823,7 +825,15 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
             IconButton(onClick = editor::redo, enabled = advanced) { Text("↷") }
             IconButton(onClick = { showFind = true }) { Text("⌕") }
             IconButton(onClick = { showGoToLine = true }) { Text("#") }
-            IconButton(onClick = { showSymbols = true }, enabled = advanced) { Text("⌘") }
+            Text(
+                language.name.replace('_', ' '),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            TextButton(onClick = { showAiEdit = true }, enabled = !editor.isAiBusy) {
+                Text(if (editor.isAiBusy) "AI…" else "AI edit")
+            }
+            TextButton(onClick = { showSymbols = true }, enabled = advanced) { Text("Symbols") }
             IconButton(onClick = editor::saveActive, enabled = active.isDirty) { Icon(Icons.Default.Save, "Save") }
         }
 
@@ -870,6 +880,46 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
             }
         }
 
+        editor.aiProposal?.let { change ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                Column(
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("AI changes", fontWeight = FontWeight.Bold)
+                    Text(
+                        change.instruction,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                    Text(
+                        "+" + change.addedLines + "  −" + change.removedLines,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                        Column(Modifier.fillMaxWidth().padding(8.dp)) {
+                            change.preview(20).forEach { line ->
+                                Text(
+                                    line,
+                                    fontFamily = FontFamily.Monospace,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = when {
+                                        line.startsWith("+ ") -> MaterialTheme.colorScheme.primary
+                                        line.startsWith("- ") -> MaterialTheme.colorScheme.error
+                                        else -> MaterialTheme.colorScheme.onSurface
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = editor::acceptAiProposal) { Text("Accept") }
+                        TextButton(onClick = editor::rejectAiProposal) { Text("Reject") }
+                    }
+                }
+            }
+        }
+
         if (editor.diagnostics.isNotEmpty()) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -908,6 +958,38 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
             ),
             visualTransformation = transformation,
             decorationBox = { inner -> Box(Modifier.fillMaxSize()) { inner() } },
+        )
+    }
+
+    if (showAiEdit) {
+        AlertDialog(
+            onDismissRequest = { if (!editor.isAiBusy) showAiEdit = false },
+            title = { Text("AI edit") },
+            text = {
+                OutlinedTextField(
+                    value = aiInstruction,
+                    onValueChange = { aiInstruction = it.take(2_000) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Change request") },
+                    placeholder = { Text("Fix this function, add error handling, refactor…") },
+                    minLines = 3,
+                    maxLines = 8,
+                    enabled = !editor.isAiBusy,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showAiEdit = false
+                        editor.requestAiEdit(aiInstruction)
+                        aiInstruction = ""
+                    },
+                    enabled = aiInstruction.isNotBlank() && !editor.isAiBusy,
+                ) { Text("Generate") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAiEdit = false }, enabled = !editor.isAiBusy) { Text("Cancel") }
+            },
         )
     }
 

@@ -47,7 +47,7 @@ fun DevForgeTheme(
         ThemeMode.LIGHT -> false
         else -> true
     }
-    val p = palette(themeMode)
+    val p = if (themeMode == ThemeMode.SYSTEM && !dark) palette(ThemeMode.LIGHT) else palette(themeMode)
     val scheme = if (dark) {
         darkColorScheme(
             primary = p.primary,
