@@ -120,6 +120,8 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
     var destinationName by rememberSaveable { mutableStateOf(DevForgeDestination.Chat.name) }
     var destinationHistory by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
+    var showGlobalSearch by rememberSaveable { mutableStateOf(false) }
+    var globalSearchQuery by rememberSaveable { mutableStateOf("") }
     var unsavedEditorUri by remember { mutableStateOf<android.net.Uri?>(null) }
 
     val destination = DevForgeDestination.valueOf(destinationName)
@@ -152,7 +154,14 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = { DevForgeTopBar(workspace.workspace?.name ?: "No workspace", editing) },
+        topBar = {
+            DevForgeTopBar(
+                workspaceName = workspace.workspace?.name ?: "No workspace",
+                editing = editing,
+                onSearch = { showGlobalSearch = true },
+                onSecurity = { navigateTo(DevForgeDestination.Approvals) },
+            )
+        },
         bottomBar = { if (!expanded && !editing) NavigationBottom(destination, ::navigateTo) },
     ) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
@@ -184,6 +193,32 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
         )
     }
 
+    if (showGlobalSearch) {
+        AlertDialog(
+            onDismissRequest = { showGlobalSearch = false },
+            title = { Text("Search workspace") },
+            text = {
+                OutlinedTextField(
+                    value = globalSearchQuery,
+                    onValueChange = { globalSearchQuery = it.take(240) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("File or folder name") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showGlobalSearch = false
+                    if (globalSearchQuery.isNotBlank()) {
+                        workspace.search(globalSearchQuery)
+                        navigateTo(DevForgeDestination.Files)
+                    }
+                }) { Text("Search") }
+            },
+            dismissButton = { TextButton(onClick = { showGlobalSearch = false }) { Text("Cancel") } },
+        )
+    }
+
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
@@ -202,7 +237,12 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DevForgeTopBar(workspaceName: String, editing: Boolean) {
+private fun DevForgeTopBar(
+    workspaceName: String,
+    editing: Boolean,
+    onSearch: () -> Unit,
+    onSecurity: () -> Unit,
+) {
     TopAppBar(
         title = {
             Column {
@@ -222,8 +262,8 @@ private fun DevForgeTopBar(workspaceName: String, editing: Boolean) {
             ) { Icon(Icons.Default.Code, "DevForge", Modifier.padding(9.dp)) }
         },
         actions = {
-            IconButton(onClick = {}) { Icon(Icons.Default.Search, "Search") }
-            IconButton(onClick = {}) { Icon(Icons.Default.Security, "Security") }
+            IconButton(onClick = onSearch) { Icon(Icons.Default.Search, "Search") }
+            IconButton(onClick = onSecurity) { Icon(Icons.Default.Security, "Security") }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
     )
@@ -596,21 +636,7 @@ private fun SettingsScreen(settings: DevForgeSettingsViewModel) {
         item { Text("Settings", fontSize = 30.sp, fontWeight = FontWeight.Black) }
         item { AISettingsScreen() }
         item { DevForgeSettingsScreen(settings) }
-        item { PulseCard("Workspace", "Indexing, recovery, snapshots and storage", "Active") }
         item { CredentialSecurityScreen() }
-    }
-}
-
-@Composable
-private fun PulseCard(title: String, subtitle: String, action: String) {
-    Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.Bold)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            TextButton(onClick = {}) { Text(action) }
-        }
     }
 }
 
