@@ -328,7 +328,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun refreshDispatchCapability() {
         val repositorySelected = configuration.githubOwner.isNotBlank() && configuration.githubRepository.isNotBlank() && configuration.workflowFile.isNotBlank()
-        val credentialAvailable = runCatching { secretStore.contains(GitHubConnectionViewModel.TOKEN_KEY) && secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) != null }.getOrDefault(false)
+        val credentialAvailable = runCatching { !secretStore.get(GitHubConnectionViewModel.TOKEN_KEY).isNullOrBlank() }.getOrDefault(false)
         val workflowContractSelected = configuration.workflowFile.trim().substringAfterLast('/') == GitHubActionsGateway.TARGET_CONTRACT_WORKFLOW
         capabilities = capabilities.copy(
             cancelBuild = if (credentialAvailable && runSnapshot != null && configuration.githubOwner.isNotBlank() && configuration.githubRepository.isNotBlank()) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,

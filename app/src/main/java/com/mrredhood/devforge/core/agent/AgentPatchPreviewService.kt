@@ -9,6 +9,7 @@ import com.mrredhood.devforge.core.policy.Capability
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.ApprovalEntity
 import com.mrredhood.devforge.core.storage.WorkspaceDao
+import com.mrredhood.devforge.core.storage.capabilityOrNull
 import com.mrredhood.devforge.core.workspace.WorkspaceFileTree
 import java.io.ByteArrayOutputStream
 import java.io.IOException

@@ -139,7 +139,7 @@ interface AgentSharedMemoryDao {
     suspend fun upsert(memory: AgentSharedMemoryEntity)
 
     @Query("DELETE FROM agent_shared_memory WHERE workspaceId = :workspaceId AND key = :key")
-    suspend fun delete(workspaceId: String, key: String)
+    suspend fun delete(workspaceId: String, key: String): Int
 
     @Query("DELETE FROM agent_shared_memory WHERE workspaceId = :workspaceId AND memoryId NOT IN (SELECT memoryId FROM agent_shared_memory WHERE workspaceId = :workspaceId ORDER BY updatedAtEpochMs DESC LIMIT :keep)")
     suspend fun prune(workspaceId: String, keep: Int)
