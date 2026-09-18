@@ -10,44 +10,28 @@ class SystemPickerActivity : Activity() {
         val kind = intent.getStringExtra(EXTRA_KIND) ?: KIND_ATTACHMENTS
         val picker = if (kind == KIND_WORKSPACE) {
             Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-                addFlags(
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
-                )
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             }
         } else {
             Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = mimeTypeFor(kind)
                 putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                addFlags(
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
-                )
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             }
         }
         runCatching { startActivityForResult(picker, PICKER_REQUEST_CODE) }
-            .onFailure {
-                setResult(RESULT_CANCELED, Intent().putExtra(EXTRA_KIND, kind))
-                finish()
-            }
+            .onFailure { setResult(RESULT_CANCELED, Intent().putExtra(EXTRA_KIND, kind)); finish() }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode != PICKER_REQUEST_CODE) {
-            super.onActivityResult(requestCode, resultCode, data)
-            return
-        }
+        if (requestCode != PICKER_REQUEST_CODE) { super.onActivityResult(requestCode, resultCode, data); return }
         val kind = intent.getStringExtra(EXTRA_KIND) ?: KIND_ATTACHMENTS
         val result = Intent().putExtra(EXTRA_KIND, kind)
         if (data != null) {
             data.data?.let { result.data = it }
             data.clipData?.let { result.clipData = it }
-            result.addFlags(
-                data.flags and
-                    (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION),
-            )
+            result.addFlags(data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION))
         }
         setResult(resultCode, result)
         finish()

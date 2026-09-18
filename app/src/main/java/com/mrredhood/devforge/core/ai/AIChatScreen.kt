@@ -47,17 +47,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.flow.collectLatest
-import com.mrredhood.devforge.core.picker.PickerBridge
-import com.mrredhood.devforge.core.picker.SystemPickerActivity
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
+import com.mrredhood.devforge.core.picker.PickerBridge
+import com.mrredhood.devforge.core.picker.SystemPickerActivity
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import com.mrredhood.devforge.core.ai.MarkdownText
 
 @Composable
 fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
@@ -295,7 +296,17 @@ private fun CommandPalette(commands: List<AICommandDefinition>, onSelect: (AICom
                     text = {
                         Column {
                             Text("/${command.name}", fontWeight = FontWeight.SemiBold)
-                            Text(command.description, style = MaterialTheme.typography.bodySmall, color = @Composable
+                            Text(command.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                    onClick = { onSelect(command) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChatComposer(viewModel: AIChatViewModel) {
     var attachmentMenuOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -318,7 +329,7 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                 Intent(context, SystemPickerActivity::class.java)
                     .putExtra(SystemPickerActivity.EXTRA_KIND, pickerKindForAttachmentType(type)),
                 SystemPickerActivity.PICKER_REQUEST_CODE,
-            ) ?: viewModel.reportAttachmentPickerError(IllegalStateException("DevForge picker requires an activity context."))
+            ) ?: error("DevForge picker requires an activity context.")
         }.onFailure(viewModel::reportAttachmentPickerError)
     }
 
@@ -390,15 +401,6 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
     }
 }
 
-{
-                    if (viewModel.isSending) Text("■", fontWeight = FontWeight.Black)
-                    else Icon(Icons.Default.Send, "Send")
-                }
-            }
-        }
-    }
-}
-
 private fun modelMetaLine(model: AIModelInfo): String = buildString {
     append(model.priceClass.name.lowercase().replaceFirstChar { it.uppercase() })
     model.contextLimit?.let { append(" · ").append(contextLabel(it)) }
@@ -418,6 +420,14 @@ private fun contextLabel(value: Long?): String {
 }
 
 
+
+private fun attachmentFallbackMimeType(type: ChatAttachmentType): String = when (type) {
+    ChatAttachmentType.ANY_FILE -> "*/*"
+    ChatAttachmentType.PHOTO -> "image/*"
+    ChatAttachmentType.VIDEO -> "video/*"
+    ChatAttachmentType.AUDIO -> "audio/*"
+    ChatAttachmentType.DOCUMENT -> "*/*"
+}
 
 private fun maxUploadLabel(bytes: Long): String =
     if (bytes >= 1024L * 1024L) (bytes / (1024L * 1024L)).toString() + " MB max" else bytes.toString() + " B max"

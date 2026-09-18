@@ -18,7 +18,7 @@ class GitHubRepositoryGateway(
         )
 
     fun validateCredential(token: String): GitHubCredentialValidation {
-        val normalized = token.trim()
+        val normalized = normalizeToken(token)
         if (normalized.isBlank()) {
             return GitHubCredentialValidation.Invalid("GitHub access token is empty.")
         }
@@ -109,7 +109,8 @@ class GitHubRepositoryGateway(
         readBody(path).map(::JSONArray)
 
     private fun readBody(path: String, tokenOverride: String? = null): Result<String> {
-        val token = normalizeToken(tokenOverride ?: secretStore.get(GitHubConnectionViewModel.TOKEN_KEY).orEmpty())
+        val token = tokenOverride?.trim()?.takeIf { it.isNotBlank() }
+            ?: secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
             ?: return Result.failure(
                 IllegalStateException("GitHub is not connected on this device."),
             )

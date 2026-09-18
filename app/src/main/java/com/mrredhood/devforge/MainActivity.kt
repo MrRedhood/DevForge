@@ -72,6 +72,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -124,8 +125,7 @@ class MainActivity : FragmentActivity() {
                 ?: SystemPickerActivity.KIND_ATTACHMENTS
             val uris = buildList {
                 data?.data?.let(::add)
-                val clip = data?.clipData
-                if (clip != null) {
+                data?.clipData?.let { clip ->
                     for (index in 0 until clip.itemCount) {
                         clip.getItemAt(index)?.uri?.let(::add)
                     }
@@ -488,26 +488,15 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
     var renameName by rememberSaveable { mutableStateOf("") }
     var deleteTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
 
-    val context = LocalContext.current
-    val currentWorkspaceName by rememberUpdatedState(workspaceName)
-
-    LaunchedEffect(Unit) {
-        PickerBridge.results.collectLatest { result ->
-            if (result.kind == SystemPickerActivity.KIND_WORKSPACE && !result.cancelled && result.uris.size == 1) {
-                workspace.openWorkspace(uri = result.uris.first(), workspaceName = currentWorkspaceName)
-                workspaceName = ""
-            }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            workspace.openWorkspace(uri = uri, workspaceName = workspaceName)
+            workspaceName = ""
         }
     }
 
     fun launchWorkspacePicker() {
-        runCatching {
-            (context as? FragmentActivity)?.startActivityForResult(
-                Intent(context, SystemPickerActivity::class.java)
-                    .putExtra(SystemPickerActivity.EXTRA_KIND, SystemPickerActivity.KIND_WORKSPACE),
-                SystemPickerActivity.PICKER_REQUEST_CODE,
-            ) ?: error("DevForge picker requires an activity context.")
-        }.onFailure(workspace::reportWorkspacePickerError)
+        runCatching { picker.launch(null) }.onFailure(workspace::reportWorkspacePickerError)
     }
 
     BackHandler(enabled = workspace.breadcrumbs.size > 1) { workspace.goUp() }
