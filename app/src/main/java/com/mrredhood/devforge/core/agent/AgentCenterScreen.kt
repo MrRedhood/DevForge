@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,7 +46,7 @@ import java.util.UUID
 
 @Composable
 fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
-    var drafts by remember(viewModel.profiles.size) {
+    var drafts by remember {
         mutableStateOf(
             listOf(
                 newDraft(viewModel.profiles.firstOrNull()?.id.orEmpty(), viewModel.provider, viewModel.modelId, viewModel.modelName)
@@ -436,7 +438,10 @@ private fun AgentProfileEditorDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (creating) "Create agent" else "Edit agent") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedTextField(value = name, onValueChange = { name = it.take(AgentProfileRepository.MAX_NAME_CHARS) }, label = { Text("Name") }, singleLine = true)
                 OutlinedTextField(value = description, onValueChange = { description = it.take(AgentProfileRepository.MAX_DESCRIPTION_CHARS) }, label = { Text("Description") }, minLines = 2, maxLines = 4)
                 OutlinedTextField(value = instructions, onValueChange = { instructions = it.take(AgentProfileRepository.MAX_INSTRUCTION_CHARS) }, label = { Text("Instructions") }, minLines = 4, maxLines = 8)
