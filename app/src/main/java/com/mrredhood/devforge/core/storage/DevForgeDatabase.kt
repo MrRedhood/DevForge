@@ -10,6 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.mrredhood.devforge.core.policy.Capability
 import com.mrredhood.devforge.core.policy.CapabilityGrantRegistry
 import com.mrredhood.devforge.core.policy.RiskLevel
+import com.mrredhood.devforge.core.security.WorkspacePathScope
 
 @Database(
     entities = [
@@ -27,7 +28,7 @@ import com.mrredhood.devforge.core.policy.RiskLevel
         ChatSessionEntity::class,
         ChatMessageEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class DevForgeDatabase : RoomDatabase() {
@@ -265,6 +266,12 @@ abstract class DevForgeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""ALTER TABLE capability_grants ADD COLUMN scopeJson TEXT NOT NULL DEFAULT '[""]'""")
+            }
+        }
+
         @Volatile private var INSTANCE: DevForgeDatabase? = null
 
         fun get(context: Context): DevForgeDatabase =
@@ -274,7 +281,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     DevForgeDatabase::class.java,
                     "devforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                     .addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
@@ -327,19 +334,27 @@ abstract class DevForgeDatabase : RoomDatabase() {
         private fun hydrateGrantRegistry(db: SupportSQLiteDatabase) {
             CapabilityGrantRegistry.clear()
             val now = System.currentTimeMillis()
-            db.query("SELECT workspaceId, capability, maxRisk, expiresAtEpochMs FROM capability_grants WHERE enabled = 1 AND (expiresAtEpochMs IS NULL OR expiresAtEpochMs > $now)").use { cursor ->
+            db.query("SELECT workspaceId, capability, maxRisk, expiresAtEpochMs, scopeJson FROM capability_grants WHERE enabled = 1 AND (expiresAtEpochMs IS NULL OR expiresAtEpochMs > $now)").use { cursor ->
                 val workspaceIndex = cursor.getColumnIndexOrThrow("workspaceId")
                 val capabilityIndex = cursor.getColumnIndexOrThrow("capability")
                 val maxRiskIndex = cursor.getColumnIndexOrThrow("maxRisk")
                 val expiresIndex = cursor.getColumnIndexOrThrow("expiresAtEpochMs")
+                val scopeIndex = cursor.getColumnIndexOrThrow("scopeJson")
                 while (cursor.moveToNext()) {
                     val workspaceId = cursor.getString(workspaceIndex)
                     val capability = runCatching { Capability.valueOf(cursor.getString(capabilityIndex)) }.getOrNull() ?: continue
                     val maxRisk = runCatching { RiskLevel.valueOf(cursor.getString(maxRiskIndex)) }.getOrNull() ?: continue
                     val expiresAt = if (cursor.isNull(expiresIndex)) null else cursor.getLong(expiresIndex)
-                    CapabilityGrantRegistry.put(workspaceId, capability, maxRisk, expiresAt)
+                    val scope = runCatching {
+                        val array = org.json.JSONArray(cursor.getString(scopeIndex))
+                        require(array.length() <= WorkspacePathScope.MAX_PREFIXES)
+                        WorkspacePathScope(buildList(array.length()) {
+                            for (index in 0 until array.length()) add(array.optString(index, ""))
+                        })
+                    }.getOrNull() ?: continue
+                    CapabilityGrantRegistry.put(workspaceId, capability, maxRisk, expiresAt, scope)
                 }
             }
-        }
+        }        }
     }
 }
