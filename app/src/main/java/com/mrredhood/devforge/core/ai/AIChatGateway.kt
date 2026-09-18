@@ -243,25 +243,24 @@ class AIChatGateway {
         }
         return JSONObject(response)
     }
-}
 
-
-private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
-    val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 32 * 1024))
-    val buffer = ByteArray(8 * 1024)
-    var total = 0
-    while (total < maxBytes) {
-        val read = read(buffer, 0, minOf(buffer.size, maxBytes - total))
-        if (read <= 0) break
-        output.write(buffer, 0, read)
-        total += read
-    }
-    if (total >= maxBytes) error("AI response exceeded the DevForge response limit.")
-    return output.toByteArray()
     private companion object {
         const val MAX_STREAM_CHARS = 512 * 1024
         const val MAX_RESPONSE_BYTES = 512 * 1024
         const val MAX_ERROR_BYTES = 16 * 1024
     }
+}
 
+private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 32 * 1024))
+    val buffer = ByteArray(8 * 1024)
+    var total = 0
+    while (total <= maxBytes) {
+        val read = read(buffer, 0, minOf(buffer.size, maxBytes + 1 - total))
+        if (read <= 0) break
+        output.write(buffer, 0, read)
+        total += read
+        if (total > maxBytes) error("AI response exceeded the DevForge response limit.")
+    }
+    return output.toByteArray()
 }
