@@ -541,7 +541,8 @@ private class SandboxedTerminal(context: Context) {
     }
 
     private fun syncDirectory(source: File, target: Uri, budget: MirrorBudget, relativePath: String) {
-        val existing = listChildren(target).associateBy { it.name }.toMutableMap()
+        val creationParent = documentParentUri(target)
+        val existing = listChildren(creationParent).associateBy { it.name }.toMutableMap()
         source.listFiles()?.sortedBy { it.name }?.forEach { item ->
             if (item.name == ".git") return@forEach
             val itemPath = if (relativePath.isBlank()) item.name else relativePath + "/" + item.name
@@ -550,7 +551,7 @@ private class SandboxedTerminal(context: Context) {
                 val directory = existing.remove(item.name)?.uri
                     ?: DocumentsContract.createDocument(
                         resolver,
-                        target,
+                        creationParent,
                         DocumentsContract.Document.MIME_TYPE_DIR,
                         item.name,
                     )
@@ -561,7 +562,7 @@ private class SandboxedTerminal(context: Context) {
                 require(size <= MAX_FILE_BYTES) { "Terminal produced an oversized file: " + itemPath }
                 budget.consume(size)
                 val document = existing.remove(item.name)?.uri
-                    ?: DocumentsContract.createDocument(resolver, target, "application/octet-stream", item.name)
+                    ?: DocumentsContract.createDocument(resolver, creationParent, "application/octet-stream", item.name)
                     ?: throw IOException("Unable to create file: " + itemPath)
                 resolver.openOutputStream(document, "wt")?.use { output ->
                     item.inputStream().use { input -> copyBounded(input, output, size) }
@@ -570,6 +571,11 @@ private class SandboxedTerminal(context: Context) {
         }
         // Do not delete entries that are absent from the mirrored subset.
         // Deletion through the terminal is therefore intentionally non-destructive on SAF workspaces.
+    }
+
+    private fun documentParentUri(parent: Uri): Uri {
+        val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(parent) }.getOrNull()
+        return treeDocumentId?.let { DocumentsContract.buildDocumentUriUsingTree(parent, it) } ?: parent
     }
 
     private fun listChildren(parent: Uri): List<DocumentRef> = runCatching {
