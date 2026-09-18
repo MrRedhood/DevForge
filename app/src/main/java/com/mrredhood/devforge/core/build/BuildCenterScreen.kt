@@ -64,6 +64,7 @@ fun BuildCenterScreen() {
     val dispatchEnabled = model.capabilities.githubDispatch == CapabilityAvailability.Available &&
         model.state !is BuildState.Dispatching &&
         model.state !is BuildState.Running &&
+        model.state !is BuildState.Cancelling &&
         model.state !is BuildState.AwaitingApproval
     val context = LocalContext.current
 
@@ -159,6 +160,7 @@ fun BuildCenterScreen() {
                             Text("Remote capabilities", fontWeight = FontWeight.Bold)
                         }
                         CapabilityRow("Workflow dispatch", model.capabilities.githubDispatch)
+                        CapabilityRow("Build cancellation", model.capabilities.cancelBuild)
                         CapabilityRow("Live logs", model.capabilities.liveLogs)
                         CapabilityRow("Artifact discovery", model.capabilities.artifacts)
                     }
@@ -180,6 +182,12 @@ fun BuildCenterScreen() {
                                 else -> "Start remote build"
                             },
                         )
+                    }
+                    if (model.state is BuildState.Running && model.runSnapshot != null) {
+                        TextButton(
+                            onClick = model::cancelRun,
+                            enabled = model.capabilities.cancelBuild == CapabilityAvailability.Available,
+                        ) { Text("Cancel build") }
                     }
                     if (model.runSnapshot != null) {
                         TextButton(onClick = model::refreshRun) {
@@ -206,12 +214,13 @@ private fun BuildStatusCard(model: BuildViewModel) {
         is BuildState.Ready -> "Ready" to "Configuration prepared; no remote run has started."
         is BuildState.AwaitingApproval -> "Awaiting approval" to "Review this build in Approval Center before DevForge dispatches it."
         is BuildState.Dispatching -> "Dispatching" to "Submitting the authenticated GitHub Actions request…"
+        is BuildState.Cancelling -> "Cancelling" to "Sending the cancellation request to GitHub Actions."
         is BuildState.Running -> "Running" to "GitHub Actions run #${state.runId} is active."
         is BuildState.Succeeded -> "Succeeded" to "Artifact ${state.artifactName} is available."
         is BuildState.Failed -> "Failed" to state.message
         is BuildState.Cancelled -> "Cancelled" to "Run #${state.runId} was cancelled."
     }
-    val active = state is BuildState.Dispatching || state is BuildState.Running
+    val active = state is BuildState.Dispatching || state is BuildState.Running || state is BuildState.Cancelling
     Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
