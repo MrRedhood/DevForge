@@ -50,6 +50,9 @@ interface AgentTaskDao {
     @Query("SELECT * FROM agent_tasks WHERE taskId = :taskId LIMIT 1")
     suspend fun get(taskId: String): AgentTaskEntity?
 
+    @Query("SELECT * FROM agent_tasks WHERE workspaceId = :workspaceId ORDER BY updatedAtEpochMs DESC LIMIT :limit")
+    suspend fun list(workspaceId: String, limit: Int): List<AgentTaskEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(task: AgentTaskEntity)
 
