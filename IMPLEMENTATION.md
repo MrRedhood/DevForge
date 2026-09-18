@@ -311,6 +311,18 @@
 - Added additional profile declarations for Web, Terminal, Git, Build, Diagnostics and Network capabilities; undeployed capabilities cannot invent or unlock tools that are not registered.
 - Added regression coverage for agent access encoding and enforcement.
 
+### 2026-09-18 — Deep repository audit and hardening
+- Repaired concrete Kotlin/Compose compile blockers found by GitHub Actions in AI gateway, chat, diagnostics and editor integration.
+- Removed stale/fake agent access controls that had no registered execution capabilities; agent permissions now fail closed and are enforced both at planning and execution boundaries.
+- Removed the dead Git `NotImplemented` status placeholder state rather than presenting an unreachable fake capability.
+- Hardened chat attachments with asynchronous SAF metadata/size validation, attachment-only submission support, bounded text extraction and explicit local-only handling for binary content.
+- Hardened AI network handling with provider-specific model-ID validation, disabled redirects on fixed API requests, bounded SSE event lines and guaranteed connection cleanup when bounds are exceeded.
+- Redacted durable chat/profile/error/receipt data and rejected secret-like executable agent/automation payloads where redaction would corrupt execution state.
+- Closed an agent lifecycle race that could start duplicate executions for the same persisted task.
+- Isolated CI validation runs per workflow invocation after observed main-branch cancellation behavior, so later commits no longer intentionally share a cancellation group.
+- Repository placeholder/no-op audit remains clear: remaining disabled callbacks are intentionally read-only status affordances; no executable TODO/FIXME/HACK/stub/coming-soon implementation placeholders remain.
+- Current external validation is still asynchronous and must remain unchecked until completed GitHub Actions evidence is observed.
+
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
 - AI output is untrusted data and cannot grant authorization.
