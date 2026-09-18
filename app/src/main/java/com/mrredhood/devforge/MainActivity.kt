@@ -107,6 +107,7 @@ import com.mrredhood.devforge.core.security.CredentialSecurityScreen
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import com.mrredhood.devforge.ui.theme.DevForgeTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
