@@ -9,6 +9,7 @@ import com.mrredhood.devforge.core.storage.AutomationEntity
 import com.mrredhood.devforge.core.storage.AutomationRunEntity
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.recovery.RecoveryPolicy
+import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.UUID
 import org.json.JSONObject
 
@@ -150,7 +151,7 @@ class AutomationRunEngine(
         startedAtEpochMs = startedAt,
         completedAtEpochMs = if (status == AutomationRunStatus.RUNNING) null else startedAt,
         errorMessage = error,
-        receiptJson = JSONObject()
+        receiptJson = SecretRedactor.redact(JSONObject()
             .put("attempt", attempt)
             .put("automationId", automation.automationId)
             .put("triggerPayload", triggerPayload?.take(AutomationScheduler.MAX_EVENT_PAYLOAD_BYTES))
@@ -168,8 +169,7 @@ class AutomationRunEngine(
         .put("approvalId", approvalId)
         .put("result", result?.take(60_000))
         .put("triggerPayload", triggerPayload?.take(AutomationScheduler.MAX_EVENT_PAYLOAD_BYTES))
-        .toString()
-        .take(60_000)
+        .toString(), 60_000)
 
     private suspend fun audit(automation: AutomationEntity, run: AutomationRunEntity, eventType: String, summary: String) {
         durable.recordAudit(
