@@ -72,6 +72,10 @@ class AgentCoordinationService(
         require(draft.workspaceId.isNotBlank()) { "Handoff workspace is required." }
         require(draft.fromTaskId.isNotBlank()) { "Handoff source task is required." }
         require(draft.toTaskId == null || draft.toTaskId.isNotBlank()) { "Handoff target task is invalid." }
+        require(db.agentTaskDao().get(draft.fromTaskId)?.workspaceId == draft.workspaceId) { "Handoff source task is not in this workspace." }
+        if (draft.toTaskId != null) {
+            require(db.agentTaskDao().get(draft.toTaskId)?.workspaceId == draft.workspaceId) { "Handoff target task is not in this workspace." }
+        }
         val title = draft.title.trim().take(MAX_HANDOFF_TITLE)
         val summary = draft.summary.trim().take(MAX_HANDOFF_SUMMARY)
         require(title.isNotBlank()) { "Handoff title is required." }
