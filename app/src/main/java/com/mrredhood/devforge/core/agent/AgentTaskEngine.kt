@@ -2,6 +2,7 @@ package com.mrredhood.devforge.core.agent
 
 import com.mrredhood.devforge.core.storage.AgentTaskEntity
 import com.mrredhood.devforge.core.storage.DurableStateRepository
+import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -235,8 +236,8 @@ class AgentTaskEngine(
     ): String {
         val entry = buildString {
             append(label.take(100)).append(": ").append(summary.take(500))
-            if (output.isNotBlank()) append("\n").append(output.take(3000))
-            if (!receiptJson.isNullOrBlank()) append("\nreceipt=").append(receiptJson.take(MAX_RECEIPT_BYTES))
+            if (output.isNotBlank()) append("\n").append(SecretRedactor.redact(output, 3000))
+            if (!receiptJson.isNullOrBlank()) append("\nreceipt=").append(SecretRedactor.redact(receiptJson, MAX_RECEIPT_BYTES))
         }
         val combined = listOfNotNull(existing?.take(MAX_RESULT_BYTES), entry).joinToString("\n\n")
         return combined.take(MAX_RESULT_BYTES)
