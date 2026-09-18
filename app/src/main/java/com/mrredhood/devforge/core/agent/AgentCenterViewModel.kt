@@ -44,7 +44,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
     private val profileRepository = AgentProfileRepository()
     private val database = com.mrredhood.devforge.core.storage.DevForgeDatabase.get(application)
     private val durable = DurableStateRepository(database)
-    private val coordinator = ParallelAgentCoordinator(application)
+    private val agentRuntime = (application as DevForgeApplication).agentRuntime
     private val coordination = AgentCoordinationService(database)
     private var tasksJob: Job? = null
     private var memoryJob: Job? = null
@@ -101,7 +101,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 fileLeases = emptyList()
                 auditEvents = emptyList()
                 if (workspace == null) return@collectLatest
-                coordinator.recoverWorkspace(workspace.id)
+                agentRuntime.recoverWorkspace(workspace.id)
                 tasksJob = launch {
                     durable.observeAgentTasks(workspace.id).collect { values -> tasks = values }
                 }
@@ -173,7 +173,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 async {
                     runCatching {
                         val profile = selectedProfiles.getValue(draft)!!
-                    coordinator.assign(
+                    agentRuntime.assign(
                         AgentAssignment(
                             workspaceId = workspace,
                             title = draft.title.ifBlank { profile.name }.take(200),
@@ -236,7 +236,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         message = null
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                coordinator.assign(
+                agentRuntime.assign(
                     AgentAssignment(
                         workspaceId = workspace,
                         title = title.ifBlank { "Agent " + (tasks.size + 1) },
@@ -256,9 +256,9 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun pause(taskId: String) { viewModelScope.launch(Dispatchers.IO) { coordinator.pause(taskId) } }
-    fun resume(taskId: String) { viewModelScope.launch(Dispatchers.IO) { coordinator.resume(taskId) } }
-    fun cancel(taskId: String) { viewModelScope.launch(Dispatchers.IO) { coordinator.cancel(taskId) } }
+    fun pause(taskId: String) { viewModelScope.launch(Dispatchers.IO) { agentRuntime.pause(taskId) } }
+    fun resume(taskId: String) { viewModelScope.launch(Dispatchers.IO) { agentRuntime.resume(taskId) } }
+    fun cancel(taskId: String) { viewModelScope.launch(Dispatchers.IO) { agentRuntime.cancel(taskId) } }
     fun clearMessage() { message = null }
 
     override fun onCleared() {
@@ -267,7 +267,6 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         handoffsJob?.cancel()
         leaseRefreshJob?.cancel()
         auditJob?.cancel()
-        coordinator.close()
         super.onCleared()
     }
 }
