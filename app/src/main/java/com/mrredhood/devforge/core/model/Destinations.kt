@@ -23,6 +23,7 @@ enum class DevForgeDestination(
     Git("Git", Icons.Default.Source),
     Diffs("Diffs", Icons.Default.Description),
     Build("Build", Icons.Default.Build),
+    Agents("Agents", Icons.Default.AutoAwesome),
     Automations("Automation", Icons.Default.AutoAwesome),
     Approvals("Approvals", Icons.Default.Security),
     Settings("Settings", Icons.Default.Settings),
