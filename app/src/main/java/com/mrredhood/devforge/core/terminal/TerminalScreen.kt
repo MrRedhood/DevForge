@@ -45,7 +45,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -189,10 +188,6 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                         .onKeyEvent { event ->
                             if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                             when {
-                                event.nativeKeyEvent.isCtrlPressed && event.key == Key.C -> {
-                                    viewModel.stop()
-                                    true
-                                }
                                 event.key == Key.Enter -> {
                                     viewModel.run()
                                     true
