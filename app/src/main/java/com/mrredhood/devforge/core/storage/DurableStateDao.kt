@@ -67,6 +67,12 @@ interface AgentTaskDao {
 
     @Query("UPDATE agent_tasks SET status = 'PAUSED', updatedAtEpochMs = :updatedAt, errorMessage = :message WHERE workspaceId = :workspaceId AND status IN ('PLANNING','RUNNING')")
     suspend fun recoverRunning(workspaceId: String, updatedAt: Long, message: String): Int
+
+    @Query("UPDATE agent_tasks SET status = 'FAILED', updatedAtEpochMs = :updatedAt, completedAtEpochMs = :updatedAt, errorMessage = :message WHERE taskId = :taskId AND approvalId = :approvalId AND status = 'WAITING_APPROVAL'")
+    suspend fun failWaitingApproval(taskId: String, approvalId: String, updatedAt: Long, message: String): Int
+
+    @Query("UPDATE agent_tasks SET status = 'FAILED', updatedAtEpochMs = :updatedAt, completedAtEpochMs = :updatedAt, errorMessage = :message WHERE status = 'WAITING_APPROVAL' AND (approvalId IS NULL OR NOT EXISTS (SELECT 1 FROM approval_actions WHERE approvalId = agent_tasks.approvalId AND status IN ('PENDING','APPROVED') AND expiresAtEpochMs > :updatedAt))")
+    suspend fun reconcileWaitingApprovals(updatedAt: Long, message: String): Int
 }
 
 @Dao
