@@ -76,6 +76,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrredhood.devforge.core.ai.AIChatScreen
 import com.mrredhood.devforge.core.ai.AISettingsScreen
 import com.mrredhood.devforge.core.automation.AutomationCenterScreen
+import com.mrredhood.devforge.core.agent.AgentCenterScreen
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.git.GitDashboardScreen
@@ -255,6 +256,7 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
         DevForgeDestination.Git -> GitDashboardScreen()
         DevForgeDestination.Diffs -> GitDiffScreen()
         DevForgeDestination.Build -> BuildCenterScreen()
+        DevForgeDestination.Agents -> AgentCenterScreen()
         DevForgeDestination.Automations -> AutomationCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
         DevForgeDestination.Settings -> SettingsScreen()
