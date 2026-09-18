@@ -109,6 +109,11 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadModels(force: Boolean = false) {
         if (isLoadingModels) return
+        if (settings.isApiKeyLocked(provider)) {
+            apiKeyConfigured = true
+            modelError = "Unlock protected credentials in Settings before loading models."
+            return
+        }
         val key = settings.getApiKey(provider)
         apiKeyConfigured = !key.isNullOrBlank()
         if (key.isNullOrBlank()) {
@@ -199,6 +204,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         sendError = null
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
+                if (settings.isApiKeyLocked(provider)) error("Unlock protected credentials in Settings before sending AI requests.")
                 val mentions = AICommandRegistry.resolveMentions(resolver, workspaceRoot, raw)
                 val parsed = AICommandRegistry.parse(raw)?.let { it.copy(mentions = mentions) }
                 val finalInstruction = if (parsed != null) {
