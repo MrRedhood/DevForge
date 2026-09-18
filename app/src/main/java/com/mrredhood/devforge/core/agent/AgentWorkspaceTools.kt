@@ -12,6 +12,7 @@ import com.mrredhood.devforge.core.workspace.WorkspaceFileTree
 import com.mrredhood.devforge.core.workspace.WorkspaceSearch
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -59,7 +60,7 @@ class WorkspaceAgentToolProvider(
                 output = JSONObject().put("path", path).put("content", content).toString(),
                 affectedPaths = listOf(path),
             )
-        } catch (error: Throwable) {
+        } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Unable to read file.")
         }
     }
@@ -91,7 +92,7 @@ class WorkspaceAgentToolProvider(
                 summary = "Listed ${entries.size} entries${if (path.isBlank()) "" else " in $path"}.",
                 output = JSONObject().put("path", path).put("entries", result).toString(),
             )
-        } catch (error: Throwable) {
+        } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Unable to list workspace files.")
         }
     }
@@ -135,7 +136,7 @@ class WorkspaceAgentToolProvider(
                 summary = "Found ${output.length()} workspace matches for '$query'.",
                 output = JSONObject().put("query", query).put("results", output).toString(),
             )
-        } catch (error: Throwable) {
+        } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Workspace search failed.")
         }
     }
@@ -153,7 +154,7 @@ class WorkspaceAgentToolProvider(
             val patch = AgentFilePatchCodec.decode(request.argumentsJson)
             val path = scopedPath(context.pathScope, patch.path)
             val rootUri = root(context)
-            val before = runCatching { access.readText(rootUri, path) }.getOrElse {
+            val before = runCatchingCancellable { access.readText(rootUri, path) }.getOrElse {
                 require(it.message?.contains("does not exist", true) == true) { it.message ?: "Unable to read patch target." }
                 ""
             }
@@ -175,7 +176,7 @@ class WorkspaceAgentToolProvider(
                     .toString(),
                 affectedPaths = listOf(path),
             )
-        } catch (error: Throwable) {
+        } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Unable to apply patch.")
         }
 
@@ -186,7 +187,7 @@ class WorkspaceAgentToolProvider(
             val patch = AgentFilePatchCodec.decode(request.argumentsJson)
             val path = scopedPath(context.pathScope, patch.path)
             val rootUri = root(context)
-            val before = runCatching { access.readText(rootUri, path) }.getOrElse {
+            val before = runCatchingCancellable { access.readText(rootUri, path) }.getOrElse {
                 require(it.message?.contains("does not exist", true) == true) { it.message ?: "Unable to read patch target." }
                 ""
             }
@@ -225,7 +226,7 @@ class WorkspaceAgentToolProvider(
                     .toString(),
                 affectedPaths = listOf(path),
             )
-        } catch (error: Throwable) {
+        } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Unable to write file.")
         }
     }
@@ -325,3 +326,12 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         private const val MAX_DIRECTORY_ENTRIES = 256
     }
 }
+
+private suspend fun <T> runCatchingCancellable(block: suspend () -> T): Result<T> =
+    try {
+        Result.success(block())
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Throwable) {
+        Result.failure(error)
+    }

@@ -29,7 +29,13 @@ class AgentRuntimeManager(context: Context) {
         scope.launch {
             database.workspaceDao().observeAll().collectLatest { workspaces ->
                 workspaces.forEach { workspace ->
-                    runCatching { coordinator.recoverWorkspace(workspace.id) }
+                    try {
+                        coordinator.recoverWorkspace(workspace.id)
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (_: Throwable) {
+                        // Recovery is retried by the next workspace observation/startup pass.
+                    }
                 }
             }
         }

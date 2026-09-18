@@ -58,7 +58,13 @@ class AgentCoordinationService(
     }
 
     suspend fun deleteMemory(workspaceId: String, key: String): Boolean =
-        runCatching { memory.delete(workspaceId, normalizeKey(key)) > 0 }.getOrDefault(false)
+        try {
+            memory.delete(workspaceId, normalizeKey(key)) > 0
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            false
+        }
 
     fun observeHandoffs(workspaceId: String, limit: Int = MAX_HANDOFFS): Flow<List<AgentHandoffEntity>> =
         handoffs.observe(workspaceId, limit.coerceIn(1, MAX_HANDOFFS))

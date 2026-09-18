@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.agent
 
 import com.mrredhood.devforge.core.policy.Capability
+import kotlinx.coroutines.CancellationException
 import com.mrredhood.devforge.core.policy.RiskLevel
 import org.json.JSONArray
 import org.json.JSONObject
@@ -19,7 +20,7 @@ class AgentCoordinationToolProvider(
 
     private inner class ReadSharedMemoryTool : AgentTool {
         override val definition = AgentToolDefinition(AgentToolId.READ_SHARED_MEMORY, "Read recent shared workspace memory available to collaborating agents.", Capability.READ_WORKSPACE, RiskLevel.R0, false)
-        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatchingCancellable {
             val args = JSONObject(request.argumentsJson)
             val key = args.optString("key").trim()
             val values = if (key.isBlank()) coordination.listMemory(context.workspaceId, MAX_READ_MEMORY) else listOfNotNull(coordination.getMemory(context.workspaceId, key))
@@ -33,7 +34,7 @@ class AgentCoordinationToolProvider(
 
     private inner class WriteSharedMemoryTool : AgentTool {
         override val definition = AgentToolDefinition(AgentToolId.WRITE_SHARED_MEMORY, "Write one bounded shared workspace note for collaborating agents.", Capability.COORDINATE_AGENTS, RiskLevel.R1, true)
-        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatchingCancellable {
             val args = JSONObject(request.argumentsJson)
             val entry = coordination.putMemory(context.workspaceId, args.optString("key"), args.optString("content"), context.taskId)
             AgentToolResult.Success("Updated shared memory '" + entry.key + "'.", JSONObject().put("key", entry.key).toString())
@@ -42,7 +43,7 @@ class AgentCoordinationToolProvider(
 
     private inner class ListHandoffsTool : AgentTool {
         override val definition = AgentToolDefinition(AgentToolId.LIST_HANDOFFS, "List pending or claimed handoffs for collaborating agents.", Capability.READ_WORKSPACE, RiskLevel.R0, false)
-        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatchingCancellable {
             val values = coordination.availableHandoffs(context.workspaceId, context.taskId, MAX_READ_HANDOFFS)
             val json = JSONArray()
             values.forEach { handoff ->
@@ -54,7 +55,7 @@ class AgentCoordinationToolProvider(
 
     private inner class CreateHandoffTool : AgentTool {
         override val definition = AgentToolDefinition(AgentToolId.CREATE_HANDOFF, "Create a bounded durable handoff for another agent or the next available collaborator.", Capability.COORDINATE_AGENTS, RiskLevel.R1, true)
-        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatchingCancellable {
             val args = JSONObject(request.argumentsJson)
             val handoff = coordination.createHandoff(AgentHandoffDraft(
                 workspaceId = context.workspaceId,
@@ -70,7 +71,7 @@ class AgentCoordinationToolProvider(
 
     private inner class ClaimHandoffTool : AgentTool {
         override val definition = AgentToolDefinition(AgentToolId.CLAIM_HANDOFF, "Claim one available handoff for the current agent.", Capability.COORDINATE_AGENTS, RiskLevel.R1, true)
-        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatchingCancellable {
             val id = JSONObject(request.argumentsJson).optString("handoffId").trim()
             require(id.isNotBlank()) { "Handoff ID is required." }
             require(coordination.claimHandoff(id, context.taskId)) { "Handoff is no longer available for this agent." }
@@ -80,7 +81,7 @@ class AgentCoordinationToolProvider(
 
     private inner class CompleteHandoffTool : AgentTool {
         override val definition = AgentToolDefinition(AgentToolId.COMPLETE_HANDOFF, "Mark a handoff completed after the receiving agent consumes it.", Capability.COORDINATE_AGENTS, RiskLevel.R1, true)
-        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatching {
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = runCatchingCancellable {
             val id = JSONObject(request.argumentsJson).optString("handoffId").trim()
             require(id.isNotBlank()) { "Handoff ID is required." }
             require(coordination.completeHandoff(id, context.taskId)) { "Handoff is not claimed by this agent." }
@@ -93,3 +94,12 @@ class AgentCoordinationToolProvider(
         private const val MAX_READ_HANDOFFS = 20
     }
 }
+
+private suspend fun <T> runCatchingCancellable(block: suspend () -> T): Result<T> =
+    try {
+        Result.success(block())
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Throwable) {
+        Result.failure(error)
+    }
