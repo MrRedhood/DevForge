@@ -147,19 +147,26 @@ class TerminalCapability(
 ) {
     private val terminal = SandboxedTerminal(context)
 
-    suspend fun execute(workspaceId: String, command: TerminalCommand): TerminalCapabilityResult {
+    suspend fun execute(workspaceId: String, command: TerminalCommand): TerminalCapabilityResult =
+        executeStreaming(workspaceId, command) {}
+
+    suspend fun executeStreaming(
+        workspaceId: String,
+        command: TerminalCommand,
+        onOutput: suspend (String) -> Unit,
+    ): TerminalCapabilityResult {
         val validation = runCatching { TerminalCommandPolicy.validate(command) }.exceptionOrNull()
         if (validation != null) {
             return TerminalCapabilityResult.Failure(validation.message ?: "Invalid terminal command.")
         }
-        return authorizeAndExecute(workspaceId, command, null)
+        return authorizeAndExecute(workspaceId, command, null, onOutput)
     }
 
     suspend fun executeApproved(
         approvalId: String,
         workspaceId: String,
         command: TerminalCommand,
-    ): TerminalCapabilityResult {
+    ): TerminalCapabilityResult = executeApprovedStreaming(approvalId, workspaceId, command) {}
         val validation = runCatching { TerminalCommandPolicy.validate(command) }.exceptionOrNull()
         if (validation != null) {
             return TerminalCapabilityResult.Failure(validation.message ?: "Invalid terminal command.")
@@ -186,13 +193,38 @@ class TerminalCapability(
         if (!approvals.claimApproved(approvalId)) {
             return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' is no longer executable.")
         }
-        return authorizeAndExecute(workspaceId, command, approvalId)
+        return authorizeAndExecute(workspaceId, command, approvalId) {}
+    }
+
+    suspend fun executeApprovedStreaming(
+        approvalId: String,
+        workspaceId: String,
+        command: TerminalCommand,
+        onOutput: suspend (String) -> Unit,
+    ): TerminalCapabilityResult {
+        val validation = runCatching { TerminalCommandPolicy.validate(command) }.exceptionOrNull()
+        if (validation != null) return TerminalCapabilityResult.Failure(validation.message ?: "Invalid terminal command.")
+        val action = actionRequest(workspaceId, command)
+        val approval = approvals.observeById(approvalId).first()
+            ?: return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' was not found.")
+        if (approval.status != ApprovalRepository.STATUS_APPROVED) return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' is not approved.")
+        if (approval.expiresAtEpochMs <= System.currentTimeMillis()) {
+            approvals.expireDue()
+            return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' has expired.")
+        }
+        if (approval.workspaceId != workspaceId || approval.actionId != action.actionId ||
+            approval.parametersHash != action.parametersHash || approval.capability != Capability.RUN_TERMINAL.name ||
+            approval.risk != command.executable.risk.name
+        ) return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' does not match this terminal command.")
+        if (!approvals.claimApproved(approvalId)) return TerminalCapabilityResult.Failure("Approval '" + approvalId + "' is no longer executable.")
+        return authorizeAndExecute(workspaceId, command, approvalId, onOutput)
     }
 
     private suspend fun authorizeAndExecute(
         workspaceId: String,
         command: TerminalCommand,
         approvalId: String?,
+        onOutput: suspend (String) -> Unit,
     ): TerminalCapabilityResult {
         val action = actionRequest(workspaceId, command)
         if (approvalId == null && DefaultPolicy.requiresApproval(action, permissionMode)) {
@@ -221,7 +253,7 @@ class TerminalCapability(
             return TerminalCapabilityResult.ApprovalRequired(id, action.summary)
         }
 
-        val execution = runCatching { terminal.execute(workspaceId, command) }.getOrElse { error ->
+        val execution = runCatching { terminal.execute(workspaceId, command, onOutput) }.getOrElse { error ->
             val message = error.message ?: "Terminal execution failed."
             if (approvalId != null) approvals.finishFailure(approvalId)
             audit(workspaceId, action, "TERMINAL_FAILED", message, approvalId)
@@ -291,7 +323,11 @@ class TerminalCapability(
 private class SandboxedTerminal(context: Context) {
     private val root = File(context.noBackupFilesDir, "terminal-sandboxes").apply { mkdirs() }
 
-    suspend fun execute(workspaceId: String, command: TerminalCommand): TerminalExecution = withContext(Dispatchers.IO) {
+    suspend fun execute(
+        workspaceId: String,
+        command: TerminalCommand,
+        onOutput: suspend (String) -> Unit = {},
+    ): TerminalExecution = withContext(Dispatchers.IO) {
         TerminalCommandPolicy.validate(command)
         val sandboxRoot = sandboxRoot(workspaceId)
         val workingDirectory = resolveDirectory(sandboxRoot, command.workingDirectory)
@@ -324,7 +360,7 @@ private class SandboxedTerminal(context: Context) {
         }
 
         try {
-            val outputDeferred = async(Dispatchers.IO) { readBounded(process) }
+            val outputDeferred = async(Dispatchers.IO) { readBounded(process, onOutput) }
             if (!process.waitFor(command.timeoutMs, TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly()
                 process.waitFor(500, TimeUnit.MILLISECONDS)
@@ -388,7 +424,7 @@ private class SandboxedTerminal(context: Context) {
         return argument
     }
 
-    private fun readBounded(process: Process): String {
+    private suspend fun readBounded(process: Process, onOutput: suspend (String) -> Unit): String {
         BufferedInputStream(process.inputStream).use { input ->
             val output = ByteArrayOutputStream(TerminalCommandPolicy.MAX_OUTPUT_BYTES)
             val buffer = ByteArray(8192)
@@ -402,6 +438,7 @@ private class SandboxedTerminal(context: Context) {
                     throw OutputLimitExceeded()
                 }
                 output.write(buffer, 0, read)
+                onOutput(buffer.copyOf(read).toString(Charsets.UTF_8))
             }
             return output.toString(Charsets.UTF_8.name())
         }
