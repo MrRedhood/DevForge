@@ -86,7 +86,7 @@ class AgentToolGateway(
             return AgentToolResult.ApprovalRequired(approvalId, action.summary)
         }
 
-        return executeTool(context, request, tool, approvalId = null)
+        return executeTool(context, request, tool, approvalId = null, expectedPreconditionHash = action.preconditionHash)
     }
 
     suspend fun executeApproved(
@@ -119,7 +119,7 @@ class AgentToolGateway(
             return AgentToolResult.Failure("Approval '$approvalId' is no longer executable.")
         }
 
-        return executeTool(context, request, tool, approvalId)
+        return executeTool(context, request, tool, approvalId, action.preconditionHash)
     }
 
     private fun validateContext(context: AgentToolContext, request: AgentToolRequest): AgentToolResult.Failure? {
@@ -134,6 +134,7 @@ class AgentToolGateway(
         request: AgentToolRequest,
         tool: AgentTool,
         approvalId: String?,
+        expectedPreconditionHash: String?,
     ): AgentToolResult {
         val mutationPaths = runCatching { tool.mutationPaths(context, request).map { context.pathScope.requireAllowed(it) }.distinct() }
             .getOrElse { return AgentToolResult.Failure(it.message ?: "Unable to determine mutation paths.") }
@@ -144,6 +145,16 @@ class AgentToolGateway(
                 return AgentToolResult.Failure("File '$path' is currently reserved by another agent. Retry after it finishes or is released.")
             }
             acquired += path
+        }
+        if (expectedPreconditionHash != null) {
+            val currentPrecondition = runCatching { tool.preconditionHash(context, request) }.getOrElse {
+                acquired.forEach { runCatching { coordination.releaseFileLease(context.workspaceId, context.taskId, it) } }
+                return AgentToolResult.Failure(it.message ?: "Unable to revalidate the file precondition.")
+            }
+            if (currentPrecondition != expectedPreconditionHash) {
+                acquired.forEach { runCatching { coordination.releaseFileLease(context.workspaceId, context.taskId, it) } }
+                return AgentToolResult.Failure("The file changed while the action was waiting for its mutation lease. The patch must be regenerated.")
+            }
         }
         val result = try {
             runCatching { tool.execute(context, request) }
