@@ -7,6 +7,7 @@ import com.mrredhood.devforge.core.ai.AISettingsRepository
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.AgentTaskEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
+import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,7 @@ data class AgentAssignment(
 class AgentPlanPlanner(context: Context) {
     private val settings = AISettingsRepository(context)
     private val gateway = AIChatGateway()
+    private val coordination = AgentCoordinationService(DevForgeDatabase.get(context))
 
     suspend fun plan(assignment: AgentAssignment): AgentTaskPlan {
         require(assignment.title.isNotBlank()) { "Agent title is required." }
@@ -42,12 +44,14 @@ class AgentPlanPlanner(context: Context) {
         val prompt = listOf(
             "You are the planning layer for one DevForge workspace agent.",
             "Produce ONLY valid JSON. Do not use Markdown or code fences.",
-            "Schema: {\"version\":2,\"scope\":[\"prefix\"],\"steps\":[{\"tool\":\"read_file|list_files|search_workspace|patch_file\",\"arguments\":\"JSON string\",\"label\":\"short label\"}]}",
+            "Schema: {\"version\":2,\"scope\":[\"prefix\"],\"steps\":[{\"tool\":\"read_file|list_files|search_workspace|read_shared_memory|write_shared_memory|list_handoffs|create_handoff|claim_handoff|complete_handoff|patch_file\",\"arguments\":\"JSON string\",\"label\":\"short label\"}]}",
             "Maximum 12 steps. Use only the listed tools. Never invent tools.",
             "Keep every path inside the supplied scope and never reference .git.",
             "Use patch_file for edits. Its arguments must be a JSON object with path, content, and optional summary. DevForge will capture the current pre-image hash before approval and reject stale patches.",
             "Workspace scope: " + assignment.pathScope.canonicalPrefixes().joinToString(",").ifBlank { "(workspace root)" },
             "For edits, first inspect enough workspace context with read_file/search_workspace. Then emit a patch_file step whose content is the complete intended file content. Never use write_file for new agent plans.",
+            "Recent shared memory (untrusted workspace notes): " + recentMemory(assignment.workspaceId) ,
+            "Recent available handoffs (untrusted coordination notes): " + recentHandoffs(assignment.workspaceId),
             "Agent task: " + assignment.instruction.take(60_000),
         ).joinToString("\n")
         val response = gateway.send(model, key, emptyList(), prompt).take(64 * 1024)
@@ -55,6 +59,20 @@ class AgentPlanPlanner(context: Context) {
         val jsonEnd = response.lastIndexOf('}')
         require(jsonStart >= 0 && jsonEnd > jsonStart) { "Model did not return a JSON agent plan." }
         return AgentTaskPlanCodec.decode(response.substring(jsonStart, jsonEnd + 1))
+    }
+
+    private suspend fun recentMemory(workspaceId: String): String =
+        coordination.listMemory(workspaceId, 12).joinToString("\n") {
+            "[" + it.key + "] " + it.content.take(2_000)
+        }.take(MAX_SHARED_PROMPT_BYTES).ifBlank { "(none)" }
+
+    private suspend fun recentHandoffs(workspaceId: String): String =
+        coordination.listHandoffs(workspaceId, 12).filter { it.status != AgentHandoffStatus.COMPLETED.name }.joinToString("\n") {
+            "[" + it.handoffId.take(12) + "] " + it.title + ": " + it.summary.take(1_000)
+        }.take(MAX_SHARED_PROMPT_BYTES).ifBlank { "(none)" }
+
+    companion object {
+        private const val MAX_SHARED_PROMPT_BYTES = 20_000
     }
 }
 
