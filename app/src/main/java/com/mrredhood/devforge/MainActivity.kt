@@ -59,6 +59,7 @@ import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSiz
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +70,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -260,7 +264,7 @@ private fun NavigationSide(current: DevForgeDestination, onSelect: (DevForgeDest
 }
 
 @Composable
-private fun DestinationScreen(destination: DevForgeDestination, workspace: WorkspaceViewModel, editor: EditorViewModel) {
+private fun DestinationScreen(destination: DevForgeDestination, workspace: WorkspaceViewModel, editor: EditorViewModel, settings: DevForgeSettingsViewModel) {
     when (destination) {
         DevForgeDestination.Chat -> AIChatScreen()
         DevForgeDestination.Files -> FilesScreen(workspace, editor)
@@ -359,27 +363,218 @@ private fun FileRow(entry: WorkspaceEntry, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun EditorScreen(editor: EditorViewModel) {
-    val active = editor.activeTab
-    Column(Modifier.fillMaxSize().padding(12.dp)) {
-        if (editor.isLoading) LoadingCard("Opening file…")
-        active?.let { tab ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(tab.name, Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                if (tab.isDirty) Text("Unsaved", color = MaterialTheme.colorScheme.tertiary)
-                IconButton(onClick = editor::saveActive, enabled = tab.isDirty) { Icon(Icons.Default.Save, "Save") }
-            }
-            Divider(Modifier.padding(vertical = 8.dp))
-            BasicTextField(
-                value = tab.content,
-                onValueChange = editor::updateContent,
-                modifier = Modifier.fillMaxSize(),
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onBackground,
-                ),
-            )
+private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsViewModel) {
+    val active = editor.activeTab ?: return
+    var fieldValue by remember(active.uri) { mutableStateOf(TextFieldValue(active.content)) }
+    var showFind by remember(active.uri) { mutableStateOf(false) }
+    var showGoToLine by remember(active.uri) { mutableStateOf(false) }
+    var showSymbols by remember(active.uri) { mutableStateOf(false) }
+    var findQuery by remember(active.uri) { mutableStateOf("") }
+    var replaceQuery by remember(active.uri) { mutableStateOf("") }
+    var replaceMessage by remember(active.uri) { mutableStateOf<String?>(null) }
+    var lineQuery by remember(active.uri) { mutableStateOf("") }
+    var collapsedStarts by remember(active.uri) { mutableStateOf(emptySet<Int>()) }
+
+    LaunchedEffect(active.content) {
+        if (fieldValue.text != active.content) {
+            fieldValue = TextFieldValue(active.content, TextRange(active.content.length))
         }
+        val validStarts = EditorFolding.ranges(active.content).map { it.startOffset }.toSet()
+        collapsedStarts = collapsedStarts.intersect(validStarts)
+    }
+
+    val byteSize = active.content.toByteArray(Charsets.UTF_8).size
+    val advanced = byteSize <= 256 * 1024
+    val foldRanges = if (advanced) EditorFolding.ranges(active.content) else emptyList()
+    val activeFolds = foldRanges.filter { it.startOffset in collapsedStarts }
+    val language = EditorLanguage.detect(active.name)
+    val syntax = CodeSyntaxVisualTransformation(
+        language = language,
+        keywordColor = MaterialTheme.colorScheme.primary,
+        stringColor = MaterialTheme.colorScheme.tertiary,
+        commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        numberColor = MaterialTheme.colorScheme.secondary,
+    )
+    val transformation: VisualTransformation =
+        if (activeFolds.isEmpty()) syntax
+        else ChainedVisualTransformation(FoldingVisualTransformation(active.content, activeFolds), syntax)
+
+    Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(active.name, fontWeight = FontWeight.Bold)
+                Text(
+                    language.name.replace('_', ' ') + " · " + (active.content.count { it == '\n' } + 1) + " lines",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (active.isDirty) Text("Unsaved", color = MaterialTheme.colorScheme.tertiary)
+            IconButton(onClick = editor::undo, enabled = advanced) { Text("↶") }
+            IconButton(onClick = editor::redo, enabled = advanced) { Text("↷") }
+            IconButton(onClick = { showFind = true }) { Text("⌕") }
+            IconButton(onClick = { showGoToLine = true }) { Text("#") }
+            IconButton(onClick = { showSymbols = true }, enabled = advanced) { Text("⌘") }
+            IconButton(onClick = editor::saveActive, enabled = active.isDirty) { Icon(Icons.Default.Save, "Save") }
+        }
+
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            TextButton(onClick = {
+                fieldValue = fieldValue.copy(selection = TextRange(0, fieldValue.text.length))
+            }) { Text("Select all") }
+            TextButton(onClick = {
+                val cursor = fieldValue.selection.start.coerceIn(0, fieldValue.text.length)
+                val startLine = (fieldValue.text.lastIndexOf('\n', (cursor - 1).coerceAtLeast(0)) + 1).coerceAtLeast(0)
+                val endLine = fieldValue.text.indexOf('\n', cursor).let { if (it < 0) fieldValue.text.length else it }
+                fieldValue = fieldValue.copy(selection = TextRange(startLine, endLine))
+            }) { Text("Select line") }
+            if (foldRanges.isNotEmpty()) {
+                TextButton(onClick = { collapsedStarts = foldRanges.map { it.startOffset }.toSet() }) { Text("Fold all") }
+                TextButton(onClick = { collapsedStarts = emptySet() }) { Text("Unfold all") }
+                foldRanges.take(10).forEach { range ->
+                    FilterChip(
+                        selected = range.startOffset in collapsedStarts,
+                        onClick = {
+                            collapsedStarts = if (range.startOffset in collapsedStarts) {
+                                collapsedStarts - range.startOffset
+                            } else {
+                                collapsedStarts + range.startOffset
+                            }
+                        },
+                        label = { Text(range.startLine.toString() + "–" + range.endLine.toString()) },
+                    )
+                }
+            }
+        }
+
+        if (!advanced) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                Text(
+                    "Large file safeguard: syntax highlighting, folding and editor diagnostics pause above 256 KiB. Editing remains supported up to 8 MiB, with bounded undo history.",
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        if (editor.diagnostics.isNotEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Problems · " + editor.diagnostics.size, fontWeight = FontWeight.Bold)
+                    editor.diagnostics.take(8).forEach { diagnostic ->
+                        val location = diagnostic.location?.let { ":" + it.line + ":" + it.column }.orEmpty()
+                        Text(
+                            (diagnostic.code?.let { it + " · " }.orEmpty()) + diagnostic.message + location,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                }
+            }
+        }
+
+        Divider()
+        BasicTextField(
+            value = fieldValue,
+            onValueChange = {
+                fieldValue = it
+                editor.updateContent(it.text)
+            },
+            modifier = Modifier.fillMaxSize(),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = FontFamily.Monospace,
+                fontSize = settings.settings.editorFontSize.sp.sp,
+                color = MaterialTheme.colorScheme.onBackground,
+            ),
+            visualTransformation = transformation,
+            softWrap = settings.settings.wordWrap,
+            decorationBox = { inner -> Box(Modifier.fillMaxSize()) { inner() } },
+        )
+    }
+
+    if (showFind) {
+        AlertDialog(
+            onDismissRequest = { showFind = false },
+            title = { Text("Find & replace") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = findQuery,
+                        onValueChange = { findQuery = it.take(1_000); replaceMessage = null },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Find") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = replaceQuery,
+                        onValueChange = { replaceQuery = it.take(4_000); replaceMessage = null },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Replace with") },
+                        singleLine = true,
+                    )
+                    replaceMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val count = editor.replaceAll(findQuery, replaceQuery)
+                    replaceMessage = count.toString() + " replacements"
+                }) { Text("Replace all") }
+            },
+            dismissButton = { TextButton(onClick = { showFind = false }) { Text("Done") } },
+        )
+    }
+
+    if (showGoToLine) {
+        AlertDialog(
+            onDismissRequest = { showGoToLine = false },
+            title = { Text("Go to line") },
+            text = {
+                OutlinedTextField(
+                    value = lineQuery,
+                    onValueChange = { lineQuery = it.take(10) },
+                    label = { Text("Line number") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val line = lineQuery.toIntOrNull() ?: 1
+                    val offset = editor.lineStartOffset(line)
+                    fieldValue = fieldValue.copy(selection = TextRange(offset))
+                    showGoToLine = false
+                }) { Text("Go") }
+            },
+            dismissButton = { TextButton(onClick = { showGoToLine = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showSymbols) {
+        AlertDialog(
+            onDismissRequest = { showSymbols = false },
+            title = { Text("Symbols") },
+            text = {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    items(editor.symbolCandidates(), key = { it.name + ":" + it.line }) { symbol ->
+                        TextButton(onClick = {
+                            val offset = editor.lineStartOffset(symbol.line)
+                            fieldValue = fieldValue.copy(selection = TextRange(offset))
+                            showSymbols = false
+                        }) {
+                            Text(
+                                symbol.name + " · " + symbol.kind + " · line " + symbol.line,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showSymbols = false }) { Text("Done") } },
+        )
     }
 }
 
