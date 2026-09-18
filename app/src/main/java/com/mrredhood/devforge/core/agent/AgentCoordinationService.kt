@@ -1,5 +1,6 @@
 package com.mrredhood.devforge.core.agent
 
+import com.mrredhood.devforge.core.security.SecretRedactor
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.AgentFileLeaseEntity
 import com.mrredhood.devforge.core.storage.AgentHandoffEntity
@@ -85,7 +86,9 @@ class AgentCoordinationService(
             "Handoff context exceeds the 16 KiB limit."
         }
         runCatching { JSONObject(context) }.getOrElse { throw IllegalArgumentException("Handoff context must be valid JSON.") }
-        require(!looksLikeSecret(summary) && !looksLikeSecret(context)) { "Potential secret material cannot be stored in agent handoffs." }
+        require(!SecretRedactor.containsLikelySecret(summary) && !SecretRedactor.containsLikelySecret(context)) {
+            "Potential secret material cannot be stored in agent handoffs."
+        }
         val now = System.currentTimeMillis()
         val handoff = AgentHandoffEntity(
             handoffId = UUID.randomUUID().toString(),
@@ -145,7 +148,9 @@ class AgentCoordinationService(
     private fun normalizeKey(value: String): String {
         val key = value.trim()
         require(key.isNotBlank() && key.length <= MAX_MEMORY_KEY) { "Memory key is missing or too long." }
-        require(!looksLikeSecret(key)) { "Potential secret material cannot be used as a memory key." }
+        require(!SecretRedactor.containsLikelySecret(key)) {
+            "Potential secret material cannot be used as a memory key."
+        }
         return key
     }
 
@@ -155,19 +160,10 @@ class AgentCoordinationService(
         require(content.toByteArray(Charsets.UTF_8).size <= MAX_MEMORY_CONTENT_BYTES) {
             "Shared memory content exceeds the 8 KiB limit."
         }
-        require(!looksLikeSecret(content)) { "Potential secret material cannot be stored in shared memory." }
+        require(!SecretRedactor.containsLikelySecret(content)) {
+            "Potential secret material cannot be stored in shared memory."
+        }
         return content
-    }
-
-    private fun looksLikeSecret(value: String): Boolean {
-        val lower = value.lowercase()
-        return value.contains("-----begin ", true) ||
-            lower.contains("sk-") ||
-            lower.contains("AIza".lowercase()) ||
-            lower.contains("github_pat_") ||
-            lower.contains("ghp_") ||
-            lower.contains("api_key=") ||
-            lower.contains("access_token=")
     }
 
     private fun leaseKey(workspaceId: String, path: String): String = workspaceId + "|" + path
