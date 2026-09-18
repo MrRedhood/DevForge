@@ -94,9 +94,14 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val uri = activeUri ?: return
         val current = tabs.firstOrNull { it.uri == uri }?.content ?: return
         if (current == content) return
-        val undo = undoStacks.getOrPut(uri) { ArrayDeque() }
-        undo.addLast(current)
-        while (undo.size > MAX_UNDO) undo.removeFirst()
+        if (current.toByteArray(Charsets.UTF_8).size <= MAX_UNDO_CONTENT_BYTES) {
+            val undo = undoStacks.getOrPut(uri) { ArrayDeque() }
+            undo.addLast(current)
+            while (undo.size > MAX_UNDO) undo.removeFirst()
+            while (undo.sumOf { it.toByteArray(Charsets.UTF_8).size.toLong() } > MAX_UNDO_TOTAL_BYTES && undo.isNotEmpty()) {
+                undo.removeFirst()
+            }
+        }
         redoStacks.getOrPut(uri) { ArrayDeque() }.clear()
         applyContent(uri, content)
     }
