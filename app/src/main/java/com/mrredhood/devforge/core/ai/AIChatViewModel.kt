@@ -12,7 +12,9 @@ import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import com.mrredhood.devforge.core.settings.AiRoutingMode
 import com.mrredhood.devforge.core.settings.DevForgeSettingsRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.collect
@@ -213,8 +215,11 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         streamingText = ""
         sendError = null
         sendJob = viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                if (settings.isApiKeyLocked(provider)) error("Unlock protected credentials in Settings before sending AI requests.")
+            var partialResponse = ""
+            try {
+                if (settings.isApiKeyLocked(provider)) {
+                    error("Unlock protected credentials in Settings before sending AI requests.")
+                }
                 val mentions = AICommandRegistry.resolveMentions(resolver, workspaceRoot, raw)
                 val parsed = AICommandRegistry.parse(raw)?.let { it.copy(mentions = mentions) }
                 val finalInstruction = if (parsed != null) {
@@ -237,36 +242,42 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val history = buildBoundedHistory(model, messages)
                 val key = settings.getApiKey(provider) ?: error("API key is not configured.")
                 chatRepository.addMessage(sessionId, "user", raw, parsed?.command?.name)
-                val response: String
                 if (parsed?.command?.name == "help" || !model.supportsStreaming) {
-                    response = if (parsed?.command?.name == "help") {
-                        finalInstruction
-                    } else {
-                        chatGateway.send(model, key, history, finalInstruction)
-                    }
+                    val response = if (parsed?.command?.name == "help") finalInstruction else chatGateway.send(model, key, history, finalInstruction)
                     chatRepository.addMessage(sessionId, "assistant", response)
                 } else {
                     val builder = StringBuilder()
                     chatGateway.stream(model, key, history, finalInstruction).collect { chunk ->
                         builder.append(chunk)
-                        val visible = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
+                        partialResponse = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
+                        val visible = partialResponse
                         launch(Dispatchers.Main.immediate) { streamingText = visible }
                     }
-                    response = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
-                    chatRepository.addMessage(sessionId, "assistant", response.ifBlank { "The model returned an empty response." })
+                    chatRepository.addMessage(
+                        sessionId,
+                        "assistant",
+                        partialResponse.ifBlank { "The model returned an empty response." },
+                    )
                 }
-            }.onFailure { error ->
-                launch(Dispatchers.Main.immediate) {
-                    if (streamingText.isNotBlank()) {
-                        chatRepository.addMessage(sessionId, "assistant", streamingText + "\n\n[Generation interrupted]")
-                        streamingText = ""
+            } catch (cancelled: CancellationException) {
+                withContext(NonCancellable) {
+                    if (partialResponse.isNotBlank()) {
+                        chatRepository.addMessage(
+                            sessionId,
+                            "assistant",
+                            partialResponse + "\n\n[Generation stopped]",
+                        )
                     }
+                }
+            } catch (error: Throwable) {
+                withContext(Dispatchers.Main.immediate) {
                     sendError = error.message ?: "AI request failed."
                 }
-            }
-            launch(Dispatchers.Main.immediate) {
-                streamingText = ""
-                isSending = false
+            } finally {
+                withContext(NonCancellable + Dispatchers.Main.immediate) {
+                    streamingText = ""
+                    isSending = false
+                }
             }
         }
     }
