@@ -7,8 +7,6 @@ import androidx.lifecycle.lifecycleScope
 import com.mrredhood.devforge.core.storage.ApprovalRepository
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -74,7 +72,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -490,16 +487,31 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
     var renameName by rememberSaveable { mutableStateOf("") }
     var deleteTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
 
-    val currentWorkspaceName by rememberUpdatedState(workspaceName)
-    val workspacePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) {
-            workspace.openWorkspace(uri = uri, workspaceName = currentWorkspaceName)
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        PickerBridge.results.collectLatest { result ->
+            if (result.kind != SystemPickerActivity.KIND_WORKSPACE || result.cancelled) return@collectLatest
+            val uri = result.uris.firstOrNull() ?: return@collectLatest
+            workspace.openWorkspace(uri = uri, workspaceName = workspaceName)
             workspaceName = ""
+            showCreateWorkspace = false
         }
     }
 
     fun launchWorkspacePicker() {
-        workspacePicker.launch(null)
+        val activity = context as? FragmentActivity
+        if (activity == null) {
+            workspace.reportWorkspacePickerError(IllegalStateException("Unable to access the current Activity."))
+            return
+        }
+        runCatching {
+            activity.startActivityForResult(
+                Intent(context, SystemPickerActivity::class.java)
+                    .putExtra(SystemPickerActivity.EXTRA_KIND, SystemPickerActivity.KIND_WORKSPACE),
+                SystemPickerActivity.PICKER_REQUEST_CODE,
+            )
+        }.onFailure { workspace.reportWorkspacePickerError(it) }
     }
 
     BackHandler(enabled = workspace.breadcrumbs.size > 1) { workspace.goUp() }
@@ -845,29 +857,51 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
         }
 
     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(active.name, fontWeight = FontWeight.Bold)
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                Modifier.weight(1f).padding(end = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(active.name, fontWeight = FontWeight.Bold, maxLines = 1)
                 Text(
                     language.name.replace('_', ' ') + " · " + (active.content.count { it == '\n' } + 1) + " lines",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
                 )
             }
-            if (active.isDirty) Text("Unsaved", color = MaterialTheme.colorScheme.tertiary)
+            if (active.isDirty) {
+                Text("Unsaved", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             IconButton(onClick = editor::undo, enabled = advanced) { Text("↶") }
             IconButton(onClick = editor::redo, enabled = advanced) { Text("↷") }
             IconButton(onClick = { showFind = true }) { Text("⌕") }
             IconButton(onClick = { showGoToLine = true }) { Text("#") }
-            Text(
-                language.name.replace('_', ' '),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            TextButton(onClick = { showAiEdit = true }, enabled = !editor.isAiBusy) {
-                Text(if (editor.isAiBusy) "AI…" else "AI edit")
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Text(
+                    language.name.replace('_', ' '),
+                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                )
             }
-            TextButton(onClick = { showSymbols = true }, enabled = advanced) { Text("Symbols") }
+            TextButton(onClick = { showAiEdit = true }, enabled = !editor.isAiBusy) {
+                Text(if (editor.isAiBusy) "AI…" else "AI edit", maxLines = 1)
+            }
+            TextButton(onClick = { showSymbols = true }, enabled = advanced) { Text("Symbols", maxLines = 1) }
             IconButton(onClick = editor::saveActive, enabled = active.isDirty) { Icon(Icons.Default.Save, "Save") }
         }
 
@@ -971,28 +1005,36 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
         }
 
         Divider()
-        val editorModifier = if (settings.settings.wordWrap) {
-            Modifier.fillMaxSize()
-        } else {
+        Box(
             Modifier
-                .fillMaxSize()
-                .horizontalScroll(horizontalEditorScroll)
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            val editorModifier = if (settings.settings.wordWrap) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier.fillMaxSize().horizontalScroll(horizontalEditorScroll)
+            }
+            BasicTextField(
+                value = fieldValue,
+                onValueChange = {
+                    fieldValue = it
+                    editor.updateContent(it.text)
+                },
+                modifier = editorModifier,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = settings.settings.editorFontSize.sp.sp,
+                    color = MaterialTheme.colorScheme.onBackground,
+                ),
+                visualTransformation = transformation,
+                decorationBox = { inner ->
+                    Box(
+                        Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp),
+                    ) { inner() }
+                },
+            )
         }
-        BasicTextField(
-            value = fieldValue,
-            onValueChange = {
-                fieldValue = it
-                editor.updateContent(it.text)
-            },
-            modifier = editorModifier,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                fontFamily = FontFamily.Monospace,
-                fontSize = settings.settings.editorFontSize.sp.sp,
-                color = MaterialTheme.colorScheme.onBackground,
-            ),
-            visualTransformation = transformation,
-            decorationBox = { inner -> Box(Modifier.fillMaxSize()) { inner() } },
-        )
     }
 
     if (showAiEdit) {
