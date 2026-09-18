@@ -98,7 +98,14 @@ object TerminalCommandPolicy {
 
     private fun isRelative(path: String): Boolean {
         require(!path.startsWith("/") && !path.startsWith("~/")) { "Absolute paths are not allowed." }
-        return path.replace('\\', '/').split('/').none { it.isBlank() || it == "." || it == ".." }
+        val segments = path.replace('\\', '/').split('/')
+        require(segments.none { it.isBlank() || it == "." || it == ".." || it == ".git" }) {
+            "Unsafe workspace path segment."
+        }
+        require('\u0000' !in path && '\n' !in path && '\r' !in path) {
+            "Control characters are not allowed."
+        }
+        return true
     }
 }
 
