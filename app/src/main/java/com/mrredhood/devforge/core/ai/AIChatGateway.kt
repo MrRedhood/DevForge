@@ -267,9 +267,6 @@ class AIChatGateway {
         private const val MAX_MODEL_ID_CHARS = 180
         private const val MAX_INSTRUCTION_CHARS = 1_000_000
         private val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
-        const val MAX_STREAM_CHARS = 512 * 1024
-        const val MAX_RESPONSE_BYTES = 512 * 1024
-        const val MAX_ERROR_BYTES = 16 * 1024
     }
 }
 
