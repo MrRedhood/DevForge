@@ -122,3 +122,54 @@ data class ChatMessageEntity(
     val commandName: String?,
     val createdAtEpochMs: Long,
 )
+
+
+@Entity(
+    tableName = "agent_shared_memory",
+    indices = [
+        Index(value = ["workspaceId", "key"], unique = true),
+        Index(value = ["workspaceId", "updatedAtEpochMs"]),
+    ],
+)
+data class AgentSharedMemoryEntity(
+    @PrimaryKey val memoryId: String,
+    val workspaceId: String,
+    val key: String,
+    val content: String,
+    val sourceTaskId: String?,
+    val updatedAtEpochMs: Long,
+)
+
+@Entity(
+    tableName = "agent_handoffs",
+    indices = [
+        Index(value = ["workspaceId", "status", "createdAtEpochMs"]),
+        Index(value = ["workspaceId", "toTaskId", "status"]),
+    ],
+)
+data class AgentHandoffEntity(
+    @PrimaryKey val handoffId: String,
+    val workspaceId: String,
+    val fromTaskId: String,
+    val toTaskId: String?,
+    val title: String,
+    val summary: String,
+    val contextJson: String,
+    val status: String,
+    val createdAtEpochMs: Long,
+    val claimedAtEpochMs: Long?,
+    val completedAtEpochMs: Long?,
+)
+
+@Entity(
+    tableName = "agent_file_leases",
+    indices = [Index(value = ["workspaceId", "taskId"])],
+)
+data class AgentFileLeaseEntity(
+    @PrimaryKey val leaseKey: String,
+    val workspaceId: String,
+    val path: String,
+    val taskId: String,
+    val acquiredAtEpochMs: Long,
+    val expiresAtEpochMs: Long,
+)
