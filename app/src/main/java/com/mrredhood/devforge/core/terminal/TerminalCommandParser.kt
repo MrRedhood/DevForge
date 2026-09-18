@@ -5,6 +5,7 @@ sealed interface TerminalParsedCommand {
     data class ChangeDirectory(val path: String) : TerminalParsedCommand
     data object Clear : TerminalParsedCommand
     data object History : TerminalParsedCommand
+    data object Help : TerminalParsedCommand
 }
 
 object TerminalCommandParser {
@@ -18,6 +19,7 @@ object TerminalCommandParser {
             }
             "clear", "cls" -> TerminalParsedCommand.Clear
             "history" -> TerminalParsedCommand.History
+            "help" -> TerminalParsedCommand.Help
             else -> {
                 val executable = terminalExecutableForName(name)
                     ?: throw IllegalArgumentException("command not found: $name")

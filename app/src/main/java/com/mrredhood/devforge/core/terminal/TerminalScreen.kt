@@ -130,21 +130,13 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
             TextButton(onClick = viewModel::historyPrevious) {
                 Icon(Icons.Default.ArrowUpward, null)
                 Spacer(Modifier.width(3.dp))
-                Text("Previous")
+                Text("Previous command")
             }
             TextButton(onClick = viewModel::historyNext) {
                 Icon(Icons.Default.ArrowDownward, null)
                 Spacer(Modifier.width(3.dp))
-                Text("Next")
+                Text("Next command")
             }
-            Text(
-                "pwd ls cd cat grep find head tail wc sort uniq cut tr sed mkdir touch rm cp mv chmod echo",
-                Modifier.padding(start = 6.dp),
-                fontFamily = FontFamily.Monospace,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-            )
         }
 
         viewModel.statusMessage?.let {

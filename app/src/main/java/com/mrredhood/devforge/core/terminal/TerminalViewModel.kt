@@ -171,6 +171,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                     appendTerminalLine("%3d  %s".format(index + 1, item))
                 }
             }
+            TerminalParsedCommand.Help -> {
+                appendTerminalLine(prompt(session) + " help")
+                appendTerminalLine("pwd ls cd cat grep find head tail wc sort uniq cut tr sed mkdir touch rm cp mv chmod echo printf history clear")
+            }
             is TerminalParsedCommand.ChangeDirectory -> {
                 val next = normalizeDirectory(session.workingDirectory, parsed.path)
                 val updated = sessionsRepository.updateWorkingDirectory(workspace, session.id, next)
