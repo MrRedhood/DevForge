@@ -176,6 +176,7 @@
 - [x] Crash/recovery validation
 - [x] Security/redaction regression tests
 - [x] Agent execution timeline and lifecycle correlation
+- [x] Agent execution timeline and lifecycle correlation
 
 ## Validation
 - [x] Historical CI toolchain/debug-build validations
