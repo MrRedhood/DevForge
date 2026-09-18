@@ -31,6 +31,14 @@ object CapabilityGrantRegistry {
         grants.remove(key(workspaceId, capability))
     }
 
+    /** Backward-compatible time-aware overload retained for existing policy tests/callers. */
+    fun allows(
+        workspaceId: String,
+        capability: Capability,
+        risk: RiskLevel,
+        now: Long,
+    ): Boolean = allows(workspaceId, capability, risk, null, now)
+
     fun allows(
         workspaceId: String,
         capability: Capability,
