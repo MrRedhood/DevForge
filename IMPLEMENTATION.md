@@ -142,11 +142,14 @@
 - [ ] Large-file safeguards/editor preferences
 
 ### Terminal / Execution
-- [ ] Sandboxed terminal capability
-- [ ] Command/path/argument validation
-- [ ] Resource/time limits and streaming output
-- [ ] Cancel/terminate and terminal sessions/tabs
-- [ ] No unrestricted arbitrary AI shell access
+- [x] Sandboxed terminal capability
+- [x] Command/path/argument validation
+- [x] Resource/time limits and bounded combined output
+- [x] Cancel/terminate handling for the native process runner
+- [x] No unrestricted arbitrary AI shell access
+- [x] Terminal capability remains separate from the provider-neutral AI agent tool registry
+- [ ] Streaming terminal output
+- [ ] Terminal sessions/tabs
 
 ### Automation Expansion
 - [x] Repository-change triggers
@@ -254,6 +257,14 @@
 - Added a dedicated Automation destination with rich trigger/action editing, explicit agent path scopes, run-now, enable/disable, delete and run-history controls.
 - Added focused regression coverage for repository/build/condition matching and repository fingerprint changes.
 
+
+### 2026-09-18 — Terminal capability
+- Added a typed native terminal capability with a fixed executable allowlist; arbitrary executable names and shell invocation are not accepted.
+- Sandboxed commands run only from an app-private per-workspace directory with inherited environment variables cleared.
+- Added strict argument/path, command-size, output-size and 15-second maximum timeout limits.
+- Added process cancellation/termination handling and Approval Center routing for R2 terminal commands.
+- Kept terminal execution out of the provider-neutral AI agent tool registry so model output cannot directly obtain shell access.
+- Added focused terminal command-policy regression tests.
 
 ### 2026-09-18 — CI compile failure repair
 - Fixed invalid NavigationRail `verticalScroll` usage/import in `MainActivity.kt`; the navigation rail now relies on its bounded destination set without the unavailable modifier.

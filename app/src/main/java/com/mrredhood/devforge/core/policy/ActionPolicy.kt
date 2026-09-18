@@ -8,6 +8,7 @@ enum class Capability {
     EDIT_FILES,
     DELETE_FILES,
     RUN_CHECK,
+    RUN_TERMINAL,
     STAGE_FILES,
     CREATE_COMMIT,
     CREATE_BRANCH,
