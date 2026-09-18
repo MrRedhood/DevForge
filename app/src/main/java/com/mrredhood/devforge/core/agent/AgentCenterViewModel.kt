@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.agent
 
 import android.app.Application
+import com.mrredhood.devforge.DevForgeApplication
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
