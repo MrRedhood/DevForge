@@ -124,10 +124,13 @@ class DurableStateRepository(
 
     suspend fun saveAutomation(automation: AutomationEntity) {
         require(automation.actionGraph.toByteArray(Charsets.UTF_8).size <= MAX_AUTOMATION_GRAPH_BYTES) { "Automation definition exceeds the persistence limit." }
+        require(!SecretRedactor.containsLikelySecret(automation.actionGraph)) {
+            "Automation action graph contains secret-like material and cannot be persisted."
+        }
         require((automation.schedule ?: "").toByteArray(Charsets.UTF_8).size <= MAX_SCHEDULE_LENGTH) { "Automation trigger configuration exceeds the limit." }
         automations.upsert(
             automation.copy(
-                name = automation.name.take(MAX_NAME_LENGTH),
+                name = SecretRedactor.redact(automation.name.take(MAX_NAME_LENGTH), MAX_NAME_LENGTH),
                 schedule = automation.schedule?.take(MAX_SCHEDULE_LENGTH),
             ),
         )
