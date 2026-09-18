@@ -127,6 +127,10 @@ class AgentToolGateway(
         if (request.workspaceId != context.workspaceId || request.taskId != context.taskId || request.stepIndex != context.stepIndex) {
             return AgentToolResult.Failure("Agent tool context does not match the requested task step.")
         }
+        if (!AgentAccessRules.canUse(request.toolId, context.access)) {
+            val required = AgentAccessRules.requiredFor(request.toolId).joinToString(", ") { it.label }
+            return AgentToolResult.Failure("Agent access does not allow '${request.toolId.wireName}'. Required access: $required.")
+        }
         return null
     }
 
@@ -229,7 +233,8 @@ class AgentToolGateway(
             append(request.stepIndex).append('\n')
             append(request.toolId.wireName).append('\n')
             append(request.argumentsJson).append('\n')
-            append(context.pathScope.canonicalPrefixes().joinToString("|"))
+            append(context.pathScope.canonicalPrefixes().joinToString("|")).append('\n')
+            append(context.access.map(AgentAccess::name).sorted().joinToString("|"))
         }
         return MessageDigest.getInstance("SHA-256")
             .digest(canonical.toByteArray(Charsets.UTF_8))
