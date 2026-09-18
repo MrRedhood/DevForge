@@ -114,7 +114,7 @@ fun BuildCenterScreen() {
                                 FilterChip(
                                     selected = configuration.target == target,
                                     onClick = { model.selectTarget(target) },
-                                    enabled = model.state !is BuildState.Running && model.state !is BuildState.Dispatching && model.state !is BuildState.AwaitingApproval,
+                                    enabled = model.state !is BuildState.Running && model.state !is BuildState.Dispatching && model.state !is BuildState.Cancelling && model.state !is BuildState.AwaitingApproval,
                                     label = { Text(target.label) },
                                 )
                             }
@@ -198,7 +198,7 @@ fun BuildCenterScreen() {
                     }
                     TextButton(
                         onClick = model::resetToReady,
-                        enabled = model.state !is BuildState.Dispatching && model.state !is BuildState.Running && model.state !is BuildState.AwaitingApproval,
+                        enabled = model.state !is BuildState.Dispatching && model.state !is BuildState.Running && model.state !is BuildState.Cancelling && model.state !is BuildState.AwaitingApproval,
                     ) { Text("Reset") }
                 }
             }
