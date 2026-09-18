@@ -141,6 +141,21 @@ jobs:
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon --max-workers=2
 
+      - name: Run Android lint
+        run: ./gradlew :app:lintDebug --stacktrace --no-daemon --max-workers=2
+
+      - name: Upload lint report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: devforge-lint-report
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+            app/build/reports/lint-results-debug.sarif
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Verify selected artifact
         shell: bash
         env:
