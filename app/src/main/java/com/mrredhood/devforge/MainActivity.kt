@@ -77,6 +77,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -140,6 +141,7 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
     var showGlobalSearch by rememberSaveable { mutableStateOf(false) }
     var globalSearchQuery by rememberSaveable { mutableStateOf("") }
     var unsavedEditorUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showAgentPanel by rememberSaveable { mutableStateOf(false) }
 
     val destination = DevForgeDestination.valueOf(destinationName)
     val expanded = windowSize.widthSizeClass != WindowWidthSizeClass.Compact
@@ -165,6 +167,7 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
                 destinationHistory = destinationHistory.dropLast(1)
                 destinationName = previous
             }
+            showAgentPanel -> showAgentPanel = false
             else -> showExitDialog = true
         }
     }
@@ -177,7 +180,7 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
                 editing = editing,
                 showAgents = destination == DevForgeDestination.Chat && !editing,
                 onSearch = { showGlobalSearch = true },
-                onAgents = { navigateTo(DevForgeDestination.Agents) },
+                onAgents = { showAgentPanel = true },
             )
         },
         bottomBar = { if (!expanded && !editing) NavigationBottom(destination, ::navigateTo) },
@@ -235,6 +238,32 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
             },
             dismissButton = { TextButton(onClick = { showGlobalSearch = false }) { Text("Cancel") } },
         )
+    }
+
+    if (showAgentPanel) {
+        Dialog(onDismissRequest = { showAgentPanel = false }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.94f),
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.background,
+            ) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Agents",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { showAgentPanel = false }) { Text("Close") }
+                    }
+                    AgentCenterScreen()
+                }
+            }
+        }
     }
 
     if (showExitDialog) {
@@ -298,16 +327,15 @@ private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDe
     val primary = listOf(
         DevForgeDestination.Chat,
         DevForgeDestination.Files,
+        DevForgeDestination.Git,
         DevForgeDestination.Build,
-        DevForgeDestination.Agents,
-        DevForgeDestination.Settings,
     )
     val secondary = listOf(
-        DevForgeDestination.Git,
         DevForgeDestination.Diffs,
         DevForgeDestination.Terminal,
         DevForgeDestination.Automations,
         DevForgeDestination.Approvals,
+        DevForgeDestination.Settings,
     )
 
     NavigationBar {
@@ -371,7 +399,6 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
         DevForgeDestination.Diffs -> GitDiffScreen()
         DevForgeDestination.Build -> BuildCenterScreen()
         DevForgeDestination.Terminal -> TerminalScreen()
-        DevForgeDestination.Agents -> AgentCenterScreen()
         DevForgeDestination.Automations -> AutomationCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
         DevForgeDestination.Settings -> SettingsScreen(settings)
