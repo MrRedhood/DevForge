@@ -53,8 +53,11 @@ data class Approval(
 
 object DefaultPolicy {
     fun requiresApproval(request: ActionRequest, mode: PermissionMode): Boolean {
+        // NEVER is an absolute deny for autonomous execution. A persistent grant must not
+        // override it, otherwise the setting could silently become executable.
+        if (mode == PermissionMode.NEVER) return true
+
         val baseRequiresApproval = when (mode) {
-            PermissionMode.NEVER -> true
             PermissionMode.SOME -> request.risk >= RiskLevel.R2
             PermissionMode.AUTONOMOUS -> request.risk >= RiskLevel.R4 || request.capability in setOf(
                 Capability.DELETE_FILES,
