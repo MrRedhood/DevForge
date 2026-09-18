@@ -96,7 +96,7 @@
 - [x] Structured patch generation + diff-first approval workflow
 - [ ] Workspace symbol extraction/indexing
 - [ ] Workspace memory/knowledge layer
-- [ ] Multi-agent shared memory/handoff protocol
+- [x] Multi-agent shared memory/handoff protocol
 
 ### Automation
 - [x] Durable automation definitions and run records
@@ -131,8 +131,7 @@
 
 ## In Progress / Next Sequence
 1. Maintained unit/UI/security regression suites and broader validation.
-2. AI structured patch generation + diff-first approval workflow.
-3. Multi-agent shared memory, handoffs and conflict-aware workspace coordination.
+2. Multi-agent shared memory, handoffs and conflict-aware workspace coordination.
 
 ## Planned
 
@@ -188,6 +187,7 @@
 - [ ] Maintained regression suite CI result verification
 - [ ] Path-scoped capability grant CI result verification
 - [ ] Structured patch / diff-first approval CI result verification
+- [ ] Multi-agent coordination CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
 - [ ] Maintained unit/UI/security regression suites
@@ -329,3 +329,14 @@
 - Added Approval Center diff previews for structured patches, including new-file detection, bounded diff rendering and stale-precondition rejection.
 - Kept patch execution behind the existing EDIT_FILES R2 capability, workspace path scopes and approval lifecycle.
 - Added structured patch and agent-plan regression coverage; no remote CI result is marked successful without verification.
+
+### 2026-09-18 — Multi-agent shared memory, handoffs and conflict-aware editing
+- Upgraded Room from v10 to v12 with durable shared-memory, handoff and file-lease records and sequential migrations.
+- Added bounded workspace shared memory with one value per key, source-task attribution, 100-entry retention and secret-pattern rejection.
+- Added durable handoffs with optional target-agent routing, pending/claimed/completed lifecycle, claim ownership and workspace validation.
+- Added typed coordination tools for reading/writing shared memory and listing, creating, claiming and completing handoffs.
+- Extended agent planning so new tasks receive recent shared memory and pending handoff context as untrusted coordination data.
+- Added durable per-file mutation leases so concurrent agents cannot silently overwrite the same workspace file; leases expire automatically and are released after each mutation.
+- Added post-lease precondition revalidation so a file change between initial review and execution causes a safe retry failure instead of an overwrite.
+- Added Agents UI visibility for shared memory, active handoffs and current file locks.
+- Added regression coverage for the expanded coordination tool set.
