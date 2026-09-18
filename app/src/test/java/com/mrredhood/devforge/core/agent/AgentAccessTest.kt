@@ -11,7 +11,7 @@ class AgentAccessTest {
         val required = AgentAccessRules.requiredFor(AgentToolId.READ_FILE)
         assertTrue(AgentAccess.WORKSPACE_ACCESS in required)
         assertTrue(AgentAccess.FILE_ACCESS in required)
-        assertFalse(AgentAccess.WEB_ACCESS in required)
+        assertFalse(AgentAccess.COORDINATION_ACCESS in required)
     }
 
     @Test
@@ -45,8 +45,14 @@ class AgentAccessTest {
             AgentAccess.WORKSPACE_ACCESS,
             AgentAccess.FILE_ACCESS,
             AgentAccess.COORDINATION_ACCESS,
-            AgentAccess.DIAGNOSTICS_ACCESS,
         )
         assertEquals(source, AgentAccess.decode(AgentAccess.encode(source)))
     }
+}
+
+
+@Test
+fun malformedAccessDoesNotGrantPermissions() {
+    assertTrue(AgentAccess.decode("not-json").isEmpty())
+    assertTrue(AgentAccess.decode("[\"UNKNOWN\"]").isEmpty())
 }
