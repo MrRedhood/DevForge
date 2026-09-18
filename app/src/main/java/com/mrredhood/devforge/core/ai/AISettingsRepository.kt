@@ -38,7 +38,9 @@ class AISettingsRepository(context: Context) {
         preferences.edit().remove("$KEY_BASE_URL_PREFIX${provider.id}").apply()
     }
 
-    fun getApiKey(provider: AIProvider): String? = runCatching { secrets.get(secretKey(provider))?.trim()?.ifBlank { null } }.getOrNull()
+    fun getApiKey(provider: AIProvider): String? = runCatching {
+        normalizeCredential(secrets.get(secretKey(provider)).orEmpty()).ifBlank { null }
+    }.getOrNull()
 
     fun hasApiKey(provider: AIProvider): Boolean = secrets.contains(secretKey(provider))
 
@@ -47,13 +49,16 @@ class AISettingsRepository(context: Context) {
     fun isBiometricProtectionEnabled(): Boolean = secrets.isProtectionEnabled
 
     fun saveApiKey(provider: AIProvider, apiKey: String) {
-        secrets.put(secretKey(provider), apiKey.trim())
+        secrets.put(secretKey(provider), normalizeCredential(apiKey))
         setSelectedProvider(provider)
     }
 
     fun removeApiKey(provider: AIProvider) {
         secrets.remove(secretKey(provider))
     }
+
+    private fun normalizeCredential(value: String): String =
+        value.trim().removePrefix("Bearer ").trim().removeSurrounding(""").trim()
 
     companion object {
         private const val PREFERENCES = "devforge_ai_settings"

@@ -24,7 +24,7 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
         private set
 
     fun connectWithToken(token: String) {
-        val normalized = token.trim()
+        val normalized = normalizeToken(token)
         if (normalized.isEmpty()) {
             snapshot = snapshot.copy(message = "Enter a GitHub token before connecting.")
             return
@@ -129,6 +129,9 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
     private fun isLikelyInvalidCredential(message: String): Boolean =
         message.contains("HTTP 401", ignoreCase = true) ||
             message.contains("bad credentials", ignoreCase = true)
+
+    private fun normalizeToken(value: String): String =
+        value.trim().replaceFirst(Regex("(?i)^Bearer\\s+"), "").removeSurrounding(""").trim()
 
     private fun githubCredentialMessage(message: String): String =
         if (isLikelyInvalidCredential(message)) {

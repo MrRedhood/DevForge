@@ -1,14 +1,13 @@
 package com.mrredhood.devforge
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.mrredhood.devforge.core.storage.ApprovalRepository
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -103,6 +102,9 @@ import com.mrredhood.devforge.core.git.GitDashboardScreen
 import com.mrredhood.devforge.core.git.GitDiffScreen
 import com.mrredhood.devforge.core.model.DevForgeDestination
 import com.mrredhood.devforge.core.policy.ApprovalCenterScreen
+import com.mrredhood.devforge.core.picker.PickerBridge
+import com.mrredhood.devforge.core.picker.PickerResult
+import com.mrredhood.devforge.core.picker.SystemPickerActivity
 import com.mrredhood.devforge.core.settings.DevForgeSettingsScreen
 import com.mrredhood.devforge.core.settings.DevForgeSettingsViewModel
 import com.mrredhood.devforge.core.settings.DensityMode
@@ -115,6 +117,31 @@ import com.mrredhood.devforge.ui.theme.DevForgeTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == SystemPickerActivity.PICKER_REQUEST_CODE) {
+            val kind = data?.getStringExtra(SystemPickerActivity.EXTRA_KIND)
+                ?: SystemPickerActivity.KIND_ATTACHMENTS
+            val uris = buildList {
+                data?.data?.let(::add)
+                val clip = data?.clipData
+                if (clip != null) {
+                    for (index in 0 until clip.itemCount) {
+                        clip.getItemAt(index)?.uri?.let(::add)
+                    }
+                }
+            }.distinct()
+            PickerBridge.emit(
+                PickerResult(
+                    kind = kind,
+                    uris = uris,
+                    cancelled = resultCode != RESULT_OK || uris.isEmpty(),
+                ),
+            )
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         lifecycleScope.launch {
@@ -460,15 +487,24 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
     var renameName by rememberSaveable { mutableStateOf("") }
     var deleteTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) {
-            workspace.openWorkspace(uri = uri, workspaceName = workspaceName)
-            workspaceName = ""
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        PickerBridge.results.collectLatest { result ->
+            if (result.kind == SystemPickerActivity.KIND_WORKSPACE && !result.cancelled && result.uris.size == 1) {
+                workspace.openWorkspace(uri = result.uris.first(), workspaceName = workspaceName)
+                workspaceName = ""
+            }
         }
     }
 
     fun launchWorkspacePicker() {
-        runCatching { picker.launch(null) }.onFailure(workspace::reportWorkspacePickerError)
+        runCatching {
+            context.startActivity(
+                Intent(context, SystemPickerActivity::class.java)
+                    .putExtra(SystemPickerActivity.EXTRA_KIND, SystemPickerActivity.KIND_WORKSPACE),
+            )
+        }.onFailure(workspace::reportWorkspacePickerError)
     }
 
     BackHandler(enabled = workspace.breadcrumbs.size > 1) { workspace.goUp() }

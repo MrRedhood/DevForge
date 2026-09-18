@@ -1,7 +1,5 @@
 package com.mrredhood.devforge.core.ai
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,13 +47,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import com.mrredhood.devforge.core.picker.PickerBridge
+import com.mrredhood.devforge.core.picker.SystemPickerActivity
+import androidx.compose.runtime.collectAsState
+import com.mrredhood.devforge.core.picker.PickerBridge
+import com.mrredhood.devforge.core.picker.SystemPickerActivity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
-import com.mrredhood.devforge.core.ai.MarkdownText
 
 @Composable
 fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
@@ -293,30 +297,29 @@ private fun CommandPalette(commands: List<AICommandDefinition>, onSelect: (AICom
                     text = {
                         Column {
                             Text("/${command.name}", fontWeight = FontWeight.SemiBold)
-                            Text(command.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    },
-                    onClick = { onSelect(command) },
-                )
+                            Text(command.description, style = MaterialTheme.typography.bodySmall, color = @Composable
+private fun ChatComposer(viewModel: AIChatViewModel) {
+    var attachmentMenuOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        PickerBridge.results.collectLatest { result ->
+            val type = attachmentTypeForPickerKind(result.kind)
+            if (type != null && !result.cancelled) {
+                runCatching {
+                    viewModel.addAttachments(result.uris.distinct(), type)
+                }.onFailure(viewModel::reportAttachmentPickerError)
             }
         }
     }
-}
 
-@Composable
-private fun ChatComposer(viewModel: AIChatViewModel) {
-    var attachmentMenuOpen by remember { mutableStateOf(false) }
-    var pickerType by remember { mutableStateOf(ChatAttachmentType.ANY_FILE) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
-        runCatching {
-            viewModel.addAttachments(uris.distinct(), pickerType)
-        }.onFailure(viewModel::reportAttachmentPickerError)
-    }
     fun launchPicker(type: ChatAttachmentType) {
-        pickerType = type
         attachmentMenuOpen = false
         runCatching {
-            picker.launch(attachmentFallbackMimeType(type))
+            context.startActivity(
+                Intent(context, SystemPickerActivity::class.java)
+                    .putExtra(SystemPickerActivity.EXTRA_KIND, pickerKindForAttachmentType(type)),
+            )
         }.onFailure(viewModel::reportAttachmentPickerError)
     }
 
@@ -388,6 +391,15 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
     }
 }
 
+{
+                    if (viewModel.isSending) Text("■", fontWeight = FontWeight.Black)
+                    else Icon(Icons.Default.Send, "Send")
+                }
+            }
+        }
+    }
+}
+
 private fun modelMetaLine(model: AIModelInfo): String = buildString {
     append(model.priceClass.name.lowercase().replaceFirstChar { it.uppercase() })
     model.contextLimit?.let { append(" · ").append(contextLabel(it)) }
@@ -408,13 +420,22 @@ private fun contextLabel(value: Long?): String {
 
 
 
-private fun attachmentFallbackMimeType(type: ChatAttachmentType): String = when (type) {
-    ChatAttachmentType.ANY_FILE -> "*/*"
-    ChatAttachmentType.PHOTO -> "image/*"
-    ChatAttachmentType.VIDEO -> "video/*"
-    ChatAttachmentType.AUDIO -> "audio/*"
-    ChatAttachmentType.DOCUMENT -> "*/*"
-}
-
 private fun maxUploadLabel(bytes: Long): String =
     if (bytes >= 1024L * 1024L) (bytes / (1024L * 1024L)).toString() + " MB max" else bytes.toString() + " B max"
+
+private fun pickerKindForAttachmentType(type: ChatAttachmentType): String = when (type) {
+    ChatAttachmentType.ANY_FILE -> SystemPickerActivity.KIND_ATTACHMENTS
+    ChatAttachmentType.PHOTO -> SystemPickerActivity.KIND_PHOTO
+    ChatAttachmentType.VIDEO -> SystemPickerActivity.KIND_VIDEO
+    ChatAttachmentType.AUDIO -> SystemPickerActivity.KIND_AUDIO
+    ChatAttachmentType.DOCUMENT -> SystemPickerActivity.KIND_DOCUMENT
+}
+
+private fun attachmentTypeForPickerKind(kind: String): ChatAttachmentType? = when (kind) {
+    SystemPickerActivity.KIND_ATTACHMENTS -> ChatAttachmentType.ANY_FILE
+    SystemPickerActivity.KIND_PHOTO -> ChatAttachmentType.PHOTO
+    SystemPickerActivity.KIND_VIDEO -> ChatAttachmentType.VIDEO
+    SystemPickerActivity.KIND_AUDIO -> ChatAttachmentType.AUDIO
+    SystemPickerActivity.KIND_DOCUMENT -> ChatAttachmentType.DOCUMENT
+    else -> null
+}

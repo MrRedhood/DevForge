@@ -109,8 +109,7 @@ class GitHubRepositoryGateway(
         readBody(path).map(::JSONArray)
 
     private fun readBody(path: String, tokenOverride: String? = null): Result<String> {
-        val token = tokenOverride?.trim()?.takeIf { it.isNotBlank() }
-            ?: secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
+        val token = normalizeToken(tokenOverride ?: secretStore.get(GitHubConnectionViewModel.TOKEN_KEY).orEmpty())
             ?: return Result.failure(
                 IllegalStateException("GitHub is not connected on this device."),
             )
@@ -181,6 +180,9 @@ class GitHubRepositoryGateway(
             it.isNotBlank() && it.length <= 100 && SAFE_NAME.matches(it)
         }
     }
+
+    private fun normalizeToken(value: String): String =
+        value.trim().replaceFirst(Regex("(?i)^Bearer\\s+"), "").removeSurrounding(""").trim()
 
     companion object {
         private const val PAGE_SIZE = 100
