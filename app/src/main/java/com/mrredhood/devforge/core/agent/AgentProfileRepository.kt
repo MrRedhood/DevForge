@@ -103,7 +103,7 @@ class AgentProfileRepository(context: Context) {
                 "Reviewer",
                 "Reviews code for bugs, security flaws and maintainability issues.",
                 "Inspect the requested area carefully. Identify concrete defects and, when requested, propose precise safe fixes.",
-                setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS, AgentAccess.DIAGNOSTICS_ACCESS),
+                setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS),
                 true,
             ),
             AgentProfile(
@@ -111,7 +111,7 @@ class AgentProfileRepository(context: Context) {
                 "Tester",
                 "Focuses on regression coverage and validation.",
                 "Inspect existing behavior and tests, add focused regression coverage, and keep test changes deterministic and bounded.",
-                setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS, AgentAccess.DIAGNOSTICS_ACCESS),
+                setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS),
                 true,
             ),
             AgentProfile(
@@ -119,7 +119,7 @@ class AgentProfileRepository(context: Context) {
                 "Refactorer",
                 "Improves structure without changing intended behavior.",
                 "Refactor only after understanding the existing behavior. Preserve public contracts and keep changes localized.",
-                setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS, AgentAccess.DIAGNOSTICS_ACCESS),
+                setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS),
                 true,
             ),
             AgentProfile(
