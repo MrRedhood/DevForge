@@ -170,7 +170,11 @@ class ParallelAgentCoordinator(context: Context) {
         return durable.getAgentTask(taskId)
     }
 
-    suspend fun cancel(taskId: String): Boolean = engine.cancel(taskId)
+    suspend fun cancel(taskId: String): Boolean {
+        val changed = engine.cancel(taskId)
+        if (changed) jobs[taskId]?.cancel()
+        return changed
+    }
 
     suspend fun recoverWorkspace(workspaceId: String) {
         val interrupted = durable.listAgentTasks(workspaceId)
