@@ -93,7 +93,7 @@
 - [x] Workspace tool operations enforce path scopes and continue rejecting traversal/.git access
 - [x] Security regression tests for path traversal, scope boundaries, persisted scope and unsafe tool plans
 - [ ] Streaming responses
-- [ ] Structured patch generation + diff-first approval workflow
+- [x] Structured patch generation + diff-first approval workflow
 - [ ] Workspace symbol extraction/indexing
 - [ ] Workspace memory/knowledge layer
 - [ ] Multi-agent shared memory/handoff protocol
@@ -187,6 +187,7 @@
 - [ ] Parallel workspace agents CI result verification
 - [ ] Maintained regression suite CI result verification
 - [ ] Path-scoped capability grant CI result verification
+- [ ] Structured patch / diff-first approval CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
 - [ ] Maintained unit/UI/security regression suites
@@ -319,3 +320,12 @@
 - Bound agent action requests to their explicit path scope so scoped grants apply to agent edits without widening workspace authorization.
 - Added Approval Center path-scope entry and visible scope details for active grants; blank scope continues to mean the entire workspace.
 - Added regression coverage for scope containment, whole-workspace compatibility, path-scoped approval behavior, and risk ceilings.
+
+### 2026-09-18 — Structured patch generation and diff-first approval
+- Added a dedicated PATCH_FILE agent tool with a bounded structured patch payload and optional expected content hash.
+- Agent planning now emits PATCH_FILE for new edit plans instead of direct write_file operations.
+- Captured the exact target pre-image hash before approval and bound it into the durable approval record.
+- Revalidated the same pre-image hash immediately before approved execution, preventing stale patches from overwriting intervening edits.
+- Added Approval Center diff previews for structured patches, including new-file detection, bounded diff rendering and stale-precondition rejection.
+- Kept patch execution behind the existing EDIT_FILES R2 capability, workspace path scopes and approval lifecycle.
+- Added structured patch and agent-plan regression coverage; no remote CI result is marked successful without verification.
