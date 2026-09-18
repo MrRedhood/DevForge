@@ -22,6 +22,12 @@ class AIModelRouterTest {
     }
 
     @Test
+    fun embeddingModelsAreExcludedFromChatRouting() {
+        val embedding = AIModelInfo(AIProvider.OPENAI, "embedding", "Embedding", outputModalities = setOf("embedding"))
+        assertEquals("free", AIModelRouter.choose(models + embedding, null, AiRoutingMode.LOW_COST)?.id)
+    }
+
+    @Test
     fun qualityPrefersToolCapableLargeContext() {
         assertEquals("expensive", AIModelRouter.choose(models, null, AiRoutingMode.QUALITY)?.id)
     }
