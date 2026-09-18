@@ -21,7 +21,6 @@ enum class AgentAccess(
             WORKSPACE_ACCESS,
             FILE_ACCESS,
             COORDINATION_ACCESS,
-            DIAGNOSTICS_ACCESS,
         )
 
         fun encode(access: Set<AgentAccess>): String =
