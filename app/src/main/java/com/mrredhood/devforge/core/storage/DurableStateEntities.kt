@@ -158,6 +158,7 @@ data class AgentHandoffEntity(
     val status: String,
     val createdAtEpochMs: Long,
     val claimedAtEpochMs: Long?,
+    val claimedByTaskId: String?,
     val completedAtEpochMs: Long?,
 )
 
