@@ -21,6 +21,9 @@ interface ApprovalDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(action: ApprovalEntity)
 
+    @Query("SELECT COUNT(*) FROM approval_actions WHERE status = 'PENDING'")
+    suspend fun countPending(): Int
+
     @Query("UPDATE approval_actions SET status = :status, resolvedAtEpochMs = :resolvedAt WHERE approvalId = :approvalId AND status = 'PENDING' AND expiresAtEpochMs > :resolvedAt")
     suspend fun resolve(approvalId: String, status: String, resolvedAt: Long): Int
 
@@ -41,8 +44,16 @@ interface ApprovalDao {
 
     @Transaction
     suspend fun insertPending(action: ApprovalEntity) {
+        val now = System.currentTimeMillis()
+        expire(now)
+        pruneResolved(now - 7L * 24L * 60L * 60L * 1000L)
+        if (countPending() >= MAX_PENDING_ACTIONS) {
+            throw IllegalStateException("Too many pending approvals. Resolve existing approvals before creating another.")
+        }
         insert(action)
-        expire(System.currentTimeMillis())
-        pruneResolved(System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L)
+    }
+
+    companion object {
+        private const val MAX_PENDING_ACTIONS = 50
     }
 }
