@@ -13,16 +13,19 @@ import com.mrredhood.devforge.core.storage.CapabilityGrantEntity
 import com.mrredhood.devforge.core.storage.CapabilityGrantRepository
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
+import com.mrredhood.devforge.core.agent.ParallelAgentCoordinator
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 class ApprovalCenterViewModel(application: Application) : AndroidViewModel(application) {
     private val database = DevForgeDatabase.get(application)
     private val repository = ApprovalRepository(database.approvalDao())
     private val grantRepository = CapabilityGrantRepository(database.capabilityGrantDao())
     private val workspaces = WorkspaceDatabaseRepository(application)
+    private val agentCoordinator = ParallelAgentCoordinator(application)
     private var pendingJob: Job? = null
     private var auditJob: Job? = null
     private var grantsJob: Job? = null
@@ -63,21 +66,45 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
                 }
             }
         }
-        viewModelScope.launch { repository.expireDue() }
+        viewModelScope.launch {
+            repository.expireDue()
+            val reconciled = com.mrredhood.devforge.core.storage.DurableStateRepository(database)
+                .reconcileWaitingAgentApprovals()
+            if (reconciled > 0) {
+                actionMessage = "Reconciled $reconciled agent approval wait(s) that were no longer valid."
+            }
+        }
         viewModelScope.launch { grantRepository.pruneExpired() }
     }
 
     fun approve(action: ApprovalEntity) {
         viewModelScope.launch {
             val resolved = repository.approve(action.approvalId)
-            actionMessage = if (resolved) "Approved: ${action.summary}" else "This approval is no longer pending."
+            if (resolved) {
+                val taskId = runCatching { JSONObject(action.payload).optString("taskId") }.getOrNull().orEmpty()
+                if (taskId.isNotBlank() && action.actionId.startsWith("agent:$taskId:step:")) {
+                    agentCoordinator.resumeAfterApproval(taskId)
+                }
+                actionMessage = "Approved: ${action.summary}"
+            } else {
+                actionMessage = "This approval is no longer pending."
+            }
         }
     }
 
     fun reject(action: ApprovalEntity) {
         viewModelScope.launch {
             val resolved = repository.reject(action.approvalId)
-            actionMessage = if (resolved) "Rejected: ${action.summary}" else "This approval is no longer pending."
+            if (resolved) {
+                val taskId = runCatching { JSONObject(action.payload).optString("taskId") }.getOrNull().orEmpty()
+                if (taskId.isNotBlank() && action.actionId.startsWith("agent:$taskId:step:")) {
+                    com.mrredhood.devforge.core.storage.DurableStateRepository(database)
+                        .failWaitingAgentApproval(taskId, action.approvalId, "Approval was rejected.")
+                }
+                actionMessage = "Rejected: ${action.summary}"
+            } else {
+                actionMessage = "This approval is no longer pending."
+            }
         }
     }
 
@@ -121,6 +148,7 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
         pendingJob?.cancel()
         auditJob?.cancel()
         grantsJob?.cancel()
+        agentCoordinator.close()
         super.onCleared()
     }
 
