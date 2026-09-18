@@ -281,6 +281,18 @@
 - Corrected source-level integration issues found during review, including editor syntax-regex generation and app-shell editor wiring.
 - CI/signing/remote-service validation checkboxes remain separate and are only marked after observable GitHub/remote evidence.
 
+### 2026-09-18 — Placeholder, flaw and hardening audit
+- Removed enabled no-op actions from the global search/security shell and made repository visibility status explicitly read-only.
+- Added visible workspace search results so the global Search action now completes an actual user-visible flow.
+- Bounded non-streaming AI, model-catalog and GitHub REST response bodies; added model-ID and GitHub owner/repository validation.
+- Made AI streaming cancellation close the underlying HTTP connection instead of relying only on coroutine cancellation.
+- Restricted automatic AI routing to chat-capable text-output models so embedding/image-only models cannot be selected for chat.
+- Bound terminal approvals to their originating terminal session and rejected ambiguous oversized SAF document names in the JGit mirror.
+- Made automation cadence changes reschedule the background monitor immediately.
+- Added GitHub repository gateway regression tests for unsafe identifiers.
+- Preserved main-branch CI runs instead of cancelling them on every subsequent push; pull-request concurrency cancellation remains enabled.
+- Final placeholder scan: no TODO/FIXME/HACK/stub/coming-soon implementation placeholders; remaining no-op callbacks are disabled/read-only UI affordances.
+- CI validation remains pending for the current main snapshot and is intentionally not marked successful without a completed GitHub Actions result.
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
 - AI output is untrusted data and cannot grant authorization.
