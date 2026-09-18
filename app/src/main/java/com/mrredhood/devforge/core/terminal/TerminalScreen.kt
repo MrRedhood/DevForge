@@ -45,6 +45,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -141,7 +142,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
         ) {
             LazyColumn(
                 state = outputState,
-                Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 if (viewModel.output.isBlank()) {
@@ -188,7 +189,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                         .onKeyEvent { event ->
                             if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                             when {
-                                event.isCtrlPressed && event.key == Key.C -> {
+                                event.nativeKeyEvent.isCtrlPressed && event.key == Key.C -> {
                                     viewModel.stop()
                                     true
                                 }
