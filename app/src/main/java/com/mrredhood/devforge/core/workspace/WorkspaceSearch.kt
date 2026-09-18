@@ -10,15 +10,25 @@ import java.nio.charset.StandardCharsets
 class WorkspaceSearch(private val resolver: ContentResolver) {
     suspend fun search(root: Uri, query: String, maxResults: Int = 60): List<WorkspaceSearchResult> =
         withContext(Dispatchers.IO) {
+            val boundedResults = maxResults.coerceIn(1, MAX_RESULTS)
             if (query.isBlank()) return@withContext emptyList()
             val results = mutableListOf<WorkspaceSearchResult>()
-            walk(root, query.trim(), results, maxResults)
+            val visited = HashSet<String>()
+            walk(root, query.trim(), results, boundedResults, visited, 0)
             results
                 .sortedWith(compareBy<WorkspaceSearchResult> { !it.isDirectory }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
         }
 
-    private fun walk(parent: Uri, query: String, results: MutableList<WorkspaceSearchResult>, maxResults: Int) {
-        if (results.size >= maxResults) return
+    private fun walk(
+        parent: Uri,
+        query: String,
+        results: MutableList<WorkspaceSearchResult>,
+        maxResults: Int,
+        visited: MutableSet<String>,
+        depth: Int,
+    ) {
+        if (results.size >= maxResults || depth >= MAX_DEPTH) return
+        if (!visited.add(parent.toString())) return
         val documentId = runCatching { DocumentsContract.getDocumentId(parent) }
             .getOrElse { DocumentsContract.getTreeDocumentId(parent) }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
@@ -48,7 +58,7 @@ class WorkspaceSearch(private val resolver: ContentResolver) {
                 if (name.contains(query, ignoreCase = true)) {
                     results += WorkspaceSearchResult(uri, name, directory, size)
                 }
-                if (directory) walk(uri, query, results, maxResults)
+                if (directory) walk(uri, query, results, maxResults, visited, depth + 1)
             }
         }
     }
@@ -60,6 +70,12 @@ data class WorkspaceSearchResult(
     val isDirectory: Boolean,
     val sizeBytes: Long?,
 )
+
+    companion object {
+        private const val MAX_RESULTS = 200
+        private const val MAX_DEPTH = 32
+    }
+}
 
 object FilePreviewPolicy {
     const val MAX_PREVIEW_BYTES = 512L * 1024L
