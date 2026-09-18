@@ -24,7 +24,7 @@ class AIChatGateway(
         attachments: List<ChatAttachment> = emptyList(),
         customBaseUrl: String? = null,
     ): String {
-        validateRequest(model, apiKey, userInstruction, customBaseUrl)
+        validateRequest(model, apiKey, userInstruction, customBaseUrl, attachments)
         return when (AIProviderRegistry.spec(model.provider).wireProtocol) {
             AIWireProtocol.GEMINI -> sendGemini(model, apiKey, history, userInstruction, attachments, customBaseUrl)
             AIWireProtocol.ANTHROPIC_MESSAGES -> sendAnthropic(model, apiKey, history, userInstruction, attachments, customBaseUrl, stream = false)
@@ -40,7 +40,7 @@ class AIChatGateway(
         attachments: List<ChatAttachment> = emptyList(),
         customBaseUrl: String? = null,
     ): Flow<String> = flow {
-        validateRequest(model, apiKey, userInstruction, customBaseUrl)
+        validateRequest(model, apiKey, userInstruction, customBaseUrl, attachments)
         when (AIProviderRegistry.spec(model.provider).wireProtocol) {
             AIWireProtocol.GEMINI -> streamGemini(model, apiKey, history, userInstruction, attachments, customBaseUrl).collect(::emit)
             AIWireProtocol.ANTHROPIC_MESSAGES -> streamAnthropic(model, apiKey, history, userInstruction, attachments, customBaseUrl).collect(::emit)
@@ -189,7 +189,7 @@ class AIChatGateway(
         val prepared = prepareAttachments(provider, apiKey, attachments)
         val messages = JSONArray()
         history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
-        messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(userInstruction, prepared)))
+        messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(provider, modelId, userInstruction, prepared)))
         val body = JSONObject().put("model", modelId).put("messages", messages).put("stream", true)
         val headers = openAiHeaders(provider, apiKey)
         val connection = URL(AIProviderRegistry.chatEndpoint(provider, customBaseUrl)).openConnection() as HttpURLConnection
@@ -226,7 +226,7 @@ class AIChatGateway(
         val prepared = prepareAttachments(provider, apiKey, attachments)
         val messages = JSONArray()
         history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
-        messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(userInstruction, prepared)))
+        messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(provider, modelId, userInstruction, prepared)))
         val body = JSONObject().put("model", modelId).put("messages", messages).put("stream", stream)
         val json = request(AIProviderRegistry.chatEndpoint(provider, customBaseUrl), body, openAiHeaders(provider, apiKey))
         val choice = json.optJSONArray("choices")?.optJSONObject(0) ?: error(provider.displayName + " returned no choices.")
@@ -287,11 +287,22 @@ class AIChatGateway(
     private fun maxAnthropicOutputTokens(model: AIModelInfo): Int =
         (model.outputTokenLimit ?: 8_192L).coerceIn(1L, 32_000L).toInt()
 
-    private fun validateRequest(model: AIModelInfo, apiKey: String, userInstruction: String, customBaseUrl: String?) {
+    private fun validateRequest(
+        model: AIModelInfo,
+        apiKey: String,
+        userInstruction: String,
+        customBaseUrl: String?,
+        attachments: List<ChatAttachment>,
+    ) {
         require(apiKey.isNotBlank() && apiKey.length <= MAX_API_KEY_CHARS) { "The AI credential is invalid or too large." }
         require(userInstruction.length <= MAX_INSTRUCTION_CHARS) { "The AI instruction exceeds the supported request limit." }
         require(model.id.length <= MAX_MODEL_ID_CHARS && SAFE_MODEL_ID.matches(model.id) && !model.id.contains("..") && !model.id.contains('\\') && !model.id.contains('?') && !model.id.contains('#')) {
             "The selected AI model identifier is invalid."
+        }
+        if (model.provider == AIProvider.OPENROUTER && attachments.any { it.mimeType.startsWith("image/") }) {
+            require(model.isImageCapable) {
+                "This OpenRouter model does not advertise image input. Choose a model with image/vision input."
+            }
         }
         if (model.provider == AIProvider.OPENAI_COMPATIBLE) AIProviderRegistry.validateCustomBaseUrl(customBaseUrl.orEmpty())
     }
