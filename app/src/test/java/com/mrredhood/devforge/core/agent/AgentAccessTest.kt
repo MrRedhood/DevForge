@@ -48,11 +48,9 @@ class AgentAccessTest {
         )
         assertEquals(source, AgentAccess.decode(AgentAccess.encode(source)))
     }
-}
-
-
-@Test
-fun malformedAccessDoesNotGrantPermissions() {
-    assertTrue(AgentAccess.decode("not-json").isEmpty())
-    assertTrue(AgentAccess.decode("[\"UNKNOWN\"]").isEmpty())
+    @Test
+    fun malformedAccessDoesNotGrantPermissions() {
+        assertTrue(AgentAccess.decode("not-json").isEmpty())
+        assertTrue(AgentAccess.decode("[\"UNKNOWN\"]").isEmpty())
+    }
 }
