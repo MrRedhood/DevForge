@@ -355,6 +355,6 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     CapabilityGrantRegistry.put(workspaceId, capability, maxRisk, expiresAt, scope)
                 }
             }
-        }        }
+        }
     }
 }
