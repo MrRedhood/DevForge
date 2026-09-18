@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.agent
 
 import com.mrredhood.devforge.core.policy.ActionRequest
+import com.mrredhood.devforge.core.security.SecretRedactor
 import com.mrredhood.devforge.core.policy.DefaultPolicy
 import com.mrredhood.devforge.core.policy.PermissionMode
 import com.mrredhood.devforge.core.storage.ApprovalRepository
@@ -269,7 +270,7 @@ class AgentToolGateway(
             .put("workspaceId", context.workspaceId)
             .put("allowedPrefixes", JSONArray(context.pathScope.canonicalPrefixes()))
             .put("affectedPaths", JSONArray(affected.map { context.pathScope.requireAllowed(it) }))
-            .put("summary", summary.take(500))
+            .put("summary", SecretRedactor.redact(summary, 500))
             .put("approvalId", approvalId)
             .put("timestampEpochMs", System.currentTimeMillis())
             .toString()
