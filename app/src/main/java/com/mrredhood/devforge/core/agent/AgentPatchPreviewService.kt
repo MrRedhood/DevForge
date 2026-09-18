@@ -12,6 +12,8 @@ import com.mrredhood.devforge.core.storage.WorkspaceDao
 import com.mrredhood.devforge.core.workspace.WorkspaceFileTree
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -33,7 +35,7 @@ class AgentPatchPreviewService(
     private val diffEngine = DiffEngine()
     private val tree = WorkspaceFileTree(resolver)
 
-    suspend fun preview(approval: ApprovalEntity): AgentPatchPreview {
+    suspend fun preview(approval: ApprovalEntity): AgentPatchPreview = withContext(Dispatchers.IO) {
         require(approval.capabilityOrNull() == Capability.EDIT_FILES) {
             "Approval is not a file-edit action."
         }
@@ -65,7 +67,7 @@ class AgentPatchPreviewService(
         val approvedPrecondition = approval.preconditionHash
         val payloadPrecondition = payload.optString("preconditionHash", "").takeIf(String::isNotBlank)
         val expected = approvedPrecondition ?: payloadPrecondition
-        return AgentPatchPreview(
+        AgentPatchPreview(
             path = path,
             before = before,
             after = patch.content,
