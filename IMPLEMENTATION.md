@@ -175,6 +175,7 @@
 - [x] Structured diagnostics
 - [x] Crash/recovery validation
 - [x] Security/redaction regression tests
+- [x] Agent execution timeline and lifecycle correlation
 
 ## Validation
 - [x] Historical CI toolchain/debug-build validations
@@ -197,6 +198,7 @@
 - [ ] Current release validation CI result verification
 - [ ] Current crash/recovery CI result verification
 - [ ] Current security/redaction CI result verification
+- [ ] Current agent observability CI result verification
 - [ ] Maintained unit/UI/security regression suites
 
 ### 2026-09-18 — Android lint validation
@@ -237,6 +239,12 @@
 - Redacts credential-named JSON values, bearer/basic authorization material and common provider token formats without altering authorization hashes or live tool arguments.
 - Applied redaction to agent task results, agent receipts/audit metadata, automation receipts/audit data and generic audit recording.
 - Added regression tests proving credential values are removed while non-secret data remains available and output stays bounded.
+
+### 2026-09-18 — Agent execution observability
+- Added first-class agent lifecycle audit events for start, pause, resume, approval wait, completion, failure, cancellation and startup recovery.
+- Startup recovery now releases interrupted task file leases immediately instead of waiting for lease expiry.
+- Agents UI now shows a bounded execution timeline correlated to each task through its task-scoped audit action IDs.
+- Lifecycle summaries and persisted metadata remain redacted/bounded at the audit boundary.
 
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
