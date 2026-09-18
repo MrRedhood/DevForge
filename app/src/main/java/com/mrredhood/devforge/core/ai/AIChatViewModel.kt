@@ -27,12 +27,18 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private val settings = AISettingsRepository(application)
     private val appSettings = DevForgeSettingsRepository(application)
     private val catalogService = ModelCatalogService()
-    private val chatGateway = AIChatGateway()
+    private val resolver = application.contentResolver
+    private val chatGateway = AIChatGateway(
+        attachmentAdapters = mapOf(
+            AIProvider.GEMINI to GeminiProviderAttachmentAdapter(resolver),
+            AIProvider.OPENROUTER to UnsupportedProviderAttachmentAdapter(AIProvider.OPENROUTER),
+            AIProvider.OPENAI to UnsupportedProviderAttachmentAdapter(AIProvider.OPENAI),
+        ),
+    )
     private val database = DevForgeDatabase.get(application)
     private val chatRepository = ChatRepository(database.chatSessionDao(), database.chatMessageDao())
     private val workspaceRepository = WorkspaceDatabaseRepository(application)
     private val workspaceKnowledge = WorkspaceKnowledgeRepository(application)
-    private val resolver = application.contentResolver
     private var messageJob: Job? = null
     private var sendJob: Job? = null
     private var workspaceJob: Job? = null
@@ -293,11 +299,11 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val effectiveInstruction = if (attachmentContext.isBlank()) finalInstruction else finalInstruction + "\n\n" + attachmentContext
                 chatRepository.addMessage(sessionId, "user", userMessage, parsed?.command?.name)
                 if (parsed?.command?.name == "help" || !model.supportsStreaming) {
-                    val response = if (parsed?.command?.name == "help") effectiveInstruction else chatGateway.send(model, key, history, effectiveInstruction)
+                    val response = if (parsed?.command?.name == "help") effectiveInstruction else chatGateway.send(model, key, history, effectiveInstruction, submittedAttachments)
                     chatRepository.addMessage(sessionId, "assistant", response)
                 } else {
                     val builder = StringBuilder()
-                    chatGateway.stream(model, key, history, effectiveInstruction).collect { chunk ->
+                    chatGateway.stream(model, key, history, effectiveInstruction, submittedAttachments).collect { chunk ->
                         builder.append(chunk)
                         partialResponse = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
                         val visible = partialResponse
@@ -432,7 +438,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     remainingTextBytes -= snippet.toByteArray(Charsets.UTF_8).size.toLong()
                 }
             } else {
-                append("\n  Binary content remains local; this provider gateway currently sends bounded metadata only.")
+                append("\n  Binary content will be uploaded using the selected provider attachment adapter when supported.")
             }
         }
     }.trimEnd()
