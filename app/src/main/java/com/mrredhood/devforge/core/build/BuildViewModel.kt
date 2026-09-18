@@ -11,6 +11,7 @@ import com.mrredhood.devforge.core.github.BuildHistoryEntry
 import com.mrredhood.devforge.core.github.GitHubActionsGateway
 import com.mrredhood.devforge.core.github.GitHubArtifactsResult
 import com.mrredhood.devforge.core.github.GitHubConnectionViewModel
+import com.mrredhood.devforge.core.github.GitHubCancelResult
 import com.mrredhood.devforge.core.github.GitHubDispatchResult
 import com.mrredhood.devforge.core.github.GitHubJobLog
 import com.mrredhood.devforge.core.github.GitHubLogsResult
@@ -81,7 +82,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectTarget(target: BuildTarget) {
-        if (state is BuildState.Dispatching || state is BuildState.Running || state is BuildState.AwaitingApproval) return
+        if (state is BuildState.Dispatching || state is BuildState.Running || state is BuildState.Cancelling || state is BuildState.AwaitingApproval) return
         configuration = when (target) {
             BuildTarget.DebugApk -> configuration.copy(target = target, buildTask = ":app:assembleDebug", artifactName = "devforge-debug-apk")
             BuildTarget.ReleaseApk -> configuration.copy(target = target, buildTask = ":app:assembleRelease", artifactName = "devforge-release-apk")
@@ -343,7 +344,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun refreshMonitoringCapabilities(runAvailable: Boolean) {
-        val credentialAvailable = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) != null
+        val credentialAvailable = runCatching { secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) != null }.getOrDefault(false)
         capabilities = capabilities.copy(
             cancelBuild = if (credentialAvailable && runAvailable) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             liveLogs = if (credentialAvailable && runAvailable) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
@@ -417,7 +418,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun dispatchUnavailableMessage(): String = when {
         configuration.githubOwner.isBlank() || configuration.githubRepository.isBlank() -> "Select and validate a GitHub repository before starting a remote build."
-        secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) == null -> "Connect GitHub before starting a remote build."
+        runCatching { secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) == null }.getOrDefault(true) -> "Connect GitHub or unlock protected credentials before starting a remote build."
         configuration.workflowFile.trim().substringAfterLast('/') != GitHubActionsGateway.TARGET_CONTRACT_WORKFLOW -> "Select the DevForge Android workflow that declares the fixed debug/release target contract."
         else -> "Remote workflow dispatch is not available for this configuration."
     }
