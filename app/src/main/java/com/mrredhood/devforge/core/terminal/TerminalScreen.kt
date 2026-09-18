@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -101,22 +102,24 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
             BasicTextField(
                 value = viewModel.commandLine,
                 onValueChange = viewModel::updateCommandLine,
-                modifier = Modifier.weight(1f).padding(start = 6.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 6.dp)
+                    .onKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyUp) return@onKeyEvent false
+                        when (event.key) {
+                            Key.Enter -> { viewModel.run(); true }
+                            Key.DirectionUp -> { viewModel.historyPrevious(); true }
+                            Key.DirectionDown -> { viewModel.historyNext(); true }
+                            else -> false
+                        }
+                    },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions.Default,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface,
                 ),
-                onKeyEvent = { event ->
-                    if (event.type != KeyEventType.KeyUp) return@BasicTextField false
-                    when (event.key) {
-                        Key.Enter -> { viewModel.run(); true }
-                        Key.DirectionUp -> { viewModel.historyPrevious(); true }
-                        Key.DirectionDown -> { viewModel.historyNext(); true }
-                        else -> false
-                    }
-                },
             )
         }
 

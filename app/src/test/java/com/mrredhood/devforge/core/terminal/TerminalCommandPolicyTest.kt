@@ -1,9 +1,34 @@
 package com.mrredhood.devforge.core.terminal
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class TerminalCommandPolicyTest {
+    @Test
+    fun parsesCdAndQuotedArguments() {
+        assertEquals(
+            TerminalParsedCommand.ChangeDirectory("../src"),
+            TerminalCommandParser.parse("cd ../src", "", 1_000L, "s"),
+        )
+        val parsed = TerminalCommandParser.parse(
+            """grep "hello world" Main.kt""",
+            "src",
+            1_000L,
+            "s",
+        ) as TerminalParsedCommand.External
+        assertEquals(TerminalExecutable.GREP, parsed.command.executable)
+        assertEquals(listOf("hello world", "Main.kt"), parsed.command.args)
+    }
+
+    @Test
+    fun rejectsShellOperators() {
+        assertThrows(IllegalArgumentException::class.java) {
+            TerminalCommandParser.parse("ls | grep kt", "", 1_000L, "s")
+        }
+    }
+
+
     @Test
     fun rejectsPathTraversal() {
         assertThrows(IllegalArgumentException::class.java) {
