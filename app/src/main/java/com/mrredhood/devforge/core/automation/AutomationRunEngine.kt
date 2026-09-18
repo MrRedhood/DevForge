@@ -27,9 +27,7 @@ class AutomationRunEngine(
         }
 
         val now = System.currentTimeMillis()
-        val active = durable.recentAutomationRuns(automationId, 10).firstOrNull {
-            RecoveryPolicy.isActiveAutomation(it.status)
-        }
+        val active = durable.activeAutomationRun(automationId)
         if (active != null) {
             if (RecoveryPolicy.shouldRecoverStaleAutomation(active.status, active.startedAtEpochMs, now)) {
                 val staleTaskId = active.receiptJson
@@ -52,7 +50,17 @@ class AutomationRunEngine(
 
         val startedAt = now
         var run = createRun(automation, AutomationRunStatus.RUNNING, attempt, startedAt, triggerPayload = triggerPayload)
-        durable.saveAutomationRun(run)
+        if (!durable.tryStartAutomationRun(run)) {
+            val skipped = createRun(
+                automation,
+                AutomationRunStatus.SKIPPED,
+                attempt,
+                error = "An earlier automation run is still active.",
+                triggerPayload = triggerPayload,
+            )
+            durable.saveAutomationRun(skipped)
+            return AutomationExecutionOutcome(AutomationRunStatus.SKIPPED, false, 0L)
+        }
         audit(automation, run, "AUTOMATION_STARTED", "Automation '${automation.name}' started.")
 
         val plan = runCatching { AgentTaskPlanCodec.decode(automation.actionGraph) }.getOrElse { error ->
