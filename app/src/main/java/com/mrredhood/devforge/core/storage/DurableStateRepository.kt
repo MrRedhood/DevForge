@@ -6,6 +6,7 @@ import com.mrredhood.devforge.core.editor.ContentSnapshot
 import com.mrredhood.devforge.core.editor.EditorTab
 import com.mrredhood.devforge.core.editor.SnapshotReason
 import com.mrredhood.devforge.core.recovery.RecoveryPolicy
+import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.UUID
 
 /** Bounded Room-backed persistence shared by editor recovery and agent/automation execution. */
@@ -92,7 +93,7 @@ class DurableStateRepository(
         agentTasks.upsert(
             task.copy(
                 title = task.title.take(MAX_NAME_LENGTH),
-                errorMessage = task.errorMessage?.take(MAX_ERROR_LENGTH),
+                errorMessage = task.errorMessage?.let { SecretRedactor.redact(it, MAX_ERROR_LENGTH) },
                 approvalId = task.approvalId?.take(MAX_NAME_LENGTH),
                 lastToolId = task.lastToolId?.take(MAX_NAME_LENGTH),
             ),
@@ -151,7 +152,12 @@ class DurableStateRepository(
 
     suspend fun saveAutomationRun(run: AutomationRunEntity) {
         require((run.receiptJson ?: "").toByteArray(Charsets.UTF_8).size <= MAX_RECEIPT_BYTES) { "Automation receipt exceeds the persistence limit." }
-        automations.upsertRun(run.copy(errorMessage = run.errorMessage?.take(MAX_ERROR_LENGTH)))
+        automations.upsertRun(
+            run.copy(
+                errorMessage = run.errorMessage?.let { SecretRedactor.redact(it, MAX_ERROR_LENGTH) },
+                receiptJson = run.receiptJson?.let { SecretRedactor.redact(it, MAX_RECEIPT_BYTES) },
+            ),
+        )
     }
 
     suspend fun getAutomationRun(runId: String): AutomationRunEntity? = automations.getRun(runId)
