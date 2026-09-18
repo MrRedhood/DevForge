@@ -438,6 +438,9 @@ class GitHistoryOperationService(
             output.write(buffer, 0, read)
             copied += read
         }
+        if (input.read() != -1) {
+            throw IOException("Workspace file changed while it was being copied.")
+        }
     }
 
     private fun listChildren(parent: Uri): List<DocumentRef> = runCatching {
