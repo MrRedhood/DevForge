@@ -86,13 +86,15 @@ class DurableStateRepository(
 
     suspend fun saveAgentTask(task: AgentTaskEntity) {
         require(task.instruction.toByteArray(Charsets.UTF_8).size <= MAX_AGENT_INSTRUCTION_BYTES) { "Agent task instruction exceeds the persistence limit." }
+        require(!SecretRedactor.containsLikelySecret(task.instruction)) { "Agent task instruction contains secret-like material." }
+        require(!SecretRedactor.containsLikelySecret(task.payload.orEmpty())) { "Agent task payload contains secret-like material." }
         require((task.payload ?: "").toByteArray(Charsets.UTF_8).size <= MAX_TASK_PAYLOAD_BYTES) { "Agent task payload exceeds the persistence limit." }
         require((task.result ?: "").toByteArray(Charsets.UTF_8).size <= MAX_AGENT_RESULT_BYTES) { "Agent task result exceeds the durable persistence limit." }
         require(task.currentStep in 0..MAX_AGENT_STEPS) { "Agent task step pointer exceeds the persistence limit." }
         require(task.stepCount in 0..MAX_AGENT_STEPS) { "Agent task step count exceeds the persistence limit." }
         agentTasks.upsert(
             task.copy(
-                title = task.title.take(MAX_NAME_LENGTH),
+                title = SecretRedactor.redact(task.title.take(MAX_NAME_LENGTH), MAX_NAME_LENGTH),
                 errorMessage = task.errorMessage?.let { SecretRedactor.redact(it, MAX_ERROR_LENGTH) },
                 approvalId = task.approvalId?.take(MAX_NAME_LENGTH),
                 lastToolId = task.lastToolId?.take(MAX_NAME_LENGTH),
