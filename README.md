@@ -65,7 +65,7 @@ See `docs/ROADMAP.md` and `docs/ARCHITECTURE.md` for the implementation contract
 
 ## Build
 
-The project targets Android API 37 and uses current stable tooling selected for the September 2026 baseline. GitHub Actions provides the reproducible cloud build path.
+The project targets Android API 36 and uses the repository's September 2026 Android toolchain baseline. GitHub Actions provides the reproducible cloud build path.
 
 ```bash
 gradle :app:assembleDebug
