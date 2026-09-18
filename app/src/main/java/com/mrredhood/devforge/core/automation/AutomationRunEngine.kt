@@ -8,6 +8,7 @@ import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.storage.AutomationEntity
 import com.mrredhood.devforge.core.storage.AutomationRunEntity
 import com.mrredhood.devforge.core.storage.DurableStateRepository
+import com.mrredhood.devforge.core.recovery.RecoveryPolicy
 import java.util.UUID
 import org.json.JSONObject
 
@@ -26,15 +27,15 @@ class AutomationRunEngine(
 
         val now = System.currentTimeMillis()
         val active = durable.recentAutomationRuns(automationId, 10).firstOrNull {
-            it.status == AutomationRunStatus.RUNNING.name || it.status == AutomationRunStatus.WAITING_APPROVAL.name
+            RecoveryPolicy.isActiveAutomation(it.status)
         }
         if (active != null) {
-            if (active.startedAtEpochMs + MAX_STALE_RUN_MS < now) {
+            if (RecoveryPolicy.shouldRecoverStaleAutomation(active.status, active.startedAtEpochMs, now)) {
                 durable.saveAutomationRun(
                     active.copy(
                         status = AutomationRunStatus.FAILED.name,
                         completedAtEpochMs = now,
-                        errorMessage = "Recovered stale automation run after process interruption.",
+                        errorMessage = RecoveryPolicy.AUTOMATION_RECOVERY_MESSAGE,
                     ),
                 )
             } else {
@@ -186,9 +187,6 @@ class AutomationRunEngine(
         )
     }
 
-    companion object {
-        private const val MAX_STALE_RUN_MS = 5L * 60L * 1000L
-    }
 }
 
 data class AutomationExecutionOutcome(
