@@ -62,6 +62,11 @@ class WorkspaceSearch(private val resolver: ContentResolver) {
             }
         }
     }
+
+    companion object {
+        private const val MAX_RESULTS = 200
+        private const val MAX_DEPTH = 32
+    }
 }
 
 data class WorkspaceSearchResult(
@@ -70,12 +75,6 @@ data class WorkspaceSearchResult(
     val isDirectory: Boolean,
     val sizeBytes: Long?,
 )
-
-    companion object {
-        private const val MAX_RESULTS = 200
-        private const val MAX_DEPTH = 32
-    }
-}
 
 object FilePreviewPolicy {
     const val MAX_PREVIEW_BYTES = 512L * 1024L
