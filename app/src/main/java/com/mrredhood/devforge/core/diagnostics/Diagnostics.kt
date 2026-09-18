@@ -113,7 +113,7 @@ object DiagnosticTextParser {
             val severity = when {
                 Regex("\\berror\\b", RegexOption.IGNORE_CASE).containsMatchIn(text) -> DiagnosticSeverity.ERROR
                 Regex("\\bwarning\\b", RegexOption.IGNORE_CASE).containsMatchIn(text) -> DiagnosticSeverity.WARNING
-                else -> DiagnosticSeverity.INFO
+                else -> continue
             }
             val diagnostic = Diagnostic(
                 severity = severity,
