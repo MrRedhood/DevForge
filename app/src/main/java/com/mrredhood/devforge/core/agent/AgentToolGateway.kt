@@ -172,12 +172,20 @@ class AgentToolGateway(
     ): ActionRequest {
         val definition = tool.definition
         val actionId = "agent:${request.taskId}:step:${request.stepIndex}:${definition.id.wireName}"
+        val summary = if (definition.id == AgentToolId.PATCH_FILE) {
+            runCatching {
+                val patch = AgentFilePatchCodec.decode(request.argumentsJson)
+                "Apply patch to " + patch.path + ": " + patch.summary.ifBlank { "reviewed file content change" }
+            }.getOrDefault("Apply structured file patch.")
+        } else {
+            definition.id.wireName + ": " + definition.description
+        }
         return ActionRequest(
             actionId = actionId,
             capability = definition.capability,
             risk = definition.risk,
             workspaceId = request.workspaceId,
-            summary = "${definition.id.wireName}: ${definition.description}".take(500),
+            summary = summary.take(500),
             parametersHash = hash(context, request),
             pathScope = context.pathScope,
             preconditionHash = tool.preconditionHash(context, request),
