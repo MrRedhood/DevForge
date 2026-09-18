@@ -72,6 +72,9 @@ class CredentialSecurityStore(context: Context) : SecretStore {
             copied.forEach { key -> runCatching { biometric.remove(key) } }
             biometric.lock()
         } catch (error: Throwable) {
+            // Do not leave plaintext-encrypted-with-a-different-key copies behind while
+            // protection is still enabled after a partial migration failure.
+            copied.forEach { key -> runCatching { ordinary.remove(key) } }
             throw error
         }
     }
