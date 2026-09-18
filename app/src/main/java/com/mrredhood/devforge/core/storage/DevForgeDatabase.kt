@@ -31,7 +31,7 @@ import com.mrredhood.devforge.core.security.WorkspacePathScope
         AgentHandoffEntity::class,
         AgentFileLeaseEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 abstract class DevForgeDatabase : RoomDatabase() {
@@ -305,6 +305,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                 )""")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_handoffs_workspaceId_status_createdAtEpochMs ON agent_handoffs(workspaceId, status, createdAtEpochMs)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_handoffs_workspaceId_toTaskId_status ON agent_handoffs(workspaceId, toTaskId, status)")
+                database.execSQL("ALTER TABLE agent_handoffs ADD COLUMN claimedByTaskId TEXT")
                 database.execSQL("""CREATE TABLE IF NOT EXISTS agent_file_leases (
                     leaseKey TEXT NOT NULL PRIMARY KEY,
                     workspaceId TEXT NOT NULL,
@@ -317,6 +318,13 @@ abstract class DevForgeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE agent_handoffs ADD COLUMN claimedByTaskId TEXT")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_handoffs_workspaceId_claimedByTaskId ON agent_handoffs(workspaceId, claimedByTaskId)")
+            }
+        }
+
         @Volatile private var INSTANCE: DevForgeDatabase? = null
 
         fun get(context: Context): DevForgeDatabase =
@@ -326,7 +334,7 @@ abstract class DevForgeDatabase : RoomDatabase() {
                     DevForgeDatabase::class.java,
                     "devforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                     .addCallback(object : Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
