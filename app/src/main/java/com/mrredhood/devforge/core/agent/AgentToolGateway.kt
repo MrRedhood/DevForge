@@ -91,7 +91,7 @@ class AgentToolGateway(
         val tool = registry.get(request.toolId) ?: return AgentToolResult.Failure("Tool '${request.toolId.wireName}' is not registered.")
         val contextFailure = validateContext(context, request)
         if (contextFailure != null) return contextFailure
-        val action = actionRequest(context, request, tool.definition)
+        val action = actionRequest(context, request, tool)
         val approval = approvals.observeById(approvalId).first()
             ?: return AgentToolResult.Failure("Approval '$approvalId' was not found.")
         if (approval.status != ApprovalRepository.STATUS_APPROVED) {
