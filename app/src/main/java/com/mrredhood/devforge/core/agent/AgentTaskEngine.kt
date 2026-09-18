@@ -17,6 +17,7 @@ class AgentTaskEngine(
         title: String,
         instruction: String,
         plan: AgentTaskPlan,
+        model: AgentModelBinding? = null,
     ): String = withContext(Dispatchers.IO) {
         val taskId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
@@ -38,12 +39,23 @@ class AgentTaskEngine(
             lastToolId = null,
             startedAtEpochMs = null,
             completedAtEpochMs = null,
+            modelProviderId = model?.provider?.id,
+            modelId = model?.modelId?.take(300),
+            modelName = model?.modelName?.take(200),
         )
         durableState.saveAgentTask(task)
         taskId
     }
 
     suspend fun run(taskId: String): AgentTaskEntity? = execute(taskId, approvalId = null)
+
+    suspend fun pause(taskId: String): Boolean = durableState.pauseAgentTask(taskId)
+
+    suspend fun resume(taskId: String): AgentTaskEntity? {
+        val changed = durableState.resumeAgentTask(taskId)
+        if (!changed) return durableState.getAgentTask(taskId)
+        return execute(taskId, approvalId = null)
+    }
 
     suspend fun resumeAfterApproval(taskId: String): AgentTaskEntity? {
         val task = durableState.getAgentTask(taskId) ?: return null
@@ -113,6 +125,13 @@ class AgentTaskEngine(
         val execution = runCatching {
             withTimeout(MAX_EXECUTION_MS) {
                 for (index in task.currentStep until plan.steps.size) {
+                    val persistedBeforeStep = durableState.getAgentTask(taskId) ?: return@withTimeout
+                    if (persistedBeforeStep.status == AgentTaskStatus.PAUSED.name ||
+                        persistedBeforeStep.status == AgentTaskStatus.CANCELLED.name
+                    ) {
+                        task = persistedBeforeStep
+                        return@withTimeout
+                    }
                     val step = plan.steps[index]
                     val stepTask = task.copy(
                         status = AgentTaskStatus.RUNNING.name,
@@ -140,14 +159,23 @@ class AgentTaskEngine(
                     when (result) {
                         is AgentToolResult.Success -> {
                             val nextStep = index + 1
+                            val latestState = durableState.getAgentTask(taskId)
+                            val requestedStatus = latestState?.status
                             task = task.copy(
-                                status = AgentTaskStatus.RUNNING.name,
+                                status = when (requestedStatus) {
+                                    AgentTaskStatus.PAUSED.name -> AgentTaskStatus.PAUSED.name
+                                    AgentTaskStatus.CANCELLED.name -> AgentTaskStatus.CANCELLED.name
+                                    else -> AgentTaskStatus.RUNNING.name
+                                },
                                 currentStep = nextStep,
                                 approvalId = null,
                                 result = appendResult(task.result, step.label, result.summary, result.output, result.receiptJson),
                                 updatedAtEpochMs = System.currentTimeMillis(),
                             )
                             durableState.saveAgentTask(task)
+                            if (task.status == AgentTaskStatus.PAUSED.name || task.status == AgentTaskStatus.CANCELLED.name) {
+                                return@withTimeout
+                            }
                         }
                         is AgentToolResult.ApprovalRequired -> {
                             task = task.copy(
