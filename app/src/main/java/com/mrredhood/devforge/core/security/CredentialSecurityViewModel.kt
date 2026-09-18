@@ -7,7 +7,6 @@ import androidx.compose.runtime.setValue
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.AndroidViewModel
 import com.mrredhood.devforge.core.ai.AIProvider
-import com.mrredhood.devforge.core.github.GitHubConnectionViewModel
 
 data class CredentialSecurityState(
     val biometricAvailable: Boolean,
@@ -75,7 +74,7 @@ class CredentialSecurityViewModel(application: Application) : AndroidViewModel(a
     )
 
     private fun knownCredentialKeys(): List<String> = buildList {
-        add(GitHubConnectionViewModel.TOKEN_KEY)
+        add("github_access_token")
         AIProvider.entries.forEach { provider ->
             add("devforge.ai." + provider.id + ".api_key")
         }
