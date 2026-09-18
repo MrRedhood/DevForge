@@ -162,7 +162,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         statusMessage = "Executing approved command…"
         output = ""
         val result = capability.executeApprovedStreaming(approval.approvalId, workspace, command) { chunk ->
-            launch(Dispatchers.Main.immediate) {
+            viewModelScope.launch(Dispatchers.Main.immediate) {
                 output = (output + chunk).take(TerminalCommandPolicy.MAX_OUTPUT_BYTES)
             }
         }
