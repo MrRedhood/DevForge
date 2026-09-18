@@ -174,7 +174,7 @@
 - [x] Performance/budget checks
 - [x] Structured diagnostics
 - [x] Crash/recovery validation
-- [ ] Security/redaction regression tests
+- [x] Security/redaction regression tests
 
 ## Validation
 - [x] Historical CI toolchain/debug-build validations
@@ -196,6 +196,7 @@
 - [ ] Current Compose UI CI result verification
 - [ ] Current release validation CI result verification
 - [ ] Current crash/recovery CI result verification
+- [ ] Current security/redaction CI result verification
 - [ ] Maintained unit/UI/security regression suites
 
 ### 2026-09-18 — Android lint validation
@@ -230,6 +231,12 @@
 - Agent planning/running states continue to recover to PAUSED after process interruption; terminal, approval-waiting and completed states are not treated as interrupted work.
 - Automation RUNNING/WAITING_APPROVAL runs older than the bounded five-minute threshold are explicitly recoverable; fresh active runs remain protected by overlap checks.
 - Added pure-Kotlin regression coverage for recovery state classification and the stale-run boundary.
+
+### 2026-09-18 — Security and redaction regression coverage
+- Added a centralized best-effort `SecretRedactor` for data crossing into audit logs, approval payloads and durable execution receipts.
+- Redacts credential-named JSON values, bearer/basic authorization material and common provider token formats without altering authorization hashes or live tool arguments.
+- Applied redaction to agent task results, agent receipts/audit metadata, automation receipts/audit data and generic audit recording.
+- Added regression tests proving credential values are removed while non-secret data remains available and output stays bounded.
 
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
