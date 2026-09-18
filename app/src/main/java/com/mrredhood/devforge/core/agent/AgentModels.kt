@@ -148,7 +148,11 @@ object AgentTaskPlanCodec {
         } else {
             WorkspacePathScope()
         }
-        val access = if (version >= 3) AgentAccess.decode(root.optJSONArray("access")?.toString()) else AgentAccess.CODING_DEFAULT
+        val access = if (version >= 3) {
+            AgentAccess.decode(root.optJSONArray("access")?.toString(), emptySet())
+        } else {
+            AgentAccess.CODING_DEFAULT
+        }
         val array = root.optJSONArray("steps") ?: JSONArray()
         require(array.length() <= AgentTaskPlan.MAX_STEPS) { "Agent plan exceeds the step limit." }
         val steps = buildList(array.length()) {
