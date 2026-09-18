@@ -22,6 +22,9 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     private val symbolIndex = WorkspaceSymbolIndexStore(application)
     private val indexer = WorkspaceIndexer(resolver)
     private val knowledgeRepository = WorkspaceKnowledgeRepository(application)
+    private var refreshJob: kotlinx.coroutines.Job? = null
+    private var searchJob: kotlinx.coroutines.Job? = null
+    private var indexJob: kotlinx.coroutines.Job? = null
 
     var workspace by mutableStateOf<Workspace?>(null)
         private set
@@ -66,6 +69,12 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
                 currentUri = active?.treeUri
                 currentName = active?.name ?: "Workspace"
                 breadcrumbs = active?.let { listOf(WorkspaceBreadcrumb(it.treeUri, it.name)) } ?: emptyList()
+                refreshJob?.cancel()
+                searchJob?.cancel()
+                indexJob?.cancel()
+                isLoading = false
+                isSearching = false
+                isIndexing = false
                 if (active == null) {
                     entries = emptyList()
                     indexedSymbolCount = 0
@@ -134,34 +143,43 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun refresh() {
         val current = currentUri ?: return
+        refreshJob?.cancel()
         isLoading = true
-        viewModelScope.launch(Dispatchers.IO) {
+        refreshJob = viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching { tree.list(current) }.getOrDefault(emptyList())
             launch(Dispatchers.Main.immediate) {
-                entries = result
-                isLoading = false
+                if (currentUri == current) {
+                    entries = result
+                    isLoading = false
+                }
             }
         }
     }
 
     fun search(query: String = searchQuery) {
         val root = workspace?.treeUri ?: return
+        val workspaceIdAtStart = workspace?.id
         searchQuery = query
         if (query.isBlank()) {
             clearSearch()
             return
         }
+        searchJob?.cancel()
         isSearching = true
-        viewModelScope.launch(Dispatchers.IO) {
+        searchJob = viewModelScope.launch(Dispatchers.IO) {
             val result = searchService.search(root, query)
             launch(Dispatchers.Main.immediate) {
-                searchResults = result
-                isSearching = false
+                if (workspace?.id == workspaceIdAtStart && workspace?.treeUri == root && searchQuery == query) {
+                    searchResults = result
+                    isSearching = false
+                }
             }
         }
     }
 
     fun clearSearch() {
+        searchJob?.cancel()
+        searchJob = null
         searchQuery = ""
         searchResults = emptyList()
         isSearching = false
@@ -171,21 +189,26 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         val active = workspace ?: return
         if (isIndexing) return
         isIndexing = true
-        viewModelScope.launch(Dispatchers.IO) {
+        indexJob?.cancel()
+        indexJob = viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching { indexer.build(active.treeUri) }
             result.onSuccess { symbols ->
                 val persisted = symbolIndex.replace(active.id, symbols)
                 launch(Dispatchers.Main.immediate) {
-                    indexedSymbolCount = if (persisted) symbols.size else symbolIndex.list(active.id).size
-                    symbolResults = emptyList()
-                    symbolQuery = ""
-                    knowledgeMessage = if (persisted) null else "Symbol index exceeded the local storage budget; the scan completed but was not persisted."
-                    isIndexing = false
+                    if (workspace?.id == active.id) {
+                        indexedSymbolCount = if (persisted) symbols.size else symbolIndex.list(active.id).size
+                        symbolResults = emptyList()
+                        symbolQuery = ""
+                        knowledgeMessage = if (persisted) null else "Symbol index exceeded the local storage budget; the scan completed but was not persisted."
+                        isIndexing = false
+                    }
                 }
             }.onFailure { error ->
                 launch(Dispatchers.Main.immediate) {
-                    knowledgeMessage = error.message ?: "Workspace index failed."
-                    isIndexing = false
+                    if (workspace?.id == active.id) {
+                        knowledgeMessage = error.message ?: "Workspace index failed."
+                        isIndexing = false
+                    }
                 }
             }
         }
@@ -219,6 +242,12 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         knowledgeMessage = null
     }
 
+    override fun onCleared() {
+        refreshJob?.cancel()
+        searchJob?.cancel()
+        indexJob?.cancel()
+        super.onCleared()
+    }
 }
 
 data class WorkspaceBreadcrumb(
