@@ -178,7 +178,6 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
                 editing = editing,
                 showAgents = destination == DevForgeDestination.Chat && !editing,
                 onSearch = { showGlobalSearch = true },
-                onSecurity = { navigateTo(DevForgeDestination.Approvals) },
                 onAgents = { navigateTo(DevForgeDestination.Agents) },
             )
         },
@@ -262,7 +261,6 @@ private fun DevForgeTopBar(
     editing: Boolean,
     showAgents: Boolean,
     onSearch: () -> Unit,
-    onSecurity: () -> Unit,
     onAgents: () -> Unit,
 ) {
     TopAppBar(
@@ -285,7 +283,6 @@ private fun DevForgeTopBar(
         },
         actions = {
             IconButton(onClick = onSearch) { Icon(Icons.Default.Search, "Search") }
-            IconButton(onClick = onSecurity) { Icon(Icons.Default.Security, "Security") }
             if (showAgents) {
                 IconButton(onClick = onAgents) {
                     Text("👤", fontSize = 21.sp)
