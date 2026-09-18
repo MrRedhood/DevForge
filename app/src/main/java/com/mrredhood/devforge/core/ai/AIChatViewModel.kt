@@ -210,6 +210,10 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun selectModel(model: AIModelInfo) {
+        if (model.provider != provider) {
+            modelError = "The selected model belongs to a different provider."
+            return
+        }
         selectedModel = model
         settings.setSelectedModelId(provider, model.id)
         isModelMenuOpen = false
@@ -367,6 +371,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 withContext(NonCancellable + Dispatchers.Main.immediate) {
                     streamingText = ""
                     isSending = false
+                    if (sendJob === currentCoroutineContext()[Job]) sendJob = null
                 }
             }
         }
@@ -374,7 +379,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     fun stopGeneration() {
         sendJob?.cancel()
-        isSending = false
         streamingText = ""
     }
 

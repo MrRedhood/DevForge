@@ -15,6 +15,7 @@ import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
@@ -136,9 +137,8 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         val key = settings.getApiKey(provider) ?: return
         loadingProviders = loadingProviders + provider
         viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching { catalogService.load(provider, key, settings.customBaseUrl(provider)) }
+            val catalog = catalogService.load(provider, key, settings.customBaseUrl(provider))
             launch(Dispatchers.Main.immediate) {
-                val catalog = result.getOrNull()
                 val savedModelId = settings.selectedModelId(provider)
                 val fallbackModels = if (
                     provider == AIProvider.OPENAI_COMPATIBLE &&
@@ -158,7 +158,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 }
                 modelsByProvider = modelsByProvider + (provider to fallbackModels)
                 loadingProviders = loadingProviders - provider
-                val warning = catalog?.warning ?: result.exceptionOrNull()?.message
+                val warning = catalog.warning
                 message = if (fallbackModels.isNotEmpty() && catalog?.models.isNullOrEmpty() && savedModelId != null) {
                     (warning ?: "Custom model catalog unavailable.") + " Using the saved custom model ID."
                 } else {
@@ -195,7 +195,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch(Dispatchers.IO) {
             val deferred = valid.map { draft ->
                 async {
-                    runCatching {
+                    try {
                         val profile = selectedProfiles.getValue(draft)!!
                     agentRuntime.assign(
                         AgentAssignment(
@@ -218,6 +218,10 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                             access = profile.access,
                         )
                     )
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Throwable) {
+                        Result.failure(error)
                     }
                 }
             }
@@ -259,8 +263,8 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         assigning = true
         message = null
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                agentRuntime.assign(
+            try {
+                val taskId = agentRuntime.assign(
                     AgentAssignment(
                         workspaceId = workspace,
                         title = title.ifBlank { "Agent " + (tasks.size + 1) },
@@ -269,13 +273,17 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                         pathScope = normalizedScope,
                     )
                 )
-            }.onSuccess { taskId ->
                 launch(Dispatchers.Main.immediate) {
                     title = ""; instruction = ""; scopeText = ""; assigning = false
                     message = "Agent assigned: " + taskId.take(8)
                 }
-            }.onFailure { error ->
-                launch(Dispatchers.Main.immediate) { assigning = false; message = error.message ?: "Unable to assign agent." }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                launch(Dispatchers.Main.immediate) {
+                    assigning = false
+                    message = error.message ?: "Unable to assign agent."
+                }
             }
         }
     }

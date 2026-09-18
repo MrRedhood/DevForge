@@ -2,13 +2,16 @@ package com.mrredhood.devforge.core.ai
 
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
 class ModelCatalogService {
-    fun load(provider: AIProvider, apiKey: String, customBaseUrl: String? = null): ModelCatalogResult {
-        return runCatching {
+    suspend fun load(provider: AIProvider, apiKey: String, customBaseUrl: String? = null): ModelCatalogResult {
+        return try {
             when (provider) {
                 AIProvider.GEMINI -> loadGemini(apiKey)
                 AIProvider.ANTHROPIC -> loadAnthropic(apiKey)
@@ -19,7 +22,9 @@ class ModelCatalogService {
                 AIProvider.OPENAI -> loadOpenAiStyle(AIProvider.OPENAI, apiKey, customBaseUrl)
                 AIProvider.OPENAI_COMPATIBLE -> loadOpenAiStyle(AIProvider.OPENAI_COMPATIBLE, apiKey, customBaseUrl)
             }
-        }.getOrElse { error ->
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
             ModelCatalogResult(emptyList(), provider, warning = error.message ?: "Unable to load models.")
         }
     }
@@ -172,13 +177,14 @@ class ModelCatalogService {
         }
     }
 
-    private fun request(url: String, headers: Map<String, String>): JSONObject {
+    private suspend fun request(url: String, headers: Map<String, String>): JSONObject {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
         connection.instanceFollowRedirects = false
         connection.connectTimeout = 12_000
         connection.readTimeout = 20_000
         headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
+        val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
         return try {
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
@@ -189,6 +195,7 @@ class ModelCatalogService {
             }
             JSONObject(body)
         } finally {
+            cancellationHandle?.dispose()
             connection.disconnect()
         }
     }
