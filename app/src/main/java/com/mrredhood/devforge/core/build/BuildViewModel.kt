@@ -389,10 +389,10 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                         startMonitoring(runId, configuration, immediateOnly = false)
                     }
                 }
-                is GitHubCancelResult.AlreadyFinished -> {
-                    if (approvalId != null) approvalRepository.finishSuccess(approvalId)
+                GitHubCancelResult.Conflict -> {
+                    if (approvalId != null) approvalRepository.finishFailure(approvalId)
                     withContext(Dispatchers.Main.immediate) {
-                        monitoringMessage = "The workflow run has already finished."
+                        monitoringMessage = "GitHub reports that this workflow run cannot be cancelled in its current state."
                         startMonitoring(runId, configuration, immediateOnly = true)
                     }
                 }
