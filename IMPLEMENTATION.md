@@ -168,7 +168,7 @@
 - [x] Focused automation trigger regression tests
 - [x] Maintained pure-Kotlin regression suite for bounded/security-critical domain rules
 - [x] Maintained unit-test suite for agent plans, workspace scopes, terminal policy and automation triggers
-- [ ] Compose/UI tests
+- [x] Compose/UI tests
 - [x] Static analysis/lint pipeline
 - [ ] Release build validation
 - [ ] Performance/budget checks
@@ -193,12 +193,19 @@
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
 - [ ] Current lint CI result verification
+- [ ] Current Compose UI CI result verification
 - [ ] Maintained unit/UI/security regression suites
 
 ### 2026-09-18 — Android lint validation
 - Extended the Android CI workflow with an explicit `:app:lintDebug` validation step after the maintained unit-test suite.
 - Lint failures now fail the CI job instead of being hidden behind the APK build result.
 - CI retains bounded HTML/XML/SARIF lint reports as a diagnostic artifact when produced; no local or remote CI result is marked successful until observed.
+
+### 2026-09-18 — Compose UI navigation regression coverage
+- Added an AndroidX/Compose instrumentation regression test covering Files navigation, one-step Back behavior and the root exit confirmation.
+- Configured the Android instrumentation runner and Compose UI test dependencies.
+- Extended Android CI with a bounded API-35 emulator, connected Compose UI tests and retained instrumentation reports.
+- UI CI verification remains unchecked until an actual GitHub Actions result is observed.
 
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
