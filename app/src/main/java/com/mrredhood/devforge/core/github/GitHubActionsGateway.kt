@@ -12,10 +12,64 @@ sealed interface GitHubDispatchResult {
     data class Failure(val message: String) : GitHubDispatchResult
 }
 
+sealed interface GitHubCancelResult {
+    data object Accepted : GitHubCancelResult
+    data class AlreadyFinished(val run: GitHubRunSnapshot? = null) : GitHubCancelResult
+    data class Failure(val message: String) : GitHubCancelResult
+}
+
 class GitHubActionsGateway(
     private val secretStore: com.mrredhood.devforge.core.security.SecretStore,
     private val connection: HttpConnectionFactory = DefaultHttpConnectionFactory,
 ) {
+    fun validateCredential(): GitHubCredentialValidation {
+        val result = requestBody("/user", "GET", 32_000)
+        return result.fold(
+            onSuccess = { body ->
+                val login = runCatching { JSONObject(body).optString("login").takeIf(String::isNotBlank) }.getOrNull()
+                if (login == null) GitHubCredentialValidation.Invalid("GitHub returned an authenticated response without an account login.")
+                else GitHubCredentialValidation.Valid(login)
+            },
+            onFailure = { GitHubCredentialValidation.Invalid(safeMessage(it)) },
+        )
+    }
+
+    fun cancelRun(owner: String, repository: String, runId: Long): GitHubCancelResult {
+        val normalizedOwner = owner.trim()
+        val normalizedRepository = repository.trim()
+        if (!OWNER_OR_REPOSITORY.matches(normalizedOwner) || !OWNER_OR_REPOSITORY.matches(normalizedRepository)) {
+            return GitHubCancelResult.Failure("The selected GitHub repository identifier is invalid.")
+        }
+        if (runId <= 0L) return GitHubCancelResult.Failure("The workflow run identifier is invalid.")
+        val token = runCatching { secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) }.getOrNull()
+            ?: return GitHubCancelResult.Failure("GitHub credential is unavailable. Unlock protected credentials and try again.")
+        val endpoint = "https://api.github.com/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/runs/" + runId + "/cancel"
+        return runCatching {
+            val http = connection.open(endpoint).apply {
+                requestMethod = "POST"
+                setRequestProperty("Accept", "application/vnd.github+json")
+                setRequestProperty("Authorization", "Bearer " + token)
+                setRequestProperty("X-GitHub-Api-Version", API_VERSION)
+                connectTimeout = 15_000
+                readTimeout = 20_000
+            }
+            val code = http.responseCode
+            val body = runCatching {
+                (if (code in 200..299) http.inputStream else http.errorStream ?: http.inputStream)
+                    .bufferedReader().use { it.readText() }
+            }.getOrDefault("")
+            http.disconnect()
+            when (code) {
+                202 -> GitHubCancelResult.Accepted
+                409 -> GitHubCancelResult.AlreadyFinished()
+                401, 403 -> GitHubCancelResult.Failure("GitHub rejected the cancellation request (HTTP " + code + "). Verify the credential has Actions write permission.")
+                else -> GitHubCancelResult.Failure("GitHub rejected the cancellation request (HTTP " + code + ")" + if (body.isBlank()) "." else ": " + sanitizeError(body))
+            }
+        }.getOrElse { error ->
+            GitHubCancelResult.Failure("Unable to reach GitHub: " + (error.message ?: "network error"))
+        }
+    }
+
     fun dispatch(owner: String, repository: String, configuration: BuildConfiguration): GitHubDispatchResult {
         val normalizedOwner = owner.trim()
         val normalizedRepository = repository.trim()
