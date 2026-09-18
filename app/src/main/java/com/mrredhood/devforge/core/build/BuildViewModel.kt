@@ -313,7 +313,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun applyRunState(snapshot: GitHubRunSnapshot, buildConfiguration: BuildConfiguration) {
         when (snapshot.status) {
-            in ACTIVE_RUN_STATUSES -> state = BuildState.Running(snapshot.id, buildConfiguration)
+            in ACTIVE_RUN_STATUSES -> if (state !is BuildState.Cancelling) state = BuildState.Running(snapshot.id, buildConfiguration)
             "completed" -> {
                 state = when (snapshot.conclusion) {
                     "success" -> BuildState.Succeeded(snapshot.id, buildConfiguration.artifactName)
