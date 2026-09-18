@@ -152,7 +152,8 @@ object SarifDiagnosticParser {
                 if (rules != null) {
                     for (index in 0 until rules.length()) {
                         val rule = rules.optJSONObject(index) ?: continue
-                        val id = rule.optString("id").ifBlank { continue }
+                        val id = rule.optString("id").trim()
+                        if (id.isBlank()) continue
                         val shortDescription = rule.optJSONObject("shortDescription")?.optString("text").orEmpty()
                         if (shortDescription.isNotBlank()) put(id, shortDescription)
                     }
