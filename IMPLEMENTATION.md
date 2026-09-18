@@ -537,3 +537,13 @@
 ### Current validation
 
 `main` currently advances rapidly because each direct commit triggers the push workflows. GitHub Actions is the validation authority; the latest runs must be matched to the newest `main` SHA before claiming validation success.
+
+## Provider-aware binary attachments — 2026-09-18
+
+- [x] Added a provider-neutral attachment adapter contract.
+- [x] Added a streaming/resumable Google Gemini Files API adapter for binary attachments.
+- [x] Images, audio, video, and binary documents can now be uploaded to Gemini without converting the full file into a giant Base64 string.
+- [x] Attachment upload is cancellation-aware, size-bounded, MIME-aware, and uses strict HTTPS remote-URI validation.
+- [x] OpenAI and OpenRouter binary uploads remain explicitly unsupported until provider-specific transport is implemented; DevForge rejects those uploads instead of claiming the binary content was sent.
+- [x] Chat now passes pending attachments through the provider adapter path while preserving bounded text extraction for code/text files.
+- [x] Added unit coverage for text/binary classification and unsupported-provider rejection.
