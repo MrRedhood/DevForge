@@ -102,6 +102,19 @@ class DurableStateRepository(
 
     suspend fun deleteAgentTask(taskId: String) = agentTasks.delete(taskId)
 
+    suspend fun pauseAgentTask(taskId: String): Boolean =
+        agentTasks.pause(taskId, System.currentTimeMillis()) > 0
+
+    suspend fun resumeAgentTask(taskId: String): Boolean =
+        agentTasks.resume(taskId, System.currentTimeMillis()) > 0
+
+    suspend fun recoverRunningAgentTasks(workspaceId: String): Int =
+        agentTasks.recoverRunning(
+            workspaceId = workspaceId,
+            updatedAt = System.currentTimeMillis(),
+            message = "Paused after the previous DevForge process ended.",
+        )
+
     fun observeAgentTasks(workspaceId: String, limit: Int = MAX_AGENT_TASKS) = agentTasks.observe(workspaceId, limit)
 
     suspend fun saveAutomation(automation: AutomationEntity) {
