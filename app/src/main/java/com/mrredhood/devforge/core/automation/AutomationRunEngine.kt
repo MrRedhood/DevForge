@@ -151,12 +151,14 @@ class AutomationRunEngine(
         startedAtEpochMs = startedAt,
         completedAtEpochMs = if (status == AutomationRunStatus.RUNNING) null else startedAt,
         errorMessage = error,
-        receiptJson = SecretRedactor.redact(JSONObject()
-            .put("attempt", attempt)
-            .put("automationId", automation.automationId)
-            .put("triggerPayload", triggerPayload?.take(AutomationScheduler.MAX_EVENT_PAYLOAD_BYTES))
-            .toString(),
-    )
+        receiptJson = SecretRedactor.redact(
+            JSONObject()
+                .put("attempt", attempt)
+                .put("automationId", automation.automationId)
+                .put("triggerPayload", triggerPayload?.take(AutomationScheduler.MAX_EVENT_PAYLOAD_BYTES))
+                .toString(),
+            60_000,
+        )
 
     private fun finish(run: AutomationRunEntity, status: AutomationRunStatus, error: String?, receipt: String? = run.receiptJson, completedAt: Long = System.currentTimeMillis()) =
         run.copy(status = status.name, errorMessage = error?.take(600), completedAtEpochMs = completedAt, receiptJson = receipt)
@@ -164,12 +166,16 @@ class AutomationRunEngine(
     private fun receipt(run: AutomationRunEntity, taskId: String, approvalId: String?, result: String?): String =
         receipt(taskId, approvalId, result, JSONObject(run.receiptJson ?: "{}").optString("triggerPayload").takeIf(String::isNotBlank))
 
-    private fun receipt(taskId: String, approvalId: String?, result: String?, triggerPayload: String?): String = JSONObject()
-        .put("taskId", taskId)
-        .put("approvalId", approvalId)
-        .put("result", result?.take(60_000))
-        .put("triggerPayload", triggerPayload?.take(AutomationScheduler.MAX_EVENT_PAYLOAD_BYTES))
-        .toString(), 60_000)
+    private fun receipt(taskId: String, approvalId: String?, result: String?, triggerPayload: String?): String =
+        SecretRedactor.redact(
+            JSONObject()
+                .put("taskId", taskId)
+                .put("approvalId", approvalId)
+                .put("result", result?.take(60_000))
+                .put("triggerPayload", triggerPayload?.take(AutomationScheduler.MAX_EVENT_PAYLOAD_BYTES))
+                .toString(),
+            60_000,
+        )
 
     private suspend fun audit(automation: AutomationEntity, run: AutomationRunEntity, eventType: String, summary: String) {
         durable.recordAudit(
@@ -180,8 +186,8 @@ class AutomationRunEngine(
                 capability = null,
                 risk = null,
                 eventType = eventType.take(80),
-                summary = summary.take(500),
-                metadataJson = run.receiptJson?.take(32_000),
+                summary = SecretRedactor.redact(summary, 500),
+                metadataJson = run.receiptJson?.let { SecretRedactor.redact(it, 32_000) },
                 createdAtEpochMs = System.currentTimeMillis(),
             ),
         )
