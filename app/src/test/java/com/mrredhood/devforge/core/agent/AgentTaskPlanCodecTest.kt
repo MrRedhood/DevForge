@@ -29,6 +29,22 @@ class AgentTaskPlanCodecTest {
     }
 
     @Test
+    fun acceptsStructuredPatchTool() {
+        val plan = AgentTaskPlan(
+            steps = listOf(
+                AgentTaskStep(
+                    toolId = AgentToolId.PATCH_FILE,
+                    argumentsJson = """{"path":"src/Main.kt","content":"new","summary":"Update entry point"}""",
+                    label = "Apply patch",
+                ),
+            ),
+            pathScope = WorkspacePathScope(listOf("src")),
+        )
+        val restored = AgentTaskPlanCodec.decode(AgentTaskPlanCodec.encode(plan))
+        assertEquals(AgentToolId.PATCH_FILE, restored.steps.single().toolId)
+        assertTrue(restored.pathScope.allows("src/Main.kt"))
+    }
+    @Test
     fun rejectsUnknownToolInPersistedPlan() {
         val invalid = "{\"version\":2,\"scope\":[\"src\"],\"steps\":[{\"tool\":\"shell\",\"arguments\":{},\"label\":\"bad\"}]}"
         assertThrows(IllegalArgumentException::class.java) {
