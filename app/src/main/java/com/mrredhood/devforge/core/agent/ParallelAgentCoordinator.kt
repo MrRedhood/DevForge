@@ -109,7 +109,7 @@ class ParallelAgentCoordinator(context: Context) {
     }
 
     private val durable = DurableStateRepository(DevForgeDatabase.get(context))
-    private val engine = AgentRuntime.create(context)
+    internal val engine = AgentRuntime.create(context)
     private val planner = AgentPlanPlanner(context)
     private val coordination = AgentCoordinationService(DevForgeDatabase.get(context))
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
