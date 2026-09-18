@@ -29,7 +29,6 @@ data class GitBranch(
 )
 
 enum class GitStatusAvailability {
-    NotImplemented,
     MetadataOnly,
     IndexAwareWorktree,
     IndexAndHeadAware,
