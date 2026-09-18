@@ -259,16 +259,19 @@ class AIChatGateway {
         connection.connectTimeout = 15_000
         connection.readTimeout = 120_000
         headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
-        connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-        val status = connection.responseCode
-        val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-        val response = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
-        connection.disconnect()
-        if (status !in 200..299) {
-            val detail = runCatching { JSONObject(response).optJSONObject("error")?.optString("message") }.getOrNull()
-            error(detail ?: "AI request failed (HTTP $status).")
+        return try {
+            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val response = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
+            if (status !in 200..299) {
+                val detail = runCatching { JSONObject(response).optJSONObject("error")?.optString("message") }.getOrNull()
+                error(detail ?: "AI request failed (HTTP $status).")
+            }
+            JSONObject(response)
+        } finally {
+            connection.disconnect()
         }
-        return JSONObject(response)
     }
 
     private companion object {
