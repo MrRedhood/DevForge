@@ -83,6 +83,10 @@ import com.mrredhood.devforge.core.git.GitDashboardScreen
 import com.mrredhood.devforge.core.git.GitDiffScreen
 import com.mrredhood.devforge.core.model.DevForgeDestination
 import com.mrredhood.devforge.core.policy.ApprovalCenterScreen
+import com.mrredhood.devforge.core.settings.DevForgeSettingsScreen
+import com.mrredhood.devforge.core.settings.DevForgeSettingsViewModel
+import com.mrredhood.devforge.core.settings.DensityMode
+import com.mrredhood.devforge.core.settings.ThemeMode
 import com.mrredhood.devforge.core.security.CredentialSecurityScreen
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
@@ -91,13 +95,19 @@ import com.mrredhood.devforge.ui.theme.DevForgeTheme
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { DevForgeTheme { DevForgeApp() } }
+        setContent {
+            val settings: DevForgeSettingsViewModel = viewModel()
+            DevForgeTheme(
+                themeMode = settings.settings.themeMode,
+                densityMode = settings.settings.densityMode,
+            ) { DevForgeApp(settings) }
+        }
     }
 }
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
-private fun DevForgeApp() {
+private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
     val context = LocalContext.current
     val windowSize = calculateWindowSizeClass(context as FragmentActivity)
     var destinationName by rememberSaveable { mutableStateOf(DevForgeDestination.Chat.name) }
@@ -259,7 +269,7 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
         DevForgeDestination.Agents -> AgentCenterScreen()
         DevForgeDestination.Automations -> AutomationCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
-        DevForgeDestination.Settings -> SettingsScreen()
+        DevForgeDestination.Settings -> SettingsScreen(settings)
     }
 }
 
@@ -371,7 +381,7 @@ private fun EditorScreen(editor: EditorViewModel) {
 }
 
 @Composable
-private fun SettingsScreen() {
+private fun SettingsScreen(settings: DevForgeSettingsViewModel) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -379,9 +389,9 @@ private fun SettingsScreen() {
     ) {
         item { Text("Settings", fontSize = 30.sp, fontWeight = FontWeight.Black) }
         item { AISettingsScreen() }
+        item { DevForgeSettingsScreen(settings) }
         item { PulseCard("Workspace", "Indexing, recovery, snapshots and storage", "Active") }
         item { CredentialSecurityScreen() }
-        item { PulseCard("Appearance", "Theme, density, motion and editor style", "Planned") }
     }
 }
 
