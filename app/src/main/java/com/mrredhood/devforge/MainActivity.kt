@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -156,7 +157,7 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
     ) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
             if (expanded && !editing) NavigationSide(destination, ::navigateTo)
-            if (editing) EditorScreen(editor) else DestinationScreen(destination, workspace, editor)
+            if (editing) EditorScreen(editor, settings) else DestinationScreen(destination, workspace, editor, settings)
         }
     }
 
