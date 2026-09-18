@@ -59,6 +59,12 @@ class ApprovalRepository(private val dao: ApprovalDao) {
 
     suspend fun expireDue(): Int = dao.expire(System.currentTimeMillis())
 
+    suspend fun recoverStaleExecuting(maxAgeMs: Long = STALE_EXECUTION_MAX_AGE_MS): Int {
+        require(maxAgeMs > 0) { "Execution recovery age must be positive." }
+        val now = System.currentTimeMillis()
+        return dao.recoverStaleExecuting(now, now - maxAgeMs)
+    }
+
     companion object {
         const val STATUS_PENDING = "PENDING"
         const val STATUS_APPROVED = "APPROVED"
@@ -69,5 +75,6 @@ class ApprovalRepository(private val dao: ApprovalDao) {
         const val STATUS_EXPIRED = "EXPIRED"
         const val MAX_PENDING = 50
         const val MAX_APPROVED = 10
+        const val STALE_EXECUTION_MAX_AGE_MS = 15L * 60L * 1000L
     }
 }
