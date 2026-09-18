@@ -107,9 +107,13 @@ class AIChatGateway(
         apiKey: String,
         history: List<Pair<String, String>>,
         userInstruction: String,
+        attachments: List<ChatAttachment>,
         customBaseUrl: String?,
         stream: Boolean,
     ): String {
+        // Anthropic currently has no provider attachment adapter in DevForge.
+        // Explicitly validate binary attachments so they cannot be silently dropped.
+        prepareAttachments(AIProvider.ANTHROPIC, apiKey, attachments)
         val messages = buildAnthropicMessages(history, userInstruction)
         val body = JSONObject()
             .put("model", model.id)
