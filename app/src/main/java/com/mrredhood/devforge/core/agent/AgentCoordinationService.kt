@@ -75,7 +75,10 @@ class AgentCoordinationService(
         val summary = draft.summary.trim().take(MAX_HANDOFF_SUMMARY)
         require(title.isNotBlank()) { "Handoff title is required." }
         require(summary.isNotBlank()) { "Handoff summary is required." }
-        val context = draft.contextJson.take(MAX_HANDOFF_CONTEXT_BYTES)
+        val context = draft.contextJson
+        require(context.toByteArray(Charsets.UTF_8).size <= MAX_HANDOFF_CONTEXT_BYTES) {
+            "Handoff context exceeds the 16 KiB limit."
+        }
         require(!looksLikeSecret(summary) && !looksLikeSecret(context)) { "Potential secret material cannot be stored in agent handoffs." }
         val now = System.currentTimeMillis()
         val handoff = AgentHandoffEntity(
@@ -164,6 +167,7 @@ class AgentCoordinationService(
         const val MAX_MEMORY_ENTRIES = 100
         const val MAX_MEMORY_KEY = 160
         const val MAX_MEMORY_CONTENT = 8 * 1024
+        const val MAX_MEMORY_CONTENT_BYTES = 8 * 1024
         const val MAX_HANDOFFS = 50
         const val MAX_HANDOFF_TITLE = 160
         const val MAX_HANDOFF_SUMMARY = 2_000
