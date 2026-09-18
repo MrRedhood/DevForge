@@ -1,0 +1,53 @@
+package com.mrredhood.devforge.core.ai
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFailsWith
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class AIProviderRegistryTest {
+    @Test
+    fun registersExpandedProviders() {
+        assertEquals(8, AIProvider.entries.size)
+        assertEquals(AIWireProtocol.ANTHROPIC_MESSAGES, AIProviderRegistry.spec(AIProvider.ANTHROPIC).wireProtocol)
+        assertEquals("https://api.x.ai/v1", AIProviderRegistry.spec(AIProvider.XAI_GROK).defaultBaseUrl)
+        assertEquals("https://api.deepinfra.com/v1/openai", AIProviderRegistry.spec(AIProvider.DEEPINFRA).defaultBaseUrl)
+        assertEquals("https://api.groq.com/openai/v1", AIProviderRegistry.spec(AIProvider.GROQ).defaultBaseUrl)
+    }
+
+    @Test
+    fun buildsProviderEndpoints() {
+        assertEquals(
+            "https://api.x.ai/v1/chat/completions",
+            AIProviderRegistry.chatEndpoint(AIProvider.XAI_GROK, null, "grok-4.6"),
+        )
+        assertEquals(
+            "https://api.anthropic.com/v1/messages",
+            AIProviderRegistry.chatEndpoint(AIProvider.ANTHROPIC, null),
+        )
+        assertEquals(
+            "https://api.deepinfra.com/v1/openai/chat/completions",
+            AIProviderRegistry.chatEndpoint(AIProvider.DEEPINFRA, null),
+        )
+    }
+
+    @Test
+    fun validatesCustomHttpsEndpoint() {
+        assertEquals(
+            "https://example.com/v1",
+            AIProviderRegistry.validateCustomBaseUrl("https://example.com/v1/"),
+        )
+        assertEquals(
+            "http://localhost:8080/v1",
+            AIProviderRegistry.validateCustomBaseUrl("http://localhost:8080/v1/"),
+        )
+    }
+
+    @Test
+    fun rejectsUnsafeCustomEndpoint() {
+        assertFailsWith<IllegalArgumentException> { AIProviderRegistry.validateCustomBaseUrl("http://example.com/v1") }
+        assertFailsWith<IllegalArgumentException> { AIProviderRegistry.validateCustomBaseUrl("https://user:pass@example.com/v1") }
+        assertFailsWith<IllegalArgumentException> { AIProviderRegistry.validateCustomBaseUrl("https://example.com/v1?key=secret") }
+        assertFailsWith<IllegalArgumentException> { AIProviderRegistry.validateCustomBaseUrl("https://example.com/v1/../admin") }
+    }
+}
