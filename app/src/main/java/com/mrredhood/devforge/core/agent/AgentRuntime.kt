@@ -17,6 +17,7 @@ object AgentRuntime {
         val durableState = DurableStateRepository(database)
         val registry = AgentToolRegistry()
         WorkspaceAgentToolProvider(appContext.contentResolver, database.workspaceDao()).registerAll(registry)
+        AgentCoordinationToolProvider(AgentCoordinationService(database)).registerAll(registry)
         val gateway = AgentToolGateway(
             registry = registry,
             approvals = ApprovalRepository(database.approvalDao()),
