@@ -50,7 +50,7 @@ class AgentPlanPlanner(context: Context) {
         val prompt = listOf(
             "You are the planning layer for one DevForge workspace agent.",
             "Produce ONLY valid JSON. Do not use Markdown or code fences.",
-            "Schema: {\"version\":2,\"scope\":[\"prefix\"],\"steps\":[{\"tool\":\"read_file|list_files|search_workspace|read_shared_memory|write_shared_memory|list_handoffs|create_handoff|claim_handoff|complete_handoff|patch_file\",\"arguments\":\"JSON string\",\"label\":\"short label\"}]}",
+            "Schema: {\"version\":3,\"scope\":[\"prefix\"],\"access\":[\"WORKSPACE_ACCESS\",\"FILE_ACCESS\",\"COORDINATION_ACCESS\"],\"steps\":[{\"tool\":\"read_file|list_files|search_workspace|read_shared_memory|write_shared_memory|list_handoffs|create_handoff|claim_handoff|complete_handoff|patch_file\",\"arguments\":\"JSON string\",\"label\":\"short label\"}]}",
             "Maximum 12 steps. Use only the listed tools. Never invent tools.",
             "Keep every path inside the supplied scope and never reference .git.",
             "Use patch_file for edits. Its arguments must be a JSON object with path, content, and optional summary. DevForge will capture the current pre-image hash before approval and reject stale patches.",
@@ -69,7 +69,11 @@ class AgentPlanPlanner(context: Context) {
         val jsonStart = response.indexOf('{')
         val jsonEnd = response.lastIndexOf('}')
         require(jsonStart >= 0 && jsonEnd > jsonStart) { "Model did not return a JSON agent plan." }
-        return AgentTaskPlanCodec.decode(response.substring(jsonStart, jsonEnd + 1)).copy(access = assignment.access)
+        val decoded = AgentTaskPlanCodec.decode(response.substring(jsonStart, jsonEnd + 1))
+        require(decoded.steps.all { AgentAccessRules.canUse(it.toolId, assignment.access) }) {
+            "Agent plan requested a tool that is disabled by the selected access profile."
+        }
+        return decoded.copy(access = assignment.access)
     }
 
     private suspend fun recentMemory(workspaceId: String): String =
