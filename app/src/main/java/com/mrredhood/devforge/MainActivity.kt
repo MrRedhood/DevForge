@@ -305,6 +305,7 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
             item { InfoCard("Bring your code into DevForge", "DevForge uses an Android document-tree permission for the folder you explicitly choose.") }
         } else {
             item { Breadcrumbs(workspace) }
+            item { WorkspaceIntelligenceCard(workspace) }
             if (workspace.isLoading) item { LoadingCard("Reading folder…") }
             else if (workspace.entries.isEmpty()) item { InfoCard("Nothing in this folder", "Create a file here and refresh.") }
             else items(workspace.entries, key = { it.uri.toString() }) { entry ->
@@ -434,4 +435,69 @@ private fun formatBytes(value: Long?): String = when {
     value < 1024L -> "$value B"
     value < 1024L * 1024L -> "${value / 1024L} KB"
     else -> "${value / (1024L * 1024L)} MB"
+}
+
+
+@Composable
+private fun WorkspaceIntelligenceCard(workspace: WorkspaceViewModel) {
+    Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Workspace intelligence", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text(
+                if (workspace.isIndexing) "Building bounded symbol index…" else "\${workspace.indexedSymbolCount} symbols indexed",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(onClick = workspace::rebuildSymbolIndex, enabled = !workspace.isIndexing) {
+                Text(if (workspace.isIndexing) "Indexing…" else "Build index")
+            }
+            OutlinedTextField(
+                value = workspace.symbolQuery,
+                onValueChange = workspace::searchSymbols,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Find symbol") },
+                singleLine = true,
+            )
+            workspace.symbolResults.take(8).forEach { symbol ->
+                Text(
+                    "\${symbol.name} · \${symbol.kind} · \${symbol.path}:\${symbol.line}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Text("Workspace knowledge", fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = workspace.knowledgeTitle,
+                onValueChange = { workspace.knowledgeTitle = it.take(160) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Note title") },
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = workspace.knowledgeContent,
+                onValueChange = { workspace.knowledgeContent = it.take(4_000) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("What should DevForge remember?") },
+                minLines = 2,
+                maxLines = 5,
+            )
+            TextButton(
+                onClick = workspace::rememberKnowledge,
+                enabled = workspace.knowledgeTitle.isNotBlank() && workspace.knowledgeContent.isNotBlank(),
+            ) { Text("Save knowledge") }
+            workspace.knowledge.take(5).forEach { note ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(note.title, fontWeight = FontWeight.SemiBold)
+                        Text(note.content.take(220), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { workspace.removeKnowledge(note.id) }) { Text("Remove") }
+                }
+            }
+            workspace.knowledgeMessage?.let { message ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(message, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = workspace::clearKnowledgeMessage) { Text("Dismiss") }
+                }
+            }
+        }
+    }
 }
