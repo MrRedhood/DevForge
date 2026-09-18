@@ -151,7 +151,7 @@ fun GitHubRepositoryScreen(
                                 Text(repository.fullName, style = MaterialTheme.typography.titleMedium)
                                 Text("Default branch: ${repository.defaultBranch}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    FilterChip(selected = true, onClick = {}, label = { Text(if (repository.isPrivate) "Private" else "Public") })
+                                    FilterChip(selected = true, onClick = {}, enabled = false, label = { Text(if (repository.isPrivate) "Private" else "Public") })
                                 }
                             }
                         }
