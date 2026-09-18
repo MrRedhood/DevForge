@@ -12,7 +12,10 @@ class GitHubRepositoryGateway(
     private val connection: HttpConnectionFactory = DefaultHttpConnectionFactory,
 ) {
     fun validateCredential(): GitHubCredentialValidation =
-        validateCredential(null)
+        currentUser().fold(
+            onSuccess = { GitHubCredentialValidation.Valid(it) },
+            onFailure = { GitHubCredentialValidation.Invalid(safeMessage(it)) },
+        )
 
     fun validateCredential(token: String): GitHubCredentialValidation {
         val normalized = token.trim()
