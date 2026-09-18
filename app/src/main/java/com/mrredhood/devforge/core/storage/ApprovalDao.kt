@@ -21,7 +21,7 @@ interface ApprovalDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(action: ApprovalEntity)
 
-    @Query("UPDATE approval_actions SET status = :status, resolvedAtEpochMs = :resolvedAt WHERE approvalId = :approvalId AND status = 'PENDING'")
+    @Query("UPDATE approval_actions SET status = :status, resolvedAtEpochMs = :resolvedAt WHERE approvalId = :approvalId AND status = 'PENDING' AND expiresAtEpochMs > :resolvedAt")
     suspend fun resolve(approvalId: String, status: String, resolvedAt: Long): Int
 
     @Query("UPDATE approval_actions SET status = 'EXECUTING', resolvedAtEpochMs = :now WHERE approvalId = :approvalId AND status = 'APPROVED' AND expiresAtEpochMs > :now")
