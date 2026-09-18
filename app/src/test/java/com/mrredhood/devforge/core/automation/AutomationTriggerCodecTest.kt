@@ -73,6 +73,21 @@ class AutomationTriggerCodecTest {
     }
 
     @Test
+    fun encodeDecodePreservesTriggerConfiguration() {
+        val config = AutomationTriggerConfig.BuildCompletion("Owner", "Repo", "main", "success", "DebugApk")
+        val decoded = AutomationTriggerCodec.decode(
+            AutomationTriggerType.BUILD_COMPLETION,
+            AutomationTriggerCodec.encode(config),
+        ) as AutomationTriggerConfig.BuildCompletion
+
+        assertEquals("Owner", decoded.owner)
+        assertEquals("Repo", decoded.repository)
+        assertEquals("main", decoded.branch)
+        assertEquals("success", decoded.conclusion)
+        assertEquals("DebugApk", decoded.target)
+    }
+
+    @Test
     fun fingerprintChangesWhenRepositoryStateDescriptorsChange() {
         val first = AutomationTriggerCodec.eventFingerprint("workspace", "main", listOf("head:aaa", "src/App.kt:Modified"))
         val same = AutomationTriggerCodec.eventFingerprint("workspace", "main", listOf("src/App.kt:Modified", "head:aaa"))
@@ -80,5 +95,9 @@ class AutomationTriggerCodecTest {
 
         assertEquals(first, same)
         assertFalse(first == changed)
+        assertEquals(
+            "build-owner/repo-42",
+            AutomationTriggerCodec.eventKey(AutomationEvent.BuildCompleted("owner", "repo", "main", 42L, "success", "DebugApk")),
+        )
     }
 }
