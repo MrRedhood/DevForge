@@ -102,6 +102,30 @@ class DurableStateRepository(
 
     suspend fun getAgentTask(taskId: String): AgentTaskEntity? = agentTasks.get(taskId)
 
+    suspend fun trySaveAgentTask(task: AgentTaskEntity, maxNonTerminal: Int): Boolean {
+        require(maxNonTerminal > 0) { "Agent task limit must be positive." }
+        require(task.instruction.toByteArray(Charsets.UTF_8).size <= MAX_AGENT_INSTRUCTION_BYTES) {
+            "Agent task instruction exceeds the persistence limit."
+        }
+        require((task.payload ?: "").toByteArray(Charsets.UTF_8).size <= MAX_TASK_PAYLOAD_BYTES) {
+            "Agent task payload exceeds the persistence limit."
+        }
+        require((task.result ?: "").toByteArray(Charsets.UTF_8).size <= MAX_AGENT_RESULT_BYTES) {
+            "Agent task result exceeds the durable persistence limit."
+        }
+        require(task.currentStep in 0..MAX_AGENT_STEPS) { "Agent task step pointer exceeds the persistence limit." }
+        require(task.stepCount in 0..MAX_AGENT_STEPS) { "Agent task step count exceeds the persistence limit." }
+        return agentTasks.insertIfBelowLimit(
+            task.copy(
+                title = task.title.take(MAX_NAME_LENGTH),
+                errorMessage = task.errorMessage?.let { SecretRedactor.redact(it, MAX_ERROR_LENGTH) },
+                approvalId = task.approvalId?.take(MAX_NAME_LENGTH),
+                lastToolId = task.lastToolId?.take(MAX_NAME_LENGTH),
+            ),
+            maxNonTerminal,
+        )
+    }
+
     suspend fun listAgentTasks(workspaceId: String, limit: Int = MAX_AGENT_TASKS): List<AgentTaskEntity> =
         agentTasks.list(workspaceId, limit)
 
