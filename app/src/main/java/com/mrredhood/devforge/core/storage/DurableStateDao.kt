@@ -91,6 +91,9 @@ interface AgentTaskDao {
     @Query("UPDATE agent_tasks SET currentStep = :nextStep, approvalId = NULL, result = :result, updatedAtEpochMs = :updatedAt WHERE taskId = :taskId AND currentStep = :currentStep AND status IN ('RUNNING','PAUSED')")
     suspend fun advanceStep(taskId: String, currentStep: Int, nextStep: Int, result: String, updatedAt: Long): Int
 
+    @Query("UPDATE agent_tasks SET status = 'WAITING_APPROVAL', currentStep = :stepIndex, approvalId = :approvalId, updatedAtEpochMs = :updatedAt WHERE taskId = :taskId AND currentStep = :stepIndex AND status = 'RUNNING'")
+    suspend fun waitForApproval(taskId: String, stepIndex: Int, approvalId: String, updatedAt: Long): Int
+
     @Query("UPDATE agent_tasks SET status = 'COMPLETED', currentStep = :stepCount, approvalId = NULL, result = :result, updatedAtEpochMs = :completedAt, completedAtEpochMs = :completedAt WHERE taskId = :taskId AND currentStep = :stepCount AND status = 'RUNNING'")
     suspend fun complete(taskId: String, stepCount: Int, result: String, completedAt: Long): Int
 

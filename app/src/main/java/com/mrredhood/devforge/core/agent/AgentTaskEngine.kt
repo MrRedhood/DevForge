@@ -123,34 +123,20 @@ class AgentTaskEngine(
 
         val plan = runCatching { AgentTaskPlanCodec.decode(task.payload) }
             .getOrElse { error ->
-                val failed = task.copy(
-                    status = AgentTaskStatus.FAILED.name,
-                    errorMessage = (error.message ?: "Invalid agent task plan.").take(600),
-                    updatedAtEpochMs = System.currentTimeMillis(),
-                    completedAtEpochMs = System.currentTimeMillis(),
+                durableState.failAgentTask(
+                    taskId,
+                    (error.message ?: "Invalid agent task plan.").take(600),
+                    System.currentTimeMillis(),
                 )
-                durableState.saveAgentTask(failed)
-                return@withContext failed
+                return@withContext durableState.getAgentTask(taskId)
             }
         if (plan.steps.size != task.stepCount) {
-            val failed = task.copy(
-                status = AgentTaskStatus.FAILED.name,
-                errorMessage = "Persisted task step count does not match its plan.",
-                updatedAtEpochMs = System.currentTimeMillis(),
-                completedAtEpochMs = System.currentTimeMillis(),
-            )
-            durableState.saveAgentTask(failed)
-            return@withContext failed
+            durableState.failAgentTask(taskId, "Persisted task step count does not match its plan.", System.currentTimeMillis())
+            return@withContext durableState.getAgentTask(taskId)
         }
         if (task.currentStep !in 0..plan.steps.size) {
-            val failed = task.copy(
-                status = AgentTaskStatus.FAILED.name,
-                errorMessage = "Persisted task step pointer is invalid.",
-                updatedAtEpochMs = System.currentTimeMillis(),
-                completedAtEpochMs = System.currentTimeMillis(),
-            )
-            durableState.saveAgentTask(failed)
-            return@withContext failed
+            durableState.failAgentTask(taskId, "Persisted task step pointer is invalid.", System.currentTimeMillis())
+            return@withContext durableState.getAgentTask(taskId)
         }
 
         val now = System.currentTimeMillis()
@@ -212,24 +198,17 @@ class AgentTaskEngine(
                             }
                         }
                         is AgentToolResult.ApprovalRequired -> {
-                            task = task.copy(
-                                status = AgentTaskStatus.WAITING_APPROVAL.name,
-                                currentStep = index,
-                                approvalId = result.approvalId,
-                                updatedAtEpochMs = System.currentTimeMillis(),
-                            )
-                            durableState.saveAgentTask(task)
+                            if (!durableState.waitForAgentApproval(taskId, index, result.approvalId, System.currentTimeMillis())) {
+                                task = durableState.getAgentTask(taskId) ?: return@withTimeout
+                                return@withTimeout
+                            }
+                            task = durableState.getAgentTask(taskId) ?: return@withTimeout
                             auditTask(task, "AGENT_TASK_WAITING_APPROVAL", "Agent task is waiting for approval.")
                             return@withTimeout
                         }
                         is AgentToolResult.Failure -> {
-                            task = task.copy(
-                                status = AgentTaskStatus.FAILED.name,
-                                errorMessage = result.message.take(600),
-                                updatedAtEpochMs = System.currentTimeMillis(),
-                                completedAtEpochMs = System.currentTimeMillis(),
-                            )
-                            durableState.saveAgentTask(task)
+                            durableState.failAgentTask(taskId, result.message.take(600), System.currentTimeMillis())
+                            task = durableState.getAgentTask(taskId) ?: return@withTimeout
                             auditTask(task, "AGENT_TASK_FAILED", task.errorMessage ?: "Agent task failed.")
                             return@withTimeout
                         }

@@ -166,6 +166,9 @@ class AgentToolGateway(
             try {
                 tool.execute(context, request)
             } catch (cancelled: CancellationException) {
+                if (approvalId != null) {
+                    runCatching { approvals.finishFailure(approvalId) }
+                }
                 throw cancelled
             } catch (error: Throwable) {
                 AgentToolResult.Failure(error.message ?: "Agent tool execution failed.")

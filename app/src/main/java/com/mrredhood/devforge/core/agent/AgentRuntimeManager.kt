@@ -22,6 +22,7 @@ class AgentRuntimeManager(context: Context) {
     private val appContext = context.applicationContext
     private val database = DevForgeDatabase.get(appContext)
     private val approvals = ApprovalRepository(database.approvalDao())
+    private val grants = com.mrredhood.devforge.core.storage.CapabilityGrantRepository(database.capabilityGrantDao())
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val coordinator: ParallelAgentCoordinator = ParallelAgentCoordinator(appContext)
@@ -30,6 +31,7 @@ class AgentRuntimeManager(context: Context) {
 
     init {
         scope.launch {
+            runCatching { grants.hydrateRegistry() }
             database.workspaceDao().observeAll().collectLatest { workspaces ->
                 workspaces.forEach { workspace ->
                     try {

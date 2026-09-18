@@ -11,6 +11,9 @@ interface CapabilityGrantDao {
     @Query("SELECT * FROM capability_grants WHERE workspaceId = :workspaceId AND enabled = 1 ORDER BY capability ASC LIMIT :limit")
     fun observeForWorkspace(workspaceId: String, limit: Int): Flow<List<CapabilityGrantEntity>>
 
+    @Query("SELECT * FROM capability_grants WHERE enabled = 1 AND (expiresAtEpochMs IS NULL OR expiresAtEpochMs > :now) ORDER BY workspaceId, capability LIMIT :limit")
+    suspend fun listActive(now: Long, limit: Int): List<CapabilityGrantEntity>
+
     @Query("SELECT * FROM capability_grants WHERE workspaceId = :workspaceId AND capability = :capability AND enabled = 1 AND (expiresAtEpochMs IS NULL OR expiresAtEpochMs > :now) LIMIT 1")
     suspend fun getActive(workspaceId: String, capability: String, now: Long): CapabilityGrantEntity?
 

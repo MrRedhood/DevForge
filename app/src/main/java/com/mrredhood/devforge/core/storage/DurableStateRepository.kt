@@ -157,6 +157,9 @@ class DurableStateRepository(
     suspend fun advanceAgentStep(taskId: String, currentStep: Int, nextStep: Int, result: String, now: Long): Boolean =
         agentTasks.advanceStep(taskId, currentStep, nextStep, result, now) > 0
 
+    suspend fun waitForAgentApproval(taskId: String, stepIndex: Int, approvalId: String, now: Long): Boolean =
+        agentTasks.waitForApproval(taskId, stepIndex, approvalId, now) > 0
+
     suspend fun completeAgentTask(taskId: String, stepCount: Int, result: String, completedAt: Long): Boolean =
         agentTasks.complete(taskId, stepCount, result, completedAt) > 0
 
