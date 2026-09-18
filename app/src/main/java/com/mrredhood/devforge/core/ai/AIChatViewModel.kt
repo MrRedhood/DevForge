@@ -44,6 +44,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private var workspaceJob: Job? = null
     private var selectionJob: Job? = null
     private var selectionGeneration = 0L
+    private var modelLoadJob: Job? = null
+    private var modelLoadGeneration = 0L
     private var workspaceRoot: Uri? = null
 
     var provider by mutableStateOf(settings.selectedProvider())
@@ -121,6 +123,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         if (provider == value) return
         selectionGeneration += 1
         selectionJob?.cancel()
+        modelLoadGeneration += 1
+        modelLoadJob?.cancel()
+        modelLoadJob = null
         messageJob?.cancel()
         messageJob = null
         provider = value
@@ -152,10 +157,14 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         if (!force && models.isNotEmpty()) return
         isLoadingModels = true
         modelError = null
-        viewModelScope.launch(Dispatchers.IO) {
-            val result = catalogService.load(provider, key, settings.customBaseUrl(provider))
+        val requestProvider = provider
+        val generation = ++modelLoadGeneration
+        modelLoadJob?.cancel()
+        modelLoadJob = viewModelScope.launch(Dispatchers.IO) {
+            val result = catalogService.load(requestProvider, key, settings.customBaseUrl(requestProvider))
             launch(Dispatchers.Main.immediate) {
-                val savedModelId = settings.selectedModelId(provider)
+                if (generation != modelLoadGeneration || provider != requestProvider) return@launch
+                val savedModelId = settings.selectedModelId(requestProvider)
                 val fallbackModels = if (
                     provider == AIProvider.OPENAI_COMPATIBLE &&
                     result.models.isEmpty() &&
@@ -163,7 +172,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 ) {
                     listOf(
                         AIModelInfo(
-                            provider = provider,
+                            provider = requestProvider,
                             id = savedModelId,
                             displayName = savedModelId,
                             metadataSource = "Saved custom model",
@@ -183,7 +192,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     models = fallbackModels,
                     savedModelId = savedModelId,
                     mode = appSettings.snapshot().aiRoutingMode,
-                ) ?: selectedModel?.takeIf { it.provider == provider }
+                ) ?: selectedModel?.takeIf { it.provider == requestProvider }
                 selectedModel?.let { selectModelInternal(it) }
             }
         }
@@ -509,6 +518,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         messageJob?.cancel()
         sendJob?.cancel()
         selectionJob?.cancel()
+        modelLoadJob?.cancel()
         super.onCleared()
     }
 
