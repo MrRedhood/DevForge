@@ -124,6 +124,25 @@ class CapabilityGrantRegistryTest {
     }
 
     @Test
+    fun neverModeCannotBeBypassedThroughGrantAwarePolicyHelper() {
+        val result = DefaultPolicy.requiresApprovalWithGrant(
+            request = ActionRequest(
+                actionId = "never-grant",
+                capability = Capability.EDIT_FILES,
+                risk = RiskLevel.R2,
+                workspaceId = "workspace",
+                summary = "Edit source file",
+                parametersHash = "hash",
+            ),
+            mode = PermissionMode.NEVER,
+            grantActive = true,
+            grantRiskCeiling = RiskLevel.R5,
+        )
+
+        assertTrue(result)
+    }
+
+    @Test
     fun matchingRiskCeilingRemovesApprovalWithinScope() {
         CapabilityGrantRegistry.put(
             workspaceId = "workspace",
