@@ -19,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 
 data class AgentAssignment(
     val workspaceId: String,
@@ -94,6 +95,11 @@ class ParallelAgentCoordinator(context: Context) {
     companion object {
         const val MAX_PARALLEL_AGENTS = 10
         const val MAX_ASSIGNED_AGENTS = 10
+        val TERMINAL_STATUSES = setOf(
+            AgentTaskStatus.COMPLETED.name,
+            AgentTaskStatus.FAILED.name,
+            AgentTaskStatus.CANCELLED.name,
+        )
     }
 
     private val durable = DurableStateRepository(DevForgeDatabase.get(context))
@@ -174,14 +180,6 @@ class ParallelAgentCoordinator(context: Context) {
             }
         }
         durable.listAgentTasks(workspaceId).filter { it.status == AgentTaskStatus.QUEUED.name }.forEach { start(it.taskId) }
-    }
-
-    private companion object {
-        val TERMINAL_STATUSES = setOf(
-            AgentTaskStatus.COMPLETED.name,
-            AgentTaskStatus.FAILED.name,
-            AgentTaskStatus.CANCELLED.name,
-        )
     }
 
     fun close() {
