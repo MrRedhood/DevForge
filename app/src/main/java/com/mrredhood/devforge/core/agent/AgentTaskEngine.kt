@@ -111,6 +111,16 @@ class AgentTaskEngine(
     private suspend fun execute(taskId: String, approvalId: String?): AgentTaskEntity? = withContext(Dispatchers.IO) {
         var task = durableState.getAgentTask(taskId) ?: return@withContext null
         if (task.status in TERMINAL_STATUSES) return@withContext task
+
+        // A waiting approval is a hard execution boundary. Only resumeAfterApproval may
+        // cross it with the exact persisted approval id.
+        if (task.status == AgentTaskStatus.WAITING_APPROVAL.name) {
+            if (approvalId == null || approvalId != task.approvalId) return@withContext task
+        }
+        if (task.status == AgentTaskStatus.PAUSED.name && approvalId == null) {
+            return@withContext task
+        }
+
         val plan = runCatching { AgentTaskPlanCodec.decode(task.payload) }
             .getOrElse { error ->
                 val failed = task.copy(
