@@ -35,7 +35,7 @@ class ProviderAttachmentAdapterTest {
     }
 
     @Test
-    fun unsupportedProviderAdapterRejectsBinaryAttachments() = kotlinx.coroutines.test.runTest {
+    fun unsupportedProviderAdapterRejectsBinaryAttachments() = kotlinx.coroutines.runBlocking {
         val adapter = UnsupportedProviderAttachmentAdapter(AIProvider.OPENAI)
 
         var failed = false
