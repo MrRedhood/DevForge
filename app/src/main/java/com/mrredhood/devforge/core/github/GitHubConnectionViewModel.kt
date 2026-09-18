@@ -5,11 +5,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import com.mrredhood.devforge.core.security.AndroidSecretStore
+import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import com.mrredhood.devforge.core.security.SecretStore
 
 class GitHubConnectionViewModel(application: Application) : AndroidViewModel(application) {
-    private val secretStore: SecretStore = AndroidSecretStore(application)
+    private val secretStore = CredentialSecurityStore(application)
 
     var snapshot: GitHubConnectionSnapshot by mutableStateOf(initialSnapshot())
         private set
@@ -21,7 +21,10 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
             return
         }
 
-        secretStore.put(TOKEN_KEY, normalized)
+        runCatching { secretStore.put(TOKEN_KEY, normalized) }.onFailure { error ->
+            snapshot = snapshot.copy(message = error.message ?: "Unable to store the GitHub credential.")
+            return
+        }
         snapshot = GitHubConnectionSnapshot(
             state = GitHubConnectionState.Connected(),
             credentialMode = GitHubCredentialMode.ManualToken,
@@ -34,7 +37,9 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
         snapshot = GitHubConnectionSnapshot(message = "GitHub credentials removed from this device.")
     }
 
-    fun hasStoredCredential(): Boolean = secretStore.get(TOKEN_KEY) != null
+    fun hasStoredCredential(): Boolean = secretStore.contains(TOKEN_KEY)
+
+    fun isCredentialLocked(): Boolean = secretStore.isProtectionEnabled && !secretStore.isUnlocked && secretStore.contains(TOKEN_KEY)
 
     private fun initialSnapshot(): GitHubConnectionSnapshot = if (hasStoredCredential()) {
         GitHubConnectionSnapshot(state = GitHubConnectionState.Connected())
