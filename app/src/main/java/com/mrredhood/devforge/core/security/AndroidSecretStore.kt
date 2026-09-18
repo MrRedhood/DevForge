@@ -46,6 +46,8 @@ class AndroidSecretStore(context: Context) : SecretStore {
         preferences.edit().remove(key).apply()
     }
 
+    fun contains(key: String): Boolean = preferences.contains(key)
+
     private fun getOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         val existing = keyStore.getKey(KEY_ALIAS, null)
