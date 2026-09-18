@@ -2,7 +2,6 @@ package com.mrredhood.devforge.core.ai
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFailsWith
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AIProviderRegistryTest {
