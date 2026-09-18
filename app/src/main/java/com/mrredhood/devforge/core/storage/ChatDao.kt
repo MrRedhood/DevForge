@@ -32,6 +32,9 @@ interface ChatMessageDao {
     @Query("DELETE FROM chat_messages WHERE sessionId = :sessionId AND messageId NOT IN (SELECT messageId FROM chat_messages WHERE sessionId = :sessionId ORDER BY createdAtEpochMs DESC LIMIT :keep)")
     suspend fun prune(sessionId: String, keep: Int)
 
+    @Query("DELETE FROM chat_messages WHERE createdAtEpochMs < :cutoff")
+    suspend fun deleteOlderThan(cutoff: Long): Int
+
     @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY createdAtEpochMs ASC LIMIT :limit")
     fun observe(sessionId: String, limit: Int): Flow<List<ChatMessageEntity>>
 }
