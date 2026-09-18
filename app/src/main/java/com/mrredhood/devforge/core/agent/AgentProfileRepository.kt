@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.agent
 
 import android.content.Context
+import com.mrredhood.devforge.core.security.SecretRedactor
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -38,8 +39,8 @@ class AgentProfileRepository(context: Context) {
     fun save(profile: AgentProfile): List<AgentProfile> {
         val normalized = profile.copy(
             name = profile.name.trim().take(MAX_NAME_CHARS),
-            description = profile.description.trim().take(MAX_DESCRIPTION_CHARS),
-            instructions = profile.instructions.trim().take(MAX_INSTRUCTION_CHARS),
+            description = SecretRedactor.redact(profile.description.trim().take(MAX_DESCRIPTION_CHARS), MAX_DESCRIPTION_CHARS),
+            instructions = SecretRedactor.redact(profile.instructions.trim().take(MAX_INSTRUCTION_CHARS), MAX_INSTRUCTION_CHARS),
             access = profile.access.ifEmpty { AgentAccess.DEFAULT },
         )
         require(normalized.name.isNotBlank()) { "Agent name is required." }
