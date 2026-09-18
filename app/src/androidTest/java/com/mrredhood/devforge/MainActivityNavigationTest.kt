@@ -18,6 +18,22 @@ class MainActivityNavigationTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
+    fun chatProviderCanBeChangedWithoutOpeningSettings() {
+        composeRule.onNodeWithText("Google Gemini", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Anthropic Claude", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Anthropic Claude", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun filesShowsWorkspaceCreationUi() {
+        composeRule.onNodeWithText("Files", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Create", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Create workspace", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Workspace name", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel", useUnmergedTree = true).performClick()
+    }
+
+    @Test
     fun backNavigatesOneDestinationAtATimeAndConfirmsExitAtRoot() {
         composeRule.onNodeWithText("Files", useUnmergedTree = true).assertIsDisplayed().performClick()
         composeRule.onNodeWithText("Choose a workspace to begin", useUnmergedTree = true).assertIsDisplayed()

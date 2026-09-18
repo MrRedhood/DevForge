@@ -129,7 +129,9 @@ class GitRemoteTransportService(
         syncWorktree: Boolean,
         block: (Git, CredentialsProvider) -> String,
     ): GitRemoteResult {
-        val validation = validateConfigured(repository.remoteUrl)
+        val remoteUrl = repository.remoteUrl
+            ?: return GitRemoteResult.Failure("The repository has no configured remote URL.")
+        val validation = validateConfigured(remoteUrl)
         if (!validation.available) return GitRemoteResult.Failure(validation.reason ?: "Remote transport is unavailable.")
         val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY) ?: return GitRemoteResult.Failure("GitHub is not connected on this device.")
         val credentials = UsernamePasswordCredentialsProvider("x-access-token", token)
@@ -137,7 +139,7 @@ class GitRemoteTransportService(
         val repoRoot = File(workRoot, "repo")
         return try {
             copySafWorkspaceToFile(repository.rootUri, repoRoot)
-            ensureOriginRemote(repoRoot, repository.remoteUrl!!)
+            ensureOriginRemote(repoRoot, remoteUrl)
             Git.open(repoRoot).use { git ->
                 val message = block(git, credentials)
                 syncFileWorkspaceBack(sourceRoot = repoRoot, targetRoot = repository.rootUri, includeWorktree = syncWorktree)

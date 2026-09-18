@@ -237,7 +237,7 @@ class GitExecutionService(private val resolver: ContentResolver) {
             else if (section == "[user]" && line.startsWith("name =")) name = line.substringAfter('=').trim()
             else if (section == "[user]" && line.startsWith("email =")) email = line.substringAfter('=').trim()
         }
-        return if (!name.isNullOrBlank() && !email.isNullOrBlank()) GitIdentity(name!!, email!!) else null
+        return if (!name.isNullOrBlank() && !email.isNullOrBlank()) GitIdentity(name, email) else null
     }
 
     private fun formatIdentity(name: String, email: String, time: ZonedDateTime): String {

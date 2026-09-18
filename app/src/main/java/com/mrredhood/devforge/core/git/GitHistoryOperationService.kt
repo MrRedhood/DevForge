@@ -65,8 +65,9 @@ class GitHistoryOperationService(
         executeHistory(repository, "merge '$branchName'", OPERATION_MERGE, approvalId) { git ->
             val branch = validateBranchName(branchName)
             requireClean(git)
-            require(git.repository.findRef("refs/heads/$branch") != null) { "Local branch '$branch' does not exist." }
-            val result = git.merge().include(git.repository.findRef("refs/heads/$branch")!!.objectId).call()
+            val branchRef = git.repository.findRef("refs/heads/$branch")
+                ?: throw IllegalArgumentException("Local branch '$branch' does not exist.")
+            val result = git.merge().include(branchRef.objectId).call()
             handleMergeResult(result, "Merge '$branchName'")
         }
 

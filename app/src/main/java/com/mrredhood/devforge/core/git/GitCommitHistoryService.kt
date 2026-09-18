@@ -10,7 +10,8 @@ class GitCommitHistoryService(private val resolver: ContentResolver) {
         var currentId = repository.headRevision?.takeIf { SHA_PATTERN.matches(it) }
         var traversed = 0
         while (!currentId.isNullOrBlank() && traversed < maxCommits) {
-            val commit = readCommit(reader, currentId!!) ?: break
+            val commitId = currentId ?: break
+            val commit = readCommit(reader, commitId) ?: break
             val changedFiles = changedFilesForCommit(reader, commit, MAX_CHANGED_FILES)
             commits += commit.toHistoryEntry(changedFiles)
             currentId = commit.parents.firstOrNull()
@@ -32,7 +33,8 @@ class GitCommitHistoryService(private val resolver: ContentResolver) {
         var currentId = repository.headRevision?.takeIf { SHA_PATTERN.matches(it) }
         var count = 0
         while (!currentId.isNullOrBlank() && count < maxCommits) {
-            val commit = readCommit(reader, currentId!!) ?: break
+            val commitId = currentId ?: break
+            val commit = readCommit(reader, commitId) ?: break
             val currentFiles = flattenTree(reader, commit.treeId, MAX_CHANGED_FILES)
             val currentObject = currentFiles[normalized]
             val parent = commit.parents.firstOrNull()
