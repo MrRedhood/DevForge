@@ -42,6 +42,7 @@ sealed interface AutomationTriggerConfig {
     data class Condition(
         val event: String,
         val conditions: Map<String, String>,
+        val events: Set<String> = setOf(event),
     ) : AutomationTriggerConfig
 }
 
@@ -61,6 +62,7 @@ object AutomationTriggerCodec {
             .toString()
         is AutomationTriggerConfig.Condition -> JSONObject()
             .put("event", config.event.take(MAX_FIELD))
+            .put("events", JSONArray(config.events.take(MAX_EVENTS).toList()))
             .put("conditions", JSONObject().apply { config.conditions.entries.take(MAX_CONDITIONS).forEach { put(it.key.take(MAX_FIELD), it.value.take(MAX_FIELD)) } })
             .toString()
     }
@@ -90,7 +92,16 @@ object AutomationTriggerCodec {
                     val key = keys.next()
                     values[key] = conditions.optString(key, "")
                 }
-                AutomationTriggerConfig.Condition(json.optString("event").trim(), values)
+                val event = json.optString("event").trim()
+                val events = json.optJSONArray("events")?.let { array ->
+                    buildSet {
+                        for (i in 0 until minOf(array.length(), MAX_EVENTS)) {
+                            val value = array.optString(i).trim()
+                            if (value.isNotBlank()) add(value)
+                        }
+                    }
+                }.orEmpty().ifEmpty { setOf(event) }
+                AutomationTriggerConfig.Condition(event, values, events)
             }
             else -> AutomationTriggerConfig.None
         }
@@ -104,7 +115,7 @@ object AutomationTriggerCodec {
                 if (automation.workspaceId != null && automation.workspaceId != event.workspaceId) return false
                 when (config) {
                     is AutomationTriggerConfig.RepositoryChange -> repositoryMatches(config, event)
-                    is AutomationTriggerConfig.Condition -> config.event.equals("repository_change", true) && conditionMatches(config.conditions, mapOf(
+                    is AutomationTriggerConfig.Condition -> conditionAllows(config, "repository_change") && conditionMatches(config.conditions, mapOf(
                         "workspaceId" to event.workspaceId,
                         "branch" to event.branch.orEmpty(),
                         "paths" to event.changedPaths.joinToString(","),
@@ -114,7 +125,7 @@ object AutomationTriggerCodec {
             }
             is AutomationEvent.BuildCompleted -> when (config) {
                 is AutomationTriggerConfig.BuildCompletion -> buildMatches(config, event)
-                is AutomationTriggerConfig.Condition -> config.event.equals("build_completion", true) && conditionMatches(config.conditions, mapOf(
+                is AutomationTriggerConfig.Condition -> conditionAllows(config, "build_completion") && conditionMatches(config.conditions, mapOf(
                     "owner" to event.owner,
                     "repository" to event.repository,
                     "branch" to event.branch,
@@ -138,6 +149,10 @@ object AutomationTriggerCodec {
             (config.branch == null || config.branch == event.branch) &&
             (config.conclusion == null || config.conclusion.equals(event.conclusion, true)) &&
             (config.target == null || config.target.equals(event.target, true))
+
+    private fun conditionAllows(config: AutomationTriggerConfig.Condition, eventName: String): Boolean =
+        config.event.equals("any", true) || config.event.equals("*", true) ||
+            config.events.any { it.equals(eventName, true) }
 
     private fun conditionMatches(conditions: Map<String, String>, values: Map<String, String>): Boolean =
         conditions.all { (key, expected) ->
@@ -164,5 +179,6 @@ object AutomationTriggerCodec {
     private const val MAX_FIELD = 120
     private const val MAX_PATHS = 40
     private const val MAX_CONDITIONS = 16
+    private const val MAX_EVENTS = 4
     private const val MAX_STATE_PARTS = 600
 }
