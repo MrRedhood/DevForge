@@ -171,6 +171,7 @@ class AgentToolGateway(
             workspaceId = request.workspaceId,
             summary = "${definition.id.wireName}: ${definition.description}".take(500),
             parametersHash = hash(context, request),
+            pathScope = context.pathScope,
         )
     }
 
