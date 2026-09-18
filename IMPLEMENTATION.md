@@ -57,13 +57,13 @@
 - [x] Audit history and bounded retention
 - [x] Workspace-scoped persistent capability grants with R2 ceiling
 - [x] Protected destructive/high-risk capabilities cannot receive persistent bypass grants
-- [ ] Path-scoped persistent capability grants
+- [x] Path-scoped persistent capability grants
 - [x] Biometric-protected secret-store primitive for high-security credentials
 - [x] Biometric integration across all existing credential consumers/UI
 - [x] Expanded bounded agent execution receipts with scope/capability/risk/approval metadata
 
 ### Durable Room State
-- [x] Room v9 schema and migrations
+- [x] Room v10 schema and migrations
 - [x] Durable editor tabs/snapshots
 - [x] Persistent agent-task state and resumable step pointers
 - [x] Automation definition/run persistence foundation
@@ -131,10 +131,8 @@
 
 ## In Progress / Next Sequence
 1. Maintained unit/UI/security regression suites and broader validation.
-2. Build cancellation and live credential runtime validation.
-3. Path-scoped persistent capability grants.
-4. AI structured patch generation + diff-first approval workflow.
-5. Multi-agent shared memory, handoffs and conflict-aware workspace coordination.
+2. AI structured patch generation + diff-first approval workflow.
+3. Multi-agent shared memory, handoffs and conflict-aware workspace coordination.
 
 ## Planned
 
@@ -188,6 +186,7 @@
 - [ ] Biometric credential integration CI result verification
 - [ ] Parallel workspace agents CI result verification
 - [ ] Maintained regression suite CI result verification
+- [ ] Path-scoped capability grant CI result verification
 - [ ] Live authenticated remote Git validation
 - [ ] Release APK/AAB signing validation
 - [ ] Maintained unit/UI/security regression suites
@@ -298,7 +297,8 @@
 - Build dispatch now performs live credential validation immediately before remote dispatch instead of relying only on stored-credential presence.
 - Added deterministic gateway regression tests for credential validation, invalid credentials, cancellation success and cancellation conflicts.
 
-### 2026-09-18 — Terminal capability- Added a typed native terminal capability with a fixed executable allowlist; arbitrary executable names and shell invocation are not accepted.
+### 2026-09-18 — Terminal capability
+- Added a typed native terminal capability with a fixed executable allowlist; arbitrary executable names and shell invocation are not accepted.
 - Sandboxed commands run only from an app-private per-workspace directory with inherited environment variables cleared.
 - Added strict argument/path, command-size, output-size and 15-second maximum timeout limits.
 - Added process cancellation/termination handling and Approval Center routing for R2 terminal commands.
@@ -311,3 +311,11 @@
 - Removed the stray Kotlin token in `AutomationModels.kt` that caused a top-level syntax error.
 - Renamed the `object` local variable in `GitCommitHistoryService.kt` to `gitObject` to avoid the reserved Kotlin keyword collision.
 - Triggered a fresh Android CI run from the repaired `main` state.
+
+### 2026-09-18 — Path-scoped persistent capability grants
+- Extended persistent capability grants with canonical workspace-relative path scopes while preserving existing whole-workspace grants.
+- Added Room v10 migration and durable scope JSON with bounded prefix/path validation.
+- Added synchronous registry enforcement so a grant bypasses approval only when its risk ceiling and path scope both contain the requested action.
+- Bound agent action requests to their explicit path scope so scoped grants apply to agent edits without widening workspace authorization.
+- Added Approval Center path-scope entry and visible scope details for active grants; blank scope continues to mean the entire workspace.
+- Added regression coverage for scope containment, whole-workspace compatibility, path-scoped approval behavior, and risk ceilings.
