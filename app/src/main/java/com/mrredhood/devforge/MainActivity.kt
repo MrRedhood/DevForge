@@ -49,6 +49,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -395,9 +396,15 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
         commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         numberColor = MaterialTheme.colorScheme.secondary,
     )
-    val transformation: VisualTransformation =
+    val baseTransformation: VisualTransformation =
         if (activeFolds.isEmpty()) syntax
         else ChainedVisualTransformation(FoldingVisualTransformation(active.content, activeFolds), syntax)
+    val transformation: VisualTransformation =
+        if (settings.settings.showInvisibles && advanced) {
+            ChainedVisualTransformation(baseTransformation, VisibleWhitespaceVisualTransformation())
+        } else {
+            baseTransformation
+        }
 
     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -641,7 +648,7 @@ private fun WorkspaceIntelligenceCard(workspace: WorkspaceViewModel) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Workspace intelligence", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
             Text(
-                if (workspace.isIndexing) "Building bounded symbol index…" else "\${workspace.indexedSymbolCount} symbols indexed",
+                if (workspace.isIndexing) "Building bounded symbol index…" else workspace.indexedSymbolCount.toString() + " symbols indexed",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Button(onClick = workspace::rebuildSymbolIndex, enabled = !workspace.isIndexing) {
@@ -656,7 +663,7 @@ private fun WorkspaceIntelligenceCard(workspace: WorkspaceViewModel) {
             )
             workspace.symbolResults.take(8).forEach { symbol ->
                 Text(
-                    "\${symbol.name} · \${symbol.kind} · \${symbol.path}:\${symbol.line}",
+                    symbol.name + " · " + symbol.kind + " · " + symbol.path + ":" + symbol.line,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
