@@ -32,13 +32,17 @@ class AutomationRunEngine(
         }
         if (active != null) {
             if (RecoveryPolicy.shouldRecoverStaleAutomation(active.status, active.startedAtEpochMs, now)) {
-                durable.saveAutomationRun(
-                    active.copy(
-                        status = AutomationRunStatus.FAILED.name,
-                        completedAtEpochMs = now,
-                        errorMessage = RecoveryPolicy.AUTOMATION_RECOVERY_MESSAGE,
-                    ),
+                val staleTaskId = active.receiptJson
+                    ?.let { runCatching { JSONObject(it).optString("taskId") }.getOrNull() }
+                    .orEmpty()
+                if (staleTaskId.isNotBlank()) runCatching { agent.cancel(staleTaskId) }
+                val recovered = active.copy(
+                    status = AutomationRunStatus.FAILED.name,
+                    completedAtEpochMs = now,
+                    errorMessage = RecoveryPolicy.AUTOMATION_RECOVERY_MESSAGE,
                 )
+                durable.saveAutomationRun(recovered)
+                audit(automation, recovered, "AUTOMATION_RECOVERED", RecoveryPolicy.AUTOMATION_RECOVERY_MESSAGE)
             } else {
                 val skipped = createRun(automation, AutomationRunStatus.SKIPPED, attempt, error = "An earlier automation run is still active.", triggerPayload = triggerPayload)
                 durable.saveAutomationRun(skipped)
@@ -127,7 +131,15 @@ class AutomationRunEngine(
         if (run.status !in setOf(AutomationRunStatus.RUNNING.name, AutomationRunStatus.WAITING_APPROVAL.name)) return false
         val taskId = run.receiptJson?.let { runCatching { JSONObject(it).optString("taskId") }.getOrNull() }.orEmpty()
         if (taskId.isNotBlank()) agent.cancel(taskId)
-        durable.saveAutomationRun(run.copy(status = AutomationRunStatus.CANCELLED.name, completedAtEpochMs = System.currentTimeMillis(), errorMessage = "Cancelled by user."))
+        val cancelled = run.copy(
+            status = AutomationRunStatus.CANCELLED.name,
+            completedAtEpochMs = System.currentTimeMillis(),
+            errorMessage = "Cancelled by user.",
+        )
+        durable.saveAutomationRun(cancelled)
+        durable.getAutomation(run.automationId)?.let {
+            audit(it, cancelled, "AUTOMATION_CANCELLED", "Automation run cancelled by user.")
+        }
         return true
     }
 
