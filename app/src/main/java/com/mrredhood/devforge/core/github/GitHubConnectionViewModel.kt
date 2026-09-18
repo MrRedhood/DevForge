@@ -32,8 +32,9 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
     }
 
     fun disconnect() {
-        secretStore.remove(TOKEN_KEY)
-        snapshot = GitHubConnectionSnapshot(message = "GitHub credentials removed from this device.")
+        runCatching { secretStore.remove(TOKEN_KEY) }
+            .onSuccess { snapshot = GitHubConnectionSnapshot(message = "GitHub credentials removed from this device.") }
+            .onFailure { error -> snapshot = snapshot.copy(message = error.message ?: "Unlock protected credentials before disconnecting.") }
     }
 
     fun hasStoredCredential(): Boolean = secretStore.contains(TOKEN_KEY)
