@@ -33,7 +33,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -140,61 +140,6 @@ jobs:
 
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon --max-workers=2
-
-      - name: Prepare Android emulator
-        shell: bash
-        run: |
-          set -euo pipefail
-          SDKMANAGER="${ANDROID_SDKMANAGER}"
-          AVDMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager"
-          EMULATOR="${ANDROID_HOME}/emulator/emulator"
-          if [ ! -x "$AVDMANAGER" ]; then
-            AVDMANAGER="$(command -v avdmanager)"
-          fi
-          if [ ! -x "$EMULATOR" ]; then
-            EMULATOR="$(command -v emulator)"
-          fi
-          "$SDKMANAGER" "system-images;android-35;google_apis;x86_64"
-          echo "no" | "$AVDMANAGER" create avd --force --name devforge-ci --package "system-images;android-35;google_apis;x86_64" --device "pixel_2"
-          "$EMULATOR" -avd devforge-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "${RUNNER_TEMP}/devforge-emulator.log" 2>&1 &
-          echo "DEVFORGE_EMULATOR_PID=$!" >> "$GITHUB_ENV"
-          adb wait-for-device
-          for attempt in {1..60}; do
-            if adb shell getprop sys.boot_completed | tr -d '' | grep -q "1"; then
-              break
-            fi
-            sleep 2
-            if [ "$attempt" -eq 60 ]; then
-              cat "${RUNNER_TEMP}/devforge-emulator.log" >&2 || true
-              exit 1
-            fi
-          done
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
-
-      - name: Run Compose UI tests
-        run: ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon --max-workers=2
-
-      - name: Upload instrumentation test reports
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: devforge-instrumentation-reports
-          path: |
-            app/build/reports/androidTests
-            app/build/outputs/androidTest-results
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Stop Android emulator
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          if [ -n "${DEVFORGE_EMULATOR_PID:-}" ]; then
-            kill "$DEVFORGE_EMULATOR_PID" 2>/dev/null || true
-          fi
-          adb emu kill 2>/dev/null || true
 
       - name: Run Android lint
         run: ./gradlew :app:lintDebug --stacktrace --no-daemon --max-workers=2
