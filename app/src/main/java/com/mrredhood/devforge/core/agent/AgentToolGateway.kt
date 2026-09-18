@@ -9,6 +9,7 @@ import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import java.security.MessageDigest
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
@@ -162,8 +163,13 @@ class AgentToolGateway(
             }
         }
         val result = try {
-            runCatching { tool.execute(context, request) }
-                .getOrElse { AgentToolResult.Failure(it.message ?: "Agent tool execution failed.") }
+            try {
+                tool.execute(context, request)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                AgentToolResult.Failure(error.message ?: "Agent tool execution failed.")
+            }
         } finally {
             acquired.forEach { runCatching { coordination.releaseFileLease(context.workspaceId, context.taskId, it) } }
         }

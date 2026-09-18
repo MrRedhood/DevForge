@@ -145,7 +145,7 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
     var unsavedEditorUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var showAgentPanel by rememberSaveable { mutableStateOf(false) }
 
-    val destination = DevForgeDestination.valueOf(destinationName)
+    val destination = DevForgeDestination.entries.firstOrNull { it.name == destinationName } ?: DevForgeDestination.Chat
     val expanded = windowSize.widthSizeClass != WindowWidthSizeClass.Compact
     val workspace: WorkspaceViewModel = viewModel()
     val editor: EditorViewModel = viewModel()
@@ -153,7 +153,7 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
 
     fun navigateTo(next: DevForgeDestination) {
         if (next.name == destinationName) return
-        destinationHistory = destinationHistory + destinationName
+        destinationHistory = (destinationHistory + destinationName).takeLast(MAX_DESTINATION_HISTORY)
         destinationName = next.name
     }
 
@@ -379,9 +379,23 @@ private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDe
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NavigationSide(current: DevForgeDestination, onSelect: (DevForgeDestination) -> Unit) {
+    var moreExpanded by remember { mutableStateOf(false) }
+    val primary = listOf(
+        DevForgeDestination.Chat,
+        DevForgeDestination.Files,
+        DevForgeDestination.Git,
+        DevForgeDestination.Build,
+    )
+    val secondary = listOf(
+        DevForgeDestination.Diffs,
+        DevForgeDestination.Terminal,
+        DevForgeDestination.Automations,
+        DevForgeDestination.Approvals,
+        DevForgeDestination.Settings,
+    )
     NavigationRail(Modifier.fillMaxHeight().width(88.dp)) {
         Spacer(Modifier.height(18.dp))
-        DevForgeDestination.entries.forEach { item ->
+        primary.forEach { item ->
             NavigationRailItem(
                 selected = current == item,
                 onClick = { onSelect(item) },
@@ -389,6 +403,30 @@ private fun NavigationSide(current: DevForgeDestination, onSelect: (DevForgeDest
                 label = { Text(item.label) },
             )
         }
+        NavigationRailItem(
+            selected = current in secondary,
+            onClick = { moreExpanded = true },
+            icon = {
+                Box {
+                    Text("⋮", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    DropdownMenu(
+                        expanded = moreExpanded,
+                        onDismissRequest = { moreExpanded = false },
+                    ) {
+                        secondary.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item.label) },
+                                onClick = {
+                                    moreExpanded = false
+                                    onSelect(item)
+                                },
+                            )
+                        }
+                    }
+                }
+            },
+            label = { Text("More") },
+        )
     }
 }
 
@@ -995,4 +1033,5 @@ private fun WorkspaceIntelligenceCard(workspace: WorkspaceViewModel) {
             }
         }
     }
+private const val MAX_DESTINATION_HISTORY = 32
 }

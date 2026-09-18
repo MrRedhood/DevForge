@@ -2,6 +2,7 @@ package com.mrredhood.devforge.core.ai
 
 import android.app.Application
 import android.net.Uri
+import android.content.Intent
 import android.provider.OpenableColumns
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class AIChatViewModel(application: Application) : AndroidViewModel(application) {
+    private val attachmentPermissionsOwned = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val settings = AISettingsRepository(application)
     private val appSettings = DevForgeSettingsRepository(application)
     private val catalogService = ModelCatalogService()
@@ -361,6 +363,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     sendError = error.message ?: "AI request failed."
                 }
             } finally {
+                submittedAttachments.forEach { releaseAttachmentPermission(it.uri) }
                 withContext(NonCancellable + Dispatchers.Main.immediate) {
                     streamingText = ""
                     isSending = false
@@ -380,8 +383,15 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             val additions = uris.mapNotNull { uri ->
                 runCatching {
-                    runCatching {
-                        resolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    val alreadyPersisted = resolver.persistedUriPermissions.any {
+                        it.uri == uri && it.isReadPermission
+                    }
+                    if (!alreadyPersisted) {
+                        runCatching {
+                            resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }.onSuccess {
+                            attachmentPermissionsOwned.add(uri.toString())
+                        }
                     }
                     val metadata = readAttachmentMetadata(uri, type.maxBytes)
                     require(type.accepts(metadata.mimeType))
@@ -400,7 +410,14 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     bounded = bounded.dropLast(1)
                 }
                 attachments = bounded
-                val accepted = additions.count { it.uri in bounded.asSequence().map { item -> item.uri }.toSet() && it.uri !in baselineUris }
+                val finalUris = bounded.asSequence().map { it.uri }.toSet()
+                val finalUriStrings = finalUris.map(Uri::toString).toSet()
+                additions.asSequence()
+                    .map { it.uri }
+                    .filter { it !in baselineUris && it.toString() !in finalUriStrings }
+                    .distinct()
+                    .forEach(::releaseAttachmentPermission)
+                val accepted = additions.count { it.uri in finalUris && it.uri !in baselineUris }
                 val rejected = uris.size - accepted
                 if (rejected > 0) {
                     sendError = rejected.toString() + " attachment(s) were rejected by type, size, or pending limits."
@@ -410,7 +427,10 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun removeAttachment(uri: Uri) {
-        attachments = attachments.filterNot { it.uri == uri }
+        if (attachments.any { it.uri == uri }) {
+            attachments = attachments.filterNot { it.uri == uri }
+            releaseAttachmentPermission(uri)
+        }
     }
 
     private fun readAttachmentMetadata(uri: Uri, maxBytes: Long): AttachmentMetadata {
@@ -495,6 +515,14 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         bytes >= 1024L * 1024L -> (bytes / (1024L * 1024L)).toString() + " MB"
         bytes >= 1024L -> (bytes / 1024L).toString() + " KB"
         else -> bytes.toString() + " B"
+    }
+
+    private fun releaseAttachmentPermission(uri: Uri) {
+        if (attachmentPermissionsOwned.remove(uri.toString())) {
+            runCatching {
+                resolver.releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
     }
 
     fun dismissError() { sendError = null }

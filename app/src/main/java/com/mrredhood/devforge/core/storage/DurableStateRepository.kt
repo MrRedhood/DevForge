@@ -145,6 +145,27 @@ class DurableStateRepository(
     suspend fun resumeAgentTask(taskId: String): Boolean =
         agentTasks.resume(taskId, System.currentTimeMillis()) > 0
 
+    suspend fun startQueuedAgentTask(taskId: String, status: String, now: Long): Boolean =
+        agentTasks.startQueued(taskId, status, now) > 0
+
+    suspend fun startApprovedAgentTask(taskId: String, approvalId: String, status: String, now: Long): Boolean =
+        agentTasks.startApproved(taskId, approvalId, status, now) > 0
+
+    suspend fun beginAgentStep(taskId: String, stepIndex: Int, toolId: String, now: Long): Boolean =
+        agentTasks.beginStep(taskId, stepIndex, toolId, now) > 0
+
+    suspend fun advanceAgentStep(taskId: String, currentStep: Int, nextStep: Int, result: String, now: Long): Boolean =
+        agentTasks.advanceStep(taskId, currentStep, nextStep, result, now) > 0
+
+    suspend fun completeAgentTask(taskId: String, stepCount: Int, result: String, completedAt: Long): Boolean =
+        agentTasks.complete(taskId, stepCount, result, completedAt) > 0
+
+    suspend fun failAgentTask(taskId: String, message: String, now: Long): Boolean =
+        agentTasks.fail(taskId, message.take(MAX_ERROR_LENGTH), now) > 0
+
+    suspend fun cancelAgentTask(taskId: String, message: String): Boolean =
+        agentTasks.cancel(taskId, message.take(MAX_ERROR_LENGTH), System.currentTimeMillis()) > 0
+
     suspend fun recoverRunningAgentTasks(workspaceId: String): Int =
         agentTasks.recoverRunning(
             workspaceId = workspaceId,

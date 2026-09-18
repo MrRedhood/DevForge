@@ -12,6 +12,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 
 /** Executes a persisted agent plan as a small, resumable sequence of typed tool calls. */
 class AgentTaskEngine(
@@ -92,19 +93,18 @@ class AgentTaskEngine(
     suspend fun cancel(taskId: String): Boolean {
         val task = durableState.getAgentTask(taskId) ?: return false
         if (task.status in TERMINAL_STATUSES) return false
-        durableState.saveAgentTask(
-            task.copy(
-                status = AgentTaskStatus.CANCELLED.name,
-                updatedAtEpochMs = System.currentTimeMillis(),
-                completedAtEpochMs = System.currentTimeMillis(),
-                errorMessage = "Cancelled by user.",
-            ),
+        val changed = durableState.cancelAgentTask(taskId, "Cancelled by user.")
+        if (!changed) return false
+        val cancelledTask = durableState.getAgentTask(taskId) ?: task.copy(
+            status = AgentTaskStatus.CANCELLED.name,
+            errorMessage = "Cancelled by user.",
+            completedAtEpochMs = System.currentTimeMillis(),
         )
-        task.approvalId?.let { approvalId ->
+        cancelledTask.approvalId?.let { approvalId ->
             runCatching { approvals?.reject(approvalId) }
         }
-        coordination?.releaseTaskFileLeases(task.workspaceId, taskId)
-        auditTask(task, "AGENT_TASK_CANCELLED", "Agent task cancelled by user.")
+        coordination?.releaseTaskFileLeases(cancelledTask.workspaceId, taskId)
+        auditTask(cancelledTask, "AGENT_TASK_CANCELLED", "Agent task cancelled by user.")
         return true
     }
 
@@ -153,18 +153,16 @@ class AgentTaskEngine(
             return@withContext failed
         }
 
-        val startedAt = task.startedAtEpochMs ?: System.currentTimeMillis()
-        val previousStatus = task.status
-        task = task.copy(
-            status = if (task.currentStep == 0) AgentTaskStatus.PLANNING.name else AgentTaskStatus.RUNNING.name,
-            updatedAtEpochMs = System.currentTimeMillis(),
-            startedAtEpochMs = startedAt,
-            errorMessage = null,
-        )
-        durableState.saveAgentTask(task)
-        if (previousStatus != task.status || previousStatus == AgentTaskStatus.QUEUED.name) {
-            auditTask(task, "AGENT_TASK_STARTED", "Agent task execution started.")
+        val now = System.currentTimeMillis()
+        val targetStatus = if (task.currentStep == 0) AgentTaskStatus.PLANNING.name else AgentTaskStatus.RUNNING.name
+        val started = if (approvalId == null) {
+            durableState.startQueuedAgentTask(taskId, targetStatus, now)
+        } else {
+            durableState.startApprovedAgentTask(taskId, approvalId, targetStatus, now)
         }
+        if (!started) return@withContext durableState.getAgentTask(taskId)
+        task = durableState.getAgentTask(taskId) ?: return@withContext null
+        auditTask(task, "AGENT_TASK_STARTED", "Agent task execution started.")
 
         val execution = try {
             runCatching {
@@ -179,15 +177,12 @@ class AgentTaskEngine(
                         return@withTimeout
                     }
                     val step = plan.steps[index]
-                    val stepTask = task.copy(
-                        status = AgentTaskStatus.RUNNING.name,
-                        currentStep = index,
-                        updatedAtEpochMs = System.currentTimeMillis(),
-                        lastToolId = step.toolId.wireName,
-                        approvalId = null,
-                    )
-                    durableState.saveAgentTask(stepTask)
-                    task = stepTask
+                    val stepStarted = durableState.beginAgentStep(taskId, index, step.toolId.wireName, System.currentTimeMillis())
+                    if (!stepStarted) {
+                        task = durableState.getAgentTask(taskId) ?: return@withTimeout
+                        return@withTimeout
+                    }
+                    task = durableState.getAgentTask(taskId) ?: return@withTimeout
 
                     val request = step.toRequest(task.workspaceId, task.taskId, index)
                     val toolContext = AgentToolContext(
@@ -206,20 +201,12 @@ class AgentTaskEngine(
                     when (result) {
                         is AgentToolResult.Success -> {
                             val nextStep = index + 1
-                            val latestState = durableState.getAgentTask(taskId)
-                            val requestedStatus = latestState?.status
-                            task = task.copy(
-                                status = when (requestedStatus) {
-                                    AgentTaskStatus.PAUSED.name -> AgentTaskStatus.PAUSED.name
-                                    AgentTaskStatus.CANCELLED.name -> AgentTaskStatus.CANCELLED.name
-                                    else -> AgentTaskStatus.RUNNING.name
-                                },
-                                currentStep = nextStep,
-                                approvalId = null,
-                                result = appendResult(task.result, step.label, result.summary, result.output, result.receiptJson),
-                                updatedAtEpochMs = System.currentTimeMillis(),
-                            )
-                            durableState.saveAgentTask(task)
+                            val updatedResult = appendResult(task.result, step.label, result.summary, result.output, result.receiptJson)
+                            if (!durableState.advanceAgentStep(taskId, index, nextStep, updatedResult, System.currentTimeMillis())) {
+                                task = durableState.getAgentTask(taskId) ?: return@withTimeout
+                                return@withTimeout
+                            }
+                            task = durableState.getAgentTask(taskId) ?: return@withTimeout
                             if (task.status == AgentTaskStatus.PAUSED.name || task.status == AgentTaskStatus.CANCELLED.name) {
                                 return@withTimeout
                             }
@@ -248,15 +235,13 @@ class AgentTaskEngine(
                         }
                     }
                 }
-                task = task.copy(
-                    status = AgentTaskStatus.COMPLETED.name,
-                    currentStep = plan.steps.size,
-                    approvalId = null,
-                    updatedAtEpochMs = System.currentTimeMillis(),
-                    completedAtEpochMs = System.currentTimeMillis(),
-                    result = appendResult(task.result, "complete", "Agent task completed.", "", null),
-                )
-                durableState.saveAgentTask(task)
+                val completedAt = System.currentTimeMillis()
+                val completedResult = appendResult(task.result, "complete", "Agent task completed.", "", null)
+                if (!durableState.completeAgentTask(taskId, plan.steps.size, completedResult, completedAt)) {
+                    task = durableState.getAgentTask(taskId) ?: return@withTimeout
+                    return@withTimeout
+                }
+                task = durableState.getAgentTask(taskId) ?: return@withTimeout
                 auditTask(task, "AGENT_TASK_COMPLETED", "Agent task completed.")
                 }
             }
@@ -272,15 +257,28 @@ class AgentTaskEngine(
 
         if (execution.isFailure) {
             val failure = execution.exceptionOrNull()
-            if (failure is CancellationException) throw failure
-            task = task.copy(
-                status = AgentTaskStatus.FAILED.name,
-                errorMessage = (failure?.message ?: "Agent task execution failed.").take(600),
-                updatedAtEpochMs = System.currentTimeMillis(),
-                completedAtEpochMs = System.currentTimeMillis(),
-            )
-            durableState.saveAgentTask(task)
-            auditTask(task, "AGENT_TASK_FAILED", task.errorMessage ?: "Agent task execution failed.")
+            when (failure) {
+                is TimeoutCancellationException -> {
+                    val failedAt = System.currentTimeMillis()
+                    val message = "Agent task exceeded the ${MAX_EXECUTION_MS / 1000L}-second execution limit."
+                    durableState.failAgentTask(taskId, message, failedAt)
+                    task = durableState.getAgentTask(taskId) ?: task.copy(
+                        status = AgentTaskStatus.FAILED.name,
+                        errorMessage = message,
+                        updatedAtEpochMs = failedAt,
+                        completedAtEpochMs = failedAt,
+                    )
+                    auditTask(task, "AGENT_TASK_FAILED", message)
+                }
+                is CancellationException -> throw failure
+                else -> {
+                    val failedAt = System.currentTimeMillis()
+                    val message = (failure?.message ?: "Agent task execution failed.").take(600)
+                    durableState.failAgentTask(taskId, message, failedAt)
+                    task = durableState.getAgentTask(taskId) ?: task
+                    auditTask(task, "AGENT_TASK_FAILED", message)
+                }
+            }
         }
         task
     }

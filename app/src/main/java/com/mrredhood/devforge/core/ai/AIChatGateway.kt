@@ -351,6 +351,7 @@ class AIChatGateway(
         connection.connectTimeout = 15_000
         connection.readTimeout = 120_000
         headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
+        val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
         return@withContext try {
             connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
@@ -359,6 +360,7 @@ class AIChatGateway(
             if (status !in 200..299) error(parseErrorMessage(response).ifBlank { "AI request failed (HTTP $status)." })
             JSONObject(response)
         } finally {
+            cancellationHandle?.dispose()
             connection.disconnect()
         }
     }

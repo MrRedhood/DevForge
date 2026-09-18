@@ -79,6 +79,27 @@ interface AgentTaskDao {
     @Query("UPDATE agent_tasks SET status = 'PAUSED', updatedAtEpochMs = :updatedAt, errorMessage = :message WHERE workspaceId = :workspaceId AND status IN ('PLANNING','RUNNING')")
     suspend fun recoverRunning(workspaceId: String, updatedAt: Long, message: String): Int
 
+    @Query("UPDATE agent_tasks SET status = :status, updatedAtEpochMs = :updatedAt, startedAtEpochMs = COALESCE(startedAtEpochMs, :updatedAt), errorMessage = NULL WHERE taskId = :taskId AND status = 'QUEUED'")
+    suspend fun startQueued(taskId: String, status: String, updatedAt: Long): Int
+
+    @Query("UPDATE agent_tasks SET status = :status, updatedAtEpochMs = :updatedAt, startedAtEpochMs = COALESCE(startedAtEpochMs, :updatedAt), errorMessage = NULL WHERE taskId = :taskId AND status = 'WAITING_APPROVAL' AND approvalId = :approvalId")
+    suspend fun startApproved(taskId: String, approvalId: String, status: String, updatedAt: Long): Int
+
+    @Query("UPDATE agent_tasks SET status = 'RUNNING', currentStep = :stepIndex, updatedAtEpochMs = :updatedAt, lastToolId = :toolId, approvalId = NULL WHERE taskId = :taskId AND currentStep = :stepIndex AND status IN ('PLANNING','RUNNING')")
+    suspend fun beginStep(taskId: String, stepIndex: Int, toolId: String, updatedAt: Long): Int
+
+    @Query("UPDATE agent_tasks SET currentStep = :nextStep, approvalId = NULL, result = :result, updatedAtEpochMs = :updatedAt WHERE taskId = :taskId AND currentStep = :currentStep AND status IN ('RUNNING','PAUSED')")
+    suspend fun advanceStep(taskId: String, currentStep: Int, nextStep: Int, result: String, updatedAt: Long): Int
+
+    @Query("UPDATE agent_tasks SET status = 'COMPLETED', currentStep = :stepCount, approvalId = NULL, result = :result, updatedAtEpochMs = :completedAt, completedAtEpochMs = :completedAt WHERE taskId = :taskId AND currentStep = :stepCount AND status = 'RUNNING'")
+    suspend fun complete(taskId: String, stepCount: Int, result: String, completedAt: Long): Int
+
+    @Query("UPDATE agent_tasks SET status = 'FAILED', updatedAtEpochMs = :updatedAt, completedAtEpochMs = :updatedAt, errorMessage = :message WHERE taskId = :taskId AND status NOT IN ('COMPLETED','FAILED','CANCELLED')")
+    suspend fun fail(taskId: String, message: String, updatedAt: Long): Int
+
+    @Query("UPDATE agent_tasks SET status = 'CANCELLED', updatedAtEpochMs = :updatedAt, completedAtEpochMs = :updatedAt, errorMessage = :message WHERE taskId = :taskId AND status NOT IN ('COMPLETED','FAILED','CANCELLED')")
+    suspend fun cancel(taskId: String, message: String, updatedAt: Long): Int
+
     @Query("UPDATE agent_tasks SET status = 'FAILED', updatedAtEpochMs = :updatedAt, completedAtEpochMs = :updatedAt, errorMessage = :message WHERE taskId = :taskId AND approvalId = :approvalId AND status = 'WAITING_APPROVAL'")
     suspend fun failWaitingApproval(taskId: String, approvalId: String, updatedAt: Long, message: String): Int
 
