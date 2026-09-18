@@ -29,6 +29,7 @@ sealed interface BuildState {
     data class Ready(val configuration: BuildConfiguration) : BuildState
     data class AwaitingApproval(val approvalId: String, val configuration: BuildConfiguration) : BuildState
     data class Dispatching(val configuration: BuildConfiguration) : BuildState
+    data class Cancelling(val runId: Long, val configuration: BuildConfiguration) : BuildState
     data class Running(val runId: Long, val configuration: BuildConfiguration) : BuildState
     data class Succeeded(val runId: Long, val artifactName: String) : BuildState
     data class Failed(val message: String) : BuildState
@@ -37,6 +38,7 @@ sealed interface BuildState {
 
 data class BuildCapabilityState(
     val githubDispatch: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val cancelBuild: CapabilityAvailability = CapabilityAvailability.Unavailable,
     val liveLogs: CapabilityAvailability = CapabilityAvailability.Unavailable,
     val artifacts: CapabilityAvailability = CapabilityAvailability.Unavailable,
 )
