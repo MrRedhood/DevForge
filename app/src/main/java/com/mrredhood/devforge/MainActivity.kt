@@ -32,6 +32,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Person
@@ -452,78 +454,80 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
 private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) {
     var showCreateWorkspace by rememberSaveable { mutableStateOf(false) }
     var workspaceName by rememberSaveable { mutableStateOf("") }
+    var createKind by rememberSaveable { mutableStateOf<String?>(null) }
+    var createName by rememberSaveable { mutableStateOf("") }
+    var renameTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
+    var renameName by rememberSaveable { mutableStateOf("") }
+    var deleteTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
-            workspace.openWorkspace(
-                uri = uri,
-                workspaceName = workspaceName,
-            )
+            workspace.openWorkspace(uri = uri, workspaceName = workspaceName)
             workspaceName = ""
         }
     }
 
     fun launchWorkspacePicker() {
-        runCatching {
-            picker.launch(null)
-        }.onFailure(workspace::reportWorkspacePickerError)
+        runCatching { picker.launch(null) }.onFailure(workspace::reportWorkspacePickerError)
     }
 
     BackHandler(enabled = workspace.breadcrumbs.size > 1) { workspace.goUp() }
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Files", fontSize = 30.sp, fontWeight = FontWeight.Black)
-                    Text(
-                        if (workspace.workspace == null) "Create or choose a workspace" else "Workspace browser",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text("Files", fontSize = 28.sp, fontWeight = FontWeight.Black)
+                    Text(workspace.workspace?.name ?: "No workspace", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (workspace.workspace == null) {
-                    Button(onClick = { showCreateWorkspace = true }) {
-                        Icon(Icons.Default.Folder, null)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Create")
-                    }
+                    Button(onClick = { showCreateWorkspace = true }) { Text("New workspace") }
                 } else {
-                    TextButton(onClick = {
-                        workspaceName = ""
-                        showCreateWorkspace = true
-                    }) { Text("New workspace") }
-                    IconButton(onClick = workspace::refresh) {
-                        Icon(Icons.Default.Refresh, "Refresh")
-                    }
+                    TextButton(onClick = { createKind = "file"; createName = "" }) { Text("New file") }
+                    TextButton(onClick = { createKind = "folder"; createName = "" }) { Text("New folder") }
+                    IconButton(onClick = workspace::refresh) { Icon(Icons.Default.Refresh, "Refresh files") }
                 }
             }
         }
 
         if (workspace.workspace == null) {
-            item {
-                InfoCard(
-                    "Create a workspace",
-                    "Give the workspace a name, then choose the project folder. DevForge will remember the folder across launches.",
-                )
-            }
+            item { InfoCard("Create a workspace", "Pick your project folder once. DevForge remembers it.") }
         } else {
             item { Breadcrumbs(workspace) }
             item { WorkspaceIntelligenceCard(workspace) }
+            workspace.knowledgeMessage?.let { message ->
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(message, Modifier.weight(1f))
+                            TextButton(onClick = workspace::clearKnowledgeMessage) { Text("Close") }
+                        }
+                    }
+                }
+            }
             if (workspace.isSearching || workspace.searchResults.isNotEmpty()) {
                 item { WorkspaceSearchResults(workspace, editor) }
             } else if (workspace.isLoading) {
-                item { LoadingCard("Reading folder…") }
+                item { LoadingCard("Loading files…") }
             } else if (workspace.entries.isEmpty()) {
-                item { InfoCard("Nothing in this folder", "Create a file here and refresh.") }
+                item { InfoCard("Empty folder", "Use New file or New folder.") }
             } else {
                 items(workspace.entries, key = { it.uri.toString() }) { entry ->
-                    FileRow(entry) {
-                        if (entry.isDirectory) workspace.openDirectory(entry) else editor.open(entry)
-                    }
+                    FileRow(
+                        entry = entry,
+                        onOpen = {
+                            if (entry.isDirectory) workspace.openDirectory(entry) else editor.open(entry)
+                        },
+                        onRename = {
+                            renameTarget = entry
+                            renameName = entry.name
+                        },
+                        onDelete = { deleteTarget = entry },
+                    )
                 }
             }
         }
@@ -531,13 +535,10 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
         if (workspace.workspaces.isNotEmpty()) {
             item {
                 Card(
-                    shape = RoundedCornerShape(22.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                 ) {
-                    Column(
-                        Modifier.fillMaxWidth().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Workspaces", fontWeight = FontWeight.Bold)
                         workspace.workspaces.forEach { item ->
                             val active = item.id == workspace.workspace?.id
@@ -545,10 +546,7 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
                                 onClick = { workspace.switchWorkspace(item.id) },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text(
-                                    (if (active) "✓ " else "") + item.name,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
+                                Text((if (active) "✓ " else "") + item.name, modifier = Modifier.fillMaxWidth())
                             }
                         }
                     }
@@ -559,46 +557,91 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
 
     if (showCreateWorkspace) {
         AlertDialog(
-            onDismissRequest = {
-                showCreateWorkspace = false
-                workspaceName = ""
-            },
-            title = { Text("Create workspace") },
+            onDismissRequest = { showCreateWorkspace = false; workspaceName = "" },
+            title = { Text("New workspace") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = workspaceName,
-                        onValueChange = {
-                            workspaceName = it.replace(Regex("[\\r\\n]"), " ").take(120)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Workspace name") },
-                        placeholder = { Text("My project") },
-                        singleLine = true,
-                    )
-                    Text(
-                        "Next, DevForge will ask you to choose the project folder.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                OutlinedTextField(
+                    workspaceName,
+                    { workspaceName = it.replace(Regex("[\r\n]"), " ").take(120) },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("Name") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showCreateWorkspace = false; launchWorkspacePicker() }) { Text("Choose folder") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateWorkspace = false; workspaceName = "" }) { Text("Cancel") }
+            },
+        )
+    }
+
+    createKind?.let { kind ->
+        AlertDialog(
+            onDismissRequest = { createKind = null; createName = "" },
+            title = { Text(if (kind == "file") "New file" else "New folder") },
+            text = {
+                OutlinedTextField(
+                    createName,
+                    { createName = it.take(255) },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("Name") },
+                    singleLine = true,
+                )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        showCreateWorkspace = false
-                        launchWorkspacePicker()
+                        if (kind == "file") workspace.createFile(createName) else workspace.createFolder(createName)
+                        createKind = null
+                        createName = ""
                     },
-                ) { Text("Choose folder") }
+                    enabled = createName.isNotBlank(),
+                ) { Text("Create") }
             },
-            dismissButton = {
+            dismissButton = { TextButton(onClick = { createKind = null; createName = "" }) { Text("Cancel") } },
+        )
+    }
+
+    renameTarget?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text("Rename") },
+            text = {
+                OutlinedTextField(
+                    renameName,
+                    { renameName = it.take(255) },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("New name") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
                 TextButton(
                     onClick = {
-                        showCreateWorkspace = false
-                        workspaceName = ""
+                        workspace.renameEntry(entry, renameName)
+                        renameTarget = null
                     },
-                ) { Text("Cancel") }
+                    enabled = renameName.isNotBlank(),
+                ) { Text("Rename") }
             },
+            dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("Cancel") } },
+        )
+    }
+
+    deleteTarget?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Delete " + entry.name + "?") },
+            text = { Text("This removes the item from the workspace.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    workspace.deleteEntry(entry)
+                    deleteTarget = null
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } },
         )
     }
 }
@@ -685,24 +728,38 @@ private fun Breadcrumbs(workspace: WorkspaceViewModel) {
 }
 
 @Composable
-private fun FileRow(entry: WorkspaceEntry, onOpen: () -> Unit) {
+private fun FileRow(
+    entry: WorkspaceEntry,
+    onOpen: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+) {
     Card(
         onClick = onOpen,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile, null, Modifier.size(22.dp))
-            Spacer(Modifier.width(12.dp))
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
+                contentDescription = if (entry.isDirectory) "Folder" else "File",
+                Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(entry.name, fontWeight = FontWeight.SemiBold)
+                Text(entry.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 Text(
                     if (entry.isDirectory) "Folder" else formatBytes(entry.sizeBytes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Icon(Icons.Default.ChevronRight, null, Modifier.alpha(.45f))
+            IconButton(onClick = onRename, enabled = entry.name != ".git") {
+                Icon(Icons.Default.Edit, "Rename")
+            }
+            IconButton(onClick = onDelete, enabled = entry.name != ".git") {
+                Icon(Icons.Default.Delete, "Delete")
+            }
         }
     }
 }
