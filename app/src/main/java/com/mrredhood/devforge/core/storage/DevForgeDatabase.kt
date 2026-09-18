@@ -305,7 +305,6 @@ abstract class DevForgeDatabase : RoomDatabase() {
                 )""")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_handoffs_workspaceId_status_createdAtEpochMs ON agent_handoffs(workspaceId, status, createdAtEpochMs)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_agent_handoffs_workspaceId_toTaskId_status ON agent_handoffs(workspaceId, toTaskId, status)")
-                database.execSQL("ALTER TABLE agent_handoffs ADD COLUMN claimedByTaskId TEXT")
                 database.execSQL("""CREATE TABLE IF NOT EXISTS agent_file_leases (
                     leaseKey TEXT NOT NULL PRIMARY KEY,
                     workspaceId TEXT NOT NULL,
