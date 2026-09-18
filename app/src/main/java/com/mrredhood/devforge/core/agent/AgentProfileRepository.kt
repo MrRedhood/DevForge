@@ -38,7 +38,7 @@ class AgentProfileRepository(context: Context) {
 
     fun save(profile: AgentProfile): List<AgentProfile> {
         val normalized = profile.copy(
-            name = profile.name.trim().take(MAX_NAME_CHARS),
+            name = SecretRedactor.redact(profile.name.trim().take(MAX_NAME_CHARS), MAX_NAME_CHARS),
             description = SecretRedactor.redact(profile.description.trim().take(MAX_DESCRIPTION_CHARS), MAX_DESCRIPTION_CHARS),
             instructions = SecretRedactor.redact(profile.instructions.trim().take(MAX_INSTRUCTION_CHARS), MAX_INSTRUCTION_CHARS),
             access = profile.access.ifEmpty { AgentAccess.DEFAULT },
