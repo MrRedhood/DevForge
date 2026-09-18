@@ -413,7 +413,7 @@ class GitHubActionsGateway(
             val endpoint = "https://api.github.com" + validatedPath(path)
             val http = connection.open(endpoint).apply {
                 requestMethod = method
-                instanceFollowRedirects = true
+                instanceFollowRedirects = false
                 setRequestProperty("Accept", "application/vnd.github+json")
                 setRequestProperty("Authorization", "Bearer " + token)
                 setRequestProperty("X-GitHub-Api-Version", API_VERSION)
@@ -452,7 +452,11 @@ class GitHubActionsGateway(
         }
 
     private fun safeMessage(error: Throwable): String =
-        error.message?.takeIf(String::isNotBlank)?.take(280) ?: "GitHub request failed."
+        error.message
+            ?.takeIf(String::isNotBlank)
+            ?.let(::sanitizeError)
+            ?.take(280)
+            ?: "GitHub request failed."
 
     private fun sanitizeError(body: String): String =
         body.replace(
