@@ -1,198 +1,196 @@
 package com.mrredhood.devforge.core.ai
 
 import java.net.HttpURLConnection
-import java.net.URLEncoder
 import java.net.URL
 import java.util.Locale
+import org.json.JSONArray
 import org.json.JSONObject
 
 class ModelCatalogService {
-    fun load(provider: AIProvider, apiKey: String): ModelCatalogResult {
+    fun load(provider: AIProvider, apiKey: String, customBaseUrl: String? = null): ModelCatalogResult {
         return runCatching {
             when (provider) {
                 AIProvider.GEMINI -> loadGemini(apiKey)
+                AIProvider.ANTHROPIC -> loadAnthropic(apiKey)
+                AIProvider.XAI_GROK -> loadXai(apiKey)
+                AIProvider.DEEPINFRA -> loadOpenAiStyle(AIProvider.DEEPINFRA, apiKey, customBaseUrl)
                 AIProvider.OPENROUTER -> loadOpenRouter(apiKey)
-                AIProvider.OPENAI -> loadOpenAi(apiKey)
+                AIProvider.GROQ -> loadOpenAiStyle(AIProvider.GROQ, apiKey, customBaseUrl)
+                AIProvider.OPENAI -> loadOpenAiStyle(AIProvider.OPENAI, apiKey, customBaseUrl)
+                AIProvider.OPENAI_COMPATIBLE -> loadOpenAiStyle(AIProvider.OPENAI_COMPATIBLE, apiKey, customBaseUrl)
             }
         }.getOrElse { error ->
             ModelCatalogResult(emptyList(), provider, warning = error.message ?: "Unable to load models.")
         }
     }
 
-    fun resolveMissingContext(model: AIModelInfo): AIModelInfo {
-        if (model.contextLimit != null) return model
-        val context = resolveContextLimitFromWeb(model.id) ?: return model
-        return model.copy(contextLimit = context, metadataSource = "${model.metadataSource} + web search")
-    }
+    fun resolveMissingContext(model: AIModelInfo): AIModelInfo = model
 
     private fun loadGemini(apiKey: String): ModelCatalogResult {
         val json = request(
             "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000",
-            headers = mapOf("x-goog-api-key" to apiKey, "Accept" to "application/json"),
+            mapOf("x-goog-api-key" to apiKey, "Accept" to "application/json"),
         )
-        val array = json.optJSONArray("models") ?: return ModelCatalogResult(emptyList(), AIProvider.GEMINI, warning = "Gemini returned no models.")
+        val array = json.optJSONArray("models") ?: return ModelCatalogResult(emptyList(), AIProvider.GEMINI, warning = "Google returned no models.")
         val models = buildList {
             for (index in 0 until array.length()) {
                 val model = array.optJSONObject(index) ?: continue
                 val id = model.optString("baseModelId").ifBlank { model.optString("name").removePrefix("models/") }
-                if (id.isBlank()) continue
                 if (!isSafeModelId(id)) continue
                 val methods = jsonArrayStrings(model.optJSONArray("supportedGenerationMethods"))
-                val inputLimit = model.optLongOrNull("inputTokenLimit")
-                val outputLimit = model.optLongOrNull("outputTokenLimit")
                 val modalities = inferModalities(id, model.optString("description"))
-                add(
-                    AIModelInfo(
-                        provider = AIProvider.GEMINI,
-                        id = id,
-                        displayName = model.optString("displayName", id),
-                        description = model.optString("description"),
-                        priceClass = if (id.contains("embedding", true)) ModelPriceClass.PAID else ModelPriceClass.UNKNOWN,
-                        contextLimit = inputLimit,
-                        outputTokenLimit = outputLimit,
-                        inputModalities = modalities.first,
-                        outputModalities = modalities.second,
-                        supportsTools = methods.any { it.contains("generate", true) },
-                        metadataSource = "Gemini API",
-                    ),
-                )
+                add(AIModelInfo(
+                    provider = AIProvider.GEMINI,
+                    id = id,
+                    displayName = model.optString("displayName", id),
+                    description = model.optString("description"),
+                    priceClass = ModelPriceClass.UNKNOWN,
+                    contextLimit = model.optLongOrNull("inputTokenLimit"),
+                    outputTokenLimit = model.optLongOrNull("outputTokenLimit"),
+                    inputModalities = modalities.first,
+                    outputModalities = modalities.second,
+                    supportsTools = methods.any { it.equals("generateContent", true) },
+                    metadataSource = "Google Gemini API",
+                ))
             }
         }
         return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.GEMINI)
     }
 
-    private fun loadOpenRouter(apiKey: String): ModelCatalogResult {
+    private fun loadAnthropic(apiKey: String): ModelCatalogResult {
         val json = request(
-            "https://openrouter.ai/api/v1/models",
-            headers = mapOf(
-                "Authorization" to "Bearer $apiKey",
-                "Accept" to "application/json",
-                "X-Title" to "DevForge",
-            ),
+            AIProviderRegistry.modelsEndpoint(AIProvider.ANTHROPIC, null),
+            mapOf("x-api-key" to apiKey, "anthropic-version" to ANTHROPIC_VERSION, "Accept" to "application/json"),
         )
-        val array = json.optJSONArray("data") ?: return ModelCatalogResult(emptyList(), AIProvider.OPENROUTER, warning = "OpenRouter returned no models.")
+        val array = json.optJSONArray("data") ?: return ModelCatalogResult(emptyList(), AIProvider.ANTHROPIC, warning = "Anthropic returned no models.")
         val models = buildList {
             for (index in 0 until array.length()) {
                 val model = array.optJSONObject(index) ?: continue
                 val id = model.optString("id")
                 if (!isSafeModelId(id)) continue
-                if (id.isBlank()) continue
-                val architecture = model.optJSONObject("architecture")
-                val input = jsonArrayStrings(architecture?.optJSONArray("input_modalities"))
-                val output = jsonArrayStrings(architecture?.optJSONArray("output_modalities"))
-                val pricing = model.optJSONObject("pricing")
-                val inputPrice = pricing?.optDoubleOrNull("prompt")?.times(1_000_000.0)
-                val outputPrice = pricing?.optDoubleOrNull("completion")?.times(1_000_000.0)
-                val priceClass = when {
-                    id.endsWith(":free") -> ModelPriceClass.FREE
-                    inputPrice == 0.0 && outputPrice == 0.0 -> ModelPriceClass.FREE
-                    inputPrice != null || outputPrice != null -> ModelPriceClass.PAID
-                    else -> ModelPriceClass.UNKNOWN
-                }
-                val supported = jsonArrayStrings(model.optJSONArray("supported_parameters"))
-                val context = model.optLongOrNull("context_length")
-                add(
-                    AIModelInfo(
-                        provider = AIProvider.OPENROUTER,
-                        id = id,
-                        displayName = model.optString("name", id),
-                        description = model.optString("description"),
-                        priceClass = priceClass,
-                        inputPricePerMillion = inputPrice,
-                        outputPricePerMillion = outputPrice,
-                        contextLimit = context,
-                        inputModalities = input.ifEmpty { setOf("text") },
-                        outputModalities = output.ifEmpty { setOf("text") },
-                        supportsTools = "tools" in supported || "tool_choice" in supported,
-                        metadataSource = if (context != null) "OpenRouter API" else "OpenRouter API · web fallback available",
-                    ),
-                )
+                add(AIModelInfo(
+                    provider = AIProvider.ANTHROPIC,
+                    id = id,
+                    displayName = model.optString("display_name", id),
+                    description = "Discovered from the Anthropic Models API.",
+                    priceClass = ModelPriceClass.UNKNOWN,
+                    contextLimit = model.optLongOrNull("context_window"),
+                    outputTokenLimit = model.optLongOrNull("max_output_tokens"),
+                    inputModalities = setOf("text"),
+                    outputModalities = setOf("text"),
+                    supportsTools = id.startsWith("claude-", true),
+                    metadataSource = "Anthropic Models API",
+                ))
             }
         }
+        return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.ANTHROPIC)
+    }
+
+    private fun loadXai(apiKey: String): ModelCatalogResult {
+        val json = request(
+            "https://api.x.ai/v1/language-models",
+            mapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json"),
+        )
+        val array = json.optJSONArray("models") ?: return ModelCatalogResult(emptyList(), AIProvider.XAI_GROK, warning = "xAI returned no language models.")
+        val models = buildList {
+            for (index in 0 until array.length()) {
+                val model = array.optJSONObject(index) ?: continue
+                val id = model.optString("id")
+                if (!isSafeModelId(id)) continue
+                val input = jsonArrayStrings(model.optJSONArray("input_modalities"))
+                val output = jsonArrayStrings(model.optJSONArray("output_modalities"))
+                val context = model.optLongOrNull("context_length")
+                add(AIModelInfo(
+                    provider = AIProvider.XAI_GROK,
+                    id = id,
+                    displayName = id,
+                    description = "Discovered from the xAI language-models API.",
+                    priceClass = ModelPriceClass.UNKNOWN,
+                    contextLimit = context,
+                    inputModalities = input.ifEmpty { inferModalities(id, "").first },
+                    outputModalities = output.ifEmpty { inferModalities(id, "").second },
+                    supportsTools = false,
+                    metadataSource = "xAI language models API",
+                ))
+            }
+        }
+        return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.XAI_GROK)
+    }
+
+    private fun loadOpenRouter(apiKey: String): ModelCatalogResult {
+        val json = request(
+            AIProviderRegistry.modelsEndpoint(AIProvider.OPENROUTER, null),
+            mapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json", "X-Title" to "DevForge"),
+        )
+        val array = json.optJSONArray("data") ?: return ModelCatalogResult(emptyList(), AIProvider.OPENROUTER, warning = "OpenRouter returned no models.")
+        val models = buildOpenAiStyleModels(AIProvider.OPENROUTER, array)
         return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.OPENROUTER)
     }
 
-    private fun loadOpenAi(apiKey: String): ModelCatalogResult {
-        val json = request(
-            "https://api.openai.com/v1/models",
-            headers = mapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json"),
-        )
-        val array = json.optJSONArray("data") ?: return ModelCatalogResult(emptyList(), AIProvider.OPENAI, warning = "OpenAI returned no models.")
-        val models = buildList {
-            for (index in 0 until array.length()) {
-                val model = array.optJSONObject(index) ?: continue
-                val id = model.optString("id")
-                if (!isSafeModelId(id)) continue
-                if (id.isBlank()) continue
-                val modalities = inferModalities(id, "")
-                add(
-                    AIModelInfo(
-                        provider = AIProvider.OPENAI,
-                        id = id,
-                        displayName = id,
-                        description = "Discovered from the OpenAI Models API.",
-                        priceClass = ModelPriceClass.UNKNOWN,
-                        contextLimit = null,
-                        inputModalities = modalities.first,
-                        outputModalities = modalities.second,
-                        supportsTools = !id.contains("embedding", true),
-                        metadataSource = "OpenAI API · web fallback available",
-                    ),
-                )
+    private fun loadOpenAiStyle(provider: AIProvider, apiKey: String, customBaseUrl: String?): ModelCatalogResult {
+        val endpoint = AIProviderRegistry.modelsEndpoint(provider, customBaseUrl)
+        val headers = mutableMapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json")
+        if (provider == AIProvider.OPENROUTER) headers["X-Title"] = "DevForge"
+        val json = request(endpoint, headers)
+        val array = json.optJSONArray("data") ?: return ModelCatalogResult(emptyList(), provider, warning = provider.displayName + " returned no models.")
+        val models = buildOpenAiStyleModels(provider, array)
+        return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, provider)
+    }
+
+    private fun buildOpenAiStyleModels(provider: AIProvider, array: JSONArray): List<AIModelInfo> = buildList {
+        for (index in 0 until array.length()) {
+            val model = array.optJSONObject(index) ?: continue
+            val id = model.optString("id")
+            if (!isSafeModelId(id)) continue
+            val architecture = model.optJSONObject("architecture")
+            val input = jsonArrayStrings(architecture?.optJSONArray("input_modalities"))
+            val output = jsonArrayStrings(architecture?.optJSONArray("output_modalities"))
+            val pricing = model.optJSONObject("pricing")
+            val inputPrice = pricing?.optDoubleOrNull("prompt")?.let { it * 1_000_000.0 }
+            val outputPrice = pricing?.optDoubleOrNull("completion")?.let { it * 1_000_000.0 }
+            val priceClass = when {
+                id.endsWith(":free", true) || (inputPrice == 0.0 && outputPrice == 0.0) -> ModelPriceClass.FREE
+                inputPrice != null || outputPrice != null -> ModelPriceClass.PAID
+                else -> ModelPriceClass.UNKNOWN
             }
+            val inferred = inferModalities(id, model.optString("name"))
+            add(AIModelInfo(
+                provider = provider,
+                id = id,
+                displayName = model.optString("name", id),
+                description = model.optString("description"),
+                priceClass = priceClass,
+                inputPricePerMillion = inputPrice,
+                outputPricePerMillion = outputPrice,
+                contextLimit = model.optLongOrNull("context_length") ?: model.optLongOrNull("context_window"),
+                outputTokenLimit = model.optLongOrNull("max_output_tokens") ?: model.optLongOrNull("max_completion_tokens"),
+                inputModalities = input.ifEmpty { inferred.first },
+                outputModalities = output.ifEmpty { inferred.second },
+                supportsTools = jsonArrayStrings(model.optJSONArray("supported_parameters")).any { it == "tools" || it == "tool_choice" },
+                metadataSource = provider.displayName + " Models API",
+            ))
         }
-        return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.OPENAI)
     }
 
     private fun request(url: String, headers: Map<String, String>): JSONObject {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
+        connection.instanceFollowRedirects = false
         connection.connectTimeout = 12_000
         connection.readTimeout = 20_000
-        connection.useCaches = true
         headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
         return try {
-            val responseCode = connection.responseCode
-            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
-            if (responseCode !in 200..299) error("Model catalog request failed (HTTP $responseCode).")
+            if (status !in 200..299) {
+                val message = runCatching { JSONObject(body).optJSONObject("error")?.optString("message") }.getOrNull().orEmpty()
+                error(message.ifBlank { "Model catalog request failed (HTTP $status)." })
+            }
             JSONObject(body)
         } finally {
             connection.disconnect()
         }
-    }
-
-    private fun resolveContextLimitFromWeb(modelId: String): Long? {
-        return runCatching {
-            val query = URLEncoder.encode("$modelId context window context length tokens", "UTF-8")
-            val connection = URL("https://html.duckduckgo.com/html/?q=$query").openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("User-Agent", "DevForge/0.1 Android")
-            connection.connectTimeout = 8_000
-            connection.readTimeout = 12_000
-            val body = try {
-                connection.inputStream.use { it.readBounded(MAX_WEB_RESPONSE_BYTES) }.toString(Charsets.UTF_8)
-            } finally {
-                connection.disconnect()
-            }
-            val patterns = listOf(
-                Regex("(?i)([0-9][0-9,]*(?:\\.[0-9]+)?)[ ]*(k|m)?[ ]*(?:token|tokens)[^<]{0,40}(?:context|context window|context length)"),
-                Regex("(?i)(?:context window|context length)[^0-9]{0,40}([0-9][0-9,]*(?:\\.[0-9]+)?)[ ]*(k|m)?[ ]*(?:token|tokens)"),
-            )
-            patterns.asSequence().mapNotNull { regex ->
-                regex.find(body)?.let { match -> parseCount(match.groupValues[1], match.groupValues.getOrNull(2).orEmpty()) }
-            }.firstOrNull()
-        }.getOrNull()
-    }
-
-    private fun parseCount(value: String, suffix: String): Long? {
-        val number = value.replace(",", "").toDoubleOrNull() ?: return null
-        val factor = when (suffix.lowercase(Locale.US)) {
-            "m" -> 1_000_000.0
-            "k" -> 1_000.0
-            else -> 1.0
-        }
-        return (number * factor).toLong().takeIf { it > 0L }
     }
 
     private fun inferModalities(id: String, description: String): Pair<Set<String>, Set<String>> {
@@ -200,11 +198,11 @@ class ModelCatalogService {
         val input = mutableSetOf("text")
         val output = mutableSetOf("text")
         if (source.contains("image") || source.contains("vision") || source.contains("multimodal")) input += "image"
-        if (source.contains("video") || source.contains("veo")) input += "video"
+        if (source.contains("video")) input += "video"
         if (source.contains("audio") || source.contains("voice") || source.contains("live")) input += "audio"
         if (source.contains("tts") || source.contains("speech") || source.contains("voice")) output += "audio"
-        if (source.contains("image") || source.contains("imagen")) output += "image"
-        if (source.contains("video") || source.contains("veo")) output += "video"
+        if (source.contains("image") || source.contains("imagen") || source.contains("image-generation")) output += "image"
+        if (source.contains("video")) output += "video"
         if (source.contains("embedding")) {
             input.clear(); input += "text"
             output.clear(); output += "embedding"
@@ -213,20 +211,17 @@ class ModelCatalogService {
     }
 
     private fun isSafeModelId(value: String): Boolean =
-        value.length <= 180 && SAFE_MODEL_ID.matches(value) && !value.contains("..")
+        value.isNotBlank() && value.length <= 180 && SAFE_MODEL_ID.matches(value) && !value.contains("..")
 
-
-    private fun jsonArrayStrings(array: org.json.JSONArray?): Set<String> = buildSet {
+    private fun jsonArrayStrings(array: JSONArray?): Set<String> = buildSet {
         if (array == null) return@buildSet
-        for (index in 0 until array.length()) {
-            array.optString(index).takeIf { it.isNotBlank() }?.let(::add)
-        }
+        for (index in 0 until array.length()) array.optString(index).takeIf { it.isNotBlank() }?.let(::add)
     }
 
     private companion object {
-        private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
-        private const val MAX_WEB_RESPONSE_BYTES = 512 * 1024
-        private val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
+        const val ANTHROPIC_VERSION = "2023-06-01"
+        const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+        val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
     }
 }
 
@@ -240,12 +235,12 @@ private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
     val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 32 * 1024))
     val buffer = ByteArray(8 * 1024)
     var total = 0
-    while (total < maxBytes) {
-        val read = read(buffer, 0, minOf(buffer.size, maxBytes - total))
+    while (total <= maxBytes) {
+        val read = read(buffer, 0, minOf(buffer.size, maxBytes + 1 - total))
         if (read <= 0) break
         output.write(buffer, 0, read)
         total += read
+        if (total > maxBytes) error("Model catalog response exceeded the DevForge response limit.")
     }
-    if (total >= maxBytes) error("Model catalog response exceeded the DevForge response limit.")
     return output.toByteArray()
 }
