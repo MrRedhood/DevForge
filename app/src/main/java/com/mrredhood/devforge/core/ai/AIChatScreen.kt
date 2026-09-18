@@ -1,5 +1,7 @@
 package com.mrredhood.devforge.core.ai
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +49,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
+fun AIChatScreen(
+    viewModel: AIChatViewModel = viewModel(),
+    onOpenAgents: () -> Unit = {},
+) {
     val listState = rememberLazyListState()
     val selected = viewModel.selectedModel
 
@@ -71,7 +76,7 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
                 ) {
                     items(viewModel.messages, key = { it.messageId }) { message -> MessageBubble(message) }
                     if (viewModel.isSending) {
-                        item { StreamingBubble(viewModel.streamingText) }
+                        item { StreamingBubble(viewModel.streamingText, viewModel.streamingAnimationKind) }
                     }
                 }
             }
@@ -198,7 +203,7 @@ private fun EmptyChat(viewModel: AIChatViewModel, selected: AIModelInfo?) {
 }
 
 @Composable
-private fun StreamingBubble(content: String) {
+private fun StreamingBubble(content: String, animationKind: StreamingAnimationKind) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         Card(
             modifier = Modifier.fillMaxWidth(.94f),
@@ -207,7 +212,7 @@ private fun StreamingBubble(content: String) {
         ) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    StreamingAnimation()
+                    StreamingAnimation(animationKind)
                     Spacer(Modifier.width(6.dp))
                     Text("Generating", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
@@ -265,8 +270,41 @@ private fun CommandPalette(commands: List<AICommandDefinition>, onSelect: (AICom
 
 @Composable
 private fun ChatComposer(viewModel: AIChatViewModel) {
+    var attachmentMenuOpen by remember { mutableStateOf(false) }
+    var pickerType by remember { mutableStateOf(ChatAttachmentType.ANY_FILE) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        viewModel.addAttachments(uris, pickerType)
+    }
+    fun launchPicker(type: ChatAttachmentType) {
+        pickerType = type
+        attachmentMenuOpen = false
+        picker.launch(attachmentMimeTypes(type))
+    }
+
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (viewModel.attachments.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    viewModel.attachments.forEach { attachment ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ) {
+                            Row(
+                                Modifier.padding(start = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(attachment.name, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                                TextButton(onClick = { viewModel.removeAttachment(attachment.uri) }) { Text("×") }
+                            }
+                        }
+                    }
+                }
+            }
+
             BasicTextField(
                 value = viewModel.input,
                 onValueChange = viewModel::updateInput,
@@ -282,7 +320,23 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                 },
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.TagFaces, null, Modifier.padding(start = 6.dp))
+                Box {
+                    IconButton(onClick = { attachmentMenuOpen = true }) {
+                        Text("+", fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                    }
+                    DropdownMenu(
+                        expanded = attachmentMenuOpen,
+                        onDismissRequest = { attachmentMenuOpen = false },
+                    ) {
+                        ChatAttachmentType.entries.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type.label + " · " + maxUploadLabel(type.maxBytes)) },
+                                onClick = { launchPicker(type) },
+                            )
+                        }
+                    }
+                }
+                Icon(Icons.Default.TagFaces, null, Modifier.padding(start = 2.dp))
                 Spacer(Modifier.weight(1f))
                 IconButton(
                     onClick = if (viewModel.isSending) viewModel::stopGeneration else viewModel::submit,
@@ -313,3 +367,24 @@ private fun contextLabel(value: Long?): String {
         else -> "$value tokens"
     }
 }
+
+
+private fun attachmentMimeTypes(type: ChatAttachmentType): Array<String> = when (type) {
+    ChatAttachmentType.ANY_FILE -> arrayOf("*/*")
+    ChatAttachmentType.PHOTO -> arrayOf("image/*")
+    ChatAttachmentType.VIDEO -> arrayOf("video/*")
+    ChatAttachmentType.AUDIO -> arrayOf("audio/*")
+    ChatAttachmentType.DOCUMENT -> arrayOf(
+        "application/pdf",
+        "text/*",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    )
+}
+
+private fun maxUploadLabel(bytes: Long): String =
+    if (bytes >= 1024L * 1024L) (bytes / (1024L * 1024L)).toString() + " MB max" else bytes.toString() + " B max"
