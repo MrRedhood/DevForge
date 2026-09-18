@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.mrredhood.devforge.core.security.CredentialSecurityStore
-import com.mrredhood.devforge.core.security.SecretStore
 
 class GitHubConnectionViewModel(application: Application) : AndroidViewModel(application) {
     private val secretStore = CredentialSecurityStore(application)
