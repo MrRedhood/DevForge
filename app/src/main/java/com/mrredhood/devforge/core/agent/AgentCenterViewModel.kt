@@ -80,7 +80,10 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                 }
                 leaseRefreshJob = launch(Dispatchers.IO) {
                     while (true) {
-                        fileLeases = coordination.listFileLeases(workspace.id)
+                        val leases = coordination.listFileLeases(workspace.id)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                            fileLeases = leases
+                        }
                         kotlinx.coroutines.delay(5_000L)
                     }
                 }
