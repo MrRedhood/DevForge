@@ -24,6 +24,6 @@ class EditorIntelligenceTest {
         val transformed = VisibleWhitespaceVisualTransformation().filter(AnnotatedString("a b\t\n"))
         assertEquals("a·b→   ↵\n", transformed.text.text)
         assertEquals(0, transformed.offsetMapping.transformedToOriginal(0))
-        assertEquals(6, transformed.offsetMapping.transformedToOriginal(transformed.text.length))
+        assertEquals(5, transformed.offsetMapping.transformedToOriginal(transformed.text.length))
     }
 }
