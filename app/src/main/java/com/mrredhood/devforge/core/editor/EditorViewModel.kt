@@ -28,8 +28,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         private set
     var error by mutableStateOf<String?>(null)
         private set
+    var diagnostics by mutableStateOf<List<Diagnostic>>(emptyList())
+        private set
 
     private var recoveryJobs = mutableMapOf<Uri, Job>()
+    private val undoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
+    private val redoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
 
     val activeTab: EditorTab?
         get() = tabs.firstOrNull { it.uri == activeUri }
@@ -63,6 +67,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 val tab = EditorTab(entry.uri, entry.name, initial, persisted?.savedContent ?: content)
                 tabs = tabs.filterNot { it.uri == entry.uri } + tab
                 activeUri = entry.uri
+                diagnostics = EditorDiagnostics.analyze(entry.name, initial).diagnostics
                 isLoading = false
                 withContext(Dispatchers.IO) {
                     durable.saveEditorTab(tab, active = true)
@@ -87,7 +92,80 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun updateContent(content: String) {
         val uri = activeUri ?: return
+        val current = tabs.firstOrNull { it.uri == uri }?.content ?: return
+        if (current == content) return
+        val undo = undoStacks.getOrPut(uri) { ArrayDeque() }
+        undo.addLast(current)
+        while (undo.size > MAX_UNDO) undo.removeFirst()
+        redoStacks.getOrPut(uri) { ArrayDeque() }.clear()
+        applyContent(uri, content)
+    }
+
+    fun undo() {
+        val uri = activeUri ?: return
+        val current = tabs.firstOrNull { it.uri == uri }?.content ?: return
+        val stack = undoStacks[uri] ?: return
+        val previous = stack.removeLastOrNull() ?: return
+        redoStacks.getOrPut(uri) { ArrayDeque() }.addLast(current)
+        applyContent(uri, previous, recordHistory = false)
+    }
+
+    fun redo() {
+        val uri = activeUri ?: return
+        val current = tabs.firstOrNull { it.uri == uri }?.content ?: return
+        val next = redoStacks[uri]?.removeLastOrNull() ?: return
+        undoStacks.getOrPut(uri) { ArrayDeque() }.addLast(current)
+        applyContent(uri, next, recordHistory = false)
+    }
+
+    fun replaceAll(query: String, replacement: String): Int {
+        val tab = activeTab ?: return 0
+        val normalized = query
+        if (normalized.isEmpty()) return 0
+        var count = 0
+        val result = buildString {
+            var start = 0
+            while (true) {
+                val index = tab.content.indexOf(normalized, start, ignoreCase = false)
+                if (index < 0) {
+                    append(tab.content.substring(start))
+                    break
+                }
+                append(tab.content.substring(start, index)).append(replacement)
+                count++
+                start = index + normalized.length
+            }
+        }
+        if (count > 0) updateContent(result)
+        return count
+    }
+
+    fun diagnosticsFor(uri: Uri?): List<Diagnostic> =
+        uri?.let { current -> tabs.firstOrNull { it.uri == current }?.let { EditorDiagnostics.analyze(it.name, it.content).diagnostics } } ?: emptyList()
+
+    fun lineStartOffset(line: Int): Int {
+        val content = activeTab?.content ?: return 0
+        val target = line.coerceAtLeast(1)
+        var currentLine = 1
+        for (i in content.indices) {
+            if (currentLine == target) return i
+            if (content[i] == '\n') currentLine++
+        }
+        return content.length
+    }
+
+    fun symbolCandidates(): List<WorkspaceSymbolCandidate> =
+        activeTab?.let { tab ->
+            WorkspaceSymbolExtractor.extract(tab.name, tab.content, 80).map { WorkspaceSymbolCandidate(it.name, it.kind, it.line) }
+        }.orEmpty()
+
+    private fun applyContent(uri: Uri, content: String, recordHistory: Boolean = true) {
+        if (content.toByteArray(Charsets.UTF_8).size > MAX_CONTENT_BYTES) {
+            error = "Editor content exceeds the supported 8 MB limit."
+            return
+        }
         tabs = tabs.map { if (it.uri == uri) it.copy(content = content, updatedAt = System.currentTimeMillis()) else it }
+        diagnostics = diagnosticsFor(uri)
         scheduleRecovery(uri)
     }
 
@@ -131,7 +209,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         if (tab.isDirty && !discard) return
         recoveryJobs.remove(uri)?.cancel()
         tabs = tabs.filterNot { it.uri == uri }
+        undoStacks.remove(uri)
+        redoStacks.remove(uri)
         activeUri = tabs.lastOrNull()?.uri
+        diagnostics = activeUri?.let { diagnosticsFor(it) }.orEmpty()
         viewModelScope.launch(Dispatchers.IO) {
             durable.deleteEditorTab(uri)
             activeUri?.let { next -> tabs.firstOrNull { it.uri == next }?.let { durable.saveEditorTab(it, active = true) } }
@@ -180,3 +261,5 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         const val PREFERENCES = "devforge_editor"
     }
 }
+
+data class WorkspaceSymbolCandidate(val name: String, val kind: String, val line: Int)
