@@ -103,6 +103,7 @@ class GitHubRepositoryGateway(
             val endpoint = "https://api.github.com" + path
             val http = connection.open(endpoint).apply {
                 requestMethod = "GET"
+                instanceFollowRedirects = false
                 setRequestProperty("Accept", "application/vnd.github+json")
                 setRequestProperty("Authorization", "Bearer " + token)
                 setRequestProperty("X-GitHub-Api-Version", API_VERSION)
