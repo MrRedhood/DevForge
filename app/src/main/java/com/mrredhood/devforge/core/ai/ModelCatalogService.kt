@@ -36,6 +36,7 @@ class ModelCatalogService {
                 val model = array.optJSONObject(index) ?: continue
                 val id = model.optString("baseModelId").ifBlank { model.optString("name").removePrefix("models/") }
                 if (id.isBlank()) continue
+                if (!isSafeModelId(id)) continue
                 val methods = jsonArrayStrings(model.optJSONArray("supportedGenerationMethods"))
                 val inputLimit = model.optLongOrNull("inputTokenLimit")
                 val outputLimit = model.optLongOrNull("outputTokenLimit")
@@ -150,7 +151,7 @@ class ModelCatalogService {
         headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
         val responseCode = connection.responseCode
         val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-        val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        val body = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
         connection.disconnect()
         if (responseCode !in 200..299) error("Model catalog request failed (HTTP $responseCode).")
         return JSONObject(body)
@@ -164,7 +165,7 @@ class ModelCatalogService {
             connection.setRequestProperty("User-Agent", "DevForge/0.1 Android")
             connection.connectTimeout = 8_000
             connection.readTimeout = 12_000
-            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            val body = connection.inputStream.use { it.readBounded(MAX_WEB_RESPONSE_BYTES) }.toString(Charsets.UTF_8)
             connection.disconnect()
             val patterns = listOf(
                 Regex("(?i)([0-9][0-9,]*(?:\\.[0-9]+)?)[ ]*(k|m)?[ ]*(?:token|tokens)[^<]{0,40}(?:context|context window|context length)"),
@@ -203,9 +204,17 @@ class ModelCatalogService {
         return input to output
     }
 
+    private fun isSafeModelId(value: String): Boolean =
+        value.length <= 180 && SAFE_MODEL_ID.matches(value) && !value.contains("..")
+
     private fun jsonArrayStrings(array: org.json.JSONArray?): Set<String> = buildSet {
         if (array == null) return@buildSet
         for (index in 0 until array.length()) array.optString(index).takeIf { it.isNotBlank() }?.let(::add)
+    private companion object {
+        private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+        private const val MAX_WEB_RESPONSE_BYTES = 512 * 1024
+        private val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
+    }
     }
 }
 
@@ -214,3 +223,18 @@ private fun JSONObject.optLongOrNull(key: String): Long? =
 
 private fun JSONObject.optDoubleOrNull(key: String): Double? =
     if (!has(key) || isNull(key)) null else optDouble(key).takeIf { !it.isNaN() }
+
+
+private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 32 * 1024))
+    val buffer = ByteArray(8 * 1024)
+    var total = 0
+    while (total < maxBytes) {
+        val read = read(buffer, 0, minOf(buffer.size, maxBytes - total))
+        if (read <= 0) break
+        output.write(buffer, 0, read)
+        total += read
+    }
+    if (total >= maxBytes) error("Model catalog response exceeded the DevForge response limit.")
+    return output.toByteArray()
+}
