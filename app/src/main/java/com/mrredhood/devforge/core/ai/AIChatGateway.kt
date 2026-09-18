@@ -252,7 +252,15 @@ class AIChatGateway(
         val parts = JSONArray().put(JSONObject().put("text", userInstruction))
         attachments.forEach { attachment ->
             when (attachment) {
-                is ProviderPreparedAttachment.FileUri -> parts.put(JSONObject().put("file_data", JSONObject().put("mime_type", attachment.mimeType).put("file_uri", attachment.uri)))
+                is ProviderPreparedAttachment.FileUri -> parts.put(
+                    JSONObject().put(
+                        "file_data",
+                        JSONObject().put("mime_type", attachment.mimeType).put("file_uri", attachment.uri),
+                    ),
+                )
+                is ProviderPreparedAttachment.OpenAiContentPart -> error(
+                    "The Gemini attachment adapter returned an OpenAI-compatible payload.",
+                )
             }
         }
         contents.put(JSONObject().put("role", "user").put("parts", parts))
