@@ -354,10 +354,79 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
         } else {
             item { Breadcrumbs(workspace) }
             item { WorkspaceIntelligenceCard(workspace) }
-            if (workspace.isLoading) item { LoadingCard("Reading folder…") }
-            else if (workspace.entries.isEmpty()) item { InfoCard("Nothing in this folder", "Create a file here and refresh.") }
-            else items(workspace.entries, key = { it.uri.toString() }) { entry ->
-                FileRow(entry) { if (entry.isDirectory) workspace.openDirectory(entry) else editor.open(entry) }
+            if (workspace.isSearching || workspace.searchResults.isNotEmpty()) {
+                item { WorkspaceSearchResults(workspace, editor) }
+            } else if (workspace.isLoading) {
+                item { LoadingCard("Reading folder…") }
+            } else if (workspace.entries.isEmpty()) {
+                item { InfoCard("Nothing in this folder", "Create a file here and refresh.") }
+            } else {
+                items(workspace.entries, key = { it.uri.toString() }) { entry ->
+                    FileRow(entry) { if (entry.isDirectory) workspace.openDirectory(entry) else editor.open(entry) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceSearchResults(workspace: WorkspaceViewModel, editor: EditorViewModel) {
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Search results", fontWeight = FontWeight.Bold)
+                    Text(
+                        workspace.searchQuery,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = workspace::clearSearch) { Text("Clear") }
+            }
+            if (workspace.isSearching) {
+                LoadingCard("Searching workspace…")
+            } else if (workspace.searchResults.isEmpty()) {
+                Text("No matching files or folders.")
+            } else {
+                workspace.searchResults.take(60).forEach { result ->
+                    FileRow(
+                        WorkspaceEntry(
+                            uri = result.uri,
+                            name = result.name,
+                            isDirectory = result.isDirectory,
+                            sizeBytes = result.sizeBytes,
+                        )
+                    ) {
+                        if (result.isDirectory) {
+                            workspace.openDirectory(
+                                WorkspaceEntry(
+                                    uri = result.uri,
+                                    name = result.name,
+                                    isDirectory = true,
+                                    sizeBytes = result.sizeBytes,
+                                )
+                            )
+                            workspace.clearSearch()
+                        } else {
+                            editor.open(
+                                WorkspaceEntry(
+                                    uri = result.uri,
+                                    name = result.name,
+                                    isDirectory = false,
+                                    sizeBytes = result.sizeBytes,
+                                )
+                            )
+                            workspace.clearSearch()
+                        }
+                    }
+                }
             }
         }
     }
