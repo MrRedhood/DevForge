@@ -5,6 +5,7 @@ import com.mrredhood.devforge.core.editor.ContentHasher
 import com.mrredhood.devforge.core.editor.ContentSnapshot
 import com.mrredhood.devforge.core.editor.EditorTab
 import com.mrredhood.devforge.core.editor.SnapshotReason
+import com.mrredhood.devforge.core.recovery.RecoveryPolicy
 import java.util.UUID
 
 /** Bounded Room-backed persistence shared by editor recovery and agent/automation execution. */
@@ -115,7 +116,7 @@ class DurableStateRepository(
         agentTasks.recoverRunning(
             workspaceId = workspaceId,
             updatedAt = System.currentTimeMillis(),
-            message = "Paused after the previous DevForge process ended.",
+            message = RecoveryPolicy.AGENT_RECOVERY_MESSAGE,
         )
 
     fun observeAgentTasks(workspaceId: String, limit: Int = MAX_AGENT_TASKS) = agentTasks.observe(workspaceId, limit)
