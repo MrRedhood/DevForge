@@ -521,3 +521,19 @@
 - Added Agents UI visibility for recent shared memory, active handoffs and active file locks.
 - Added regression coverage for the expanded coordination tool set.
 - CI result remains unchecked until a real GitHub Actions run is observed.
+
+## Mobile UI, credential storage, and premade agents — 2026-09-18
+
+- [x] Fixed ordinary credential encryption to initialize Android Keystore AES keys with KeyGenParameterSpec instead of the unsupported bare key-size initialization.
+- [x] Keystore credential regression test added for encrypt/decrypt/remove on an Android instrumentation device.
+- [x] API provider settings simplified for small screens: provider dropdown, large API-key field, stacked actions, readable status, and no redundant model-catalog card.
+- [x] Settings changed from one long stack of nested cards to a small settings hub with focused sections; App settings are also split into individual sections.
+- [x] Compact navigation changed from ten horizontally scrolling destinations to five primary destinations plus a More menu, preventing tiny/wrapped labels.
+- [x] Removed custom agent profile creation, editing, and deletion from the product surface and runtime repository.
+- [x] Added 15 immutable premade agents: Coder, Debugger, Reviewer, Security Auditor, Test Engineer, Refactorer, Performance Optimizer, Android UI Engineer, Architecture Analyst, API Integrator, Data & Storage Engineer, Build & CI Analyst, Documentation Writer, Dependency Auditor, and Coordinator.
+- [x] Premade agent catalog test verifies count, builtin status, unique IDs, and use of only registered access capabilities.
+- [x] Navigation instrumentation test updated for the simplified compact navigation.
+
+### Current validation
+
+`main` currently advances rapidly because each direct commit triggers the push workflows. GitHub Actions is the validation authority; the latest runs must be matched to the newest `main` SHA before claiming validation success.
