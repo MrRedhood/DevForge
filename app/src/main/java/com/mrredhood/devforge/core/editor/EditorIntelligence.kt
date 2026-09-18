@@ -243,3 +243,40 @@ class ChainedVisualTransformation(
         return TransformedText(b.text, mapping)
     }
 }
+
+
+class VisibleWhitespaceVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        if (text.text.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
+        val output = StringBuilder()
+        val originalToTransformed = IntArray(text.text.length + 1)
+        val transformedToOriginal = mutableListOf<Int>()
+        var transformedOffset = 0
+        originalToTransformed[0] = 0
+        text.text.forEachIndexed { index, char ->
+            val rendered = when (char) {
+                ' ' -> "·"
+                '\t' -> "→   "
+                '\n' -> "↵\n"
+                '\r' -> "␍"
+                else -> char.toString()
+            }
+            rendered.forEach { visible ->
+                transformedToOriginal += index
+                output.append(visible)
+                transformedOffset++
+            }
+            transformedToOriginal += index + 1
+            originalToTransformed[index + 1] = transformedOffset
+        }
+        return TransformedText(
+            AnnotatedString(output.toString()),
+            object : OffsetMapping {
+                override fun originalToTransformed(offset: Int): Int =
+                    originalToTransformed[offset.coerceIn(0, text.text.length)]
+                override fun transformedToOriginal(offset: Int): Int =
+                    transformedToOriginal[offset.coerceIn(0, transformedToOriginal.lastIndex)]
+            },
+        )
+    }
+}
