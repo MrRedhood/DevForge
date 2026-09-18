@@ -23,6 +23,17 @@ class AISettingsRepository(context: Context) {
         preferences.edit().putString("$KEY_MODEL_PREFIX${provider.id}", modelId).apply()
     }
 
+    fun customBaseUrl(provider: AIProvider): String? =
+        preferences.getString("$KEY_BASE_URL_PREFIX${provider.id}", null)?.trim()?.ifBlank { null }
+
+    fun setCustomBaseUrl(provider: AIProvider, baseUrl: String) {
+        preferences.edit().putString("$KEY_BASE_URL_PREFIX${provider.id}", baseUrl.trim()).apply()
+    }
+
+    fun clearCustomBaseUrl(provider: AIProvider) {
+        preferences.edit().remove("$KEY_BASE_URL_PREFIX${provider.id}").apply()
+    }
+
     fun getApiKey(provider: AIProvider): String? = runCatching { secrets.get(secretKey(provider))?.trim()?.ifBlank { null } }.getOrNull()
 
     fun hasApiKey(provider: AIProvider): Boolean = secrets.contains(secretKey(provider))
@@ -44,6 +55,7 @@ class AISettingsRepository(context: Context) {
         private const val PREFERENCES = "devforge_ai_settings"
         private const val KEY_PROVIDER = "provider"
         private const val KEY_MODEL_PREFIX = "model."
+        private const val KEY_BASE_URL_PREFIX = "base_url."
 
         private fun secretKey(provider: AIProvider): String = "devforge.ai.${provider.id}.api_key"
     }
