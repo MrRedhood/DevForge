@@ -7,6 +7,7 @@ import com.mrredhood.devforge.core.policy.Capability
 import com.mrredhood.devforge.core.policy.RiskLevel
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.WorkspaceDao
+import com.mrredhood.devforge.core.editor.ContentHasher
 import com.mrredhood.devforge.core.workspace.WorkspaceFileTree
 import com.mrredhood.devforge.core.workspace.WorkspaceSearch
 import java.io.ByteArrayOutputStream
@@ -25,6 +26,7 @@ class WorkspaceAgentToolProvider(
         .register(ReadFileTool())
         .register(ListFilesTool())
         .register(SearchWorkspaceTool())
+        .register(PatchFileTool())
         .register(WriteFileTool())
 
     private abstract inner class WorkspaceTool : AgentTool {
@@ -135,6 +137,63 @@ class WorkspaceAgentToolProvider(
             )
         } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Workspace search failed.")
+        }
+    }
+
+    private inner class PatchFileTool : WorkspaceTool() {
+        override val definition = AgentToolDefinition(
+            AgentToolId.PATCH_FILE,
+            "Apply one bounded structured text patch after an exact pre-image check.",
+            Capability.EDIT_FILES,
+            RiskLevel.R2,
+            sideEffecting = true,
+        )
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val patch = AgentFilePatchCodec.decode(request.argumentsJson)
+            val path = scopedPath(context.pathScope, patch.path)
+            val rootUri = root(context)
+            val before = runCatching { access.readText(rootUri, path) }.getOrElse {
+                require(it.message?.contains("does not exist", true) == true) { it.message ?: "Unable to read patch target." }
+                ""
+            }
+            val currentHash = ContentHasher.sha256(before)
+            patch.expectedContentHash?.let { expected ->
+                require(expected.equals(currentHash, ignoreCase = true)) {
+                    "Patch precondition failed for $path; the file changed after the patch was prepared."
+                }
+            }
+            require(before != patch.content) { "Patch produces no content change for $path." }
+            access.writeText(rootUri, path, patch.content)
+            AgentToolResult.Success(
+                summary = patch.summary.ifBlank { "Applied patch to $path." }.take(500),
+                output = JSONObject()
+                    .put("path", path)
+                    .put("beforeHash", currentHash)
+                    .put("afterHash", ContentHasher.sha256(patch.content))
+                    .put("bytes", patch.content.toByteArray(Charsets.UTF_8).size)
+                    .toString(),
+                affectedPaths = listOf(path),
+            )
+        } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to apply patch.")
+        }
+
+        override suspend fun preconditionHash(context: AgentToolContext, request: AgentToolRequest): String? {
+            val patch = AgentFilePatchCodec.decode(request.argumentsJson)
+            val path = scopedPath(context.pathScope, patch.path)
+            val rootUri = root(context)
+            val before = runCatching { access.readText(rootUri, path) }.getOrElse {
+                require(it.message?.contains("does not exist", true) == true) { it.message ?: "Unable to read patch target." }
+                ""
+            }
+            val currentHash = ContentHasher.sha256(before)
+            patch.expectedContentHash?.let { expected ->
+                require(expected.equals(currentHash, ignoreCase = true)) {
+                    "Patch precondition failed for $path."
+                }
+            }
+            return currentHash
         }
     }
 
