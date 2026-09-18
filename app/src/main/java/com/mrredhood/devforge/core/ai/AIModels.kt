@@ -7,6 +7,11 @@ enum class AIProvider(
     GEMINI("gemini", "Google Gemini"),
     OPENROUTER("openrouter", "OpenRouter"),
     OPENAI("openai", "OpenAI"),
+    ANTHROPIC("anthropic", "Anthropic Claude"),
+    XAI_GROK("xai_grok", "xAI Grok"),
+    DEEPINFRA("deepinfra", "DeepInfra"),
+    GROQ("groq", "Groq"),
+    OPENAI_COMPATIBLE("openai_compatible", "OpenAI compatible"),
 }
 
 enum class ModelPriceClass { FREE, PAID, UNKNOWN }
