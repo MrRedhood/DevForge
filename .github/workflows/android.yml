@@ -22,7 +22,7 @@ permissions:
 
 concurrency:
   group: android-ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   JAVA_VERSION: '17'
