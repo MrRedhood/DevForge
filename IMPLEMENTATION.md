@@ -204,7 +204,7 @@
 ### 2026-09-18 — Compose UI navigation regression coverage
 - Added an AndroidX/Compose instrumentation regression test covering Files navigation, one-step Back behavior and the root exit confirmation.
 - Configured the Android instrumentation runner and Compose UI test dependencies.
-- Extended Android CI with a bounded API-35 emulator, connected Compose UI tests and retained instrumentation reports.
+- Added a dedicated Android UI-test workflow with a bounded API-35 emulator, connected Compose UI tests and retained instrumentation reports.
 - UI CI verification remains unchecked until an actual GitHub Actions result is observed.
 
 ## Implementation Rules
