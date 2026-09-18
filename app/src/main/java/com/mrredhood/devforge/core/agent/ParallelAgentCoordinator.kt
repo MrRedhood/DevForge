@@ -99,9 +99,10 @@ class ParallelAgentCoordinator(context: Context) {
     suspend fun pause(taskId: String): Boolean = engine.pause(taskId)
 
     suspend fun resume(taskId: String): AgentTaskEntity? {
-        val result = engine.resume(taskId)
-        if (result?.status == AgentTaskStatus.QUEUED.name || result?.status == AgentTaskStatus.RUNNING.name) start(taskId)
-        return result
+        val changed = durable.resumeAgentTask(taskId)
+        if (!changed) return durable.getAgentTask(taskId)
+        start(taskId)
+        return durable.getAgentTask(taskId)
     }
 
     suspend fun cancel(taskId: String): Boolean = engine.cancel(taskId)
