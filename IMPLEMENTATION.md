@@ -172,7 +172,7 @@
 - [x] Static analysis/lint pipeline
 - [x] Release build validation
 - [x] Performance/budget checks
-- [ ] Structured diagnostics
+- [x] Structured diagnostics
 - [ ] Crash/recovery validation
 - [ ] Security/redaction regression tests
 
@@ -217,6 +217,12 @@
 - Added a reusable `tools/check-build-budget.sh` guard for bounded artifact size, SHA-256 reporting and optional build-time budgets.
 - Release validation now enforces an 80 MiB ceiling for the unsigned APK and AAB and a 15-minute combined Gradle release-build budget.
 - Budgets are explicit CI guardrails rather than runtime limits; observed CI results remain tracked separately.
+
+### 2026-09-18 — Structured diagnostics
+- Added a bounded source-agnostic diagnostic model with severity, source, code, origin and file/line/column location data.
+- Added compiler-text and SARIF parsers for normalized diagnostic ingestion.
+- Added a versioned JSON codec with bounded output for persistence/transport and fail-closed handling of malformed or unknown data.
+- Added regression coverage for parsing, round-tripping, input caps and malformed SARIF.
 
 ## Implementation Rules
 - Never fake Git status, builds, authentication, agent execution or terminal execution.
