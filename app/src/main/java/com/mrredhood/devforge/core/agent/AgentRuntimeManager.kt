@@ -22,6 +22,8 @@ class AgentRuntimeManager(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val coordinator: ParallelAgentCoordinator = ParallelAgentCoordinator(appContext)
+    internal val taskEngine: AgentTaskEngine
+        get() = coordinator.engine
 
     init {
         scope.launch {
