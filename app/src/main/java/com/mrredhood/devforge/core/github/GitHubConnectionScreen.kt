@@ -31,6 +31,7 @@ fun GitHubConnectionScreen(
 ) {
     var token by rememberSaveable { mutableStateOf("") }
     val connected = viewModel.snapshot.state is GitHubConnectionState.Connected
+    val credentialStored = connected || viewModel.snapshot.state is GitHubConnectionState.CredentialStored
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
@@ -40,10 +41,21 @@ fun GitHubConnectionScreen(
         Text("Connect DevForge to GitHub so repository discovery and remote builds can use an authenticated session.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (connected) "Connected" else "Not connected", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    when {
+                        connected -> "Connected and verified"
+                        credentialStored -> "Credential stored"
+                        else -> "Not connected"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                )
                 Text(
                     viewModel.snapshot.message
-                        ?: if (connected) "A credential is stored in Android Keystore-backed encrypted storage." else "No GitHub credential is stored on this device.",
+                        ?: when {
+                        connected -> "The stored credential has been verified with GitHub."
+                        credentialStored -> "A credential is stored securely but has not been verified in this session."
+                        else -> "No GitHub credential is stored on this device."
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -56,7 +68,7 @@ fun GitHubConnectionScreen(
             placeholder = { Text("Paste a token with the minimum required repository permissions") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
-            enabled = !connected,
+            enabled = !credentialStored,
         )
         Text(
             "Repository discovery reads repositories and Actions workflows. Workflow dispatch will remain separately gated until its execution path is enabled.",
@@ -68,7 +80,7 @@ fun GitHubConnectionScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
         )
-        if (!connected) {
+        if (!credentialStored) {
             Button(
                 onClick = { viewModel.connectWithToken(token); token = ""; onConnectionChanged() },
                 modifier = Modifier.fillMaxWidth(),
