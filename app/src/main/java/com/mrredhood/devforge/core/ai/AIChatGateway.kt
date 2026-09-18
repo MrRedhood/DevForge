@@ -1,6 +1,12 @@
 package com.mrredhood.devforge.core.ai
 
 import java.net.HttpURLConnection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import java.net.URL
 import java.util.Locale
 import org.json.JSONArray
@@ -18,6 +24,143 @@ class AIChatGateway {
             AIProvider.OPENROUTER -> sendOpenAiCompatible("https://openrouter.ai/api/v1/chat/completions", apiKey, model.id, history, userInstruction, openRouter = true)
             AIProvider.OPENAI -> sendOpenAiCompatible("https://api.openai.com/v1/chat/completions", apiKey, model.id, history, userInstruction, openRouter = false)
         }
+    }
+
+    fun stream(
+        model: AIModelInfo,
+        apiKey: String,
+        history: List<Pair<String, String>>,
+        userInstruction: String,
+    ): Flow<String> = flow {
+        when (model.provider) {
+            AIProvider.GEMINI -> streamGemini(model.id, apiKey, history, userInstruction).collect { emit(it) }
+            AIProvider.OPENROUTER -> streamOpenAiCompatible(
+                "https://openrouter.ai/api/v1/chat/completions", apiKey, model.id, history, userInstruction, true,
+            ).collect { emit(it) }
+            AIProvider.OPENAI -> streamOpenAiCompatible(
+                "https://api.openai.com/v1/chat/completions", apiKey, model.id, history, userInstruction, false,
+            ).collect { emit(it) }
+        }
+    }
+
+    private fun streamGemini(
+        modelId: String,
+        apiKey: String,
+        history: List<Pair<String, String>>,
+        userInstruction: String,
+    ): Flow<String> = flow {
+        val contents = buildContents(history, userInstruction)
+        val connection = URL(
+            "https://generativelanguage.googleapis.com/v1beta/models/$modelId:streamGenerateContent?alt=sse",
+        ).openConnection() as HttpURLConnection
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.connectTimeout = 15_000
+        connection.readTimeout = 120_000
+        connection.setRequestProperty("x-goog-api-key", apiKey)
+        connection.setRequestProperty("Content-Type", "application/json")
+        try {
+            connection.outputStream.use { it.write(JSONObject().put("contents", contents).toString().toByteArray(Charsets.UTF_8)) }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            if (status !in 200..299) {
+                val detail = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val message = runCatching { JSONObject(detail).optString("message") }.getOrNull().orEmpty()
+                error(message.ifBlank { "AI streaming request failed (HTTP $status)." })
+            }
+            stream?.bufferedReader()?.use { reader ->
+                val output = StringBuilder()
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val line = reader.readLine() ?: break
+                    if (!line.startsWith("data:")) continue
+                    val data = line.removePrefix("data:").trim()
+                    if (data.isBlank()) continue
+                    val chunk = runCatching {
+                        JSONObject(data)
+                            .optJSONArray("candidates")
+                            ?.optJSONObject(0)
+                            ?.optJSONObject("content")
+                            ?.optJSONArray("parts")
+                            ?.optJSONObject(0)
+                            ?.optString("text")
+                            .orEmpty()
+                    }.getOrDefault("")
+                    if (chunk.isNotBlank()) {
+                        output.append(chunk)
+                        require(output.length <= MAX_STREAM_CHARS) { "AI response exceeded the streaming response limit." }
+                        emit(chunk)
+                    }
+                }
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun streamOpenAiCompatible(
+        endpoint: String,
+        apiKey: String,
+        modelId: String,
+        history: List<Pair<String, String>>,
+        userInstruction: String,
+        openRouter: Boolean,
+    ): Flow<String> = flow {
+        val messages = JSONArray()
+        history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
+        messages.put(JSONObject().put("role", "user").put("content", userInstruction))
+        val body = JSONObject().put("model", modelId).put("messages", messages).put("stream", true)
+        val connection = URL(endpoint).openConnection() as HttpURLConnection
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.connectTimeout = 15_000
+        connection.readTimeout = 120_000
+        connection.setRequestProperty("Authorization", "Bearer $apiKey")
+        connection.setRequestProperty("Content-Type", "application/json")
+        if (openRouter) {
+            connection.setRequestProperty("X-Title", "DevForge")
+            connection.setRequestProperty("HTTP-Referer", "https://github.com/MrRedhood/DevForge")
+        }
+        try {
+            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            if (status !in 200..299) {
+                val detail = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val message = runCatching { JSONObject(detail).optJSONObject("error")?.optString("message") }.getOrNull().orEmpty()
+                error(message.ifBlank { "AI streaming request failed (HTTP $status)." })
+            }
+            stream?.bufferedReader()?.use { reader ->
+                var total = 0
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val line = reader.readLine() ?: break
+                    if (!line.startsWith("data:")) continue
+                    val data = line.removePrefix("data:").trim()
+                    if (data == "[DONE]" || data.isBlank()) continue
+                    val chunk = runCatching {
+                        JSONObject(data).optJSONArray("choices")?.optJSONObject(0)
+                            ?.optJSONObject("delta")?.optString("content").orEmpty()
+                    }.getOrDefault("")
+                    if (chunk.isNotBlank()) {
+                        total += chunk.length
+                        require(total <= MAX_STREAM_CHARS) { "AI response exceeded the streaming response limit." }
+                        emit(chunk)
+                    }
+                }
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun buildContents(history: List<Pair<String, String>>, userInstruction: String): JSONArray {
+        val contents = JSONArray()
+        history.filter { it.first == "user" || it.first == "assistant" }.forEach { (role, content) ->
+            contents.put(JSONObject().put("role", if (role == "assistant") "model" else "user").put("parts", JSONArray().put(JSONObject().put("text", content))))
+        }
+        contents.put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", userInstruction))))
+        return contents
     }
 
     private fun sendGemini(
