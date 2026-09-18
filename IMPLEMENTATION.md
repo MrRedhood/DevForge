@@ -334,6 +334,21 @@
 - Restricted the Document picker category to recognized text/document MIME families instead of accepting arbitrary non-media binaries.
 - Added regression tests for media separation and document MIME validation.
 
+### 2026-09-18 — Deep bug, race, and state-integrity hardening
+- Fixed agent cancellation races so paused/cancelled tasks cannot be overwritten as generic failures.
+- Added durable approval recovery, approval-to-agent resume handling, and rejection/cancellation cleanup for interactive agent tasks.
+- Enforced the ten-agent non-terminal task limit atomically at the Room persistence boundary, covering all agent producers.
+- Made automation run overlap protection atomic and independent of limited recent-run history.
+- Prevented editor open/save races from overwriting newer user edits and made workspace search/refresh operations stale-result safe.
+- Prevented stale AI provider/model session selection and bound each request to its captured provider.
+- Hardened SAF workspace search with visited-node and depth/result limits plus malformed-cursor guards.
+- Fixed GitHub Actions job-log endpoint construction and disabled HTTP redirects across GitHub API requests.
+- Distinguished stored-but-unverified GitHub credentials from live verified connections.
+- Hardened durable task/profile/approval metadata against secret persistence.
+- Fixed GitHub repository ViewModel background-thread Compose state mutation.
+- Removed the CI validation backlog pattern by changing push/PR workflows to cancel superseded runs while preserving manually dispatched runs.
+- Existing completed validation evidence is retained; the latest post-fix workflows must complete before the current snapshot is marked fully validated.
+
 ### 2026-09-18 — Deep repository audit and hardening
 - Repaired concrete Kotlin/Compose compile blockers found by GitHub Actions in AI gateway, chat, diagnostics and editor integration.
 - Removed stale/fake agent access controls that had no registered execution capabilities; agent permissions now fail closed and are enforced both at planning and execution boundaries.
