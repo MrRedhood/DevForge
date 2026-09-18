@@ -49,6 +49,7 @@ data class AgentToolContext(
     val taskId: String,
     val stepIndex: Int,
     val pathScope: WorkspacePathScope = WorkspacePathScope(),
+    val access: Set<AgentAccess> = AgentAccess.DEFAULT,
 )
 
 data class AgentToolRequest(
@@ -101,6 +102,7 @@ data class AgentTaskStep(
 data class AgentTaskPlan(
     val steps: List<AgentTaskStep>,
     val pathScope: WorkspacePathScope = WorkspacePathScope(),
+    val access: Set<AgentAccess> = AgentAccess.CODING_DEFAULT,
 ) {
     init {
         require(steps.size <= MAX_STEPS) { "Agent plans may contain at most $MAX_STEPS steps." }
@@ -125,8 +127,9 @@ object AgentTaskPlanCodec {
         }
         val scope = JSONArray()
         plan.pathScope.canonicalPrefixes().forEach(scope::put)
-        root.put("version", 2)
+        root.put("version", 3)
         root.put("scope", scope)
+        root.put("access", JSONArray(plan.access.map(AgentAccess::name).sorted()))
         root.put("steps", steps)
         return root.toString()
     }
@@ -135,7 +138,7 @@ object AgentTaskPlanCodec {
         require(!payload.isNullOrBlank()) { "Agent task plan is missing." }
         val root = JSONObject(payload)
         val version = root.optInt("version", 1)
-        require(version in 1..2) { "Unsupported agent task plan version." }
+        require(version in 1..3) { "Unsupported agent task plan version." }
         val scope = if (version >= 2) {
             val scopeArray = root.optJSONArray("scope") ?: JSONArray()
             require(scopeArray.length() <= WorkspacePathScope.MAX_PREFIXES) { "Agent path scope exceeds the prefix limit." }
@@ -145,6 +148,7 @@ object AgentTaskPlanCodec {
         } else {
             WorkspacePathScope()
         }
+        val access = if (version >= 3) AgentAccess.decode(root.optJSONArray("access")?.toString()) else AgentAccess.CODING_DEFAULT
         val array = root.optJSONArray("steps") ?: JSONArray()
         require(array.length() <= AgentTaskPlan.MAX_STEPS) { "Agent plan exceeds the step limit." }
         val steps = buildList(array.length()) {
@@ -157,7 +161,7 @@ object AgentTaskPlanCodec {
                 add(AgentTaskStep(tool, arguments, item.optString("label", tool.wireName)))
             }
         }
-        return AgentTaskPlan(steps, scope)
+        return AgentTaskPlan(steps, scope, access)
     }
 
     const val MAX_TOOL_ARGUMENT_BYTES = 64 * 1024
