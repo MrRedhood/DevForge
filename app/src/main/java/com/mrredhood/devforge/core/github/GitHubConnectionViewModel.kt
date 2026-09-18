@@ -91,8 +91,8 @@ class GitHubConnectionViewModel(application: Application) : AndroidViewModel(app
 
     private fun initialSnapshot(): GitHubConnectionSnapshot = if (hasStoredCredential()) {
         GitHubConnectionSnapshot(
-            state = GitHubConnectionState.Connected(),
-            message = "Credential stored. Run live verification before using GitHub operations.",
+            state = GitHubConnectionState.CredentialStored,
+            message = "Credential is stored securely. Verify it before using GitHub operations.",
         )
     } else {
         GitHubConnectionSnapshot()
