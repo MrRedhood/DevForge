@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -30,6 +31,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +53,7 @@ fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
     val pending = viewModel.pending
     val message = viewModel.actionMessage
     val activeGrantCapabilities = viewModel.grants.mapNotNull { it.capabilityOrNull() }.toSet()
+    var grantScopeText by remember { mutableStateOf("") }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
@@ -101,7 +107,20 @@ fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
                 }
             }
 
-            item { SectionHeader(Icons.Default.Settings, "Persistent capability grants", "Explicit workspace-scoped grants can bypass approval only up to R2 and never cover protected capabilities.") }
+            item { SectionHeader(Icons.Default.Settings, "Persistent capability grants", "Grants can cover the entire workspace or selected workspace-relative paths. Approval bypass never exceeds R2 and never covers protected capabilities.") }
+
+            item {
+                OutlinedTextField(
+                    value = grantScopeText,
+                    onValueChange = { grantScopeText = it.take(4_096) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Grant path scope") },
+                    placeholder = { Text("Blank = entire workspace; e.g. src/main, app/src") },
+                    supportingText = { Text("Use workspace-relative paths separated by commas or new lines.") },
+                    singleLine = false,
+                    minLines = 2,
+                )
+            }
 
             item {
                 Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -125,7 +144,7 @@ fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
                             Text(capability.name.replace('_', ' '), fontWeight = FontWeight.SemiBold)
                             Text("Approval bypass ceiling: R2", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        OutlinedButton(onClick = { viewModel.grant(capability) }, enabled = !active && viewModel.activeWorkspaceId != null) {
+                        OutlinedButton(onClick = { viewModel.grant(capability, grantScopeText) }, enabled = !active && viewModel.activeWorkspaceId != null) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(Modifier.width(5.dp))
                             Text(if (active) "Enabled" else "Grant")
@@ -196,10 +215,16 @@ private fun ApprovalActionCard(action: ApprovalEntity, onApprove: (ApprovalEntit
 
 @Composable
 private fun GrantRow(grant: CapabilityGrantEntity, onRevoke: (CapabilityGrantEntity) -> Unit) {
+    val scope = grant.pathScopeOrNull()?.canonicalPrefixes()
+    val scopeLabel = when {
+        scope == null -> "Invalid scope"
+        scope.any { it.isEmpty() } -> "Entire workspace"
+        else -> scope.joinToString(", ").take(160)
+    }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(grant.capability.replace('_', ' '), fontWeight = FontWeight.SemiBold)
-            Text("Up to ${grant.maxRisk} · ${grant.expiresAtEpochMs?.let(::formatTime) ?: "No expiry"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Up to ${grant.maxRisk} · $scopeLabel · ${grant.expiresAtEpochMs?.let(::formatTime) ?: "No expiry"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         TextButton(onClick = { onRevoke(grant) }) { Text("Revoke") }
     }
