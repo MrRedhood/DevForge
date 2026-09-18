@@ -2,11 +2,14 @@ package com.mrredhood.devforge.core.agent
 
 import com.mrredhood.devforge.core.storage.AgentTaskEntity
 import com.mrredhood.devforge.core.storage.AuditEventEntity
+import com.mrredhood.devforge.core.storage.ApprovalRepository
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
@@ -15,6 +18,7 @@ class AgentTaskEngine(
     private val durableState: DurableStateRepository,
     private val gateway: AgentToolGateway,
     private val coordination: AgentCoordinationService? = null,
+    private val approvals: ApprovalRepository? = null,
 ) {
     suspend fun enqueue(
         workspaceId: String,
@@ -53,7 +57,11 @@ class AgentTaskEngine(
             modelId = model?.modelId?.take(300),
             modelName = model?.modelName?.take(200),
         )
-        durableState.saveAgentTask(task)
+        if (!durableState.trySaveAgentTask(task, MAX_NON_TERMINAL_TASKS)) {
+            throw IllegalStateException(
+                "The workspace already has the maximum of $MAX_NON_TERMINAL_TASKS active or queued agents.",
+            )
+        }
         taskId
     }
 
@@ -92,6 +100,9 @@ class AgentTaskEngine(
                 errorMessage = "Cancelled by user.",
             ),
         )
+        task.approvalId?.let { approvalId ->
+            runCatching { approvals?.reject(approvalId) }
+        }
         coordination?.releaseTaskFileLeases(task.workspaceId, taskId)
         auditTask(task, "AGENT_TASK_CANCELLED", "Agent task cancelled by user.")
         return true
@@ -149,6 +160,7 @@ class AgentTaskEngine(
             runCatching {
                 withTimeout(MAX_EXECUTION_MS) {
                     for (index in task.currentStep until plan.steps.size) {
+                    currentCoroutineContext().ensureActive()
                     val persistedBeforeStep = durableState.getAgentTask(taskId) ?: return@withTimeout
                     if (persistedBeforeStep.status == AgentTaskStatus.PAUSED.name ||
                         persistedBeforeStep.status == AgentTaskStatus.CANCELLED.name
@@ -296,6 +308,7 @@ class AgentTaskEngine(
 
     companion object {
         private const val MAX_EXECUTION_MS = 60_000L
+        private const val MAX_NON_TERMINAL_TASKS = 10
         private const val MAX_RESULT_BYTES = 64 * 1024
         private const val MAX_RECEIPT_BYTES = 4 * 1024
         private val TERMINAL_STATUSES = setOf(
