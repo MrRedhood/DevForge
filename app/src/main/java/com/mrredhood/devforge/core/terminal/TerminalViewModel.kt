@@ -173,7 +173,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             }
             TerminalParsedCommand.Help -> {
                 appendTerminalLine(prompt(session) + " help")
-                appendTerminalLine("pwd ls cd cat grep find head tail wc sort uniq cut tr sed mkdir touch rm cp mv chmod echo printf history clear")
+                appendTerminalLine("Real Android shell: pipes, redirects, quoting, variables, &&/||, command substitution, and available /system/bin tools.")
+                appendTerminalLine("Builtins: cd, clear, history, help. Use Ctrl+C / Stop to cancel a running command.")
+            }
+            is TerminalParsedCommand.Shell -> {
+                appendTerminalLine(prompt(session) + " " + parsed.commandLine)
+                executeInteractiveShell(workspace, session, parsed.commandLine)
             }
             is TerminalParsedCommand.ChangeDirectory -> {
                 val next = normalizeDirectory(session.workingDirectory, parsed.path)
@@ -203,10 +208,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                     when (result) {
                         is TerminalCapabilityResult.ApprovalRequired -> statusMessage = "Approval needed in More → Approvals."
                         is TerminalCapabilityResult.Failure -> statusMessage = result.message
-                        is TerminalCapabilityResult.Completed -> {
-                            statusMessage = "exit " + (result.execution.exitCode ?: -1) +
-                                " · " + result.execution.durationMs + " ms"
-                        }
+                        is TerminalCapabilityResult.Completed -> statusMessage = terminalResultMessage(result.execution)
                     }
                     isRunning = false
                 }
@@ -223,6 +225,58 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                 }
             }
         }
+    }
+
+    private fun executeInteractiveShell(
+        workspace: String,
+        session: TerminalSession,
+        commandLine: String,
+    ) {
+        isRunning = true
+        statusMessage = null
+        runJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = capability.executeInteractiveShell(
+                    workspaceId = workspace,
+                    workingDirectory = session.workingDirectory,
+                    commandLine = commandLine,
+                    timeoutMs = settings.snapshot().terminalTimeoutMs,
+                ) { chunk ->
+                    withContext(Dispatchers.Main.immediate) {
+                        output = (output + chunk).takeLast(TerminalCommandPolicy.MAX_OUTPUT_BYTES * 8)
+                    }
+                }
+                withContext(Dispatchers.Main.immediate) {
+                    statusMessage = terminalResultMessage(result)
+                    isRunning = false
+                }
+            } catch (cancelled: CancellationException) {
+                withContext(Dispatchers.Main.immediate) {
+                    isRunning = false
+                    statusMessage = "Command stopped."
+                }
+                throw cancelled
+            } catch (error: Throwable) {
+                withContext(Dispatchers.Main.immediate) {
+                    isRunning = false
+                    statusMessage = error.message ?: "Shell command failed."
+                }
+            }
+        }
+    }
+
+    fun stop() {
+        runJob?.cancel()
+        runJob = null
+        isRunning = false
+        statusMessage = "Command stopped."
+    }
+
+    private fun terminalResultMessage(result: TerminalExecution): String = when (result.status) {
+        TerminalRunStatus.EXITED -> "exit " + (result.exitCode ?: -1) + " · " + result.durationMs + " ms"
+        TerminalRunStatus.TIMED_OUT -> "command timed out"
+        TerminalRunStatus.OUTPUT_LIMIT_EXCEEDED -> "output limit exceeded"
+        TerminalRunStatus.START_FAILED -> result.output.ifBlank { "unable to start command" }
     }
 
     private suspend fun executeApproved(approval: ApprovalEntity) {
