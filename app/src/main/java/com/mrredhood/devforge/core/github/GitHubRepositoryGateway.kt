@@ -44,35 +44,40 @@ class GitHubRepositoryGateway(
     }
 
     fun getRepository(owner: String, repository: String): GitHubRepositoryResult {
-        val normalizedOwner = validateName(owner) ?: return GitHubRepositoryResult.Failure("The GitHub owner is invalid.")
-        val normalizedRepository = validateName(repository) ?: return GitHubRepositoryResult.Failure("The GitHub repository is invalid.")
-        val path = "/repos/" + normalizedOwner + "/" + normalizedRepository
-        val result = getJson(path) { parseRepository(it) }
+        val normalizedOwner = validateName(owner)
+            ?: return GitHubRepositoryResult.Failure("The GitHub owner is invalid.")
+        val normalizedRepository = validateName(repository)
+            ?: return GitHubRepositoryResult.Failure("The GitHub repository is invalid.")
+        val path = "/repos/$" + "normalizedOwner/$" + "normalizedRepository"
+        return getJson(path) { parseRepository(it) }.fold(
+            onSuccess = { GitHubRepositoryResult.Success(it) },
             onFailure = { GitHubRepositoryResult.Failure(safeMessage(it)) },
         )
     }
 
     fun listWorkflows(owner: String, repository: String): GitHubWorkflowListResult {
-        val normalizedOwner = validateName(owner) ?: return GitHubWorkflowListResult.Failure("The GitHub owner is invalid.")
-        val normalizedRepository = validateName(repository) ?: return GitHubWorkflowListResult.Failure("The GitHub repository is invalid.")
-        val path = "/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/workflows?per_page=" + PAGE_SIZE + "&page=1"
-        val result = getJson(path) { json ->
+        val normalizedOwner = validateName(owner)
+            ?: return GitHubWorkflowListResult.Failure("The GitHub owner is invalid.")
+        val normalizedRepository = validateName(repository)
+            ?: return GitHubWorkflowListResult.Failure("The GitHub repository is invalid.")
+        val path = "/repos/$" + "normalizedOwner/$" + "normalizedRepository/actions/workflows?per_page=$" + "PAGE_SIZE&page=1"
+        return getJson(path) { json ->
+            val workflows = json.optJSONArray("workflows") ?: JSONArray()
+            buildList(workflows.length()) {
                 for (index in 0 until workflows.length()) {
                     val workflow = workflows.optJSONObject(index) ?: continue
-                    val path = workflow.optString("path").takeIf(String::isNotBlank) ?: continue
+                    val workflowPath = workflow.optString("path").takeIf(String::isNotBlank) ?: continue
                     add(
                         GitHubWorkflow(
                             id = workflow.optLong("id"),
-                            name = workflow.optString("name", path.substringAfterLast('/')),
-                            path = path,
+                            name = workflow.optString("name", workflowPath.substringAfterLast('/')),
+                            path = workflowPath,
                             state = workflow.optString("state", "unknown"),
                         ),
                     )
                 }
             }
-        }
-
-        return result.fold(
+        }.fold(
             onSuccess = { GitHubWorkflowListResult.Success(it) },
             onFailure = { GitHubWorkflowListResult.Failure(safeMessage(it)) },
         )
@@ -145,16 +150,37 @@ class GitHubRepositoryGateway(
 
     private fun validateName(value: String): String? {
         val normalized = value.trim()
-        return normalized.takeIf { it.isNotBlank() && it.length <= 100 && SAFE_NAME.matches(it) }
+        return normalized.takeIf {
+            it.isNotBlank() && it.length <= 100 && SAFE_NAME.matches(it)
+        }
     }
 
     companion object {
         private const val PAGE_SIZE = 100
-        private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
-        private val SAFE_NAME = Regex("^[A-Za-z0-9_.-]+$")
         private const val MAX_REPOSITORY_PAGES = 3
+        private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
         private const val API_VERSION = "2026-03-10"
+        private val SAFE_NAME = Regex("^[A-Za-z0-9_.-]+$")
     }
+}
+
+private val DefaultHttpConnectionFactory: HttpConnectionFactory = HttpConnectionFactory { url ->
+    URL(url).openConnection() as HttpURLConnection
+}
+
+private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 32 * 1024))
+    val buffer = ByteArray(8 * 1024)
+    var total = 0
+    while (total < maxBytes) {
+        val read = read(buffer, 0, minOf(buffer.size, maxBytes - total))
+        if (read <= 0) break
+        output.write(buffer, 0, read)
+        total += read
+    }
+    if (total >= maxBytes) error("GitHub response exceeded the DevForge response limit.")
+    return output.toByteArray()
+}
 }
     }
 }
