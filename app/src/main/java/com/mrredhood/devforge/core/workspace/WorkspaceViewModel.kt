@@ -175,11 +175,12 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching { indexer.build(active.treeUri) }
             result.onSuccess { symbols ->
-                symbolIndex.replace(active.id, symbols)
+                val persisted = symbolIndex.replace(active.id, symbols)
                 launch(Dispatchers.Main.immediate) {
-                    indexedSymbolCount = symbols.size
+                    indexedSymbolCount = if (persisted) symbols.size else symbolIndex.list(active.id).size
                     symbolResults = emptyList()
                     symbolQuery = ""
+                    knowledgeMessage = if (persisted) null else "Symbol index exceeded the local storage budget; the scan completed but was not persisted."
                     isIndexing = false
                 }
             }.onFailure { error ->
