@@ -11,6 +11,7 @@ import kotlinx.coroutines.withTimeout
 class AgentTaskEngine(
     private val durableState: DurableStateRepository,
     private val gateway: AgentToolGateway,
+    private val coordination: AgentCoordinationService? = null,
 ) {
     suspend fun enqueue(
         workspaceId: String,
@@ -75,6 +76,7 @@ class AgentTaskEngine(
                 errorMessage = "Cancelled by user.",
             ),
         )
+        coordination?.releaseTaskFileLeases(task.workspaceId, taskId)
         return true
     }
 
