@@ -48,10 +48,11 @@ class WorkspaceSearch(private val resolver: ContentResolver) {
             val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
             val mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
             val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+            if (idIndex < 0 || nameIndex < 0 || mimeIndex < 0) return@use
             while (cursor.moveToNext() && results.size < maxResults) {
-                val id = cursor.getString(idIndex)
+                val id = cursor.getString(idIndex)?.takeIf(String::isNotBlank) ?: continue
                 val name = cursor.getString(nameIndex) ?: "Unnamed"
-                val mime = cursor.getString(mimeIndex)
+                val mime = cursor.getString(mimeIndex).orEmpty()
                 val directory = mime == DocumentsContract.Document.MIME_TYPE_DIR
                 val size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else null
                 val uri = DocumentsContract.buildDocumentUriUsingTree(parent, id)
