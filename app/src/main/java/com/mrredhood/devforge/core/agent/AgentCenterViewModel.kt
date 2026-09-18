@@ -138,9 +138,32 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching { catalogService.load(provider, key, settings.customBaseUrl(provider)) }
             launch(Dispatchers.Main.immediate) {
-                result.getOrNull()?.let { modelsByProvider = modelsByProvider + (provider to it.models) }
+                val catalog = result.getOrNull()
+                val savedModelId = settings.selectedModelId(provider)
+                val fallbackModels = if (
+                    provider == AIProvider.OPENAI_COMPATIBLE &&
+                    catalog?.models.isNullOrEmpty() &&
+                    !savedModelId.isNullOrBlank()
+                ) {
+                    listOf(
+                        AIModelInfo(
+                            provider = provider,
+                            id = savedModelId,
+                            displayName = savedModelId,
+                            metadataSource = "Saved custom model",
+                        ),
+                    )
+                } else {
+                    catalog?.models.orEmpty()
+                }
+                modelsByProvider = modelsByProvider + (provider to fallbackModels)
                 loadingProviders = loadingProviders - provider
-                result.exceptionOrNull()?.message?.let { message = it }
+                val warning = catalog?.warning ?: result.exceptionOrNull()?.message
+                message = if (fallbackModels.isNotEmpty() && catalog?.models.isNullOrEmpty() && savedModelId != null) {
+                    (warning ?: "Custom model catalog unavailable.") + " Using the saved custom model ID."
+                } else {
+                    warning
+                }
             }
         }
     }
