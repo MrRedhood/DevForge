@@ -125,7 +125,6 @@ private fun statusAvailabilityLabel(availability: GitStatusAvailability): String
     GitStatusAvailability.IndexAndHeadAware -> "HEAD + index + worktree status available"
     GitStatusAvailability.IndexAwareWorktree -> "Index/worktree status available"
     GitStatusAvailability.MetadataOnly -> "Repository metadata available"
-    GitStatusAvailability.NotImplemented -> "Git status unavailable"
 }
 
 @Composable
@@ -148,7 +147,6 @@ private fun WorkspaceStatusCard(status: GitWorkspaceStatus?, inspecting: Boolean
                             GitStatusAvailability.IndexAndHeadAware -> "Compared HEAD, index, and working tree"
                             GitStatusAvailability.IndexAwareWorktree -> "Working tree compared with the Git index"
                             GitStatusAvailability.MetadataOnly, null -> "Bounded observation fallback; Git index status unavailable"
-                            GitStatusAvailability.NotImplemented -> "Git status is unavailable"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
