@@ -1,11 +1,11 @@
 package com.mrredhood.devforge.core.ai
 
 import android.content.Context
-import com.mrredhood.devforge.core.security.AndroidSecretStore
+import com.mrredhood.devforge.core.security.CredentialSecurityStore
 
 class AISettingsRepository(context: Context) {
     private val appContext = context.applicationContext
-    private val secrets = AndroidSecretStore(appContext)
+    private val secrets = CredentialSecurityStore(appContext)
     private val preferences = appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
     fun selectedProvider(): AIProvider = AIProvider.entries.firstOrNull {
@@ -23,9 +23,13 @@ class AISettingsRepository(context: Context) {
         preferences.edit().putString("$KEY_MODEL_PREFIX${provider.id}", modelId).apply()
     }
 
-    fun getApiKey(provider: AIProvider): String? = secrets.get(secretKey(provider))?.trim()?.ifBlank { null }
+    fun getApiKey(provider: AIProvider): String? = runCatching { secrets.get(secretKey(provider))?.trim()?.ifBlank { null } }.getOrNull()
 
-    fun hasApiKey(provider: AIProvider): Boolean = !getApiKey(provider).isNullOrBlank()
+    fun hasApiKey(provider: AIProvider): Boolean = secrets.contains(secretKey(provider))
+
+    fun isApiKeyLocked(provider: AIProvider): Boolean = secrets.isProtectionEnabled && !secrets.isUnlocked && secrets.contains(secretKey(provider))
+
+    fun isBiometricProtectionEnabled(): Boolean = secrets.isProtectionEnabled
 
     fun saveApiKey(provider: AIProvider, apiKey: String) {
         secrets.put(secretKey(provider), apiKey.trim())
