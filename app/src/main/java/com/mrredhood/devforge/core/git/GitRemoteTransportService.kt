@@ -46,6 +46,105 @@ class GitRemoteTransportService(
         return GitRemoteValidation(true, remote.owner, remote.repository)
     }
 
+    suspend fun cloneRepositoryInto(
+        parentUri: Uri,
+        owner: String,
+        repository: String,
+        branch: String,
+        targetName: String = repository,
+    ): Result<Uri> = withContext(Dispatchers.IO) {
+        runCatching {
+            require(isDirectoryUri(parentUri)) { "The selected destination is not a directory." }
+            val normalizedOwner = owner.trim().takeIf { VALID_NAME.matches(it) }
+                ?: throw IllegalArgumentException("The GitHub owner is invalid.")
+            val normalizedRepository = repository.trim().takeIf { VALID_NAME.matches(it) }
+                ?: throw IllegalArgumentException("The GitHub repository is invalid.")
+            val normalizedBranch = branch.trim()
+            require(
+                normalizedBranch.isNotBlank() &&
+                    normalizedBranch.length <= 255 &&
+                    !normalizedBranch.startsWith("/") &&
+                    !normalizedBranch.contains("..") &&
+                    !normalizedBranch.any { it == '\\' || it == '\n' || it == '\r' },
+            ) { "The GitHub branch is invalid." }
+
+            val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
+                ?: throw IllegalStateException("Connect GitHub before importing a repository.")
+            require(token.length <= MAX_TOKEN_LENGTH) { "The stored GitHub credential is invalid." }
+
+            val safeTarget = requireSafeDocumentName(targetName.ifBlank { normalizedRepository })
+            val targetRoot = createUniqueDirectory(parentUri, safeTarget)
+
+            val tempRoot = File(context.cacheDir, "devforge-git-clone/" + UUID.randomUUID())
+            tempRoot.mkdirs()
+            val localRepo = File(tempRoot, "repo")
+            try {
+                Git.cloneRepository()
+                    .setURI("https://github.com/" + normalizedOwner + "/" + normalizedRepository + ".git")
+                    .setDirectory(localRepo)
+                    .setBranch(normalizedBranch)
+                    .setBranchesToClone(listOf("refs/heads/" + normalizedBranch))
+                    .setDepth(1)
+                    .setCredentialsProvider(UsernamePasswordCredentialsProvider("x-access-token", token))
+                    .setTimeout(NETWORK_TIMEOUT_SECONDS)
+                    .call()
+                    .use { }
+
+                syncDirectoryFromFile(
+                    source = localRepo,
+                    target = targetRoot,
+                    budget = CopyBudget(),
+                )
+            } finally {
+                tempRoot.deleteRecursively()
+            }
+            targetRoot
+        }
+    }
+
+    suspend fun autoSyncChanges(
+        repository: GitRepositoryState,
+        commitMessage: String,
+    ): GitRemoteResult = withContext(Dispatchers.IO) {
+        execute(repository, syncWorktree = true) { git, credentials ->
+            validateRemoteAndCredentials(repository.remoteUrl, credentials)
+            val status = git.status().call()
+            if (status.isClean) return@execute "No remote changes were needed."
+
+            git.add().addFilepattern(".").call()
+            git.add().setUpdate(true).addFilepattern(".").call()
+
+            val staged = git.status().call()
+            if (staged.isClean) return@execute "No remote changes were needed."
+
+            val message = commitMessage.trim().take(200).ifBlank { "DevForge: synchronize workspace changes" }
+            val commit = git.commit().setMessage(message).call()
+            val branch = repository.branchName
+                ?: throw IllegalStateException("Automatic GitHub sync requires an attached branch.")
+            val pushSpec = RefSpec("refs/heads/" + branch + ":refs/heads/" + branch)
+            val results = git.push()
+                .setRemote("origin")
+                .setRefSpecs(pushSpec)
+                .setCredentialsProvider(credentials)
+                .setForce(false)
+                .setTimeout(NETWORK_TIMEOUT_SECONDS)
+                .call()
+            val rejection = results.asSequence()
+                .flatMap { it.getRemoteUpdates().asSequence() }
+                .firstOrNull { update ->
+                    val statusName = update.getStatus().name
+                    statusName.contains("REJECTED", true) ||
+                        statusName.contains("NON_FAST_FORWARD", true) ||
+                        statusName.contains("NON_EXISTING", true)
+                }
+            if (rejection != null) {
+                throw IllegalStateException(
+                    "GitHub rejected automatic sync (" + rejection.getStatus().name + "). DevForge never force-pushes.",
+                )
+            }
+            "Synced workspace to GitHub in commit " + commit.id.name.take(12) + "."
+        }
+    }
     suspend fun fetch(repository: GitRepositoryState): GitRemoteResult = withContext(Dispatchers.IO) {
         execute(repository, syncWorktree = false) { git, credentials ->
             validateRemoteAndCredentials(repository.remoteUrl, credentials)
@@ -249,6 +348,10 @@ class GitRemoteTransportService(
         }
     }
 
+    private fun documentParentUri(parent: Uri): Uri {
+        val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(parent) }.getOrNull()
+        return treeDocumentId?.let { DocumentsContract.buildDocumentUriUsingTree(parent, it) } ?: parent
+    }
     private fun listChildren(parent: Uri): List<DocumentRef> = runCatching {
         val documentId = runCatching { DocumentsContract.getDocumentId(parent) }.getOrElse { DocumentsContract.getTreeDocumentId(parent) }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, documentId)
@@ -273,6 +376,26 @@ class GitRemoteTransportService(
 
     private fun findDirectChild(parent: Uri, name: String): Uri? = listChildren(parent).firstOrNull { it.name == name }?.uri
 
+    private fun isDirectoryUri(uri: Uri): Boolean = queryDocument(uri)?.isDirectory == true
+
+    private fun createUniqueDirectory(parent: Uri, baseName: String): Uri {
+        val parentDocument = documentParentUri(parent)
+        val existing = listChildren(parentDocument).map { it.name }.toSet()
+        var candidate = baseName.take(255)
+        var suffix = 2
+        while (candidate in existing) {
+            val suffixText = " (" + suffix + ")"
+            candidate = baseName.take((255 - suffixText.length).coerceAtLeast(1)) + suffixText
+            suffix++
+            require(suffix < 10_000) { "Unable to choose a unique workspace directory." }
+        }
+        return DocumentsContract.createDocument(
+            resolver,
+            parentDocument,
+            DocumentsContract.Document.MIME_TYPE_DIR,
+            candidate,
+        ) ?: throw IOException("Unable to create repository destination folder.")
+    }
     private fun requireSafeDocumentName(name: String): String {
         val value = name.trim()
         require(
