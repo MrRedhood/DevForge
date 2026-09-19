@@ -308,7 +308,7 @@ class AIChatGateway(
 
     private fun supportsParameter(model: AIModelInfo, parameter: String): Boolean {
         if (model.provider != AIProvider.OPENROUTER || model.supportedParameters.isEmpty()) return true
-        return model.supportedParameters.contains(parameter)
+        return model.supportedParameters.any { it.equals(parameter, ignoreCase = true) }
     }
 
     private suspend fun requestOpenAiCompatible(
