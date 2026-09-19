@@ -223,7 +223,10 @@ private fun GitOperationsCard() {
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Button(
                     onClick = { commitOpen = true },
                     enabled = model.capabilities.commit == CapabilityAvailability.Available && !model.isExecuting,
@@ -248,7 +251,10 @@ private fun GitOperationsCard() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedButton(
                     onClick = { model.fetchRemote() },
                     enabled = model.capabilities.fetchRemote == CapabilityAvailability.Available && !model.isExecuting,
