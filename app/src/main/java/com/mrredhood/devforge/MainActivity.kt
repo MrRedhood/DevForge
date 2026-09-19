@@ -1011,6 +1011,35 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
             }
         }
 
+        editor.gitSyncMessage?.let { message ->
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (message.contains("failed", true)) {
+                        MaterialTheme.colorScheme.errorContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer,
+                    },
+                ),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        message,
+                        Modifier.weight(1f),
+                        color = if (message.contains("failed", true)) {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface,
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    TextButton(onClick = editor::clearGitSyncMessage) { Text("Dismiss") }
+                }
+            }
+        }
+
         editor.error?.let { message ->
             Card(
                 colors = CardDefaults.cardColors(
