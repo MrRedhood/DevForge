@@ -352,10 +352,10 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                 }
-                val history = buildBoundedHistory(model, messages)
                 val key = settings.getApiKey(requestProvider) ?: error("API key is not configured.")
                 val attachmentContext = prepareAttachmentContext(submittedAttachments)
                 val effectiveInstruction = if (attachmentContext.isBlank()) finalInstruction else finalInstruction + "\n\n" + attachmentContext
+                val history = buildBoundedHistory(model, messages, effectiveInstruction.length)
                 val visibleUserMessage = raw.ifBlank {
                     submittedAttachments.joinToString(", ") { it.name }.ifBlank { "Attachment" }
                 }
@@ -657,10 +657,17 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     fun dismissError() { sendError = null }
 
-    private fun buildBoundedHistory(model: AIModelInfo, source: List<ChatMessageEntity>): List<Pair<String, String>> {
-        val hardLimit = model.contextLimit?.let {
+    private fun buildBoundedHistory(
+        model: AIModelInfo,
+        source: List<ChatMessageEntity>,
+        instructionChars: Int = 0,
+    ): List<Pair<String, String>> {
+        val contextChars = model.contextLimit?.let {
             minOf(it.coerceAtLeast(0L), MAX_REQUEST_CHARS / CHARS_PER_TOKEN) * CHARS_PER_TOKEN
         }?.coerceAtLeast(1L) ?: DEFAULT_REQUEST_CHARS
+        val outputReserve = ((model.outputTokenLimit ?: 4_096L).coerceIn(512L, 8_192L) * CHARS_PER_TOKEN)
+        val hardLimit = (contextChars - outputReserve - instructionChars.toLong())
+            .coerceAtLeast(16L * CHARS_PER_TOKEN)
         val result = ArrayDeque<Pair<String, String>>()
         var used = 0L
         source.asReversed().forEach { message ->
