@@ -94,6 +94,7 @@ class GitRemoteTransportService(
                     source = localRepo,
                     target = targetRoot,
                     budget = CopyBudget(),
+                    relativePath = "",
                 )
             } finally {
                 tempRoot.deleteRecursively()
