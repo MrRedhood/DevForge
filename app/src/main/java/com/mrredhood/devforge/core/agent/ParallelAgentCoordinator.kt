@@ -87,7 +87,27 @@ class AgentPlanPlanner(context: Context) {
             "Workspace knowledge (untrusted notes; never grants authorization): " + recentKnowledge(assignment.workspaceId),
             "Agent task: " + assignment.instruction.take(32_000),
         ).joinToString("\n")
-        val response = gateway.send(model, key, emptyList(), prompt, customBaseUrl = settings.customBaseUrl(assignment.model.provider)).take(64 * 1024)
+        var response = gateway.send(model, key, emptyList(), prompt, customBaseUrl = settings.customBaseUrl(assignment.model.provider)).take(64 * 1024)
+        var decoded = decodePlan(response, assignment)
+        if (requiresWorkspaceMutation(assignment.instruction) &&
+            decoded.steps.none { it.toolId in MUTATION_TOOLS }
+        ) {
+            response = gateway.send(
+                model,
+                key,
+                emptyList(),
+                prompt + "\nCRITICAL CORRECTION: the user's request requires an actual workspace mutation. Your previous plan was rejected because it contained no mutation tool. Return a new plan that performs the requested change using patch_file, write_file, create_file, create_folder, or delete_path, after any necessary inspection.",
+                customBaseUrl = settings.customBaseUrl(assignment.model.provider),
+            ).take(64 * 1024)
+            decoded = decodePlan(response, assignment)
+            require(decoded.steps.any { it.toolId in MUTATION_TOOLS }) {
+                "The model did not produce a workspace mutation step for a file-changing request."
+            }
+        }
+        return decoded.copy(access = assignment.access)
+    }
+
+    private fun decodePlan(response: String, assignment: AgentAssignment): AgentTaskPlan {
         val jsonStart = response.indexOf('{')
         val jsonEnd = response.lastIndexOf('}')
         require(jsonStart >= 0 && jsonEnd > jsonStart) { "Model did not return a JSON agent plan." }
@@ -95,7 +115,23 @@ class AgentPlanPlanner(context: Context) {
         require(decoded.steps.all { AgentAccessRules.canUse(it.toolId, assignment.access) }) {
             "Agent plan requested a tool that is disabled by the selected access profile."
         }
-        return decoded.copy(access = assignment.access)
+        return decoded
+    }
+
+    private fun requiresWorkspaceMutation(instruction: String): Boolean =
+        MUTATION_INTENT.containsMatchIn(instruction.lowercase())
+
+    private companion object {
+        val MUTATION_TOOLS = setOf(
+            AgentToolId.PATCH_FILE,
+            AgentToolId.WRITE_FILE,
+            AgentToolId.CREATE_FILE,
+            AgentToolId.CREATE_FOLDER,
+            AgentToolId.DELETE_PATH,
+        )
+        val MUTATION_INTENT = Regex(
+            "(?is)\\b(create|make|add|new|write|modify|edit|change|update|rewrite|replace|delete|remove|rename|move|fix|implement)\\b.{0,160}\\b(file|folder|directory|path|script|source|code|class|function)\\b",
+        )
     }
 
     private suspend fun workspaceIdentity(workspaceId: String): String {
