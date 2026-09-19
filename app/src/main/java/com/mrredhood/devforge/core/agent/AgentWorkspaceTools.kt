@@ -306,7 +306,7 @@ class WorkspaceAgentToolProvider(
         )
 
         override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
-            listOf(JSONObject(request.argumentsJson).optString("path").trim())
+            listOf(scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim()))
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val path = scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim())
@@ -332,7 +332,7 @@ class WorkspaceAgentToolProvider(
         )
 
         override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
-            listOf(JSONObject(request.argumentsJson).optString("path").trim())
+            listOf(scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim()))
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val path = scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim())
@@ -359,7 +359,7 @@ class WorkspaceAgentToolProvider(
         )
 
         override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
-            listOf(JSONObject(request.argumentsJson).optString("path").trim())
+            listOf(scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim()))
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val args = JSONObject(request.argumentsJson)
