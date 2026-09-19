@@ -142,8 +142,12 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
             operationMessage = "No supported Git repository is active."
             return
         }
-        if (repository.statusAvailability == GitStatusAvailability.MetadataOnly && capability != Capability.CREATE_BRANCH) {
-            operationMessage = "Git mutation is unavailable because the index/HEAD objects cannot be read safely through the selected workspace."
+        if (repository.statusAvailability == GitStatusAvailability.MetadataOnly &&
+            capability != Capability.CREATE_BRANCH &&
+            capability != Capability.STAGE_FILES &&
+            capability != Capability.CREATE_COMMIT
+        ) {
+            operationMessage = "This Git operation needs HEAD objects that are not readable on the current SAF access path."
             return
         }
         submitApprovedOrRun(actionType, capability, risk, summary, parameters, repository) { target -> block(target) }
@@ -380,7 +384,16 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
         capabilities = GitCapabilityState(
             stage = if (mutationReadReady) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             unstage = if (mutationReadReady && repository?.headRevision != null && status.mode == GitStatusAvailability.IndexAndHeadAware) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
-            commit = if (mutationReadReady && status.mode == GitStatusAvailability.IndexAndHeadAware && status.files.none { it.gitStatus == GitFileStatus.Conflict || it.gitStatus == GitFileStatus.Unchecked }) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
+            commit = if (
+                repository != null &&
+                status != null &&
+                !status.truncated &&
+                status.mode in setOf(
+                    GitStatusAvailability.IndexAndHeadAware,
+                    GitStatusAvailability.IndexAwareWorktree,
+                ) &&
+                status.files.none { it.gitStatus == GitFileStatus.Conflict || it.gitStatus == GitFileStatus.Unchecked }
+            ) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             createBranch = if (repository?.headRevision != null) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             deleteBranch = if (repository?.branchName != null && repository.branches.any { !it.isCurrent }) CapabilityAvailability.Available else CapabilityAvailability.Unavailable,
             fetchRemote = if (remoteReady) CapabilityAvailability.Available else CapabilityAvailability.NotConfigured,
