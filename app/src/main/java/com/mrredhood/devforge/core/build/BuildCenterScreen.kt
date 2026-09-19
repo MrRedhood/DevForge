@@ -2,6 +2,7 @@ package com.mrredhood.devforge.core.build
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.OpenInNew
@@ -109,7 +111,10 @@ fun BuildCenterScreen() {
                             Spacer(Modifier.width(8.dp))
                             Text("Build target", fontWeight = FontWeight.Bold)
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
                             BuildTarget.entries.forEach { target ->
                                 FilterChip(
                                     selected = configuration.target == target,
@@ -140,7 +145,7 @@ fun BuildCenterScreen() {
             }
             if (model.runSnapshot != null) {
                 item { RunSummaryCard(model, onOpen = { url -> openUrl(context, url) }) }
-                item { ArtifactCard(model.artifacts) }
+                item { ArtifactCard(model) }
                 item { LogsCard(model.logs, model.logsTruncated) }
             }
             if (model.monitoringMessage != null) {
@@ -171,7 +176,11 @@ fun BuildCenterScreen() {
                 items(model.history, key = { it.runId }) { entry -> HistoryRow(entry, onOpen = { url -> openUrl(context, url) }) }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Button(onClick = model::requestDispatch, enabled = dispatchEnabled) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
@@ -262,25 +271,54 @@ private fun RunSummaryCard(model: BuildViewModel, onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun ArtifactCard(artifacts: List<GitHubArtifact>) {
+private fun ArtifactCard(model: BuildViewModel) {
     Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Artifacts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            if (artifacts.isEmpty()) Text("No artifacts are available for this run yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else artifacts.forEach { artifact -> ArtifactRow(artifact) }
+            if (model.artifacts.isEmpty()) {
+                Text("No artifacts are available for this run yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                model.artifacts.forEach { artifact -> ArtifactRow(artifact, model) }
+            }
+            model.artifactMessage?.let { message ->
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (message.contains("failed", true) || message.contains("error", true)) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun ArtifactRow(artifact: GitHubArtifact) {
+private fun ArtifactRow(artifact: GitHubArtifact, model: BuildViewModel) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(artifact.name, fontWeight = FontWeight.SemiBold)
             Text("${formatBytes(artifact.sizeBytes)} • ${if (artifact.expired) "Expired" else "Available"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Surface(shape = MaterialTheme.shapes.small, color = if (artifact.expired) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant) {
-            Text(if (artifact.expired) "Expired" else "Ready", modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelMedium)
+        if (artifact.expired) {
+            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.errorContainer) {
+                Text("Expired", modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelMedium)
+            }
+        } else {
+            TextButton(
+                onClick = { model.downloadArtifact(artifact) },
+                enabled = model.downloadingArtifactId == null,
+            ) {
+                if (model.downloadingArtifactId == artifact.id) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.Download, contentDescription = null, Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(4.dp))
+                Text("Download")
+            }
         }
     }
 }
