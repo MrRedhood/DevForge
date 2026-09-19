@@ -70,6 +70,10 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var history by mutableStateOf<List<BuildHistoryEntry>>(emptyList())
         private set
+    var downloadingArtifactId by mutableStateOf<Long?>(null)
+        private set
+    var artifactMessage by mutableStateOf<String?>(null)
+        private set
 
     init {
         viewModelScope.launch {
@@ -170,6 +174,70 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshRun() {
         val run = runSnapshot ?: return
         startMonitoring(run.id, configuration, immediateOnly = true)
+    }
+
+    fun downloadArtifact(artifact: GitHubArtifact) {
+        if (artifact.expired || artifact.id <= 0L) {
+            artifactMessage = "This artifact is expired and cannot be downloaded."
+            return
+        }
+        if (downloadingArtifactId != null) return
+        val owner = configuration.githubOwner
+        val repository = configuration.githubRepository
+        if (owner.isBlank() || repository.isBlank()) {
+            artifactMessage = "Select a GitHub repository before downloading artifacts."
+            return
+        }
+        downloadingArtifactId = artifact.id
+        artifactMessage = null
+        viewModelScope.launch(Dispatchers.IO) {
+            var targetUri: android.net.Uri? = null
+            try {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    throw IllegalStateException("Artifact downloads require Android 10 or newer.")
+                }
+                val resolver = getApplication<Application>().contentResolver
+                val safeName = artifact.name.trim()
+                    .replace(Regex("[^A-Za-z0-9._-]+"), "_")
+                    .take(120)
+                    .ifBlank { "artifact" }
+                val fileName = if (safeName.endsWith(".zip", true)) safeName else safeName + ".zip"
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "application/zip")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/DevForge")
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                targetUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: throw IllegalStateException("Android could not create the DevForge download file.")
+                resolver.openOutputStream(targetUri!!)!!.use { output ->
+                    val result = githubGateway.downloadArtifact(
+                        owner = owner,
+                        repository = repository,
+                        artifactId = artifact.id,
+                        output = output,
+                    )
+                    val bytes = result.getOrElse { throw it }
+                    if (bytes <= 0L) throw IllegalStateException("GitHub returned an empty artifact.")
+                }
+                val complete = ContentValues().apply {
+                    put(MediaStore.Downloads.IS_PENDING, 0)
+                }
+                resolver.update(targetUri!!, complete, null, null)
+                withContext(Dispatchers.Main.immediate) {
+                    artifactMessage = "Downloaded " + artifact.name + " to Downloads/DevForge."
+                }
+            } catch (error: Throwable) {
+                targetUri?.let { uri ->
+                    runCatching { getApplication<Application>().contentResolver.delete(uri, null, null) }
+                }
+                withContext(Dispatchers.Main.immediate) {
+                    artifactMessage = error.message ?: "Artifact download failed."
+                }
+            } finally {
+                withContext(Dispatchers.Main.immediate) { downloadingArtifactId = null }
+            }
+        }
     }
 
     fun requestDispatch() {
