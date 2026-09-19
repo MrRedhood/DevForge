@@ -59,7 +59,14 @@ class AgentToolGateway(
         val action = runCatching { actionRequest(context, request, tool) }.getOrElse {
             return AgentToolResult.Failure(it.message ?: "Unable to validate the agent action preconditions.")
         }
-        val needsApproval = DefaultPolicy.requiresApproval(action, permissionMode)
+        val needsApproval = when {
+            permissionMode == PermissionMode.NEVER -> true
+            permissionMode == PermissionMode.AUTONOMOUS && action.capability in setOf(
+                com.mrredhood.devforge.core.policy.Capability.EDIT_FILES,
+                com.mrredhood.devforge.core.policy.Capability.DELETE_FILES,
+            ) -> false
+            else -> DefaultPolicy.requiresApproval(action, permissionMode)
+        }
         if (needsApproval) {
             val approvalId = UUID.randomUUID().toString()
             approvals.createPending(
