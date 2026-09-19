@@ -755,7 +755,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             AgentTaskStatus.CANCELLED.name,
         )
         private val MUTATION_INTENT = Regex(
-            "(?is)\\b(create|make|add|new|write|modify|edit|change|update|rewrite|replace|delete|remove|rename|move|fix|implement)\\b.{0,120}\\b(file|folder|directory|path|script|source|code|class|function)\\b",
+            "(?is)\\b(create|make|add|new|write|modify|edit|change|update|rewrite|replace|delete|remove|rename|move|fix|implement)\\b.{0,180}(?:\\b(file|files|folder|folders|directory|directories|path|script|source|code|class|function)\\b|(?:^|[\\s`(])[^\\s`]+\\.(?:kt|kts|java|py|js|ts|tsx|jsx|json|xml|yml|yaml|md|txt|gradle|properties|toml|sh|html|css|scss|c|cpp|h|hpp|rs|go|swift|sql)\\b)",
         )
         private val WORKSPACE_OBJECT = Regex(
             "(?is)\\b(file|files|folder|folders|directory|directories|path|workspace|script|source|code)\\b",
