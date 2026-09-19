@@ -163,9 +163,10 @@ private fun ModelSelector(viewModel: AIChatViewModel) {
                 )
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Models")
             }
-            Dialog(
-                onDismissRequest = { viewModel.updateModelMenuOpen(false) },
-            ) {
+            if (viewModel.isModelMenuOpen) {
+                Dialog(
+                    onDismissRequest = { viewModel.updateModelMenuOpen(false) },
+                ) {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth(0.96f)
