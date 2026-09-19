@@ -534,10 +534,15 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Files", fontSize = 28.sp, fontWeight = FontWeight.Black)
-                    Text(workspace.workspace?.name ?: "No workspace", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Files", fontSize = 28.sp, fontWeight = FontWeight.Black)
+                        Text(
+                            workspace.workspace?.name ?: "No workspace",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 Row(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
