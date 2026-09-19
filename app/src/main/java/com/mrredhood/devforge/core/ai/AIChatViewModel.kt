@@ -702,27 +702,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private suspend fun buildWorkspaceContext(root: Uri?, name: String?): String {
-        if (root == null || name.isNullOrBlank()) return ""
-        return withContext(Dispatchers.IO) {
-            val entries = runCatching {
-                WorkspaceFileTree(resolver).listRoot(root, 80)
-            }.getOrDefault(emptyList())
-            buildString {
-                append("Active DevForge workspace: ").append(name.take(120))
-                if (entries.isNotEmpty()) {
-                    append("\nTop-level workspace entries:")
-                    entries.forEach { entry ->
-                        append("\n- ").append(entry.name)
-                        if (entry.isDirectory) append("/")
-                    }
-                }
-                append("\nAll file operations must stay inside this active workspace.")
-                append("\nUse paths relative to the workspace root; never prepend the workspace display name.")
-            }
-        }
-    }
-
     private fun buildBoundedHistory(
         model: AIModelInfo,
         source: List<ChatMessageEntity>,
