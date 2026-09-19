@@ -898,8 +898,14 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
                     maxLines = 1,
                 )
             }
-            TextButton(onClick = { showAiEdit = true }, enabled = !editor.isAiBusy) {
-                Text(if (editor.isAiBusy) "AI…" else "AI edit", maxLines = 1)
+            if (editor.isAiBusy) {
+                TextButton(onClick = editor::cancelAiEdit) {
+                    Text("Stop AI", maxLines = 1)
+                }
+            } else {
+                TextButton(onClick = { showAiEdit = true }) {
+                    Text("AI edit", maxLines = 1)
+                }
             }
             TextButton(onClick = { showSymbols = true }, enabled = advanced) { Text("Symbols", maxLines = 1) }
             IconButton(onClick = editor::saveActive, enabled = active.isDirty) { Icon(Icons.Default.Save, "Save") }
