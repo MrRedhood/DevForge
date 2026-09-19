@@ -30,7 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -161,66 +161,102 @@ private fun ModelSelector(viewModel: AIChatViewModel) {
                 )
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Models")
             }
-            DropdownMenu(
-                expanded = viewModel.isModelMenuOpen,
+            Dialog(
                 onDismissRequest = { viewModel.updateModelMenuOpen(false) },
             ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.96f)
+                        .widthIn(max = 560.dp)
+                        .heightIn(max = 680.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    tonalElevation = 6.dp,
                 ) {
-                    ModelFilter.entries.forEach { filter ->
-                        FilterChip(
-                            selected = viewModel.activeFilter == filter,
-                            onClick = { viewModel.setFilter(filter) },
-                            label = { Text(filter.label) },
-                        )
-                    }
-                }
-                OutlinedTextField(
-                    value = viewModel.modelQuery,
-                    onValueChange = { viewModel.modelQuery = it },
-                    singleLine = true,
-                    label = { Text("Search models") },
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                )
-                if (viewModel.isLoadingModels) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Column(
+                        Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        CircularProgressIndicator(Modifier.width(18.dp).height(18.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Text("Loading live models…")
-                    }
-                } else if (viewModel.filteredModels.isEmpty()) {
-                    DropdownMenuItem(
-                        text = { Text(viewModel.modelError ?: "No matching models") },
-                        onClick = {},
-                        enabled = false,
-                    )
-                } else {
-                    viewModel.filteredModels.forEach { model ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(model.displayName, fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        modelMetaLine(model),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ModelFilter.entries.forEach { filter ->
+                                FilterChip(
+                                    selected = viewModel.activeFilter == filter,
+                                    onClick = { viewModel.setFilter(filter) },
+                                    label = {
+                                        Text(
+                                            filter.label,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = viewModel.modelQuery,
+                            onValueChange = { viewModel.modelQuery = it },
+                            singleLine = true,
+                            label = { Text("Search models") },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        )
+                        if (viewModel.isLoadingModels) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CircularProgressIndicator(Modifier.width(18.dp).height(18.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Loading live models…")
+                            }
+                        } else if (viewModel.filteredModels.isEmpty()) {
+                            Text(
+                                viewModel.modelError ?: "No matching models",
+                                Modifier.fillMaxWidth().padding(16.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            LazyColumn(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 120.dp, max = 480.dp),
+                            ) {
+                                items(
+                                    viewModel.filteredModels,
+                                    key = { it.provider.id + ":" + it.id },
+                                ) { model ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(model.displayName, fontWeight = FontWeight.SemiBold)
+                                                Text(
+                                                    modelMetaLine(model),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                        },
+                                        onClick = { viewModel.selectModel(model) },
                                     )
                                 }
-                            },
-                            onClick = { viewModel.selectModel(model) },
-                        )
+                            }
+                        }
+                        TextButton(
+                            onClick = { viewModel.refreshModels() },
+                            modifier = Modifier.align(Alignment.End).padding(horizontal = 8.dp),
+                        ) {
+                            Icon(Icons.Default.Refresh, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Refresh model catalog")
+                        }
                     }
                 }
-                DropdownMenuItem(
-                    text = { Text("Refresh model catalog") },
-                    leadingIcon = { Icon(Icons.Default.Refresh, null) },
-                    onClick = { viewModel.refreshModels() },
-                )
+            }
             }
         }
     }
