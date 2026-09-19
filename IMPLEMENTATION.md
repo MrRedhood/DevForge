@@ -177,6 +177,13 @@
 - [x] Security/redaction regression tests
 - [x] Agent execution timeline and lifecycle correlation
 
+### 2026-09-19 — Chat model filters and editor AI hardening
+- Replaced the model-filter chip strip with a horizontally virtualized row so every filter remains full-width and tappable instead of collapsing the last chip vertically on narrow screens.
+- Kept model filtering based on provider-reported pricing/capability metadata; unknown pricing remains explicitly unknown rather than being misclassified.
+- Hardened inline Editor AI model selection to prefer the currently saved model only when it is present and text-capable in the live provider catalog, otherwise fall back to a discovered text model or a safe saved model when the catalog endpoint is temporarily unavailable.
+- Added an explicit credential-lock error path for Editor AI and restored the bounded 2 MiB editor-AI file-size constant.
+- Added regression coverage for workspace/editor path behavior used by agents.
+
 ## Validation
 - [x] Historical CI toolchain/debug-build validations
 - [x] Current agent milestone triggered a fresh Android CI run after commit
