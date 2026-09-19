@@ -239,11 +239,23 @@ class ModelCatalogService {
     }
 }
 
-private fun JSONObject.optLongOrNull(key: String): Long? =
-    if (!has(key) || isNull(key)) null else optLong(key).takeIf { it > 0L }
+private fun JSONObject.optLongOrNull(key: String): Long? {
+    if (!has(key) || isNull(key)) return null
+    return when (val value = opt(key)) {
+        is Number -> value.toLong().takeIf { it > 0L }
+        is String -> value.trim().toLongOrNull()?.takeIf { it > 0L }
+        else -> null
+    }
+}
 
-private fun JSONObject.optDoubleOrNull(key: String): Double? =
-    if (!has(key) || isNull(key)) null else optDouble(key).takeIf { !it.isNaN() }
+private fun JSONObject.optDoubleOrNull(key: String): Double? {
+    if (!has(key) || isNull(key)) return null
+    return when (val value = opt(key)) {
+        is Number -> value.toDouble().takeIf { it.isFinite() }
+        is String -> value.trim().toDoubleOrNull()?.takeIf { it.isFinite() }
+        else -> null
+    }
+}
 
 private fun java.io.InputStream.readBounded(maxBytes: Int): ByteArray {
     val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 32 * 1024))
