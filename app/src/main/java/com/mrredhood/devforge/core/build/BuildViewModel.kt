@@ -81,7 +81,10 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            buildReceiptDao.observeRecent(MAX_HISTORY).collect { receipts -> history = receipts.map(BuildReceiptEntity::toDomain) }
+            buildReceiptDao.observeRecent(MAX_HISTORY).collect { receipts ->
+                history = receipts.map(BuildReceiptEntity::toDomain)
+                receipts.firstOrNull()?.let { restoreLatestRun(it.toDomain()) }
+            }
         }
         approvalJob = viewModelScope.launch(Dispatchers.IO) {
             approvalRepository.observeApproved("build-dispatch:").collect { approvals -> approvals.forEach { executeApprovedBuild(it) } }
@@ -176,8 +179,88 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshRun() {
+        val run = runSnapshot
+        if (run != null) {
+            startMonitoring(run.id, configuration, immediateOnly = true)
+        } else {
+            history.firstOrNull()?.let { restoreLatestRun(it) }
+        }
+    }
+
+    fun reloadLogs() {
         val run = runSnapshot ?: return
-        startMonitoring(run.id, configuration, immediateOnly = true)
+        viewModelScope.launch(Dispatchers.IO) {
+            when (val result = githubGateway.fetchLogs(
+                configuration.githubOwner,
+                configuration.githubRepository,
+                run.id,
+                maxJobs = 8,
+                maxBytes = 512 * 1024,
+            )) {
+                is GitHubLogsResult.Success -> withContext(Dispatchers.Main.immediate) {
+                    logs = result.jobs
+                    logsTruncated = result.truncated
+                    monitoringMessage = null
+                }
+                is GitHubLogsResult.Failure -> withContext(Dispatchers.Main.immediate) {
+                    monitoringMessage = result.message
+                }
+            }
+        }
+    }
+
+    private var restoringRunId: Long? = null
+
+    private fun restoreLatestRun(entry: BuildHistoryEntry) {
+        if (entry.runId <= 0L || restoringRunId == entry.runId) return
+        restoringRunId = entry.runId
+        configuration = entry.configuration
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                when (val result = githubGateway.getRun(
+                    entry.configuration.githubOwner,
+                    entry.configuration.githubRepository,
+                    entry.runId,
+                )) {
+                    is GitHubRunResult.Success -> {
+                        val run = result.run
+                        withContext(Dispatchers.Main.immediate) {
+                            runSnapshot = run
+                            applyRunState(run, entry.configuration)
+                            refreshMonitoringCapabilities(runAvailable = true)
+                        }
+                        when (val result = githubGateway.listArtifacts(
+                            entry.configuration.githubOwner,
+                            entry.configuration.githubRepository,
+                            entry.runId,
+                        )) {
+                            is GitHubArtifactsResult.Success -> withContext(Dispatchers.Main.immediate) { artifacts = result.artifacts }
+                            is GitHubArtifactsResult.Failure -> Unit
+                        }
+                        when (val result = githubGateway.fetchLogs(
+                            entry.configuration.githubOwner,
+                            entry.configuration.githubRepository,
+                            entry.runId,
+                            maxJobs = 8,
+                            maxBytes = 512 * 1024,
+                        )) {
+                            is GitHubLogsResult.Success -> withContext(Dispatchers.Main.immediate) {
+                                logs = result.jobs
+                                logsTruncated = result.truncated
+                            }
+                            is GitHubLogsResult.Failure -> withContext(Dispatchers.Main.immediate) {
+                                monitoringMessage = result.message
+                            }
+                        }
+                    }
+                    is GitHubRunResult.Failure -> withContext(Dispatchers.Main.immediate) {
+                        monitoringMessage = result.message
+                    }
+                }
+            } finally {
+                restoringRunId = null
+            }
+        }
     }
 
     fun downloadArtifact(artifact: GitHubArtifact) {
