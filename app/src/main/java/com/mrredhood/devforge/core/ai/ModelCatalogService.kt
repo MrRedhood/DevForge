@@ -151,6 +151,7 @@ class ModelCatalogService {
                 inputModalities = input.ifEmpty { inferred.first },
                 outputModalities = output.ifEmpty { inferred.second },
                 supportsTools = jsonArrayStrings(model.optJSONArray("supported_parameters")).any { it == "tools" || it == "tool_choice" },
+                supportedParameters = jsonArrayStrings(model.optJSONArray("supported_parameters")),
                 metadataSource = provider.displayName + " Models API",
             ))
         }
