@@ -4,6 +4,11 @@ import android.app.Application
 import android.net.Uri
 import android.content.Intent
 import android.provider.OpenableColumns
+import com.mrredhood.devforge.DevForgeApplication
+import com.mrredhood.devforge.core.agent.AgentAccess
+import com.mrredhood.devforge.core.agent.AgentAssignment
+import com.mrredhood.devforge.core.agent.AgentModelBinding
+import com.mrredhood.devforge.core.agent.AgentTaskStatus
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,6 +27,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -49,6 +56,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private var modelLoadJob: Job? = null
     private var modelLoadGeneration = 0L
     private var workspaceRoot: Uri? = null
+    private var activeAgentTaskId: String? = null
 
     var provider by mutableStateOf(settings.selectedProvider())
         private set
@@ -352,7 +360,17 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     submittedAttachments.joinToString(", ") { it.name }.ifBlank { "Attachment" }
                 }
                 chatRepository.addMessage(sessionId, "user", visibleUserMessage, parsed?.command?.name)
-                if (parsed?.command?.name == "help" || !model.supportsStreaming) {
+                if (shouldDelegateToWorkspaceAgent(raw, parsed, workspaceId)) {
+                    val targetWorkspaceId = workspaceId ?: error("Create or select a workspace before asking the agent to change files.")
+                    val agentInstruction = buildAgentInstruction(raw, parsed, effectiveInstruction)
+                    val response = executeChatAgent(
+                        workspaceId = targetWorkspaceId,
+                        sessionId = sessionId,
+                        model = model,
+                        instruction = agentInstruction,
+                    )
+                    chatRepository.addMessage(sessionId, "assistant", response)
+                } else if (parsed?.command?.name == "help" || !model.supportsStreaming) {
                     val response = if (parsed?.command?.name == "help") effectiveInstruction else chatGateway.send(model, key, history, effectiveInstruction, submittedAttachments, settings.customBaseUrl(requestProvider))
                     chatRepository.addMessage(sessionId, "assistant", response)
                 } else {
@@ -395,8 +413,87 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun stopGeneration() {
+        val taskId = activeAgentTaskId
+        if (taskId != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                runCatching {
+                    (getApplication<Application>() as? DevForgeApplication)?.agentRuntime?.cancel(taskId)
+                }
+            }
+        }
         sendJob?.cancel()
         streamingText = ""
+    }
+
+    private fun shouldDelegateToWorkspaceAgent(
+        raw: String,
+        parsed: AICommandInvocation?,
+        currentWorkspaceId: String?,
+    ): Boolean {
+        if (currentWorkspaceId.isNullOrBlank()) return false
+        if (parsed?.command?.name == "agent") return true
+        val value = raw.lowercase()
+        return MUTATION_INTENT.containsMatchIn(value) &&
+            WORKSPACE_OBJECT.containsMatchIn(value)
+    }
+
+    private fun buildAgentInstruction(
+        raw: String,
+        parsed: AICommandInvocation?,
+        effectiveInstruction: String,
+    ): String {
+        val explicitGoal = parsed?.takeIf { it.command.name == "agent" }?.arguments?.trim().orEmpty()
+        val goal = explicitGoal.ifBlank { raw.trim() }
+        return buildString {
+            append("Act as the coding agent for the current DevForge workspace. ")
+            append("Execute the requested file and folder changes directly; do not merely describe them. ")
+            append("Inspect the workspace first, choose exact workspace-relative paths, make the requested changes, and verify the resulting state.")
+            append("\nUser goal: ").append(goal)
+            if (effectiveInstruction != raw.trim() && explicitGoal.isBlank()) {
+                append("\nAdditional workspace context:\n").append(effectiveInstruction.take(MAX_AGENT_CHAT_INSTRUCTION_CHARS))
+            }
+        }.take(MAX_AGENT_CHAT_INSTRUCTION_CHARS)
+    }
+
+    private suspend fun executeChatAgent(
+        workspaceId: String,
+        sessionId: String,
+        model: AIModelInfo,
+        instruction: String,
+    ): String {
+        val runtime = (getApplication<Application>() as? DevForgeApplication)?.agentRuntime
+            ?: error("The agent runtime is unavailable in this DevForge build.")
+        val taskId = runtime.assign(
+            AgentAssignment(
+                workspaceId = workspaceId,
+                title = "Chat coding task",
+                instruction = instruction,
+                model = AgentModelBinding(model.provider, model.id, model.displayName),
+                pathScope = com.mrredhood.devforge.core.security.WorkspacePathScope(),
+                access = AgentAccess.CODING_DEFAULT,
+            ),
+        )
+        activeAgentTaskId = taskId
+        try {
+            var task = database.agentTaskDao().get(taskId)
+            while (task != null && task.status !in AGENT_TERMINAL_STATUSES) {
+                currentCoroutineContext().ensureActive()
+                delay(500)
+                task = database.agentTaskDao().get(taskId)
+            }
+            val completed = task ?: error("The agent task disappeared before completion.")
+            return when (completed.status) {
+                AgentTaskStatus.COMPLETED.name ->
+                    "Agent completed the requested workspace changes." +
+                        completed.result?.takeIf { it.isNotBlank() }?.let { "\n\n$it" }.orEmpty()
+                AgentTaskStatus.CANCELLED.name ->
+                    "Agent task cancelled."
+                else ->
+                    "Agent task failed: " + (completed.errorMessage ?: "Unknown agent failure.")
+            }
+        } finally {
+            activeAgentTaskId = null
+        }
     }
 
     fun addAttachments(uris: List<Uri>, type: ChatAttachmentType) {
@@ -599,6 +696,18 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private const val MAX_REQUEST_CHARS = 1_000_000L
         private const val DEFAULT_REQUEST_CHARS = 256_000L
         private const val MAX_STREAM_VISIBLE_CHARS = 512 * 1024
+        private const val MAX_AGENT_CHAT_INSTRUCTION_CHARS = 60_000
+        private val AGENT_TERMINAL_STATUSES = setOf(
+            AgentTaskStatus.COMPLETED.name,
+            AgentTaskStatus.FAILED.name,
+            AgentTaskStatus.CANCELLED.name,
+        )
+        private val MUTATION_INTENT = Regex(
+            "(?is)\\b(create|make|add|new|write|modify|edit|change|update|rewrite|replace|delete|remove|rename|move|fix|implement)\\b.{0,120}\\b(file|folder|directory|path|script|source|code|class|function)\\b",
+        )
+        private val WORKSPACE_OBJECT = Regex(
+            "(?is)\\b(file|files|folder|folders|directory|directories|path|workspace|script|source|code)\\b",
+        )
     }
 }
 
