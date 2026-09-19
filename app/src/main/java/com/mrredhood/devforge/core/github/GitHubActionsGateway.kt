@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Instant
+import kotlinx.coroutines.delay
 
 sealed interface GitHubDispatchResult {
     data class Started(val runId: Long, val htmlUrl: String?) : GitHubDispatchResult
@@ -93,7 +94,7 @@ class GitHubActionsGateway(
         }
     }
 
-    fun dispatch(owner: String, repository: String, configuration: BuildConfiguration): GitHubDispatchResult {
+    suspend fun dispatch(owner: String, repository: String, configuration: BuildConfiguration): GitHubDispatchResult {
         val normalizedOwner = validateRepositoryPart(owner)
             ?: return GitHubDispatchResult.Failure("The GitHub owner is invalid.")
         val normalizedRepository = validateRepositoryPart(repository)
@@ -179,7 +180,7 @@ class GitHubActionsGateway(
         }
     }
 
-    private fun resolveDispatchedRun(
+    private suspend fun resolveDispatchedRun(
         owner: String,
         repository: String,
         workflowId: String,
@@ -202,7 +203,7 @@ class GitHubActionsGateway(
                 .firstOrNull()
             if (candidate != null) return GitHubRunReference(candidate.id, candidate.htmlUrl)
             if (attempt + 1 < DISPATCH_RUN_LOOKUP_ATTEMPTS) {
-                Thread.sleep(DISPATCH_RUN_LOOKUP_DELAY_MS)
+                delay(DISPATCH_RUN_LOOKUP_DELAY_MS)
             }
         }
         return null
