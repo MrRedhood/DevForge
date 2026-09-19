@@ -41,6 +41,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private var recoveryJobs = mutableMapOf<Uri, Job>()
     private var openJob: Job? = null
     private var openGeneration = 0L
+    private var aiJob: Job? = null
     private val undoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
     private val redoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
 
@@ -276,34 +277,65 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     fun requestAiEdit(instruction: String) {
         val tab = activeTab ?: return
         val request = instruction.trim().take(2_000)
-        if (request.isBlank() || isAiBusy) return
+        if (request.isBlank()) return
+        if (isAiBusy) {
+            aiJob?.cancel()
+            aiJob = null
+            isAiBusy = false
+        }
         val targetUri = tab.uri
         val contentAtRequest = tab.content
         isAiBusy = true
         error = null
-        viewModelScope.launch {
-            val result = aiAssistant.propose(tab.name, contentAtRequest, request)
-            if (activeUri != targetUri) {
-                isAiBusy = false
-                return@launch
-            }
-            result.onSuccess { proposed ->
-                val current = tabs.firstOrNull { it.uri == targetUri }
-                if (current == null || current.content != contentAtRequest) {
-                    error = "The file changed while AI was editing. Generate the AI edit again against the latest content."
-                } else {
-                    aiProposal = EditorAiProposal(
-                        uri = targetUri,
-                        fileName = current.name,
-                        original = contentAtRequest,
-                        proposed = proposed,
-                        instruction = request,
-                    )
+        aiProposal = null
+        aiJob = viewModelScope.launch {
+            try {
+                val result = aiAssistant.propose(tab.name, contentAtRequest, request)
+                if (activeUri != targetUri) return@launch
+                result.onSuccess { proposed ->
+                    val current = tabs.firstOrNull { it.uri == targetUri }
+                    if (current == null || current.content != contentAtRequest) {
+                        error = "The file changed while AI was editing. Generate the AI edit again against the latest content."
+                    } else {
+                        aiProposal = EditorAiProposal(
+                            uri = targetUri,
+                            fileName = current.name,
+                            original = contentAtRequest,
+                            proposed = proposed,
+                            instruction = request,
+                        )
+                    }
+                }.onFailure { throwable ->
+                    error = throwable.message ?: "AI edit failed."
                 }
-            }.onFailure { throwable ->
-                error = throwable.message ?: "AI edit failed."
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                if (activeUri == targetUri) {
+                    error = "AI edit stopped."
+                }
+                throw cancelled
+            } catch (throwable: Throwable) {
+                if (activeUri == targetUri) {
+                    error = throwable.message ?: "AI edit failed."
+                }
+            } finally {
+                withContext(Dispatchers.Main.immediate) {
+                    if (aiJob === kotlinx.coroutines.currentCoroutineContext()[Job]) {
+                        isAiBusy = false
+                        aiJob = null
+                    } else if (activeUri == targetUri && !isAiBusy) {
+                        aiJob = null
+                    }
+                }
             }
+        }
+    }
+
+    fun cancelAiEdit() {
+        aiJob?.cancel()
+        aiJob = null
+        if (isAiBusy) {
             isAiBusy = false
+            error = "AI edit stopped."
         }
     }
 
@@ -356,6 +388,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         openJob?.cancel()
         openJob = null
+        aiJob?.cancel()
+        aiJob = null
         recoveryJobs.values.forEach(Job::cancel)
         recoveryJobs.clear()
         super.onCleared()
