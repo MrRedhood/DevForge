@@ -408,11 +408,19 @@ internal object AgentWorkspacePath {
     ): String {
         val normalized = WorkspacePathScope.normalize(rawPath, allowEmpty)
         val displayName = workspaceName.trim().trim('/','\\')
+        val displayPath = runCatching {
+            WorkspacePathScope.normalize(displayName, allowEmpty = true)
+        }.getOrDefault("")
         val first = normalized.substringBefore('/')
-        val stripped = if (!directPathExists && displayName.isNotEmpty() && first.equals(displayName, ignoreCase = true)) {
-            normalized.substringAfter('/', missingDelimiterValue = "")
-        } else {
-            normalized
+        val stripped = when {
+            directPathExists -> normalized
+            displayPath.isNotEmpty() && (
+                normalized.equals(displayPath, ignoreCase = true) ||
+                    normalized.startsWith("$displayPath/", ignoreCase = true)
+            ) -> normalized.removePrefix(displayPath).trimStart('/')
+            displayName.isNotEmpty() && first.equals(displayName, ignoreCase = true) ->
+                normalized.substringAfter('/', missingDelimiterValue = "")
+            else -> normalized
         }
         val canonical = WorkspacePathScope.normalize(stripped, allowEmpty)
         return scope.requireAllowed(canonical)
