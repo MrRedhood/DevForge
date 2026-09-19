@@ -80,12 +80,12 @@ class EditorAiAssistant(context: Context) {
                 require(proposed.isNotBlank()) { "AI returned an empty file." }
                 require(proposed != content) { "AI returned the file unchanged. Try a more specific edit request." }
                 require(!looksLikeDiff(proposed)) { "AI returned a diff instead of the complete updated file. Try the edit again." }
-                proposed
+                Result.success(proposed)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            Result.failure(error)
+            Result.failure<String>(error)
         }
     }
 

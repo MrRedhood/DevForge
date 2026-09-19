@@ -28,7 +28,7 @@ class AIChatGateway(
         return when (AIProviderRegistry.spec(model.provider).wireProtocol) {
             AIWireProtocol.GEMINI -> sendGemini(model, apiKey, history, userInstruction, attachments, customBaseUrl)
             AIWireProtocol.ANTHROPIC_MESSAGES -> sendAnthropic(model, apiKey, history, userInstruction, attachments, customBaseUrl, stream = false)
-            AIWireProtocol.OPENAI_CHAT -> sendOpenAiCompatible(model.provider, apiKey, model.id, history, userInstruction, attachments, customBaseUrl, stream = false)
+            AIWireProtocol.OPENAI_CHAT -> sendOpenAiCompatible(model, apiKey, history, userInstruction, attachments, customBaseUrl, stream = false)
         }
     }
 
@@ -227,26 +227,25 @@ class AIChatGateway(
     }
 
     private suspend fun sendOpenAiCompatible(
-        provider: AIProvider,
+        model: AIModelInfo,
         apiKey: String,
-        modelId: String,
         history: List<Pair<String, String>>,
         userInstruction: String,
         attachments: List<ChatAttachment>,
         customBaseUrl: String?,
         stream: Boolean,
     ): String {
-        val prepared = prepareAttachments(provider, apiKey, attachments)
+        val prepared = prepareAttachments(model.provider, apiKey, attachments)
         val messages = JSONArray()
         history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
-        messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(provider, modelId, userInstruction, prepared)))
+        messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(model.provider, model.id, userInstruction, prepared)))
         val body = JSONObject()
-            .put("model", modelId)
+            .put("model", model.id)
             .put("messages", messages)
             .put("max_tokens", maxOpenAiOutputTokens(model))
             .put("stream", stream)
-        val json = request(AIProviderRegistry.chatEndpoint(provider, customBaseUrl), body, openAiHeaders(provider, apiKey))
-        val choice = json.optJSONArray("choices")?.optJSONObject(0) ?: error(provider.displayName + " returned no choices.")
+        val json = request(AIProviderRegistry.chatEndpoint(model.provider, customBaseUrl), body, openAiHeaders(model.provider, apiKey))
+        val choice = json.optJSONArray("choices")?.optJSONObject(0) ?: error(model.provider.displayName + " returned no choices.")
         return extractOpenAiContent(choice).ifBlank { "The model returned an empty response." }
     }
 

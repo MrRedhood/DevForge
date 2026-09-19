@@ -219,7 +219,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 val syncMessage = withContext(Dispatchers.IO) {
                     syncGitHubAfterSave("update " + (tabs.firstOrNull { it.uri == targetUri }?.name ?: "file"))
                 }
-                aiSyncMessage = syncMessage
+                gitSyncMessage = syncMessage
                 val current = tabs.firstOrNull { it.uri == targetUri } ?: return@onSuccess
                 val changedDuringSave = current.content != contentToSave
                 val persisted = current.copy(
@@ -248,7 +248,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 val syncMessage = withContext(Dispatchers.IO) {
                     syncGitHubAfterSave("update " + (tabs.firstOrNull { it.uri == targetUri }?.name ?: "file"))
                 }
-                aiSyncMessage = syncMessage
+                gitSyncMessage = syncMessage
                 val current = tabs.firstOrNull { it.uri == targetUri } ?: return@onSuccess
                 val changedDuringSave = current.content != contentToSave
                 val persisted = current.copy(
