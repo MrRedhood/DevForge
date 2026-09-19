@@ -62,6 +62,43 @@ class GitHubActionsGatewayTest {
     }
 
     @Test
+    fun fetchLogsFollowsGithubTemporaryRedirect() {
+        val requests = mutableListOf<String>()
+        val gateway = GitHubActionsGateway(
+            secretStore = FakeSecretStore("token"),
+            connection = HttpConnectionFactory { url ->
+                requests += url
+                when {
+                    url.endsWith("/actions/runs/99/jobs?per_page=100") -> FakeConnection(
+                        URL(url),
+                        200,
+                        """{"jobs":[{"id":7,"name":"build","status":"completed","conclusion":"success"}]}""",
+                    )
+                    url.endsWith("/actions/jobs/7/logs") -> FakeConnection(
+                        URL(url),
+                        302,
+                        "",
+                        "",
+                        mapOf("Location" to "https://logs.example.test/job/7"),
+                    )
+                    url == "https://logs.example.test/job/7" -> FakeConnection(
+                        URL(url),
+                        200,
+                        "Gradle task completed",
+                    )
+                    else -> error("Unexpected GitHub test URL: $url")
+                }
+            },
+        )
+
+        val result = gateway.fetchLogs("MrRedhood", "DevForge", 99L)
+
+        assertTrue(result is GitHubLogsResult.Success)
+        assertEquals("Gradle task completed", (result as GitHubLogsResult.Success).jobs.single().text)
+        assertEquals(3, requests.size)
+    }
+
+    @Test
     fun cancellationMapsConflictWithoutPretendingSuccess() {
         val gateway = GitHubActionsGateway(
             secretStore = FakeSecretStore("token"),
@@ -92,6 +129,7 @@ class GitHubActionsGatewayTest {
         status: Int,
         body: String,
         errorBody: String = "",
+        private val headers: Map<String, String> = emptyMap(),
     ) : HttpURLConnection(url) {
         private val responseStatus = status
         private val responseBody = body.toByteArray(Charsets.UTF_8)
@@ -104,5 +142,6 @@ class GitHubActionsGatewayTest {
         override fun getResponseCode(): Int = responseStatus
         override fun getInputStream() = ByteArrayInputStream(responseBody)
         override fun getErrorStream() = ByteArrayInputStream(responseError)
+        override fun getHeaderField(name: String): String? = headers[name]
     }
 }
