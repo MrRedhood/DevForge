@@ -122,6 +122,10 @@ class EditorAiAssistant(context: Context) {
     }
 
 
+    private companion object {
+        const val MAX_EDITOR_AI_FILE_BYTES = 2 * 1024 * 1024
+    }
+
     private fun looksLikeDiff(value: String): Boolean {
         val lines = value.lineSequence().toList()
         val headers = lines.count { it.startsWith("+++ ") || it.startsWith("--- ") || it.startsWith("@@ ") }
