@@ -91,36 +91,8 @@ class ModelCatalogService {
         return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.ANTHROPIC)
     }
 
-    private suspend fun loadXai(apiKey: String): ModelCatalogResult {
-        val json = request(
-            "https://api.x.ai/v1/language-models",
-            mapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json"),
-        )
-        val array = json.optJSONArray("models") ?: return ModelCatalogResult(emptyList(), AIProvider.XAI_GROK, warning = "xAI returned no language models.")
-        val models = buildList {
-            for (index in 0 until array.length()) {
-                val model = array.optJSONObject(index) ?: continue
-                val id = model.optString("id")
-                if (!isSafeModelId(id)) continue
-                val input = jsonArrayStrings(model.optJSONArray("input_modalities"))
-                val output = jsonArrayStrings(model.optJSONArray("output_modalities"))
-                val context = model.optLongOrNull("context_length")
-                add(AIModelInfo(
-                    provider = AIProvider.XAI_GROK,
-                    id = id,
-                    displayName = id,
-                    description = "Discovered from the xAI language-models API.",
-                    priceClass = ModelPriceClass.UNKNOWN,
-                    contextLimit = context,
-                    inputModalities = input.ifEmpty { inferModalities(id, "").first },
-                    outputModalities = output.ifEmpty { inferModalities(id, "").second },
-                    supportsTools = false,
-                    metadataSource = "xAI language models API",
-                ))
-            }
-        }
-        return ModelCatalogResult(models.sortedBy { it.displayName.lowercase(Locale.US) }, AIProvider.XAI_GROK)
-    }
+    private suspend fun loadXai(apiKey: String): ModelCatalogResult =
+        loadOpenAiStyle(AIProvider.XAI_GROK, apiKey, null)
 
     private suspend fun loadOpenRouter(apiKey: String): ModelCatalogResult {
         val json = request(
