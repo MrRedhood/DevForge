@@ -199,30 +199,42 @@ class AIChatGateway(
         val messages = JSONArray()
         history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
         messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(model.provider, model.id, userInstruction, prepared)))
-        val body = JSONObject()
-            .put("model", model.id)
-            .put("messages", messages)
-            .put("max_tokens", maxOpenAiOutputTokens(model))
-            .put("stream", true)
+        val body = buildOpenAiBody(model, messages, stream = true)
         val headers = openAiHeaders(model.provider, apiKey)
-        val connection = URL(AIProviderRegistry.chatEndpoint(model.provider, customBaseUrl)).openConnection() as HttpURLConnection
-        connection.requestMethod = "POST"
-        connection.instanceFollowRedirects = false
-        connection.doOutput = true
-        connection.connectTimeout = 15_000
-        connection.readTimeout = 120_000
-        headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
-        val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
-        try {
-            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-            emitSseResponse(connection) { data ->
-                runCatching {
-                    JSONObject(data).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta")?.optString("content").orEmpty()
-                }.getOrDefault("")
+        var requestBody = body
+        var retriedWithoutTokenLimit = false
+        while (true) {
+            val connection = URL(AIProviderRegistry.chatEndpoint(model.provider, customBaseUrl)).openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.instanceFollowRedirects = false
+            connection.doOutput = true
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 120_000
+            headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
+            val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
+            try {
+                connection.outputStream.use { it.write(requestBody.toString().toByteArray(Charsets.UTF_8)) }
+                emitSseResponse(connection) { data ->
+                    runCatching {
+                        JSONObject(data).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta")?.optString("content").orEmpty()
+                    }.getOrDefault("")
+                }
+                break
+            } catch (error: Throwable) {
+                val retry = model.provider == AIProvider.OPENROUTER &&
+                    !retriedWithoutTokenLimit &&
+                    (requestBody.has("max_tokens") || requestBody.has("max_completion_tokens")) &&
+                    isOpenRouterParameterError(error.message.orEmpty())
+                if (!retry) throw error
+                retriedWithoutTokenLimit = true
+                requestBody = JSONObject(requestBody.toString()).apply {
+                    remove("max_tokens")
+                    remove("max_completion_tokens")
+                }
+            } finally {
+                cancellationHandle?.dispose()
+                connection.disconnect()
             }
-        } finally {
-            cancellationHandle?.dispose()
-            connection.disconnect()
         }
     }
 
@@ -239,25 +251,95 @@ class AIChatGateway(
         val messages = JSONArray()
         history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
         messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(model.provider, model.id, userInstruction, prepared)))
-        val body = JSONObject()
-            .put("model", model.id)
-            .put("messages", messages)
-            .put("max_tokens", maxOpenAiOutputTokens(model))
-            .put("stream", stream)
-        val json = request(AIProviderRegistry.chatEndpoint(model.provider, customBaseUrl), body, openAiHeaders(model.provider, apiKey))
+        val body = buildOpenAiBody(model, messages, stream)
+        val json = requestOpenAiCompatible(
+            model,
+            AIProviderRegistry.chatEndpoint(model.provider, customBaseUrl),
+            body,
+            openAiHeaders(model.provider, apiKey),
+        )
         val choice = json.optJSONArray("choices")?.optJSONObject(0) ?: error(model.provider.displayName + " returned no choices.")
         return extractOpenAiContent(choice).ifBlank { "The model returned an empty response." }
     }
 
-    private fun extractOpenAiContent(choice: JSONObject): String = when (val content = choice.optJSONObject("message")?.opt("content")) {
-        is String -> content
-        is JSONArray -> buildString {
-            for (index in 0 until content.length()) {
-                val part = content.optJSONObject(index) ?: continue
-                append(part.optString("text"))
+    private fun extractOpenAiContent(choice: JSONObject): String {
+        val message = choice.optJSONObject("message") ?: return ""
+        val content = message.opt("content")
+        val text = when (content) {
+            is String -> content
+            is JSONArray -> buildString {
+                for (index in 0 until content.length()) {
+                    val part = content.optJSONObject(index) ?: continue
+                    append(part.optString("text"))
+                }
             }
+            else -> ""
         }
-        else -> ""
+        if (text.isNotBlank()) return text
+        return message.optString("reasoning")
+            .ifBlank { message.optString("reasoning_content") }
+    }
+
+    private fun buildOpenAiBody(
+        model: AIModelInfo,
+        messages: JSONArray,
+        stream: Boolean,
+    ): JSONObject = JSONObject()
+        .put("model", model.id)
+        .put("messages", messages)
+        .apply {
+            when {
+                supportsParameter(model, "max_tokens") ->
+                    put("max_tokens", maxOpenAiOutputTokens(model))
+                supportsParameter(model, "max_completion_tokens") ->
+                    put("max_completion_tokens", maxOpenAiOutputTokens(model))
+            }
+            if (model.provider == AIProvider.OPENROUTER &&
+                (model.priceClass == ModelPriceClass.FREE || model.id.endsWith(":free", true)) &&
+                !model.id.equals("openrouter/free", true)
+            ) {
+                put("models", JSONArray().put(model.id).put("openrouter/free"))
+            }
+            if (model.provider == AIProvider.OPENROUTER) {
+                put("provider", JSONObject().put("allow_fallbacks", true))
+            }
+            put("stream", stream)
+        }
+
+    private fun supportsParameter(model: AIModelInfo, parameter: String): Boolean {
+        if (model.provider != AIProvider.OPENROUTER || model.supportedParameters.isEmpty()) return true
+        return model.supportedParameters.contains(parameter)
+    }
+
+    private suspend fun requestOpenAiCompatible(
+        model: AIModelInfo,
+        url: String,
+        body: JSONObject,
+        headers: Map<String, String>,
+    ): JSONObject {
+        return try {
+            request(url, body, headers)
+        } catch (error: Throwable) {
+            val retry = model.provider == AIProvider.OPENROUTER &&
+                (body.has("max_tokens") || body.has("max_completion_tokens")) &&
+                isOpenRouterParameterError(error.message.orEmpty())
+            if (!retry) throw error
+            val simplified = JSONObject(body.toString()).apply {
+                remove("max_tokens")
+                remove("max_completion_tokens")
+            }
+            request(url, simplified, headers)
+        }
+    }
+
+    private fun isOpenRouterParameterError(message: String): Boolean {
+        val value = message.lowercase()
+        return value.contains("max_tokens") ||
+            value.contains("max_completion_tokens") ||
+            value.contains("unsupported parameter") ||
+            value.contains("unknown parameter") ||
+            value.contains("invalid parameter") ||
+            value.contains("parameter is not supported")
     }
 
     private fun buildGeminiContents(history: List<Pair<String, String>>, userInstruction: String, attachments: List<ProviderPreparedAttachment>): JSONArray {
