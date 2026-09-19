@@ -47,16 +47,12 @@ class WorkspaceAgentToolProvider(
         ): String {
             val workspace = workspaceDao.findById(context.workspaceId)
                 ?: throw IllegalArgumentException("Workspace '${context.workspaceId}' was not found.")
-            val normalized = WorkspacePathScope.normalize(rawPath, allowEmpty)
-            val workspaceName = WorkspacePathScope.normalize(workspace.name.trim(), allowEmpty = true)
-            val first = normalized.substringBefore('/')
-            val stripped = if (workspaceName.isNotEmpty() && first.equals(workspaceName, ignoreCase = true)) {
-                normalized.substringAfter('/', missingDelimiterValue = "")
-            } else {
-                normalized
-            }
-            val canonical = WorkspacePathScope.normalize(stripped, allowEmpty)
-            return context.pathScope.requireAllowed(canonical)
+            return AgentWorkspacePath.canonicalize(
+                rawPath = rawPath,
+                workspaceName = workspace.name,
+                scope = context.pathScope,
+                allowEmpty = allowEmpty,
+            )
         }
 
         protected val access = WorkspaceAgentFileAccess(resolver)
@@ -142,7 +138,7 @@ class WorkspaceAgentToolProvider(
             val limit = args.optInt("limit", 30).coerceIn(1, MAX_SEARCH_RESULTS)
             val workspaceRoot = root(context)
             val output = JSONArray()
-            val prefixes = context.pathScope.canonicalPrefixes()
+            val prefixes = context.pathScope.canonicalPrefixes().ifEmpty { listOf("") }
             val search = WorkspaceSearch(resolver)
             prefixes.forEach { prefix ->
                 if (output.length() >= limit) return@forEach
@@ -350,6 +346,26 @@ private data class AgentWorkspaceEntry(
     val sizeBytes: Long?,
 )
 
+internal object AgentWorkspacePath {
+    fun canonicalize(
+        rawPath: String,
+        workspaceName: String,
+        scope: WorkspacePathScope,
+        allowEmpty: Boolean = false,
+    ): String {
+        val normalized = WorkspacePathScope.normalize(rawPath, allowEmpty)
+        val displayName = workspaceName.trim().trim('/','\\')
+        val first = normalized.substringBefore('/')
+        val stripped = if (displayName.isNotEmpty() && first.equals(displayName, ignoreCase = true)) {
+            normalized.substringAfter('/', missingDelimiterValue = "")
+        } else {
+            normalized
+        }
+        val canonical = WorkspacePathScope.normalize(stripped, allowEmpty)
+        return scope.requireAllowed(canonical)
+    }
+}
+
 private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
     private val tree = WorkspaceFileTree(resolver)
 
@@ -366,7 +382,9 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         val direct = runCatching { resolve(root, normalized) }
         val target = direct.getOrElse { error ->
             val parentPath = normalized.substringBeforeLast('/', missingDelimiterValue = "")
-            if (parentPath == normalized) throw error
+            if (parentPath == normalized) {
+                return@getOrElse root
+            }
             resolve(root, parentPath)
         }
         if (isDirectory(target)) {
