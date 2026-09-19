@@ -34,16 +34,20 @@ class EditorAiAssistant(context: Context) {
                 "AI edit is limited to 2 MB per file."
             }
             val provider = settings.selectedProvider()
+            if (settings.isApiKeyLocked(provider)) {
+                error(
+                    "The " + provider.displayName +
+                        " credential is locked. Unlock protected credentials in Settings before using AI edit.",
+                )
+            }
             val key = settings.getApiKey(provider) ?: error(
                 "No API key is configured for " + provider.displayName + ". Add one in Settings → AI & models.",
             )
-            val savedModelId = settings.selectedModelId(provider)?.trim().orEmpty()
-            val model = if (savedModelId.isNotBlank() && !savedModelId.contains("embedding", true)) {
-                AIModelInfo(provider = provider, id = savedModelId, displayName = savedModelId)
-            } else {
-                chooseFallbackModel(provider, key)
-                    ?: error("Select a text-capable model in Chat before using AI edit.")
-            }
+            val model = chooseEditorModel(provider, key)
+                ?: error(
+                    "No text-capable model is available for " + provider.displayName +
+                        ". Select a text/chat model in Chat, then retry AI edit.",
+                )
             var proposed = extractCode(gateway.send(
                 model = model,
                 apiKey = key,
@@ -73,13 +77,36 @@ class EditorAiAssistant(context: Context) {
         }
     }
 
-    private suspend fun chooseFallbackModel(provider: AIProvider, key: String): AIModelInfo? {
+    private suspend fun chooseEditorModel(provider: AIProvider, key: String): AIModelInfo? {
+        val savedModelId = settings.selectedModelId(provider)?.trim().orEmpty()
         val catalog = catalogService.load(provider, key, settings.customBaseUrl(provider))
-        val model = catalog.models.firstOrNull { it.isTextCapable && !it.isEmbedding } ?: return null
-        settings.setSelectedModelId(provider, model.id)
-        return model
+        val discovered = catalog.models.filter { it.isTextCapable && !it.isEmbedding }
+        discovered.firstOrNull { it.id == savedModelId }?.let { return it }
+
+        if (catalog.models.isEmpty() && savedModelId.isNotBlank() && isSafeModelId(savedModelId)) {
+            return AIModelInfo(
+                provider = provider,
+                id = savedModelId,
+                displayName = savedModelId,
+                inputModalities = setOf("text"),
+                outputModalities = setOf("text"),
+                metadataSource = "Saved editor model",
+            )
+        }
+
+        val fallback = discovered.firstOrNull() ?: return null
+        settings.setSelectedModelId(provider, fallback.id)
+        return fallback
     }
 
+    private fun isSafeModelId(value: String): Boolean =
+        value.length <= 180 &&
+            value.isNotBlank() &&
+            Regex("^[A-Za-z0-9_.:/-]+$").matches(value) &&
+            !value.contains("..") &&
+            !value.contains('?') &&
+            !value.contains('#') &&
+            !value.contains('\\')
     private fun buildPrompt(fileName: String, content: String, instruction: String, provider: AIProvider, modelId: String): String = buildString {
         append("You are the DevForge inline code editor.\n")
         append("Provider: ").append(provider.displayName).append("\n")
@@ -87,6 +114,7 @@ class EditorAiAssistant(context: Context) {
         append("Edit exactly one workspace file: ").append(fileName).append(".\n")
         append("User request: ").append(instruction.trim()).append("\n")
         append("Return ONLY the complete updated file content. Do not return a diff, explanation, commentary, JSON, or multiple files.\n")
+        append("Return executable source for exactly this file; never return patch headers such as --- a/, +++ b/, or @@.\n")
         append("Preserve unrelated code, imports, formatting, and behavior.\n")
         append("Current file:\n<DEVFORGE_FILE>\n")
         append(content)
