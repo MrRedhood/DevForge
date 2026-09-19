@@ -288,13 +288,18 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
             result.onSuccess { proposed ->
-                aiProposal = EditorAiProposal(
-                    uri = targetUri,
-                    fileName = tab.name,
-                    original = contentAtRequest,
-                    proposed = proposed,
-                    instruction = request,
-                )
+                val current = tabs.firstOrNull { it.uri == targetUri }
+                if (current == null || current.content != contentAtRequest) {
+                    error = "The file changed while AI was editing. Generate the AI edit again against the latest content."
+                } else {
+                    aiProposal = EditorAiProposal(
+                        uri = targetUri,
+                        fileName = current.name,
+                        original = contentAtRequest,
+                        proposed = proposed,
+                        instruction = request,
+                    )
+                }
             }.onFailure { throwable ->
                 error = throwable.message ?: "AI edit failed."
             }
@@ -305,6 +310,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     fun acceptAiProposal() {
         val proposal = aiProposal ?: return
         if (activeUri != proposal.uri) return
+        val current = tabs.firstOrNull { it.uri == proposal.uri } ?: return
+        if (current.content != proposal.original) {
+            aiProposal = null
+            error = "The file changed after the AI proposal was generated. Generate the edit again to avoid overwriting newer changes."
+            return
+        }
         updateContent(proposal.proposed)
         aiProposal = null
     }
