@@ -18,6 +18,7 @@ import com.mrredhood.devforge.core.storage.ChatMessageEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import com.mrredhood.devforge.core.workspace.WorkspaceKnowledgeRepository
+import com.mrredhood.devforge.core.workspace.WorkspaceFileTree
 import com.mrredhood.devforge.core.settings.AiRoutingMode
 import com.mrredhood.devforge.core.settings.DevForgeSettingsRepository
 import kotlinx.coroutines.CancellationException
@@ -92,6 +93,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private set
     var workspaceId by mutableStateOf<String?>(null)
         private set
+    var workspaceName by mutableStateOf<String?>(null)
+        private set
     var apiKeyConfigured by mutableStateOf(settings.hasApiKey(provider))
         private set
 
@@ -120,8 +123,23 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     init {
         workspaceJob = viewModelScope.launch {
             workspaceRepository.activeWorkspace.collectLatest { workspace ->
+                activeAgentTaskId?.let { taskId ->
+                    launch(Dispatchers.IO) {
+                        runCatching {
+                            (getApplication<Application>() as? DevForgeApplication)?.agentRuntime?.cancel(taskId)
+                        }
+                    }
+                }
+                activeAgentTaskId = null
+                sendJob?.cancel()
+                sendJob = null
+                isSending = false
+                streamingText = ""
                 workspaceId = workspace?.id
+                workspaceName = workspace?.name
                 workspaceRoot = workspace?.treeUri
+                activeSessionId = null
+                messages = emptyList()
                 selectedModel?.let { model -> selectModelInternal(model) }
             }
         }
@@ -326,6 +344,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val mentions = AICommandRegistry.resolveMentions(resolver, workspaceRoot, raw)
                 val parsed = AICommandRegistry.parse(raw)?.let { it.copy(mentions = mentions) }
                 val workspaceNotes = workspaceId?.let { workspaceKnowledge.list(it, 12) }.orEmpty()
+                val workspaceContext = buildWorkspaceContext(workspaceRoot, workspaceName)
                 val finalInstruction = if (parsed != null) {
                     if (parsed.command.name == "help") AgentCommandCatalog.systemSummary() else parsed.toAgentInstruction()
                 } else {
@@ -354,7 +373,14 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 val key = settings.getApiKey(requestProvider) ?: error("API key is not configured.")
                 val attachmentContext = prepareAttachmentContext(submittedAttachments)
-                val effectiveInstruction = if (attachmentContext.isBlank()) finalInstruction else finalInstruction + "\n\n" + attachmentContext
+                val effectiveBase = buildString {
+                    if (workspaceContext.isNotBlank()) {
+                        append(workspaceContext)
+                        append("\n\n")
+                    }
+                    append(finalInstruction)
+                }
+                val effectiveInstruction = if (attachmentContext.isBlank()) effectiveBase else effectiveBase + "\n\n" + attachmentContext
                 val history = buildBoundedHistory(model, messages, effectiveInstruction.length)
                 val visibleUserMessage = raw.ifBlank {
                     submittedAttachments.joinToString(", ") { it.name }.ifBlank { "Attachment" }
@@ -656,6 +682,25 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun dismissError() { sendError = null }
+
+    private suspend fun buildWorkspaceContext(root: Uri?, name: String?): String {
+        if (root == null || name.isNullOrBlank()) return ""
+        return withContext(Dispatchers.IO) {
+            val entries = runCatching { WorkspaceFileTree(resolver).listRoot(root, 80) }.getOrDefault(emptyList())
+            buildString {
+                append("Active DevForge workspace: ").append(name.take(120))
+                if (entries.isNotEmpty()) {
+                    append("\nTop-level workspace entries:")
+                    entries.forEach { entry ->
+                        append("\n- ").append(entry.name)
+                        if (entry.isDirectory) append("/")
+                    }
+                }
+                append("\nAll file operations must stay inside this active workspace.")
+                append("\nUse paths relative to the workspace root; never prepend the workspace display name.")
+            }
+        }
+    }
 
     private fun buildBoundedHistory(
         model: AIModelInfo,
