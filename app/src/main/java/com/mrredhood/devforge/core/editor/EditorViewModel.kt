@@ -54,6 +54,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private var openJob: Job? = null
     private var openGeneration = 0L
     private var aiJob: Job? = null
+    private var aiGeneration = 0L
     private val undoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
     private val redoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
 
@@ -331,9 +332,11 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         }
         val targetUri = tab.uri
         val contentAtRequest = tab.content
+        val generation = ++aiGeneration
         isAiBusy = true
         error = null
         aiProposal = null
+        aiJob?.cancel()
         aiJob = viewModelScope.launch {
             try {
                 val result = aiAssistant.propose(tab.name, contentAtRequest, request)
@@ -365,10 +368,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 }
             } finally {
                 withContext(Dispatchers.Main.immediate) {
-                    if (aiJob === kotlinx.coroutines.currentCoroutineContext()[Job]) {
+                    if (generation == aiGeneration) {
                         isAiBusy = false
-                        aiJob = null
-                    } else if (activeUri == targetUri && !isAiBusy) {
                         aiJob = null
                     }
                 }
@@ -377,6 +378,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun cancelAiEdit() {
+        aiGeneration += 1
         aiJob?.cancel()
         aiJob = null
         if (isAiBusy) {
