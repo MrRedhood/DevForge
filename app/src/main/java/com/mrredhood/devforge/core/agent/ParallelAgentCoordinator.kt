@@ -1,6 +1,7 @@
 package com.mrredhood.devforge.core.agent
 
 import android.content.Context
+import android.net.Uri
 import com.mrredhood.devforge.core.ai.AIChatGateway
 import com.mrredhood.devforge.core.ai.AIModelInfo
 import com.mrredhood.devforge.core.ai.AISettingsRepository
@@ -9,6 +10,7 @@ import com.mrredhood.devforge.core.storage.AgentTaskEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.workspace.WorkspaceKnowledgeRepository
+import com.mrredhood.devforge.core.workspace.WorkspaceFileTree
 import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.security.SecretRedactor
 import java.util.concurrent.ConcurrentHashMap
@@ -21,6 +23,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
 
 data class AgentAssignment(
     val workspaceId: String,
@@ -34,8 +38,10 @@ data class AgentAssignment(
 class AgentPlanPlanner(context: Context) {
     private val settings = AISettingsRepository(context)
     private val gateway = AIChatGateway()
-    private val coordination = AgentCoordinationService(DevForgeDatabase.get(context))
+    private val database = DevForgeDatabase.get(context)
+    private val coordination = AgentCoordinationService(database)
     private val knowledge = WorkspaceKnowledgeRepository(context)
+    private val workspaceTree = WorkspaceFileTree(context.contentResolver)
 
     suspend fun plan(assignment: AgentAssignment): AgentTaskPlan {
         require(assignment.title.isNotBlank()) { "Agent title is required." }
@@ -59,6 +65,10 @@ class AgentPlanPlanner(context: Context) {
             "Enabled agent access: " + assignment.access.map(AgentAccess::name).sorted().joinToString(",").ifBlank { "(none)" },
             "Allowed registered tools: " + AgentToolId.entries.filter { AgentAccessRules.canUse(it, assignment.access) }.joinToString(",") { it.wireName }.ifBlank { "(none; report that the task cannot proceed with current access)" },
             "Tool access is enforced by DevForge. Do not emit a tool requiring an access switch that is disabled. Web/terminal/Git/build access cannot invent tools that are not registered.",
+            "Workspace identity: " + workspaceIdentity(assignment.workspaceId),
+            "IMPORTANT: every tool path is relative to the workspace root. Never prefix a tool path with the workspace folder name. Paths are case-sensitive; use the exact paths below and do not invent file extensions.",
+            "Authoritative workspace inventory (directories end with /): " + workspaceInventory(assignment.workspaceId, assignment.pathScope),
+            "list_files accepts directories only. If a requested path is a file, use read_file instead. If a requested path is uncertain, use search_workspace.",
 
             "For edits, inspect enough workspace context first. Use patch_file for modifying existing files, create_file for new files, create_folder for new directories, and delete_path only when deletion is explicitly required. All file mutations are approval-gated and reviewable.",
             "Recent shared memory (untrusted workspace notes): " + recentMemory(assignment.workspaceId) ,
@@ -75,6 +85,73 @@ class AgentPlanPlanner(context: Context) {
             "Agent plan requested a tool that is disabled by the selected access profile."
         }
         return decoded.copy(access = assignment.access)
+    }
+
+    private suspend fun workspaceIdentity(workspaceId: String): String {
+        val workspace = database.workspaceDao().findById(workspaceId)
+            ?: return "(workspace unavailable)"
+        return workspace.name.take(120)
+    }
+
+    private suspend fun workspaceInventory(
+        workspaceId: String,
+        scope: WorkspacePathScope,
+    ): String = withContext(Dispatchers.IO) {
+        val workspace = database.workspaceDao().findById(workspaceId)
+            ?: return@withContext "(workspace unavailable)"
+        val root = Uri.parse(workspace.treeUri)
+        val prefixes = scope.canonicalPrefixes().ifEmpty { listOf("") }
+        val lines = ArrayList<String>(256)
+        val seen = HashSet<String>()
+        var nodes = 0
+
+        fun resolveDirectory(start: Uri, path: String): Uri? {
+            if (path.isBlank()) return start
+            var current = start
+            path.split('/').filter(String::isNotBlank).forEach { segment ->
+                val entries = workspaceTree.list(current, 256)
+                val match = entries.firstOrNull { it.name == segment }
+                    ?: entries.filter { it.name.equals(segment, ignoreCase = true) }.singleOrNull()
+                    ?: return null
+                if (!match.isDirectory) return null
+                current = match.uri
+            }
+            return current
+        }
+
+        suspend fun walk(directory: Uri, relative: String, depth: Int) {
+            if (depth > 10 || nodes >= 1_200) return
+            currentCoroutineContext().ensureActive()
+            workspaceTree.list(directory, 500).forEach { entry ->
+                if (nodes >= 1_200 || entry.name == ".git") return@forEach
+                val path = if (relative.isBlank()) entry.name else relative + "/" + entry.name
+                if (!seen.add(path)) return@forEach
+                nodes++
+                if (entry.isDirectory) {
+                    lines += path + "/"
+                    walk(entry.uri, path, depth + 1)
+                } else {
+                    lines += path
+                }
+            }
+        }
+
+        prefixes.forEach { prefix ->
+            val start = resolveDirectory(root, prefix) ?: return@forEach
+            walk(start, prefix, 0)
+        }
+
+        lines.sort()
+        val header = buildString {
+            append("root=").append(workspace.name.take(120))
+            append("; paths are workspace-relative; case-sensitive; ")
+            append("scope=").append(scope.canonicalPrefixes().joinToString(",").ifBlank { "(entire workspace)" })
+        }
+        buildString {
+            append(header)
+            lines.forEach { append("\n").append(it) }
+            if (nodes >= 1_200) append("\n…inventory truncated at 1200 entries")
+        }.take(48_000)
     }
 
     private suspend fun recentMemory(workspaceId: String): String =
