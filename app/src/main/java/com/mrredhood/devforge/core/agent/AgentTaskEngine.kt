@@ -5,6 +5,7 @@ import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.storage.ApprovalRepository
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.security.SecretRedactor
+import com.mrredhood.devforge.core.security.WorkspacePathScope
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -121,7 +122,7 @@ class AgentTaskEngine(
             return@withContext task
         }
 
-        val plan = runCatching { AgentTaskPlanCodec.decode(task.payload) }
+        val decodedPlan = runCatching { AgentTaskPlanCodec.decode(task.payload) }
             .getOrElse { error ->
                 durableState.failAgentTask(
                     taskId,
@@ -130,6 +131,13 @@ class AgentTaskEngine(
                 )
                 return@withContext durableState.getAgentTask(taskId)
             }
+        // Workspace paths are selected from the active workspace, never from a user- or
+        // model-supplied folder prefix. Older queued tasks may still contain the former
+        // display-name scope (for example "Nexus/GitHub"), which caused every mutation to
+        // be rejected as outside the authorized workspace. The gateway still validates each
+        // normalized path and protects .git/traversal; this only repairs the stale boundary
+        // and establishes the active workspace root as the single authorization boundary.
+        val plan = decodedPlan.copy(pathScope = WorkspacePathScope())
         if (plan.steps.size != task.stepCount) {
             durableState.failAgentTask(taskId, "Persisted task step count does not match its plan.", System.currentTimeMillis())
             return@withContext durableState.getAgentTask(taskId)

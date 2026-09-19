@@ -24,6 +24,15 @@ class AgentWorkspacePathTest {
     }
 
     @Test
+    fun stripsMultiSegmentWorkspaceDisplayName() {
+        val scope = WorkspacePathScope()
+        assertEquals(
+            "snake.py",
+            AgentWorkspacePath.canonicalize("Nexus/GitHub/snake.py", "Nexus/GitHub", scope),
+        )
+    }
+
+    @Test
     fun keepsWorkspaceRelativePathsUnchanged() {
         val scope = WorkspacePathScope()
         assertEquals(

@@ -269,7 +269,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 )
                 launch(Dispatchers.Main.immediate) {
-                    title = ""; instruction = ""; scopeText = ""; assigning = false
+                    title = ""; instruction = ""; assigning = false
                     message = "Agent assigned: " + taskId.take(8)
                 }
             } catch (cancelled: CancellationException) {
