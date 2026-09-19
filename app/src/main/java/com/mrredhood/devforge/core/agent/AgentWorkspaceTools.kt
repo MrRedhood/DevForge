@@ -47,11 +47,14 @@ class WorkspaceAgentToolProvider(
         ): String {
             val workspace = workspaceDao.findById(context.workspaceId)
                 ?: throw IllegalArgumentException("Workspace '${context.workspaceId}' was not found.")
+            val normalized = WorkspacePathScope.normalize(rawPath, allowEmpty)
+            val directPathExists = access.exists(root(context), normalized)
             return AgentWorkspacePath.canonicalize(
-                rawPath = rawPath,
+                rawPath = normalized,
                 workspaceName = workspace.name,
                 scope = context.pathScope,
                 allowEmpty = allowEmpty,
+                directPathExists = directPathExists,
             )
         }
 
@@ -352,11 +355,12 @@ internal object AgentWorkspacePath {
         workspaceName: String,
         scope: WorkspacePathScope,
         allowEmpty: Boolean = false,
+        directPathExists: Boolean = false,
     ): String {
         val normalized = WorkspacePathScope.normalize(rawPath, allowEmpty)
         val displayName = workspaceName.trim().trim('/','\\')
         val first = normalized.substringBefore('/')
-        val stripped = if (displayName.isNotEmpty() && first.equals(displayName, ignoreCase = true)) {
+        val stripped = if (!directPathExists && displayName.isNotEmpty() && first.equals(displayName, ignoreCase = true)) {
             normalized.substringAfter('/', missingDelimiterValue = "")
         } else {
             normalized
@@ -408,6 +412,10 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
             recoveryMessage = "Requested path is a file; listed its parent directory instead.",
         )
     }
+
+    fun exists(root: Uri, path: String): Boolean =
+        runCatching { resolve(root, WorkspacePathScope.normalize(path, allowEmpty = true)); true }
+            .getOrDefault(false)
 
     suspend fun readText(root: Uri, path: String): String = withContext(Dispatchers.IO) {
         val file = resolve(root, path)
