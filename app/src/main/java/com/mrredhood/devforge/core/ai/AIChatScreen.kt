@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -179,23 +180,28 @@ private fun ModelSelector(viewModel: AIChatViewModel) {
                         Modifier.fillMaxWidth().padding(vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Row(
-                            Modifier
+                        LazyRow(
+                            modifier = Modifier
                                 .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
                                 .padding(horizontal = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
+                            contentPadding = PaddingValues(end = 4.dp),
                         ) {
-                            ModelFilter.entries.forEach { filter ->
+                            items(
+                                ModelFilter.entries,
+                                key = { it.name },
+                            ) { filter ->
                                 FilterChip(
                                     selected = viewModel.activeFilter == filter,
                                     onClick = { viewModel.setFilter(filter) },
+                                    modifier = Modifier.widthIn(min = 64.dp),
                                     label = {
                                         Text(
                                             filter.label,
                                             maxLines = 1,
                                             softWrap = false,
+                                            overflow = TextOverflow.Clip,
                                         )
                                     },
                                 )
