@@ -49,11 +49,15 @@ class AgentPatchPreviewService(
         val patch = AgentFilePatchCodec.decode(arguments.toString())
         val allowed = WorkspacePathScope(
             buildList {
-                val array = payload.optJSONArray("allowedPrefixes") ?: JSONArray().put("")
-                require(array.length() <= WorkspacePathScope.MAX_PREFIXES) {
-                    "Approval path scope exceeds the limit."
+                val array = payload.optJSONArray("allowedPrefixes")
+                if (array == null || array.length() == 0) {
+                    add("")
+                } else {
+                    require(array.length() <= WorkspacePathScope.MAX_PREFIXES) {
+                        "Approval path scope exceeds the limit."
+                    }
+                    for (index in 0 until array.length()) add(array.optString(index, ""))
                 }
-                for (index in 0 until array.length()) add(array.optString(index, ""))
             },
         )
         val workspace = workspaceDao.findById(approval.workspaceId)
