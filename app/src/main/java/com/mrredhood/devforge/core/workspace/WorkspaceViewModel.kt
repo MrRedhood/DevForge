@@ -10,10 +10,15 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
+import com.mrredhood.devforge.core.git.GitRemoteTransportService
+import com.mrredhood.devforge.core.git.GitRepositoryService
+import com.mrredhood.devforge.core.git.GitDetectionState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class WorkspaceViewModel(application: Application) : AndroidViewModel(application) {
@@ -25,6 +30,9 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     private val symbolIndex = WorkspaceSymbolIndexStore(application)
     private val indexer = WorkspaceIndexer(resolver)
     private val knowledgeRepository = WorkspaceKnowledgeRepository(application)
+    private val gitRepositoryService = GitRepositoryService(resolver)
+    private val gitRemoteService = GitRemoteTransportService(application)
+    private val gitSyncMutex = Mutex()
     private var refreshJob: kotlinx.coroutines.Job? = null
     private var searchJob: kotlinx.coroutines.Job? = null
     private var indexJob: kotlinx.coroutines.Job? = null
@@ -134,6 +142,31 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    suspend fun importGitHubRepository(
+        parentUri: Uri,
+        owner: String,
+        repositoryName: String,
+        branch: String,
+    ): Result<Workspace> = withContext(Dispatchers.IO) {
+        runCatching {
+            resolver.takePersistableUriPermission(
+                parentUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+            val clonedRoot = gitRemoteService.cloneRepositoryInto(
+                parentUri = parentUri,
+                owner = owner,
+                repository = repositoryName,
+                branch = branch,
+                targetName = repositoryName,
+            ).getOrThrow()
+            val workspaceName = repositoryName.trim().ifBlank { "Git repository" }
+            val imported = Workspace(name = workspaceName, treeUri = clonedRoot)
+            repository.saveAndActivate(imported)
+            imported
+        }
+    }
+
     fun switchWorkspace(id: String) {
         if (id == workspace?.id) return
         clearSearch()
@@ -151,39 +184,125 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun createFile(name: String) {
         val parent = currentUri ?: return
+        val cleanName = name.trim()
+        if (cleanName.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { fileOperations.createFile(parent, name) }
-                .onSuccess { launch(Dispatchers.Main.immediate) { knowledgeMessage = "Created " + name.trim() + "."; refresh() } }
-                .onFailure { launch(Dispatchers.Main.immediate) { knowledgeMessage = it.message ?: "Unable to create file." } }
+            runCatching {
+                gitSyncMutex.withLock {
+                    fileOperations.createFile(parent, cleanName)
+                    syncGitHubAfterMutation("create " + cleanName)
+                }
+            }
+                .onSuccess { message ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = message ?: "Created " + cleanName + "."
+                        refresh()
+                    }
+                }
+                .onFailure { error ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = error.message ?: "Unable to create file."
+                        refresh()
+                    }
+                }
         }
     }
 
     fun createFolder(name: String) {
         val parent = currentUri ?: return
+        val cleanName = name.trim()
+        if (cleanName.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { fileOperations.createFolder(parent, name) }
-                .onSuccess { launch(Dispatchers.Main.immediate) { knowledgeMessage = "Created " + name.trim() + "."; refresh() } }
-                .onFailure { launch(Dispatchers.Main.immediate) { knowledgeMessage = it.message ?: "Unable to create folder." } }
+            runCatching {
+                gitSyncMutex.withLock {
+                    fileOperations.createFolder(parent, cleanName)
+                    syncGitHubAfterMutation("create folder " + cleanName)
+                }
+            }
+                .onSuccess { message ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = message ?: "Created " + cleanName + "."
+                        refresh()
+                    }
+                }
+                .onFailure { error ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = error.message ?: "Unable to create folder."
+                        refresh()
+                    }
+                }
         }
     }
 
     fun deleteEntry(entry: WorkspaceEntry) {
         if (entry.name == ".git") return
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { fileOperations.delete(entry.uri, entry.name) }
-                .onSuccess { launch(Dispatchers.Main.immediate) { knowledgeMessage = "Deleted " + entry.name + "."; refresh() } }
-                .onFailure { launch(Dispatchers.Main.immediate) { knowledgeMessage = it.message ?: "Unable to delete " + entry.name + "." } }
+            runCatching {
+                gitSyncMutex.withLock {
+                    fileOperations.delete(entry.uri, entry.name)
+                    syncGitHubAfterMutation("delete " + entry.name)
+                }
+            }
+                .onSuccess { message ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = message ?: "Deleted " + entry.name + "."
+                        refresh()
+                    }
+                }
+                .onFailure { error ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = error.message ?: "Unable to delete " + entry.name + "."
+                        refresh()
+                    }
+                }
         }
     }
 
     fun renameEntry(entry: WorkspaceEntry, newName: String) {
         if (entry.name == ".git") return
+        val cleanName = newName.trim()
+        if (cleanName.isBlank()) return
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { fileOperations.rename(entry.uri, entry.name, newName) }
-                .onSuccess { launch(Dispatchers.Main.immediate) { knowledgeMessage = "Renamed to " + newName.trim() + "."; refresh() } }
-                .onFailure { launch(Dispatchers.Main.immediate) { knowledgeMessage = it.message ?: "Unable to rename " + entry.name + "." } }
+            runCatching {
+                gitSyncMutex.withLock {
+                    fileOperations.rename(entry.uri, entry.name, cleanName)
+                    syncGitHubAfterMutation("rename " + entry.name + " to " + cleanName)
+                }
+            }
+                .onSuccess { message ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = message ?: "Renamed to " + cleanName + "."
+                        refresh()
+                    }
+                }
+                .onFailure { error ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = error.message ?: "Unable to rename " + entry.name + "."
+                        refresh()
+                    }
+                }
         }
     }
+
+    private suspend fun syncGitHubAfterMutation(summary: String): String? {
+        val active = workspace ?: return null
+        return when (val detected = gitRepositoryService.detect(active.treeUri)) {
+            is GitDetectionState.Detected -> {
+                if (detected.repository.remoteUrl.isNullOrBlank()) {
+                    null
+                } else {
+                    when (val result = gitRemoteService.autoSyncChanges(detected.repository, "DevForge: " + summary)) {
+                        is com.mrredhood.devforge.core.git.GitRemoteResult.Success ->
+                            result.message
+                        is com.mrredhood.devforge.core.git.GitRemoteResult.Failure ->
+                            "Local change saved. GitHub synchronization failed: " + result.message
+                    }
+                }
+            }
+            else -> null
+        }
+    }
+
 
     fun goToBreadcrumb(index: Int) {
         val target = breadcrumbs.getOrNull(index) ?: return
