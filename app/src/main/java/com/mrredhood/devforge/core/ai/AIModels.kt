@@ -42,6 +42,8 @@ data class AIModelInfo(
     val outputModalities: Set<String> = setOf("text"),
     val supportsTools: Boolean = false,
     val supportsStreaming: Boolean = true,
+    /** Provider-declared request parameters, when the catalog exposes them. */
+    val supportedParameters: Set<String> = emptySet(),
     val metadataSource: String = "provider",
 ) {
     val isTextCapable: Boolean get() = "text" in inputModalities || inputModalities.isEmpty()
