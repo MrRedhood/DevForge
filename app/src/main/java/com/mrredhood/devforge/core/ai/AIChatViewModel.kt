@@ -180,16 +180,20 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 if (generation != modelLoadGeneration || provider != requestProvider) return@launch
                 val savedModelId = settings.selectedModelId(requestProvider)
                 val fallbackModels = if (
-                    provider == AIProvider.OPENAI_COMPATIBLE &&
                     result.models.isEmpty() &&
-                    !savedModelId.isNullOrBlank()
+                    !savedModelId.isNullOrBlank() &&
+                    savedModelId.length <= 180 &&
+                    Regex("^[A-Za-z0-9_.:/-]+$").matches(savedModelId) &&
+                    !savedModelId.contains("..")
                 ) {
                     listOf(
                         AIModelInfo(
                             provider = requestProvider,
                             id = savedModelId,
                             displayName = savedModelId,
-                            metadataSource = "Saved custom model",
+                            inputModalities = setOf("text"),
+                            outputModalities = setOf("text"),
+                            metadataSource = "Saved model fallback",
                         ),
                     )
                 } else {
@@ -197,7 +201,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 models = fallbackModels
                 modelError = if (fallbackModels !== result.models && result.warning != null) {
-                    result.warning + " Using the saved custom model ID."
+                    result.warning + " Using the saved model ID."
                 } else {
                     result.warning
                 }
