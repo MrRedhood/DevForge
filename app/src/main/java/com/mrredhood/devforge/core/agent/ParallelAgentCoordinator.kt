@@ -5,6 +5,7 @@ import android.net.Uri
 import com.mrredhood.devforge.core.ai.AIChatGateway
 import com.mrredhood.devforge.core.ai.AIModelInfo
 import com.mrredhood.devforge.core.ai.AISettingsRepository
+import com.mrredhood.devforge.core.ai.ModelCatalogService
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.core.storage.AgentTaskEntity
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
@@ -50,7 +51,15 @@ class AgentPlanPlanner(context: Context) {
         require(assignment.model.modelId.isNotBlank()) { "Agent model is required." }
         val key = settings.getApiKey(assignment.model.provider)
             ?: throw IllegalStateException("No usable API key is available for " + assignment.model.provider.displayName + ".")
-        val model = AIModelInfo(
+        val discoveredModel = ModelCatalogService()
+            .load(
+                assignment.model.provider,
+                key,
+                settings.customBaseUrl(assignment.model.provider),
+            )
+            .models
+            .firstOrNull { it.id == assignment.model.modelId }
+        val model = discoveredModel ?: AIModelInfo(
             provider = assignment.model.provider,
             id = assignment.model.modelId,
             displayName = assignment.model.modelName,
