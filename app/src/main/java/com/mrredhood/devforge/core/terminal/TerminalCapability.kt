@@ -511,7 +511,11 @@ private class SandboxedTerminal(context: Context) {
         targetRoot.deleteRecursively()
         targetRoot.mkdirs()
         val budget = MirrorBudget()
-        copySafNode(sourceRoot, targetRoot, budget)
+        // A workspace is persisted as a SAF tree URI. Some document providers do not
+        // expose metadata when the tree URI itself is queried as a document URI, so
+        // always normalize the root to its document URI before reading it.
+        val sourceDocument = documentUri(sourceRoot)
+        copySafNode(sourceDocument, targetRoot, budget)
     }
 
     private fun copySafNode(source: Uri, target: File, budget: MirrorBudget) {
@@ -571,6 +575,12 @@ private class SandboxedTerminal(context: Context) {
         }
         // Do not delete entries that are absent from the mirrored subset.
         // Deletion through the terminal is therefore intentionally non-destructive on SAF workspaces.
+    }
+
+    private fun documentUri(documentOrTree: Uri): Uri {
+        val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(documentOrTree) }.getOrNull()
+        return treeDocumentId?.let { DocumentsContract.buildDocumentUriUsingTree(documentOrTree, it) }
+            ?: documentOrTree
     }
 
     private fun documentParentUri(parent: Uri): Uri {
