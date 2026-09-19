@@ -901,68 +901,47 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
         }
 
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = editor::undo, enabled = advanced) { Text("↶") }
             IconButton(onClick = editor::redo, enabled = advanced) { Text("↷") }
             IconButton(onClick = { showFind = true }) { Text("⌕") }
             IconButton(onClick = { showGoToLine = true }) { Text("#") }
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Text(
-                    language.name.replace('_', ' '),
-                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                )
-            }
-            if (editor.isAiBusy) {
-                TextButton(onClick = editor::cancelAiEdit) {
-                    Text("Stop AI", maxLines = 1)
-                }
-            } else {
-                TextButton(onClick = { showAiEdit = true }) {
-                    Text("AI edit", maxLines = 1)
-                }
-            }
-            TextButton(onClick = { showSymbols = true }, enabled = advanced) { Text("Symbols", maxLines = 1) }
-            IconButton(onClick = editor::saveActive, enabled = active.isDirty) { Icon(Icons.Default.Save, "Save") }
-        }
-
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
             TextButton(onClick = {
                 fieldValue = fieldValue.copy(selection = TextRange(0, fieldValue.text.length))
-            }) { Text("Select all") }
+            }) { Text("All", maxLines = 1) }
             TextButton(onClick = {
                 val cursor = fieldValue.selection.start.coerceIn(0, fieldValue.text.length)
                 val startLine = (fieldValue.text.lastIndexOf('\n', (cursor - 1).coerceAtLeast(0)) + 1).coerceAtLeast(0)
                 val endLine = fieldValue.text.indexOf('\n', cursor).let { if (it < 0) fieldValue.text.length else it }
                 fieldValue = fieldValue.copy(selection = TextRange(startLine, endLine))
-            }) { Text("Select line") }
-            if (foldRanges.isNotEmpty()) {
-                TextButton(onClick = { collapsedStarts = foldRanges.map { it.startOffset }.toSet() }) { Text("Fold all") }
-                TextButton(onClick = { collapsedStarts = emptySet() }) { Text("Unfold all") }
-                foldRanges.take(10).forEach { range ->
-                    FilterChip(
-                        selected = range.startOffset in collapsedStarts,
-                        onClick = {
-                            collapsedStarts = if (range.startOffset in collapsedStarts) {
-                                collapsedStarts - range.startOffset
-                            } else {
-                                collapsedStarts + range.startOffset
-                            }
-                        },
-                        label = { Text(range.startLine.toString() + "–" + range.endLine.toString()) },
-                    )
-                }
+            }) { Text("Line", maxLines = 1) }
+            Surface(
+                shape = RoundedCornerShape(9.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Text(
+                    language.name.replace('_', ' '),
+                    Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                )
             }
+            if (editor.isAiBusy) {
+                TextButton(onClick = editor::cancelAiEdit) { Text("Stop", maxLines = 1) }
+            } else {
+                TextButton(onClick = { showAiEdit = true }) { Text("AI", maxLines = 1) }
+            }
+            TextButton(onClick = { showSymbols = true }, enabled = advanced) { Text("Symbols", maxLines = 1) }
+            if (foldRanges.isNotEmpty()) {
+                TextButton(onClick = { collapsedStarts = foldRanges.map { it.startOffset }.toSet() }) { Text("Fold", maxLines = 1) }
+                TextButton(onClick = { collapsedStarts = emptySet() }) { Text("Unfold", maxLines = 1) }
+            }
+            IconButton(onClick = editor::saveActive, enabled = active.isDirty) { Icon(Icons.Default.Save, "Save") }
         }
 
         if (!advanced) {
