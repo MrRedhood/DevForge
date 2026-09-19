@@ -417,7 +417,7 @@ internal object AgentWorkspacePath {
             displayPath.isNotEmpty() && (
                 normalized.equals(displayPath, ignoreCase = true) ||
                     normalized.startsWith("$displayPath/", ignoreCase = true)
-            ) -> normalized.removePrefix(displayPath).trimStart('/')
+            ) -> normalized.substring(displayPath.length).trimStart('/')
             displayName.isNotEmpty() && first.equals(displayName, ignoreCase = true) ->
                 normalized.substringAfter('/', missingDelimiterValue = "")
             else -> normalized
