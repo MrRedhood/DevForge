@@ -126,7 +126,11 @@ fun BuildCenterScreen() {
                         }
                         Text(configuration.target.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (configuration.target != BuildTarget.DebugApk) {
-                            Text("Release dispatch is protected by the Approval Center and requires the repository's configured signing contract.", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "Release APK and AAB use the remote workflow. They are signed when release-signing secrets are configured; otherwise an unsigned release artifact is produced.",
+                                color = MaterialTheme.colorScheme.tertiary,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
                     }
                 }
@@ -146,7 +150,7 @@ fun BuildCenterScreen() {
             if (model.runSnapshot != null) {
                 item { RunSummaryCard(model, onOpen = { url -> openUrl(context, url) }) }
                 item { ArtifactCard(model) }
-                item { LogsCard(model.logs, model.logsTruncated) }
+                item { LogsCard(model) }
             }
             if (model.monitoringMessage != null) {
                 item {
@@ -324,13 +328,25 @@ private fun ArtifactRow(artifact: GitHubArtifact, model: BuildViewModel) {
 }
 
 @Composable
-private fun LogsCard(logs: List<GitHubJobLog>, truncated: Boolean) {
+private fun LogsCard(model: BuildViewModel) {
+    val logs = model.logs
+    val truncated = model.logsTruncated
     Card(shape = MaterialTheme.shapes.extraLarge, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Live logs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            if (logs.isEmpty()) {
-                Text("No job logs are available yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (logs.isEmpty()) "No job log output loaded yet." else "Job output",
+                    Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = model::reloadLogs) {
+                    Icon(Icons.Default.Refresh, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Reload")
+                }
+            }
+            if (logs.isNotEmpty()) {
                 logs.forEach { job ->
                     Text("${job.jobName} • ${job.conclusion ?: job.status}", fontWeight = FontWeight.SemiBold)
                     SelectionContainer {
