@@ -99,7 +99,7 @@ jobs:
             echo "artifact_path=$ARTIFACT_PATH"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Prepare release signing
+      - name: Prepare release signing (optional)
         if: ${{ steps.target.outputs.target == 'release_apk' || steps.target.outputs.target == 'release_aab' }}
         shell: bash
         env:
@@ -110,9 +110,10 @@ jobs:
         run: |
           set -euo pipefail
           for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
-            if [ -z "${!name}" ]; then
-              echo "Release signing is not configured. Set the repository secrets required for DevForge release builds." >&2
-              exit 1
+            if [[ -z "$RELEASE_KEYSTORE_BASE64" || -z "$RELEASE_KEYSTORE_PASSWORD" || -z "$RELEASE_KEY_ALIAS" || -z "$RELEASE_KEY_PASSWORD" ]]; then
+              echo "Release signing secrets are not configured; producing an unsigned release artifact."
+              echo "DEVFORGE_RELEASE_SIGNING_CONFIGURED=false" >> "$GITHUB_ENV"
+              exit 0
             fi
           done
 
@@ -121,11 +122,14 @@ jobs:
           test -s "$KEYSTORE_FILE"
 
           {
+            echo "DEVFORGE_RELEASE_SIGNING_CONFIGURED=true"
             echo "DEVFORGE_RELEASE_KEYSTORE_FILE=$KEYSTORE_FILE"
             echo "DEVFORGE_RELEASE_KEYSTORE_PASSWORD=$RELEASE_KEYSTORE_PASSWORD"
             echo "DEVFORGE_RELEASE_KEY_ALIAS=$RELEASE_KEY_ALIAS"
             echo "DEVFORGE_RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
           } >> "$GITHUB_ENV"
+
+          echo "Release signing is configured."
 
       - name: Verify toolchain
         shell: bash
@@ -182,7 +186,7 @@ jobs:
           retention-days: 14
 
       - name: Remove temporary release signing material
-        if: ${{ always() && (steps.target.outputs.target == 'release_apk' || steps.target.outputs.target == 'release_aab') }}
+        if: ${{ always() && env.DEVFORGE_RELEASE_SIGNING_CONFIGURED == 'true' && (steps.target.outputs.target == 'release_apk' || steps.target.outputs.target == 'release_aab') }}
         shell: bash
         run: |
           set -euo pipefail
