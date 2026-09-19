@@ -58,7 +58,7 @@ class AgentPatchPreviewService(
         )
         val workspace = workspaceDao.findById(approval.workspaceId)
             ?: throw IllegalArgumentException("Workspace '" + approval.workspaceId + "' was not found.")
-        val root = Uri.parse(workspace.treeUri)
+        val root = documentUri(Uri.parse(workspace.treeUri))
         val rawPath = WorkspacePathScope.normalize(patch.path)
         val directPathExists = exists(root, rawPath)
         val path = AgentWorkspacePath.canonicalize(
@@ -84,6 +84,11 @@ class AgentPatchPreviewService(
             diff = diffEngine.compare(before, patch.content).take(MAX_DIFF_LINES),
             isNewFile = !existed,
         )
+    }
+
+    private fun documentUri(uri: Uri): Uri {
+        val treeDocumentId = runCatching { android.provider.DocumentsContract.getTreeDocumentId(uri) }.getOrNull()
+        return treeDocumentId?.let { android.provider.DocumentsContract.buildDocumentUriUsingTree(uri, it) } ?: uri
     }
 
     private fun readExisting(root: Uri, path: String): String {
