@@ -73,7 +73,8 @@ class WorkspaceAgentToolProvider(
             val rootUri = Uri.parse(workspace.treeUri)
             return when (val detected = gitRepositoryService.detect(rootUri)) {
                 is GitDetectionState.Detected -> {
-                    if (detected.repository.remoteUrl.isNullOrBlank()) {
+                    val validation = gitRemoteService.validateConfigured(detected.repository.remoteUrl)
+                    if (validation.owner == null || validation.repository == null) {
                         null
                     } else {
                         when (val result = gitSyncMutex.withLock {
