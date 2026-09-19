@@ -357,6 +357,8 @@ class GitHubActionsGateway(
                                 .takeIf(String::isNotBlank)?.take(MAX_TEXT_FIELD),
                             htmlUrl = job.optString("html_url")
                                 .takeIf(String::isNotBlank)?.take(MAX_URL_FIELD),
+                            logsUrl = job.optString("logs_url")
+                                .takeIf(String::isNotBlank)?.take(MAX_URL_FIELD),
                         ),
                     )
                 }
@@ -377,10 +379,9 @@ class GitHubActionsGateway(
                 break
             }
             val limit = safeMaxBytes - usedBytes
-            val text = getText(
-                "/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/jobs/" + job.id + "/logs",
-                limit,
-            ).getOrElse { error ->
+            val logSource = job.logsUrl
+                ?: "https://api.github.com/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/jobs/" + job.id + "/logs"
+            val text = getTextUrl(logSource, limit).getOrElse { error ->
                 return GitHubLogsResult.Failure(
                     "Unable to read logs for " + job.name + ": " + safeMessage(error),
                 )
@@ -405,11 +406,19 @@ class GitHubActionsGateway(
         return runCatching { parser(JSONObject(body)) }
     }
 
-    private fun getText(path: String, maxBytes: Int): Result<String> {
+    private fun getText(path: String, maxBytes: Int): Result<String> =
+        getTextUrl("https://api.github.com" + validatedPath(path), maxBytes)
+
+    private fun getTextUrl(url: String, maxBytes: Int): Result<String> {
         val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
             ?: return Result.failure(IllegalStateException("GitHub is not connected on this device."))
+        val uri = runCatching { java.net.URI(url) }.getOrNull()
+            ?: return Result.failure(IllegalArgumentException("GitHub log URL is invalid."))
+        if (!uri.scheme.equals("https", ignoreCase = true) || uri.userInfo != null) {
+            return Result.failure(IllegalArgumentException("GitHub log URL is outside the secure HTTPS boundary."))
+        }
         return readRedirectedBody(
-            url = "https://api.github.com" + validatedPath(path),
+            url = url,
             token = token,
             maxBytes = maxBytes.coerceIn(4 * 1024, MAX_LOG_BYTES),
         )
@@ -593,6 +602,7 @@ class GitHubActionsGateway(
         val status: String,
         val conclusion: String?,
         val htmlUrl: String?,
+        val logsUrl: String?,
     )
 
     companion object {
