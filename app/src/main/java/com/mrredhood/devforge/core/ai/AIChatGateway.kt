@@ -429,7 +429,19 @@ class AIChatGateway(
 
     private fun parseErrorMessage(body: String): String = runCatching {
         val root = JSONObject(body)
-        root.optString("message").ifBlank { root.optJSONObject("error")?.optString("message").orEmpty() }
+        val nested = root.opt("error")
+        when (nested) {
+            is JSONObject -> nested.optString("message")
+                .ifBlank { nested.optString("detail") }
+                .ifBlank { nested.optString("type") }
+            is String -> nested
+            else -> ""
+        }.ifBlank {
+            root.optString("message")
+                .ifBlank { root.optString("detail") }
+                .ifBlank { root.optString("error_description") }
+                .ifBlank { root.optString("code") }
+        }.trim()
     }.getOrDefault("")
 
     private suspend fun request(url: String, body: JSONObject, headers: Map<String, String>): JSONObject = withContext(Dispatchers.IO) {
@@ -462,7 +474,7 @@ class AIChatGateway(
         const val MAX_API_KEY_CHARS = 4_096
         const val MAX_MODEL_ID_CHARS = 180
         const val MAX_INSTRUCTION_CHARS = 1_000_000
-        const val DEFAULT_MAX_OUTPUT_TOKENS = 8_192
+        const val DEFAULT_MAX_OUTPUT_TOKENS = 4_096
         const val MAX_SSE_LINE_CHARS = 128 * 1024
         val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
     }
