@@ -44,7 +44,7 @@ class AIChatGateway(
         when (AIProviderRegistry.spec(model.provider).wireProtocol) {
             AIWireProtocol.GEMINI -> streamGemini(model, apiKey, history, userInstruction, attachments, customBaseUrl).collect(::emit)
             AIWireProtocol.ANTHROPIC_MESSAGES -> streamAnthropic(model, apiKey, history, userInstruction, attachments, customBaseUrl).collect(::emit)
-            AIWireProtocol.OPENAI_CHAT -> streamOpenAiCompatible(model.provider, apiKey, model.id, history, userInstruction, attachments, customBaseUrl).collect(::emit)
+            AIWireProtocol.OPENAI_CHAT -> streamOpenAiCompatible(model, apiKey, history, userInstruction, attachments, customBaseUrl).collect(::emit)
         }
     }
 
@@ -188,25 +188,24 @@ class AIChatGateway(
     }
 
     private fun streamOpenAiCompatible(
-        provider: AIProvider,
+        model: AIModelInfo,
         apiKey: String,
-        modelId: String,
         history: List<Pair<String, String>>,
         userInstruction: String,
         attachments: List<ChatAttachment>,
         customBaseUrl: String?,
     ): Flow<String> = flow {
-        val prepared = prepareAttachments(provider, apiKey, attachments)
+        val prepared = prepareAttachments(model.provider, apiKey, attachments)
         val messages = JSONArray()
         history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
-        messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(provider, modelId, userInstruction, prepared)))
+        messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(model.provider, model.id, userInstruction, prepared)))
         val body = JSONObject()
-            .put("model", modelId)
+            .put("model", model.id)
             .put("messages", messages)
             .put("max_tokens", maxOpenAiOutputTokens(model))
             .put("stream", true)
-        val headers = openAiHeaders(provider, apiKey)
-        val connection = URL(AIProviderRegistry.chatEndpoint(provider, customBaseUrl)).openConnection() as HttpURLConnection
+        val headers = openAiHeaders(model.provider, apiKey)
+        val connection = URL(AIProviderRegistry.chatEndpoint(model.provider, customBaseUrl)).openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
         connection.instanceFollowRedirects = false
         connection.doOutput = true
