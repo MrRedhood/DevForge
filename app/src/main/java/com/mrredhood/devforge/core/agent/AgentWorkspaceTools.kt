@@ -45,7 +45,7 @@ class WorkspaceAgentToolProvider(
         protected suspend fun root(context: AgentToolContext): Uri {
             val workspace = workspaceDao.findById(context.workspaceId)
                 ?: throw IllegalArgumentException("Workspace '${context.workspaceId}' was not found.")
-            return Uri.parse(workspace.treeUri)
+            return documentUri(Uri.parse(workspace.treeUri))
         }
 
         protected suspend fun scopedPath(
@@ -554,6 +554,11 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
                 ?: throw IllegalArgumentException("Workspace path does not exist: $normalized")
         }
         return current
+    }
+
+    private fun documentUri(uri: Uri): Uri {
+        val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull()
+        return treeDocumentId?.let { DocumentsContract.buildDocumentUriUsingTree(uri, it) } ?: uri
     }
 
     private fun documentParentUri(parent: Uri): Uri {
