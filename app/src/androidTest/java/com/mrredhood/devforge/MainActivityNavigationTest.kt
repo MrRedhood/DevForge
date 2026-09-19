@@ -27,7 +27,7 @@ class MainActivityNavigationTest {
     @Test
     fun filesShowsWorkspaceCreationUi() {
         composeRule.onNodeWithText("Files", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("New workspace", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Add workspace", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Name", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Choose folder", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Cancel", useUnmergedTree = true).performClick()
