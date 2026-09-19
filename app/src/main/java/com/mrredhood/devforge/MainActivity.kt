@@ -960,8 +960,14 @@ private fun EditorChangesPanel(
                 Column(Modifier.weight(1f)) {
                     Text("Changes", fontWeight = FontWeight.SemiBold, maxLines = 1)
                     Text(
-                        if (documents.isEmpty()) "No code changes"
-                        else documents.size.toString() + " file" + if (documents.size == 1) "" else "s" + " · +" + additions + " −" + removals,
+                        if (documents.isEmpty()) {
+                            "No code changes"
+                        } else {
+                            documents.size.toString() +
+                                " file" +
+                                (if (documents.size == 1) "" else "s") +
+                                " · +" + additions + " −" + removals
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -998,7 +1004,7 @@ private fun EditorChangeDocumentRow(document: GitDiffDocument) {
         ) {
             IconButton(onClick = { expanded = !expanded }) {
                 Icon(
-                    if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                    if (expanded) Icons.Default.ArrowDropDown else Icons.Default.ChevronRight,
                     contentDescription = if (expanded) "Collapse changed file" else "Show changed code",
                     tint = MaterialTheme.colorScheme.primary,
                 )
