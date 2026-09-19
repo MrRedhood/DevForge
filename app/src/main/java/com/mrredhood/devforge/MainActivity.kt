@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Person
@@ -102,6 +104,12 @@ import com.mrredhood.devforge.core.editor.FoldingVisualTransformation
 import com.mrredhood.devforge.core.editor.VisibleWhitespaceVisualTransformation
 import com.mrredhood.devforge.core.git.GitDashboardScreen
 import com.mrredhood.devforge.core.git.GitDiffScreen
+import com.mrredhood.devforge.core.git.GitDiffViewModel
+import com.mrredhood.devforge.core.git.GitDiffDocument
+import com.mrredhood.devforge.core.git.GitDiffSection
+import com.mrredhood.devforge.core.git.GitFileStatus
+import com.mrredhood.devforge.core.editor.DiffEngine
+import com.mrredhood.devforge.core.editor.DiffKind
 import com.mrredhood.devforge.core.model.DevForgeDestination
 import com.mrredhood.devforge.core.policy.ApprovalCenterScreen
 import com.mrredhood.devforge.core.picker.PickerBridge
@@ -421,7 +429,7 @@ private fun NavigationBottom(current: DevForgeDestination, onSelect: (DevForgeDe
             onClick = { moreExpanded = true },
             icon = {
                 Box {
-                    Text("⋮", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Menu, contentDescription = "More")
                     DropdownMenu(
                         expanded = moreExpanded,
                         onDismissRequest = { moreExpanded = false },
@@ -475,7 +483,7 @@ private fun NavigationSide(current: DevForgeDestination, onSelect: (DevForgeDest
             onClick = { moreExpanded = true },
             icon = {
                 Box {
-                    Text("⋮", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Menu, contentDescription = "More")
                     DropdownMenu(
                         expanded = moreExpanded,
                         onDismissRequest = { moreExpanded = false },
