@@ -68,6 +68,48 @@ class GitHubRepositoryGateway(
         )
     }
 
+    fun listCommits(
+        owner: String,
+        repository: String,
+        branch: String = "main",
+        perPage: Int = 30,
+    ): GitHubCommitHistoryResult {
+        val normalizedOwner = validateName(owner)
+            ?: return GitHubCommitHistoryResult.Failure("The GitHub owner is invalid.")
+        val normalizedRepository = validateName(repository)
+            ?: return GitHubCommitHistoryResult.Failure("The GitHub repository is invalid.")
+        val normalizedBranch = branch.trim().ifBlank { "main" }
+        if (normalizedBranch.length > 255 || '\n' in normalizedBranch || '\r' in normalizedBranch) {
+            return GitHubCommitHistoryResult.Failure("The Git branch is invalid.")
+        }
+        val path = "/repos/" + normalizedOwner + "/" + normalizedRepository +
+            "/commits?sha=" + java.net.URLEncoder.encode(normalizedBranch, "UTF-8") +
+            "&per_page=" + perPage.coerceIn(1, 50)
+        return getJsonArray(path).map { json ->
+            buildList(minOf(json.length(), 50)) {
+                for (index in 0 until minOf(json.length(), 50)) {
+                    val item = json.optJSONObject(index) ?: continue
+                    val commit = item.optJSONObject("commit") ?: continue
+                    val author = commit.optJSONObject("author")
+                    add(
+                        GitHubCommitHistoryEntry(
+                            sha = item.optString("sha").take(64),
+                            subject = commit.optString("message").lineSequence().firstOrNull().orEmpty().trim().take(300),
+                            author = author?.optString("name").orEmpty().ifBlank {
+                                item.optJSONObject("author")?.optString("login").orEmpty()
+                            }.take(160),
+                            authoredAt = author?.optString("date").takeIf { !it.isNullOrBlank() }?.take(80),
+                            url = item.optString("html_url").takeIf(String::isNotBlank)?.take(2000),
+                        ),
+                    )
+                }
+            }
+        }.fold(
+            onSuccess = { GitHubCommitHistoryResult.Success(it) },
+            onFailure = { GitHubCommitHistoryResult.Failure(safeMessage(it)) },
+        )
+    }
+
     fun listWorkflows(owner: String, repository: String): GitHubWorkflowListResult {
         val normalizedOwner = validateName(owner)
             ?: return GitHubWorkflowListResult.Failure("The GitHub owner is invalid.")
@@ -192,6 +234,19 @@ class GitHubRepositoryGateway(
         private const val API_VERSION = "2026-03-10"
         private val SAFE_NAME = Regex("^[A-Za-z0-9_.-]+$")
     }
+}
+
+data class GitHubCommitHistoryEntry(
+    val sha: String,
+    val subject: String,
+    val author: String,
+    val authoredAt: String?,
+    val url: String?,
+)
+
+sealed interface GitHubCommitHistoryResult {
+    data class Success(val commits: List<GitHubCommitHistoryEntry>) : GitHubCommitHistoryResult
+    data class Failure(val message: String) : GitHubCommitHistoryResult
 }
 
 private val DefaultHttpConnectionFactory: HttpConnectionFactory = HttpConnectionFactory { url ->
