@@ -31,56 +31,57 @@ class EditorAiAssistant(context: Context) {
     suspend fun propose(fileName: String, content: String, instruction: String): Result<String> = withContext(Dispatchers.IO) {
         try {
             withTimeout(MAX_AI_EDIT_TIMEOUT_MS) {
-        runCatching {
-            require(fileName.isNotBlank()) { "The editor file name is missing." }
-            require(instruction.isNotBlank()) { "Enter an AI edit request." }
-            require(content.toByteArray(Charsets.UTF_8).size <= MAX_EDITOR_AI_FILE_BYTES) {
-                "AI edit is limited to 2 MB per file."
-            }
-            val provider = settings.selectedProvider()
-            if (settings.isApiKeyLocked(provider)) {
-                error(
-                    "The " + provider.displayName +
-                        " credential is locked. Unlock protected credentials in Settings before using AI edit.",
+                require(fileName.isNotBlank()) { "The editor file name is missing." }
+                require(instruction.isNotBlank()) { "Enter an AI edit request." }
+                require(content.toByteArray(Charsets.UTF_8).size <= MAX_EDITOR_AI_FILE_BYTES) {
+                    "AI edit is limited to 2 MB per file."
+                }
+                val provider = settings.selectedProvider()
+                if (settings.isApiKeyLocked(provider)) {
+                    error(
+                        "The " + provider.displayName +
+                            " credential is locked. Unlock protected credentials in Settings before using AI edit.",
+                    )
+                }
+                val key = settings.getApiKey(provider) ?: error(
+                    "No API key is configured for " + provider.displayName + ". Add one in Settings → AI & models.",
                 )
-            }
-            val key = settings.getApiKey(provider) ?: error(
-                "No API key is configured for " + provider.displayName + ". Add one in Settings → AI & models.",
-            )
-            val model = chooseEditorModel(provider, key)
-                ?: error(
-                    "No text-capable model is available for " + provider.displayName +
-                        ". Select a text/chat model in Chat, then retry AI edit.",
-                )
-            var proposed = extractCode(gateway.send(
-                model = model,
-                apiKey = key,
-                history = emptyList(),
-                userInstruction = buildPrompt(fileName, content, instruction, model.provider, model.id),
-                customBaseUrl = settings.customBaseUrl(provider),
-            ))
-            if (proposed == content) {
-                proposed = extractCode(gateway.send(
-                    model = model,
-                    apiKey = key,
-                    history = emptyList(),
-                    userInstruction = buildPrompt(
-                        fileName,
-                        content,
-                        instruction + "\nIMPORTANT: apply the requested edit and return the changed complete file; do not return the original unchanged.",
-                        model.provider,
-                        model.id,
+                val model = chooseEditorModel(provider, key)
+                    ?: error(
+                        "No text-capable model is available for " + provider.displayName +
+                            ". Select a text/chat model in Chat, then retry AI edit.",
+                    )
+                var proposed = extractCode(
+                    gateway.send(
+                        model = model,
+                        apiKey = key,
+                        history = emptyList(),
+                        userInstruction = buildPrompt(fileName, content, instruction, model.provider, model.id),
+                        customBaseUrl = settings.customBaseUrl(provider),
                     ),
-                    customBaseUrl = settings.customBaseUrl(provider),
-                ))
+                )
+                if (proposed == content) {
+                    proposed = extractCode(
+                        gateway.send(
+                            model = model,
+                            apiKey = key,
+                            history = emptyList(),
+                            userInstruction = buildPrompt(
+                                fileName,
+                                content,
+                                instruction + "\nIMPORTANT: apply the requested edit and return the changed complete file; do not return the original unchanged.",
+                                model.provider,
+                                model.id,
+                            ),
+                            customBaseUrl = settings.customBaseUrl(provider),
+                        ),
+                    )
+                }
+                require(proposed.isNotBlank()) { "AI returned an empty file." }
+                require(proposed != content) { "AI returned the file unchanged. Try a more specific edit request." }
+                require(!looksLikeDiff(proposed)) { "AI returned a diff instead of the complete updated file. Try the edit again." }
+                proposed
             }
-            require(proposed.isNotBlank()) { "AI returned an empty file." }
-            require(proposed != content) { "AI returned the file unchanged. Try a more specific edit request." }
-            require(!looksLikeDiff(proposed)) { "AI returned a diff instead of the complete updated file. Try the edit again." }
-            proposed
-            }
-    }
-
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
@@ -135,13 +136,10 @@ class EditorAiAssistant(context: Context) {
 
     private companion object {
         const val MAX_EDITOR_AI_FILE_BYTES = 2 * 1024 * 1024
-    }
-
-    private companion object {
         const val MAX_AI_EDIT_TIMEOUT_MS = 150_000L
     }
 
-    private fun looksLikeDiff(value: String) {
+    private fun looksLikeDiff(value: String): Boolean {
         val lines = value.lineSequence().toList()
         val headers = lines.count { it.startsWith("+++ ") || it.startsWith("--- ") || it.startsWith("@@ ") }
         return headers >= 2
