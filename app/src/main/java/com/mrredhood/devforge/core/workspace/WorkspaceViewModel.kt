@@ -215,7 +215,8 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 gitSyncMutex.withLock {
-                    fileOperations.createFolder(parent, cleanName)
+                    val folderUri = fileOperations.createFolder(parent, cleanName)
+                    prepareGitHubFolderForSync(folderUri)
                     syncGitHubAfterMutation("create folder " + cleanName)
                 }
             }
@@ -281,6 +282,16 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
                         refresh()
                     }
                 }
+        }
+    }
+
+    private suspend fun prepareGitHubFolderForSync(folderUri: Uri) {
+        val active = workspace ?: return
+        val detected = gitRepositoryService.detect(active.treeUri)
+        if (detected is GitDetectionState.Detected && !detected.repository.remoteUrl.isNullOrBlank()) {
+            if (tree.list(folderUri, 1).isEmpty()) {
+                runCatching { fileOperations.createFile(folderUri, ".gitkeep") }
+            }
         }
     }
 
