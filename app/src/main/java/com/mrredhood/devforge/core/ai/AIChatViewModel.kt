@@ -145,6 +145,14 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         sendError = null
         val savedId = settings.selectedModelId(value)
         if (!savedId.isNullOrBlank()) selectedModel = AIModelInfo(value, savedId, savedId)
+        loadModels(force = true)
+    }
+
+    fun syncProviderFromSettings() {
+        val persisted = settings.selectedProvider()
+        if (persisted != provider) {
+            selectProvider(persisted)
+        }
     }
 
     fun loadModels(force: Boolean = false) {
