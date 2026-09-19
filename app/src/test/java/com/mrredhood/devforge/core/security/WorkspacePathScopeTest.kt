@@ -8,6 +8,15 @@ import org.junit.Test
 
 class WorkspacePathScopeTest {
     @Test
+    fun emptyScopeMeansWholeWorkspace() {
+        val empty = WorkspacePathScope(emptyList())
+        assertTrue(empty.allows("snake.py"))
+        assertTrue(empty.allows("src/main/Main.kt"))
+        assertEquals(listOf(""), empty.canonicalPrefixes())
+        assertEquals("snake.py", empty.requireAllowed("snake.py"))
+    }
+
+    @Test
     fun rejectsTraversalAndGitMetadata() {
         val scope = WorkspacePathScope(listOf("src"))
         assertFalse(scope.allows("src/../build.gradle"))
