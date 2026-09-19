@@ -74,7 +74,6 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
     var modelId by mutableStateOf(settings.selectedModelId(provider).orEmpty())
         private set
     var modelName by mutableStateOf(modelId)
-    var scopeText by mutableStateOf("")
     var message by mutableStateOf<String?>(null)
         private set
     var assigning by mutableStateOf(false)
