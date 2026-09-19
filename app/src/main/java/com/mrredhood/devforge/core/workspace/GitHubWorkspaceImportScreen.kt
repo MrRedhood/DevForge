@@ -60,7 +60,7 @@ fun GitHubWorkspaceImportScreen(
     val scope = rememberCoroutineScope()
     var importing by rememberSaveable { mutableStateOf(false) }
     var importMessage by rememberSaveable { mutableStateOf<String?>(null) }
-    var selectedRepository by rememberSaveable { mutableStateOf<GitHubRepository?>(null) }
+    var selectedRepository by remember { mutableStateOf<GitHubRepository?>(null) }
     val connected = connectionViewModel.snapshot.state is GitHubConnectionState.Connected
     val state = repositoryViewModel.state
 
