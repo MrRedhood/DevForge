@@ -203,7 +203,7 @@ class AIChatGateway(
         val body = JSONObject()
             .put("model", modelId)
             .put("messages", messages)
-            .put("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
+            .put("max_tokens", maxOpenAiOutputTokens(model))
             .put("stream", true)
         val headers = openAiHeaders(provider, apiKey)
         val connection = URL(AIProviderRegistry.chatEndpoint(provider, customBaseUrl)).openConnection() as HttpURLConnection
@@ -244,7 +244,7 @@ class AIChatGateway(
         val body = JSONObject()
             .put("model", modelId)
             .put("messages", messages)
-            .put("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
+            .put("max_tokens", maxOpenAiOutputTokens(model))
             .put("stream", stream)
         val json = request(AIProviderRegistry.chatEndpoint(provider, customBaseUrl), body, openAiHeaders(provider, apiKey))
         val choice = json.optJSONArray("choices")?.optJSONObject(0) ?: error(provider.displayName + " returned no choices.")
@@ -314,6 +314,11 @@ class AIChatGateway(
 
     private fun maxAnthropicOutputTokens(model: AIModelInfo): Int =
         (model.outputTokenLimit ?: 8_192L).coerceIn(1L, 32_000L).toInt()
+
+    private fun maxOpenAiOutputTokens(model: AIModelInfo): Int =
+        (model.outputTokenLimit ?: DEFAULT_MAX_OUTPUT_TOKENS.toLong())
+            .coerceIn(1L, DEFAULT_MAX_OUTPUT_TOKENS.toLong())
+            .toInt()
 
     private fun validateRequest(
         model: AIModelInfo,
