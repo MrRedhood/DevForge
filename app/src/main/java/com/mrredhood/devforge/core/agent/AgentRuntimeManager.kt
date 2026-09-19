@@ -66,7 +66,8 @@ class AgentRuntimeManager(context: Context) {
         val waiting = database.agentTaskDao().list(workspaceId, 20)
             .filter { it.status == AgentTaskStatus.WAITING_APPROVAL.name && !it.approvalId.isNullOrBlank() }
         waiting.forEach { task ->
-            val approval = approvals.observeById(task.approvalId!!).first()
+            val approvalId = task.approvalId ?: return@forEach
+            val approval = approvals.observeById(approvalId).first()
             if (approval?.status == ApprovalRepository.STATUS_APPROVED &&
                 approval.expiresAtEpochMs > System.currentTimeMillis()
             ) {
