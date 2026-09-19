@@ -21,6 +21,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class EditorViewModel(application: Application) : AndroidViewModel(application) {
@@ -294,7 +295,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     fun dismissError() { error = null }
 
     fun clearGitSyncMessage() {
-        aiSyncMessage = null
+        gitSyncMessage = null
     }
 
     private suspend fun syncGitHubAfterSave(summary: String): String? {
