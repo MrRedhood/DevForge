@@ -99,6 +99,7 @@ import com.mrredhood.devforge.core.editor.ChainedVisualTransformation
 import com.mrredhood.devforge.core.editor.CodeSyntaxVisualTransformation
 import com.mrredhood.devforge.core.editor.EditorFolding
 import com.mrredhood.devforge.core.editor.EditorLanguage
+import com.mrredhood.devforge.core.editor.EditorTab
 import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.editor.FoldingVisualTransformation
 import com.mrredhood.devforge.core.editor.VisibleWhitespaceVisualTransformation
@@ -108,6 +109,8 @@ import com.mrredhood.devforge.core.git.GitDiffViewModel
 import com.mrredhood.devforge.core.git.GitDiffDocument
 import com.mrredhood.devforge.core.git.GitDiffSection
 import com.mrredhood.devforge.core.git.GitFileStatus
+import com.mrredhood.devforge.core.git.GitViewModel
+import com.mrredhood.devforge.core.git.CapabilityAvailability
 import com.mrredhood.devforge.core.editor.DiffEngine
 import com.mrredhood.devforge.core.editor.DiffKind
 import com.mrredhood.devforge.core.model.DevForgeDestination
@@ -125,7 +128,9 @@ import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import com.mrredhood.devforge.core.workspace.GitHubWorkspaceImportScreen
 import com.mrredhood.devforge.ui.theme.DevForgeTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
@@ -522,6 +527,7 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
 
 @Composable
 private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) {
+    val git: GitViewModel = viewModel()
     var showCreateWorkspace by rememberSaveable { mutableStateOf(false) }
     var showGithubImport by rememberSaveable { mutableStateOf(false) }
     var workspaceName by rememberSaveable { mutableStateOf("") }
@@ -532,6 +538,10 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
     var deleteTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
 
     val context = LocalContext.current
+
+    LaunchedEffect(workspace.workspace?.id) {
+        if (workspace.workspace != null) git.inspectWorkspace()
+    }
 
     LaunchedEffect(Unit) {
         PickerBridge.results.collectLatest { result ->
@@ -593,6 +603,14 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
                     Button(onClick = { showCreateWorkspace = true }) { Text("Add workspace") }
                     OutlinedButton(onClick = { showGithubImport = true }) { Text("GitHub repo") }
                     if (workspace.workspace != null) {
+                        OutlinedButton(
+                            onClick = git::pullRemote,
+                            enabled = git.capabilities.pullRemote == CapabilityAvailability.Available && !git.isExecuting,
+                        ) { Text("Pull") }
+                        Button(
+                            onClick = git::pushRemote,
+                            enabled = git.capabilities.pushRemote == CapabilityAvailability.Available && !git.isExecuting,
+                        ) { Text("Push") }
                         TextButton(onClick = { createKind = "file"; createName = "" }) { Text("New file") }
                         TextButton(onClick = { createKind = "folder"; createName = "" }) { Text("New folder") }
                         IconButton(onClick = workspace::refresh) { Icon(Icons.Default.Refresh, "Refresh files") }
@@ -605,6 +623,17 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
             item { InfoCard("Create a workspace", "Pick your project folder once. DevForge remembers it.") }
         } else {
             item { Breadcrumbs(workspace) }
+            if (workspace.workspace != null && !git.operationMessage.isNullOrBlank()) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                        Text(
+                            git.operationMessage.orEmpty(),
+                            Modifier.fillMaxWidth().padding(12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
             workspace.knowledgeMessage?.let { message ->
                 item {
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
@@ -874,8 +903,155 @@ private fun FileRow(
 }
 
 @Composable
+private fun EditorChangesPanel(
+    active: EditorTab,
+    repositoryDocuments: List<GitDiffDocument>,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+) {
+    val localDocument = remember(active.content, active.savedContent) {
+        if (active.content == active.savedContent) {
+            null
+        } else {
+            GitDiffDocument(
+                path = active.name + " (unsaved)",
+                status = GitFileStatus.Modified,
+                sections = listOf(
+                    GitDiffSection(
+                        title = "Editor changes",
+                        beforeLabel = "Saved",
+                        afterLabel = "Current",
+                        lines = DiffEngine().compare(active.savedContent, active.content),
+                    ),
+                ),
+            )
+        }
+    }
+
+    val documents = buildList {
+        localDocument?.let(::add)
+        repositoryDocuments
+            .filterNot { document -> localDocument != null && document.path == active.name }
+            .forEach(::add)
+    }.filter { document -> document.sections.any { section -> section.lines.any { line -> line.kind != DiffKind.CONTEXT } } }
+
+    val additions = documents.sumOf { document ->
+        document.sections.sumOf { section -> section.lines.count { it.kind == DiffKind.ADDED } }
+    }
+    val removals = documents.sumOf { document ->
+        document.sections.sumOf { section -> section.lines.count { it.kind == DiffKind.REMOVED } }
+    }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { onExpandedChange(!expanded) }) {
+                    Icon(
+                        if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                        contentDescription = if (expanded) "Collapse all changed files" else "Show all changed files",
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Changes", fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text(
+                        if (documents.isEmpty()) "No code changes"
+                        else documents.size.toString() + " file" + if (documents.size == 1) "" else "s" + " · +" + additions + " −" + removals,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = { onExpandedChange(!expanded) }) {
+                    Text(if (expanded) "Collapse all" else "Show all")
+                }
+            }
+
+            if (expanded && documents.isNotEmpty()) {
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    documents.take(80).forEach { document ->
+                        EditorChangeDocumentRow(document)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditorChangeDocumentRow(document: GitDiffDocument) {
+    var expanded by remember(document.path) { mutableStateOf(false) }
+    val additions = document.sections.sumOf { section -> section.lines.count { it.kind == DiffKind.ADDED } }
+    val removals = document.sections.sumOf { section -> section.lines.count { it.kind == DiffKind.REMOVED } }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { expanded = !expanded }) {
+                Icon(
+                    if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                    contentDescription = if (expanded) "Collapse changed file" else "Show changed code",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Text(document.path, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(
+                    document.status.name.replace('_', ' ') + " · +" + additions + " −" + removals,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        }
+
+        if (expanded) {
+            document.sections.forEach { section ->
+                Surface(
+                    Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                ) {
+                    Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(section.title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                        section.lines.take(160).forEach { line ->
+                            Text(
+                                (when (line.kind) {
+                                    DiffKind.ADDED -> "+ "
+                                    DiffKind.REMOVED -> "- "
+                                    DiffKind.CONTEXT -> "  "
+                                }) + line.text,
+                                fontFamily = FontFamily.Monospace,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = when (line.kind) {
+                                    DiffKind.ADDED -> MaterialTheme.colorScheme.primary,
+                                    DiffKind.REMOVED -> MaterialTheme.colorScheme.error,
+                                    DiffKind.CONTEXT -> MaterialTheme.colorScheme.onSurfaceVariant,
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            document.unavailableReason?.let { reason ->
+                Text(reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            }
+        }
+    }
+}
+@Composable
 private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsViewModel) {
     val active = editor.activeTab ?: return
+    val gitDiffViewModel: GitDiffViewModel = viewModel()
     var fieldValue by remember(active.uri) { mutableStateOf(TextFieldValue(active.content)) }
     var showFind by remember(active.uri) { mutableStateOf(false) }
     var showGoToLine by remember(active.uri) { mutableStateOf(false) }
@@ -885,9 +1061,23 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
     var replaceMessage by remember(active.uri) { mutableStateOf<String?>(null) }
     var lineQuery by remember(active.uri) { mutableStateOf("") }
     var collapsedStarts by remember(active.uri) { mutableStateOf(emptySet<Int>()) }
+    var changesExpanded by rememberSaveable(active.uri) { mutableStateOf(false) }
     var showAiEdit by remember(active.uri) { mutableStateOf(false) }
     var aiInstruction by remember(active.uri) { mutableStateOf("") }
     val horizontalEditorScroll = rememberScrollState()
+
+    LaunchedEffect(active.uri) {
+        gitDiffViewModel.refresh()
+    }
+
+    LaunchedEffect(changesExpanded, active.uri) {
+        if (changesExpanded) {
+            while (isActive) {
+                gitDiffViewModel.refresh()
+                delay(1500)
+            }
+        }
+    }
 
     LaunchedEffect(active.content) {
         if (fieldValue.text != active.content) {
@@ -984,6 +1174,13 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
             }
             IconButton(onClick = editor::saveActive, enabled = active.isDirty) { Icon(Icons.Default.Save, "Save") }
         }
+
+        EditorChangesPanel(
+            active = active,
+            repositoryDocuments = gitDiffViewModel.documents,
+            expanded = changesExpanded,
+            onExpandedChange = { changesExpanded = it },
+        )
 
         if (!advanced) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
