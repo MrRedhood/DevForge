@@ -46,7 +46,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         private set
     var isAiBusy by mutableStateOf(false)
         private set
-    var aiSyncMessage by mutableStateOf<String?>(null)
+    var gitSyncMessage by mutableStateOf<String?>(null)
         private set
 
     private var recoveryJobs = mutableMapOf<Uri, Job>()
@@ -293,7 +293,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun dismissError() { error = null }
 
-    fun clearAiSyncMessage() {
+    fun clearGitSyncMessage() {
         aiSyncMessage = null
     }
 
