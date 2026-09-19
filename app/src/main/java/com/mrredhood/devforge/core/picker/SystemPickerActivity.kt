@@ -1,11 +1,11 @@
 package com.mrredhood.devforge.core.picker
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 
-class SystemPickerActivity : Activity() {
+class SystemPickerActivity : ComponentActivity() {
     private val pickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val kind = intent.getStringExtra(EXTRA_KIND) ?: KIND_ATTACHMENTS
         val output = Intent().putExtra(EXTRA_KIND, kind)
