@@ -6,8 +6,10 @@ import com.mrredhood.devforge.core.ai.AIModelInfo
 import com.mrredhood.devforge.core.ai.AIProvider
 import com.mrredhood.devforge.core.ai.AISettingsRepository
 import com.mrredhood.devforge.core.ai.ModelCatalogService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 data class EditorAiProposal(
     val uri: android.net.Uri,
@@ -27,6 +29,8 @@ class EditorAiAssistant(context: Context) {
     private val catalogService = ModelCatalogService()
 
     suspend fun propose(fileName: String, content: String, instruction: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            withTimeout(MAX_AI_EDIT_TIMEOUT_MS) {
         runCatching {
             require(fileName.isNotBlank()) { "The editor file name is missing." }
             require(instruction.isNotBlank()) { "Enter an AI edit request." }
@@ -74,6 +78,13 @@ class EditorAiAssistant(context: Context) {
             require(proposed != content) { "AI returned the file unchanged. Try a more specific edit request." }
             require(!looksLikeDiff(proposed)) { "AI returned a diff instead of the complete updated file. Try the edit again." }
             proposed
+            }
+    }
+
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            Result.failure(error)
         }
     }
 
@@ -126,7 +137,11 @@ class EditorAiAssistant(context: Context) {
         const val MAX_EDITOR_AI_FILE_BYTES = 2 * 1024 * 1024
     }
 
-    private fun looksLikeDiff(value: String): Boolean {
+    private companion object {
+        const val MAX_AI_EDIT_TIMEOUT_MS = 150_000L
+    }
+
+    private fun looksLikeDiff(value: String) {
         val lines = value.lineSequence().toList()
         val headers = lines.count { it.startsWith("+++ ") || it.startsWith("--- ") || it.startsWith("@@ ") }
         return headers >= 2
