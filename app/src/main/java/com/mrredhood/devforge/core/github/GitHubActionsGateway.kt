@@ -478,8 +478,18 @@ class GitHubActionsGateway(
                         error("GitHub returned too many redirects.")
                     }
                     val location = http.getHeaderField("Location")
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() }
                         ?: error("GitHub returned a redirect without a Location header.")
-                    url = location
+                    val resolved = java.net.URI(url).resolve(location).toString()
+                    val resolvedUri = java.net.URI(resolved)
+                    require(resolvedUri.scheme.equals("https", ignoreCase = true)) {
+                        "GitHub returned an insecure redirect URL."
+                    }
+                    require(resolvedUri.userInfo.isNullOrBlank()) {
+                        "GitHub returned a redirect URL containing embedded credentials."
+                    }
+                    url = resolved
                     return@repeat
                 }
                 val stream = if (code in 200..299) http.inputStream else http.errorStream ?: http.inputStream
