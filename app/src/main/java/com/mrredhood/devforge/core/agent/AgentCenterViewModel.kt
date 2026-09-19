@@ -32,7 +32,6 @@ data class AgentLaunchDraft(
     val provider: AIProvider,
     val modelId: String,
     val modelName: String,
-    val scopeText: String,
 )
 
 class AgentCenterViewModel(application: Application) : AndroidViewModel(application) {
@@ -214,10 +213,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
                                 draft.modelId.trim(),
                                 draft.modelName.ifBlank { draft.modelId.trim() },
                             ),
-                            pathScope = runCatching {
-                                val values = draft.scopeText.split(',').map(String::trim).filter(String::isNotBlank)
-                                WorkspacePathScope(if (values.isEmpty()) listOf("") else values)
-                            }.getOrElse { throw IllegalArgumentException(it.message ?: "Invalid path scope.") },
+                            pathScope = WorkspacePathScope(),
                             access = profile.access,
                         )
                         ))
@@ -259,10 +255,7 @@ class AgentCenterViewModel(application: Application) : AndroidViewModel(applicat
         if (assigning) return
         val normalizedModel = modelId.trim()
         if (normalizedModel.isBlank()) { message = "Enter a model ID for this agent."; return }
-        val normalizedScope = runCatching {
-            val values = scopeText.split(',').map(String::trim).filter(String::isNotBlank)
-            WorkspacePathScope(if (values.isEmpty()) listOf("") else values)
-        }.getOrElse { error -> message = error.message ?: "Invalid agent path scope."; return }
+        val normalizedScope = WorkspacePathScope()
         assigning = true
         message = null
         viewModelScope.launch(Dispatchers.IO) {
