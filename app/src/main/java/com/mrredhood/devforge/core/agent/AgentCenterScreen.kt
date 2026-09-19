@@ -65,8 +65,23 @@ fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
         activeCount < AgentCenterViewModel.MAX_LAUNCH_AGENTS &&
         !viewModel.assigning
 
+    val availableModels = viewModel.modelOptions(provider)
+        .filter { it.isTextCapable }
+        .sortedWith(compareBy<AIModelInfo> { it.priceClass.name != "FREE" }.thenBy { it.displayName.lowercase() })
+        .take(120)
+
     LaunchedEffect(provider) {
+        modelId = viewModel.modelId
+        modelName = viewModel.modelName
         viewModel.loadModels(provider)
+    }
+
+    LaunchedEffect(provider, availableModels) {
+        if (modelId.isBlank()) {
+            val selected = availableModels.firstOrNull() ?: return@LaunchedEffect
+            modelId = selected.id
+            modelName = selected.displayName
+        }
     }
 
     LazyColumn(
