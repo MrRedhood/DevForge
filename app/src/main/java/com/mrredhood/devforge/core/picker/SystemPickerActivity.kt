@@ -3,8 +3,21 @@ package com.mrredhood.devforge.core.picker
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 
 class SystemPickerActivity : Activity() {
+    private val pickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val kind = intent.getStringExtra(EXTRA_KIND) ?: KIND_ATTACHMENTS
+        val output = Intent().putExtra(EXTRA_KIND, kind)
+        result.data?.let { data ->
+            data.data?.let { output.data = it }
+            data.clipData?.let { output.clipData = it }
+            output.addFlags(data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION))
+        }
+        setResult(result.resultCode, output)
+        finish()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val kind = intent.getStringExtra(EXTRA_KIND) ?: KIND_ATTACHMENTS
@@ -20,21 +33,8 @@ class SystemPickerActivity : Activity() {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             }
         }
-        runCatching { startActivityForResult(picker, PICKER_REQUEST_CODE) }
+        runCatching { pickerLauncher.launch(picker) }
             .onFailure { setResult(RESULT_CANCELED, Intent().putExtra(EXTRA_KIND, kind)); finish() }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode != PICKER_REQUEST_CODE) { super.onActivityResult(requestCode, resultCode, data); return }
-        val kind = intent.getStringExtra(EXTRA_KIND) ?: KIND_ATTACHMENTS
-        val result = Intent().putExtra(EXTRA_KIND, kind)
-        if (data != null) {
-            data.data?.let { result.data = it }
-            data.clipData?.let { result.clipData = it }
-            result.addFlags(data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION))
-        }
-        setResult(resultCode, result)
-        finish()
     }
 
     private fun mimeTypeFor(kind: String): String = when (kind) {
