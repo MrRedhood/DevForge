@@ -214,7 +214,8 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 targetUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                     ?: throw IllegalStateException("Android could not create the DevForge download file.")
-                resolver.openOutputStream(targetUri!!)!!.use { output ->
+                val outputUri = targetUri ?: throw IllegalStateException("Android could not create the DevForge download file.")
+                resolver.openOutputStream(outputUri)?.use { output ->
                     val result = githubGateway.downloadArtifact(
                         owner = owner,
                         repository = repository,
@@ -223,11 +224,11 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                     )
                     val bytes = result.getOrElse { throw it }
                     if (bytes <= 0L) throw IllegalStateException("GitHub returned an empty artifact.")
-                }
+                } ?: throw IllegalStateException("Android could not open the DevForge download file.")
                 val complete = ContentValues().apply {
                     put(MediaStore.Downloads.IS_PENDING, 0)
                 }
-                resolver.update(targetUri!!, complete, null, null)
+                resolver.update(outputUri, complete, null, null)
                 withContext(Dispatchers.Main.immediate) {
                     artifactMessage = "Downloaded " + artifact.name + " to Downloads/DevForge."
                 }
