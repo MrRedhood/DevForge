@@ -1030,19 +1030,21 @@ private fun EditorChangeDocumentRow(document: GitDiffDocument) {
                     Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(section.title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
                         section.lines.take(160).forEach { line ->
+                            val prefix = when (line.kind) {
+                                DiffKind.ADDED -> "+ "
+                                DiffKind.REMOVED -> "- "
+                                DiffKind.CONTEXT -> "  "
+                            }
+                            val lineColor = when (line.kind) {
+                                DiffKind.ADDED -> MaterialTheme.colorScheme.primary
+                                DiffKind.REMOVED -> MaterialTheme.colorScheme.error
+                                DiffKind.CONTEXT -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                             Text(
-                                (when (line.kind) {
-                                    DiffKind.ADDED -> "+ "
-                                    DiffKind.REMOVED -> "- "
-                                    DiffKind.CONTEXT -> "  "
-                                }) + line.text,
+                                prefix + line.text,
                                 fontFamily = FontFamily.Monospace,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = when (line.kind) {
-                                    DiffKind.ADDED -> MaterialTheme.colorScheme.primary,
-                                    DiffKind.REMOVED -> MaterialTheme.colorScheme.error,
-                                    DiffKind.CONTEXT -> MaterialTheme.colorScheme.onSurfaceVariant,
-                                },
+                                color = lineColor,
                             )
                         }
                     }
