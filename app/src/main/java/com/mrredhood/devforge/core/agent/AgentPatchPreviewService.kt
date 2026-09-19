@@ -56,12 +56,17 @@ class AgentPatchPreviewService(
                 for (index in 0 until array.length()) add(array.optString(index, ""))
             },
         )
-        val path = WorkspacePathScope.normalize(patch.path)
-        allowed.requireAllowed(path)
-
         val workspace = workspaceDao.findById(approval.workspaceId)
             ?: throw IllegalArgumentException("Workspace '" + approval.workspaceId + "' was not found.")
         val root = Uri.parse(workspace.treeUri)
+        val rawPath = WorkspacePathScope.normalize(patch.path)
+        val directPathExists = exists(root, rawPath)
+        val path = AgentWorkspacePath.canonicalize(
+            rawPath = rawPath,
+            workspaceName = workspace.name,
+            scope = allowed,
+            directPathExists = directPathExists,
+        )
         val existed = exists(root, path)
         val before = readExisting(root, path)
         val beforeHash = ContentHasher.sha256(before)
