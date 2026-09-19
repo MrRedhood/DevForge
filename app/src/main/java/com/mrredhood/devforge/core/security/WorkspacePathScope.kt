@@ -11,6 +11,7 @@ data class WorkspacePathScope(
 
     fun allows(path: String): Boolean = runCatching {
         val normalized = normalize(path, allowEmpty = true)
+        if (allowedPrefixes.isEmpty()) return@runCatching true
         allowedPrefixes.any { prefix ->
             val scope = normalize(prefix, allowEmpty = true)
             scope.isEmpty() || normalized == scope || normalized.startsWith("$scope/")
@@ -23,17 +24,21 @@ data class WorkspacePathScope(
         return normalized
     }
 
-    fun canonicalPrefixes(): List<String> = allowedPrefixes
-        .map { normalize(it, allowEmpty = true) }
-        .filter(String::isNotEmpty)
-        .distinct()
-        .sorted()
+    fun canonicalPrefixes(): List<String> {
+        if (allowedPrefixes.isEmpty()) return listOf("")
+        return allowedPrefixes
+            .map { normalize(it, allowEmpty = true) }
+            .filter(String::isNotEmpty)
+            .distinct()
+            .sorted()
+            .ifEmpty { listOf("") }
+    }
 
     /** Returns true when this granted scope completely contains the required action scope. */
     fun covers(required: WorkspacePathScope): Boolean {
         val granted = canonicalPrefixes()
-        val grantedIsRoot = allowedPrefixes.any { normalize(it, allowEmpty = true).isEmpty() }
-        val requiredIsRoot = required.allowedPrefixes.any { normalize(it, allowEmpty = true).isEmpty() }
+        val grantedIsRoot = allowedPrefixes.isEmpty() || allowedPrefixes.any { normalize(it, allowEmpty = true).isEmpty() }
+        val requiredIsRoot = required.allowedPrefixes.isEmpty() || required.allowedPrefixes.any { normalize(it, allowEmpty = true).isEmpty() }
         if (grantedIsRoot) return true
         if (requiredIsRoot) return false
         return required.canonicalPrefixes().all { requiredPrefix ->
