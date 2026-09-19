@@ -143,11 +143,15 @@ object AgentTaskPlanCodec {
         val version = root.optInt("version", 1)
         require(version in 1..3) { "Unsupported agent task plan version." }
         val scope = if (version >= 2) {
-            val scopeArray = root.optJSONArray("scope") ?: JSONArray()
-            require(scopeArray.length() <= WorkspacePathScope.MAX_PREFIXES) { "Agent path scope exceeds the prefix limit." }
-            WorkspacePathScope(buildList(scopeArray.length()) {
-                for (index in 0 until scopeArray.length()) add(scopeArray.optString(index, ""))
-            })
+            val scopeArray = root.optJSONArray("scope")
+            if (scopeArray == null || scopeArray.length() == 0) {
+                WorkspacePathScope()
+            } else {
+                require(scopeArray.length() <= WorkspacePathScope.MAX_PREFIXES) { "Agent path scope exceeds the prefix limit." }
+                WorkspacePathScope(buildList(scopeArray.length()) {
+                    for (index in 0 until scopeArray.length()) add(scopeArray.optString(index, ""))
+                })
+            }
         } else {
             WorkspacePathScope()
         }
