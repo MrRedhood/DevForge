@@ -10,7 +10,10 @@ import com.mrredhood.devforge.core.storage.DurableStateRepository
 object AgentRuntime {
     fun create(
         context: Context,
-        permissionMode: PermissionMode = PermissionMode.SOME,
+        // Agent file operations are already bounded by workspace scope, tool access,
+        // mutation leases and precondition checks. Run them autonomously so an agent can
+        // actually complete coding tasks; PermissionMode.NEVER still blocks execution.
+        permissionMode: PermissionMode = PermissionMode.AUTONOMOUS,
     ): AgentTaskEngine {
         val appContext = context.applicationContext
         val database = DevForgeDatabase.get(appContext)
