@@ -97,9 +97,9 @@ class WorkspaceAgentToolProvider(
             val args = JSONObject(request.argumentsJson)
             val path = scopedPath(context.pathScope, args.optString("path", "").trim(), allowEmpty = true)
             val limit = args.optInt("limit", 100).coerceIn(1, MAX_LIST_ENTRIES)
-            val entries = access.list(root(context), path, limit)
+            val listing = access.list(root(context), path, limit)
             val result = JSONArray()
-            entries.forEach { entry ->
+            listing.entries.forEach { entry ->
                 result.put(
                     JSONObject()
                         .put("name", entry.name)
@@ -108,8 +108,18 @@ class WorkspaceAgentToolProvider(
                 )
             }
             AgentToolResult.Success(
-                summary = "Listed ${entries.size} entries${if (path.isBlank()) "" else " in $path"}.",
-                output = JSONObject().put("path", path).put("entries", result).toString(),
+                summary = if (listing.recovered) {
+                    "Recovered workspace listing for ${listing.requestedPath}: ${listing.recoveryMessage.orEmpty()}"
+                } else {
+                    "Listed ${listing.entries.size} entries${if (path.isBlank()) "" else " in $path"}."
+                },
+                output = JSONObject()
+                    .put("requestedPath", listing.requestedPath)
+                    .put("resolvedPath", listing.resolvedPath)
+                    .put("recovered", listing.recovered)
+                    .put("recoveryMessage", listing.recoveryMessage ?: JSONObject.NULL)
+                    .put("entries", result)
+                    .toString(),
             )
         } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Unable to list workspace files.")
@@ -343,10 +353,42 @@ private data class AgentWorkspaceEntry(
 private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
     private val tree = WorkspaceFileTree(resolver)
 
-    suspend fun list(root: Uri, path: String, limit: Int): List<AgentWorkspaceEntry> = withContext(Dispatchers.IO) {
-        val directory = resolve(root, path)
-        require(isDirectory(directory)) { "Workspace path is not a directory: $path" }
-        tree.list(directory, limit).map { AgentWorkspaceEntry(it.name, it.isDirectory, it.sizeBytes) }
+    data class ListResult(
+        val requestedPath: String,
+        val resolvedPath: String,
+        val recovered: Boolean,
+        val entries: List<AgentWorkspaceEntry>,
+        val recoveryMessage: String? = null,
+    )
+
+    suspend fun list(root: Uri, path: String, limit: Int): ListResult = withContext(Dispatchers.IO) {
+        val normalized = WorkspacePathScope.normalize(path, allowEmpty = true)
+        val direct = runCatching { resolve(root, normalized) }
+        val target = direct.getOrElse { error ->
+            val parentPath = normalized.substringBeforeLast('/', missingDelimiterValue = "")
+            if (parentPath == normalized) throw error
+            resolve(root, parentPath)
+        }
+        if (isDirectory(target)) {
+            val recovered = !direct.isSuccess
+            return@withContext ListResult(
+                requestedPath = normalized,
+                resolvedPath = if (recovered) normalized.substringBeforeLast('/', missingDelimiterValue = "") else normalized,
+                recovered = recovered,
+                entries = tree.list(target, limit).map { AgentWorkspaceEntry(it.name, it.isDirectory, it.sizeBytes) },
+                recoveryMessage = if (recovered) "Requested directory was not found; listed its nearest existing parent directory." else null,
+            )
+        }
+
+        val parentPath = normalized.substringBeforeLast('/', missingDelimiterValue = "")
+        val parent = resolve(root, parentPath)
+        ListResult(
+            requestedPath = normalized,
+            resolvedPath = parentPath,
+            recovered = true,
+            entries = tree.list(parent, limit).map { AgentWorkspaceEntry(it.name, it.isDirectory, it.sizeBytes) },
+            recoveryMessage = "Requested path is a file; listed its parent directory instead.",
+        )
     }
 
     suspend fun readText(root: Uri, path: String): String = withContext(Dispatchers.IO) {
@@ -437,8 +479,11 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         return treeDocumentId?.let { DocumentsContract.buildDocumentUriUsingTree(parent, it) } ?: parent
     }
 
-    private fun findChild(parent: Uri, name: String): Uri? =
-        tree.list(parent, MAX_DIRECTORY_ENTRIES).firstOrNull { it.name == name }?.uri
+    private fun findChild(parent: Uri, name: String): Uri? {
+        val entries = tree.list(parent, MAX_DIRECTORY_ENTRIES)
+        return entries.firstOrNull { it.name == name }?.uri
+            ?: entries.filter { it.name.equals(name, ignoreCase = true) }.singleOrNull()?.uri
+    }
 
     private fun isDirectory(uri: Uri): Boolean =
         resolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE), null, null, null)?.use { cursor ->
