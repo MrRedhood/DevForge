@@ -210,7 +210,7 @@ class WorkspaceAgentToolProvider(
         }
 
         override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
-            listOf(AgentFilePatchCodec.decode(request.argumentsJson).path)
+            listOf(scopedPath(context, AgentFilePatchCodec.decode(request.argumentsJson).path))
 
         override suspend fun preconditionHash(context: AgentToolContext, request: AgentToolRequest): String? {
             val patch = AgentFilePatchCodec.decode(request.argumentsJson)
@@ -240,7 +240,7 @@ class WorkspaceAgentToolProvider(
         )
 
         override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
-            listOf(JSONObject(request.argumentsJson).optString("path").trim())
+            listOf(scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim()))
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val args = JSONObject(request.argumentsJson)
