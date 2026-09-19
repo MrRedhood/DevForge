@@ -10,10 +10,15 @@ import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.diagnostics.Diagnostic
+import com.mrredhood.devforge.core.git.GitDetectionState
+import com.mrredhood.devforge.core.git.GitRemoteTransportService
+import com.mrredhood.devforge.core.git.GitRepositoryService
+import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import com.mrredhood.devforge.core.workspace.WorkspaceSymbolExtractor
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -22,6 +27,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private val repository = EditorRepository(application.contentResolver, application.getSharedPreferences(PREFERENCES, 0))
     private val durable = DurableStateRepository(DevForgeDatabase.get(application))
     private val aiAssistant = EditorAiAssistant(application)
+    private val workspaceRepository = WorkspaceDatabaseRepository(application)
+    private val gitRepositoryService = GitRepositoryService(application.contentResolver)
+    private val gitRemoteService = GitRemoteTransportService(application)
+    private val gitSyncMutex = kotlinx.coroutines.sync.Mutex()
 
     var tabs by mutableStateOf<List<EditorTab>>(emptyList())
         private set
@@ -36,6 +45,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     var aiProposal by mutableStateOf<EditorAiProposal?>(null)
         private set
     var isAiBusy by mutableStateOf(false)
+        private set
+    var aiSyncMessage by mutableStateOf<String?>(null)
         private set
 
     private var recoveryJobs = mutableMapOf<Uri, Job>()
@@ -204,6 +215,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { repository.write(targetUri, contentToSave) }
             result.onSuccess {
+                val syncMessage = withContext(Dispatchers.IO) {
+                    syncGitHubAfterSave("update " + (tabs.firstOrNull { it.uri == targetUri }?.name ?: "file"))
+                }
+                aiSyncMessage = syncMessage
                 val current = tabs.firstOrNull { it.uri == targetUri } ?: return@onSuccess
                 val changedDuringSave = current.content != contentToSave
                 val persisted = current.copy(
@@ -229,6 +244,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { repository.write(targetUri, contentToSave) }
             result.onSuccess {
+                val syncMessage = withContext(Dispatchers.IO) {
+                    syncGitHubAfterSave("update " + (tabs.firstOrNull { it.uri == targetUri }?.name ?: "file"))
+                }
+                aiSyncMessage = syncMessage
                 val current = tabs.firstOrNull { it.uri == targetUri } ?: return@onSuccess
                 val changedDuringSave = current.content != contentToSave
                 val persisted = current.copy(
@@ -273,6 +292,32 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun dismissError() { error = null }
+
+    fun clearAiSyncMessage() {
+        aiSyncMessage = null
+    }
+
+    private suspend fun syncGitHubAfterSave(summary: String): String? {
+        val workspace = workspaceRepository.activeWorkspace.first()
+        var resultMessage: String? = null
+        if (workspace != null) {
+            when (val detected = gitRepositoryService.detect(workspace.treeUri)) {
+                is GitDetectionState.Detected -> {
+                    if (!detected.repository.remoteUrl.isNullOrBlank()) {
+                        resultMessage = when (val result = gitSyncMutex.withLock {
+                            gitRemoteService.autoSyncChanges(detected.repository, "DevForge: " + summary)
+                        }) {
+                            is com.mrredhood.devforge.core.git.GitRemoteResult.Success -> result.message
+                            is com.mrredhood.devforge.core.git.GitRemoteResult.Failure ->
+                                "Local save completed. GitHub synchronization failed: " + result.message
+                        }
+                    }
+                }
+                else -> Unit
+            }
+        }
+        return resultMessage
+    }
 
     fun requestAiEdit(instruction: String) {
         val tab = activeTab ?: return
