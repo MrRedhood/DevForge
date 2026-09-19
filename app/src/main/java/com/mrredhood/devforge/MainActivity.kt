@@ -988,6 +988,29 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
             }
         }
 
+        editor.error?.let { message ->
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                ),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        message,
+                        Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    TextButton(onClick = editor::dismissError) {
+                        Text("Dismiss")
+                    }
+                }
+            }
+        }
+
         if (editor.diagnostics.isNotEmpty()) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
