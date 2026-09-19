@@ -77,7 +77,8 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
         if (viewModel.messages.isNotEmpty()) listState.animateScrollToItem(viewModel.messages.lastIndex)
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        WorkspaceContextBadge(viewModel)
         ModelSelector(viewModel)
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -112,6 +113,34 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
         }
 
         ChatComposer(viewModel)
+    }
+}
+
+@Composable
+private fun WorkspaceContextBadge(viewModel: AIChatViewModel) {
+    val name = viewModel.workspaceName
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        tonalElevation = 1.dp,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Text(
+            text = if (name.isNullOrBlank()) {
+                "No workspace selected"
+            } else {
+                "Workspace · $name"
+            },
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (name.isNullOrBlank()) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
