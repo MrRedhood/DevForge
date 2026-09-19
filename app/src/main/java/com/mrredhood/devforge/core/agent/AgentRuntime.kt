@@ -17,7 +17,11 @@ object AgentRuntime {
         val durableState = DurableStateRepository(database)
         val coordination = AgentCoordinationService(database)
         val registry = AgentToolRegistry()
-        WorkspaceAgentToolProvider(appContext.contentResolver, database.workspaceDao()).registerAll(registry)
+        WorkspaceAgentToolProvider(
+            appContext.contentResolver,
+            database.workspaceDao(),
+            com.mrredhood.devforge.core.git.GitRemoteTransportService(appContext),
+        ).registerAll(registry)
         AgentCoordinationToolProvider(coordination).registerAll(registry)
         val approvals = ApprovalRepository(database.approvalDao())
         val gateway = AgentToolGateway(
