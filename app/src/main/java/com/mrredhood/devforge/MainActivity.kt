@@ -212,7 +212,7 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DevForgeTopBar(
-                workspaceName = workspace.workspace?.name ?: "No workspace",
+                workspace = workspace,
                 editing = editing,
                 showAgents = destination == DevForgeDestination.Chat && !editing,
                 onSearch = { showGlobalSearch = true },
@@ -321,7 +321,7 @@ private fun DevForgeApp(settings: DevForgeSettingsViewModel) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DevForgeTopBar(
-    workspaceName: String,
+    workspace: WorkspaceViewModel,
     editing: Boolean,
     showAgents: Boolean,
     onSearch: () -> Unit,
@@ -331,11 +331,43 @@ private fun DevForgeTopBar(
         title = {
             Column {
                 Text("DevForge", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
-                Text(
-                    if (editing) "Editor / $workspaceName" else workspaceName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                var workspaceMenuOpen by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(
+                        onClick = { workspaceMenuOpen = true },
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                    ) {
+                        Text(
+                            if (editing) "Editor / " + (workspace.workspace?.name ?: "No workspace")
+                            else workspace.workspace?.name ?: "No workspace",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select workspace", Modifier.size(16.dp))
+                    }
+                    DropdownMenu(
+                        expanded = workspaceMenuOpen,
+                        onDismissRequest = { workspaceMenuOpen = false },
+                    ) {
+                        workspace.workspaces.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text((if (item.id == workspace.workspace?.id) "✓ " else "") + item.name, maxLines = 1) },
+                                onClick = {
+                                    workspaceMenuOpen = false
+                                    workspace.switchWorkspace(item.id)
+                                },
+                            )
+                        }
+                        if (workspace.workspaces.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("No workspaces") },
+                                onClick = { workspaceMenuOpen = false },
+                                enabled = false,
+                            )
+                        }
+                    }
+                }
             }
         },
         navigationIcon = {
