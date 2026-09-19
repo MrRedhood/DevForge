@@ -258,7 +258,8 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             } finally {
-                restoringRunId = null
+                // Keep the restored id as the guard for the current latest history entry.
+                // A Room emission must not cause a repeated network reload of the same run.
             }
         }
     }
