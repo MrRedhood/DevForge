@@ -5,6 +5,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class AISettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AISettingsRepository(application)
@@ -18,6 +22,8 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
     var customModelId by mutableStateOf(repository.selectedModelId(provider).orEmpty())
         private set
     var status by mutableStateOf(statusFor(provider))
+        private set
+    var isTestingConnection by mutableStateOf(false)
         private set
 
     fun selectProvider(value: AIProvider) {
@@ -73,6 +79,32 @@ class AISettingsViewModel(application: Application) : AndroidViewModel(applicati
         }
         repository.hasApiKey(value) -> "API key is configured."
         else -> "No API key saved for this provider."
+    }
+
+    fun testConnection() {
+        if (isTestingConnection) return
+        if (repository.isApiKeyLocked(provider)) {
+            status = "Unlock protected credentials before testing this provider."
+            return
+        }
+        val key = repository.getApiKey(provider)
+        if (key.isNullOrBlank()) {
+            status = "Enter and save an API key before testing the connection."
+            return
+        }
+        isTestingConnection = true
+        status = "Testing " + provider.displayName + " connection…"
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = ModelCatalogService().load(provider, key, repository.customBaseUrl(provider))
+            withContext(Dispatchers.Main.immediate) {
+                isTestingConnection = false
+                if (result.models.isNotEmpty()) {
+                    status = "Connection successful. Discovered " + result.models.size + " model(s)."
+                } else {
+                    status = result.warning ?: "Provider responded without any models."
+                }
+            }
+        }
     }
 
     fun remove() {
