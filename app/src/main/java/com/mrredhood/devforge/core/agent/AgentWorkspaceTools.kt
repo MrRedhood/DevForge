@@ -56,6 +56,9 @@ class WorkspaceAgentToolProvider(
             val workspace = workspaceDao.findById(context.workspaceId)
                 ?: throw IllegalArgumentException("Workspace '${context.workspaceId}' was not found.")
             val normalized = WorkspacePathScope.normalize(rawPath, allowEmpty)
+            if (normalized.isBlank() && !allowEmpty) {
+                throw IllegalArgumentException("A file or folder path is required; DevForge selects the exact path automatically from the workspace.")
+            }
             val directPathExists = access.exists(root(context), normalized)
             return AgentWorkspacePath.canonicalize(
                 rawPath = normalized,
