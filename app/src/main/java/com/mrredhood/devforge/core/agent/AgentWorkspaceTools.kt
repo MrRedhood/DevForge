@@ -40,8 +40,24 @@ class WorkspaceAgentToolProvider(
             return Uri.parse(workspace.treeUri)
         }
 
-        protected fun scopedPath(scope: WorkspacePathScope, rawPath: String, allowEmpty: Boolean = false): String =
-            WorkspacePathScope.normalize(rawPath, allowEmpty).also { scope.requireAllowed(it) }
+        protected suspend fun scopedPath(
+            context: AgentToolContext,
+            rawPath: String,
+            allowEmpty: Boolean = false,
+        ): String {
+            val workspace = workspaceDao.findById(context.workspaceId)
+                ?: throw IllegalArgumentException("Workspace '${context.workspaceId}' was not found.")
+            val normalized = WorkspacePathScope.normalize(rawPath, allowEmpty)
+            val workspaceName = WorkspacePathScope.normalize(workspace.name.trim(), allowEmpty = true)
+            val first = normalized.substringBefore('/')
+            val stripped = if (workspaceName.isNotEmpty() && first.equals(workspaceName, ignoreCase = true)) {
+                normalized.substringAfter('/', missingDelimiterValue = "")
+            } else {
+                normalized
+            }
+            val canonical = WorkspacePathScope.normalize(stripped, allowEmpty)
+            return context.pathScope.requireAllowed(canonical)
+        }
 
         protected val access = WorkspaceAgentFileAccess(resolver)
     }
@@ -56,7 +72,7 @@ class WorkspaceAgentToolProvider(
         )
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
-            val path = scopedPath(context.pathScope, JSONObject(request.argumentsJson).optString("path").trim())
+            val path = scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim())
             val content = access.readText(root(context), path)
             AgentToolResult.Success(
                 summary = "Read $path.",
