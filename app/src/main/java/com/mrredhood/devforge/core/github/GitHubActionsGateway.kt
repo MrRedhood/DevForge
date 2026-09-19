@@ -4,6 +4,8 @@ import com.mrredhood.devforge.core.build.BuildConfiguration
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.net.URL
 import java.time.Instant
 import kotlinx.coroutines.delay
@@ -403,8 +405,110 @@ class GitHubActionsGateway(
         return runCatching { parser(JSONObject(body)) }
     }
 
-    private fun getText(path: String, maxBytes: Int): Result<String> =
-        requestBody(path, "GET", maxBytes.coerceIn(4 * 1024, MAX_LOG_BYTES))
+    private fun getText(path: String, maxBytes: Int): Result<String> {
+        val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
+            ?: return Result.failure(IllegalStateException("GitHub is not connected on this device."))
+        return readRedirectedBody(
+            url = "https://api.github.com" + validatedPath(path),
+            token = token,
+            maxBytes = maxBytes.coerceIn(4 * 1024, MAX_LOG_BYTES),
+        )
+    }
+
+    suspend fun downloadArtifact(
+        owner: String,
+        repository: String,
+        artifactId: Long,
+        output: java.io.OutputStream,
+        maxBytes: Long = MAX_ARTIFACT_DOWNLOAD_BYTES,
+    ): Result<Long> {
+        val normalizedOwner = validateRepositoryPart(owner)
+            ?: return Result.failure(IllegalArgumentException("The GitHub owner is invalid."))
+        val normalizedRepository = validateRepositoryPart(repository)
+            ?: return Result.failure(IllegalArgumentException("The GitHub repository is invalid."))
+        if (artifactId <= 0L) return Result.failure(IllegalArgumentException("The artifact identifier is invalid."))
+        val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
+            ?: return Result.failure(IllegalStateException("GitHub is not connected on this device."))
+        val url = "https://api.github.com/repos/" + normalizedOwner + "/" + normalizedRepository +
+            "/actions/artifacts/" + artifactId + "/zip"
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                streamRedirectedBody(url, token, maxBytes.coerceIn(1L, MAX_ARTIFACT_DOWNLOAD_BYTES), output)
+            }
+        }
+    }
+
+    private fun readRedirectedBody(url: String, token: String, maxBytes: Int): Result<String> =
+        runCatching {
+            val output = java.io.ByteArrayOutputStream(minOf(maxBytes, 64 * 1024))
+            streamRedirectedBody(url, token, maxBytes.toLong(), output)
+            output.toString(Charsets.UTF_8.name())
+        }
+
+    private fun streamRedirectedBody(
+        initialUrl: String,
+        token: String,
+        maxBytes: Long,
+        output: java.io.OutputStream,
+    ): Long {
+        var url = initialUrl
+        var total = 0L
+        repeat(MAX_GITHUB_REDIRECTS + 1) { redirectIndex ->
+            val uri = java.net.URI(url)
+            require(uri.scheme.equals("https", ignoreCase = true)) {
+                "GitHub returned an insecure download URL."
+            }
+            require(uri.userInfo.isNullOrBlank()) {
+                "GitHub returned a download URL containing embedded credentials."
+            }
+
+            val http = connection.open(url).apply {
+                requestMethod = "GET"
+                instanceFollowRedirects = false
+                setRequestProperty("Accept", "application/vnd.github+json")
+                setRequestProperty("X-GitHub-Api-Version", API_VERSION)
+                if (redirectIndex == 0) setRequestProperty("Authorization", "Bearer " + token)
+                connectTimeout = 15_000
+                readTimeout = 60_000
+            }
+            try {
+                val code = http.responseCode
+                if (code in 300..399) {
+                    if (redirectIndex >= MAX_GITHUB_REDIRECTS) {
+                        error("GitHub returned too many redirects.")
+                    }
+                    val location = http.getHeaderField("Location")
+                        ?: error("GitHub returned a redirect without a Location header.")
+                    url = location
+                    return@repeat
+                }
+                val stream = if (code in 200..299) http.inputStream else http.errorStream ?: http.inputStream
+                if (code !in 200..299) {
+                    val body = stream?.use { it.readBounded(MAX_DIRECT_RESPONSE_BYTES) }
+                        ?.toString(Charsets.UTF_8).orEmpty()
+                    error(
+                        "GitHub download request failed (HTTP " + code + ")" +
+                            if (body.isBlank()) "." else ": " + sanitizeError(body),
+                    )
+                }
+                stream?.use { input ->
+                    val buffer = ByteArray(16 * 1024)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        total += read
+                        if (total > maxBytes) error("The GitHub download exceeded the DevForge size limit.")
+                        output.write(buffer, 0, read)
+                    }
+                }
+                output.flush()
+                return total
+            } finally {
+                http.disconnect()
+            }
+        }
+        error("GitHub download did not complete.")
+    }
 
     private fun requestBody(path: String, method: String, maxBytes: Int = 320_000): Result<String> {
         val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
@@ -490,6 +594,8 @@ class GitHubActionsGateway(
         private const val MAX_DIRECT_RESPONSE_BYTES = 320_000
         private const val MAX_LOG_JOBS = 8
         private const val MAX_LOG_BYTES = 512 * 1024
+        private const val MAX_GITHUB_REDIRECTS = 3
+        private const val MAX_ARTIFACT_DOWNLOAD_BYTES = 150L * 1024L * 1024L
         private const val MAX_JOBS_PER_RESPONSE = 100
         private const val MAX_ARTIFACTS = 100
         private const val MAX_PATH_LENGTH = 500
