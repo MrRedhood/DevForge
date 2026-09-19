@@ -513,11 +513,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         ?.lineSequence()
                         ?.map(String::trim)
                         ?.filter { it.isNotBlank() && !it.startsWith("receipt=", ignoreCase = true) && !it.startsWith("{") }
-                        ?.chunked(2)
-                        ?.mapNotNull { chunk -> chunk.firstOrNull() }
                         ?.distinct()
                         ?.take(12)
-                        ?.joinToString("\n")
+                        ?.joinToString("\n") { "• " + it }
                         .orEmpty()
                     buildString {
                         append("Agent completed the requested workspace changes.")
