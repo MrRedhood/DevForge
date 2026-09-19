@@ -508,9 +508,22 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             }
             val completed = task ?: error("The agent task disappeared before completion.")
             return when (completed.status) {
-                AgentTaskStatus.COMPLETED.name ->
-                    "Agent completed the requested workspace changes." +
-                        completed.result?.takeIf { it.isNotBlank() }?.let { "\n\n$it" }.orEmpty()
+                AgentTaskStatus.COMPLETED.name -> {
+                    val details = completed.result
+                        ?.lineSequence()
+                        ?.map(String::trim)
+                        ?.filter { it.isNotBlank() && !it.startsWith("receipt=", ignoreCase = true) && !it.startsWith("{") }
+                        ?.chunked(2)
+                        ?.mapNotNull { chunk -> chunk.firstOrNull() }
+                        ?.distinct()
+                        ?.take(12)
+                        ?.joinToString("\n")
+                        .orEmpty()
+                    buildString {
+                        append("Agent completed the requested workspace changes.")
+                        if (details.isNotBlank()) append("\n\n").append(details)
+                    }
+                }
                 AgentTaskStatus.CANCELLED.name ->
                     "Agent task cancelled."
                 else ->
