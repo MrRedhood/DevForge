@@ -95,7 +95,7 @@ class WorkspaceAgentToolProvider(
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val args = JSONObject(request.argumentsJson)
-            val path = scopedPath(context.pathScope, args.optString("path", "").trim(), allowEmpty = true)
+            val path = scopedPath(context, args.optString("path", "").trim(), allowEmpty = true)
             val limit = args.optInt("limit", 100).coerceIn(1, MAX_LIST_ENTRIES)
             val listing = access.list(root(context), path, limit)
             val result = JSONArray()
@@ -181,7 +181,7 @@ class WorkspaceAgentToolProvider(
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val patch = AgentFilePatchCodec.decode(request.argumentsJson)
-            val path = scopedPath(context.pathScope, patch.path)
+            val path = scopedPath(context, patch.path)
             val rootUri = root(context)
             val before = runCatchingCancellable { access.readText(rootUri, path) }.getOrElse {
                 require(it.message?.contains("does not exist", true) == true) { it.message ?: "Unable to read patch target." }
@@ -214,7 +214,7 @@ class WorkspaceAgentToolProvider(
 
         override suspend fun preconditionHash(context: AgentToolContext, request: AgentToolRequest): String? {
             val patch = AgentFilePatchCodec.decode(request.argumentsJson)
-            val path = scopedPath(context.pathScope, patch.path)
+            val path = scopedPath(context, patch.path)
             val rootUri = root(context)
             val before = runCatchingCancellable { access.readText(rootUri, path) }.getOrElse {
                 require(it.message?.contains("does not exist", true) == true) { it.message ?: "Unable to read patch target." }
@@ -244,7 +244,7 @@ class WorkspaceAgentToolProvider(
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val args = JSONObject(request.argumentsJson)
-            val path = scopedPath(context.pathScope, args.optString("path").trim())
+            val path = scopedPath(context, args.optString("path").trim())
             val content = args.optString("content", "")
             access.createText(root(context), path, content)
             AgentToolResult.Success(
@@ -270,7 +270,7 @@ class WorkspaceAgentToolProvider(
             listOf(JSONObject(request.argumentsJson).optString("path").trim())
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
-            val path = scopedPath(context.pathScope, JSONObject(request.argumentsJson).optString("path").trim())
+            val path = scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim())
             access.createDirectory(root(context), path)
             AgentToolResult.Success(
                 summary = "Created folder $path.",
@@ -295,7 +295,7 @@ class WorkspaceAgentToolProvider(
             listOf(JSONObject(request.argumentsJson).optString("path").trim())
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
-            val path = scopedPath(context.pathScope, JSONObject(request.argumentsJson).optString("path").trim())
+            val path = scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim())
             require(path != ".git" && !path.startsWith(".git/")) { "The .git directory is protected." }
             access.delete(root(context), path)
             AgentToolResult.Success(
@@ -322,7 +322,7 @@ class WorkspaceAgentToolProvider(
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val args = JSONObject(request.argumentsJson)
-            val path = scopedPath(context.pathScope, args.optString("path").trim())
+            val path = scopedPath(context, args.optString("path").trim())
             val content = args.optString("content", "")
             access.writeText(root(context), path, content)
             AgentToolResult.Success(
