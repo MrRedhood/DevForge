@@ -54,7 +54,8 @@ class GitRemoteTransportService(
         targetName: String = repository,
     ): Result<Uri> = withContext(Dispatchers.IO) {
         runCatching {
-            require(isDirectoryUri(parentUri)) { "The selected destination is not a directory." }
+            val destination = documentUri(parentUri)
+            require(isDirectoryUri(destination)) { "The selected destination is not a directory." }
             val normalizedOwner = owner.trim().takeIf { VALID_NAME.matches(it) }
                 ?: throw IllegalArgumentException("The GitHub owner is invalid.")
             val normalizedRepository = repository.trim().takeIf { VALID_NAME.matches(it) }
@@ -73,7 +74,7 @@ class GitRemoteTransportService(
             require(token.length <= MAX_TOKEN_LENGTH) { "The stored GitHub credential is invalid." }
 
             val safeTarget = requireSafeDocumentName(targetName.ifBlank { normalizedRepository })
-            val targetRoot = createUniqueDirectory(parentUri, safeTarget)
+            val targetRoot = createUniqueDirectory(destination, safeTarget)
 
             val tempRoot = File(context.cacheDir, "devforge-git-clone/" + UUID.randomUUID())
             tempRoot.mkdirs()
@@ -283,7 +284,7 @@ class GitRemoteTransportService(
 
     private fun copySafWorkspaceToFile(sourceRoot: Uri, targetRoot: File) {
         targetRoot.mkdirs()
-        copySafNode(sourceRoot, targetRoot, CopyBudget(), "")
+        copySafNode(documentUri(sourceRoot), targetRoot, CopyBudget(), "")
     }
 
     private fun copySafNode(source: Uri, target: File, budget: CopyBudget, relativePath: String) {
@@ -375,9 +376,14 @@ class GitRemoteTransportService(
         }
     }.getOrNull()
 
+    private fun documentUri(uri: Uri): Uri {
+        val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull()
+        return treeDocumentId?.let { DocumentsContract.buildDocumentUriUsingTree(uri, it) } ?: uri
+    }
+
     private fun findDirectChild(parent: Uri, name: String): Uri? = listChildren(parent).firstOrNull { it.name == name }?.uri
 
-    private fun isDirectoryUri(uri: Uri): Boolean = queryDocument(uri)?.isDirectory == true
+    private fun isDirectoryUri(uri: Uri): Boolean = queryDocument(documentUri(uri))?.isDirectory == true
 
     private fun createUniqueDirectory(parent: Uri, baseName: String): Uri {
         val parentDocument = documentParentUri(parent)
