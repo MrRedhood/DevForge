@@ -60,7 +60,9 @@ class AIChatGateway(
         val contents = buildGeminiContents(history, userInstruction, prepared)
         val json = request(
             AIProviderRegistry.chatEndpoint(AIProvider.GEMINI, customBaseUrl, model.id),
-            JSONObject().put("contents", contents),
+            JSONObject()
+                .put("contents", contents)
+                .put("generationConfig", JSONObject().put("maxOutputTokens", DEFAULT_MAX_OUTPUT_TOKENS)),
             mapOf("x-goog-api-key" to apiKey, "Content-Type" to "application/json"),
         )
         val candidates = json.optJSONArray("candidates") ?: error("Google returned no candidates.")
@@ -94,7 +96,15 @@ class AIChatGateway(
         connection.setRequestProperty("Content-Type", "application/json")
         val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
         try {
-            connection.outputStream.use { it.write(JSONObject().put("contents", contents).toString().toByteArray(Charsets.UTF_8)) }
+            connection.outputStream.use {
+                it.write(
+                    JSONObject()
+                        .put("contents", contents)
+                        .put("generationConfig", JSONObject().put("maxOutputTokens", DEFAULT_MAX_OUTPUT_TOKENS))
+                        .toString()
+                        .toByteArray(Charsets.UTF_8),
+                )
+            }
             emitSseResponse(connection, ::parseGeminiChunk)
         } finally {
             cancellationHandle?.dispose()
@@ -190,7 +200,11 @@ class AIChatGateway(
         val messages = JSONArray()
         history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
         messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(provider, modelId, userInstruction, prepared)))
-        val body = JSONObject().put("model", modelId).put("messages", messages).put("stream", true)
+        val body = JSONObject()
+            .put("model", modelId)
+            .put("messages", messages)
+            .put("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
+            .put("stream", true)
         val headers = openAiHeaders(provider, apiKey)
         val connection = URL(AIProviderRegistry.chatEndpoint(provider, customBaseUrl)).openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
@@ -227,7 +241,11 @@ class AIChatGateway(
         val messages = JSONArray()
         history.forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
         messages.put(JSONObject().put("role", "user").put("content", buildOpenAiUserContent(provider, modelId, userInstruction, prepared)))
-        val body = JSONObject().put("model", modelId).put("messages", messages).put("stream", stream)
+        val body = JSONObject()
+            .put("model", modelId)
+            .put("messages", messages)
+            .put("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
+            .put("stream", stream)
         val json = request(AIProviderRegistry.chatEndpoint(provider, customBaseUrl), body, openAiHeaders(provider, apiKey))
         val choice = json.optJSONArray("choices")?.optJSONObject(0) ?: error(provider.displayName + " returned no choices.")
         return extractOpenAiContent(choice).ifBlank { "The model returned an empty response." }
@@ -284,7 +302,7 @@ class AIChatGateway(
     )
 
     private fun openAiHeaders(provider: AIProvider, apiKey: String): Map<String, String> = buildMap {
-        put("Authorization", "Bearer ${apiKey.trim().removePrefix("Bearer ").trim()}")
+        put("Authorization", "Bearer " + apiKey.trim().replaceFirst(Regex("(?i)^Bearer\\s+"), "").trim())
         put("Content-Type", "application/json")
         put("Accept", "application/json")
         if (provider == AIProvider.OPENROUTER) {
@@ -444,6 +462,7 @@ class AIChatGateway(
         const val MAX_API_KEY_CHARS = 4_096
         const val MAX_MODEL_ID_CHARS = 180
         const val MAX_INSTRUCTION_CHARS = 1_000_000
+        const val DEFAULT_MAX_OUTPUT_TOKENS = 8_192
         const val MAX_SSE_LINE_CHARS = 128 * 1024
         val SAFE_MODEL_ID = Regex("^[A-Za-z0-9_.:/-]+$")
     }
