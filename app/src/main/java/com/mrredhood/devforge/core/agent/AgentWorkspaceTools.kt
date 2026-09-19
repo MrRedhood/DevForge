@@ -96,6 +96,12 @@ class WorkspaceAgentToolProvider(
                 else -> null
             }
         }
+
+        private fun documentUri(documentOrTree: Uri): Uri {
+            val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(documentOrTree) }.getOrNull()
+            return treeDocumentId?.let { DocumentsContract.buildDocumentUriUsingTree(documentOrTree, it) }
+                ?: documentOrTree
+        }
     }
 
     private inner class ReadFileTool : WorkspaceTool() {

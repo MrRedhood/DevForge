@@ -121,7 +121,8 @@ class AgentPlanPlanner(context: Context) {
     private fun requiresWorkspaceMutation(instruction: String): Boolean =
         MUTATION_INTENT.containsMatchIn(instruction.lowercase())
 
-    private companion object {
+    companion object {
+        private const val MAX_SHARED_PROMPT_BYTES = 8_000
         val MUTATION_TOOLS = setOf(
             AgentToolId.PATCH_FILE,
             AgentToolId.WRITE_FILE,
@@ -216,9 +217,6 @@ class AgentPlanPlanner(context: Context) {
             "[" + it.title + "] " + it.content.take(1_000)
         }.take(MAX_SHARED_PROMPT_BYTES).ifBlank { "(none)" }
 
-    companion object {
-        private const val MAX_SHARED_PROMPT_BYTES = 8_000
-    }
 }
 
 class ParallelAgentCoordinator(context: Context) {
