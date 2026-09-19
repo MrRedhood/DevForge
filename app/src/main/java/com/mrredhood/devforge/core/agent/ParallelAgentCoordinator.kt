@@ -104,7 +104,10 @@ class AgentPlanPlanner(context: Context) {
                 "The model did not produce a workspace mutation step for a file-changing request."
             }
         }
-        return decoded.copy(access = assignment.access)
+        return decoded.copy(
+            pathScope = assignment.pathScope,
+            access = assignment.access,
+        )
     }
 
     private fun decodePlan(response: String, assignment: AgentAssignment): AgentTaskPlan {
