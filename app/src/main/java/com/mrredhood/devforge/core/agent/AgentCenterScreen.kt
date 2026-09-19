@@ -46,7 +46,6 @@ fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
     var modelId by remember { mutableStateOf(viewModel.modelId) }
     var modelName by remember { mutableStateOf(viewModel.modelName) }
     var task by remember { mutableStateOf("") }
-    var scope by remember { mutableStateOf("") }
     var showAgentPicker by remember { mutableStateOf(false) }
 
     val selectedProfile = viewModel.profiles.firstOrNull { it.id == selectedProfileId } ?: firstProfile
@@ -176,12 +175,10 @@ fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
                         },
                     )
 
-                    OutlinedTextField(
-                        value = scope,
-                        onValueChange = { scope = it.take(1_500) },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Files / folders") },
-                        singleLine = true,
+                    Text(
+                        "Workspace path: automatic. DevForge selects and validates exact file/folder paths from the active workspace.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
                     Button(
@@ -197,7 +194,6 @@ fun AgentCenterScreen(viewModel: AgentCenterViewModel = viewModel()) {
                                         provider = provider,
                                         modelId = modelId.trim(),
                                         modelName = modelName.ifBlank { modelId.trim() },
-                                        scopeText = scope.trim(),
                                     )
                                 )
                             )
