@@ -113,6 +113,7 @@ import com.mrredhood.devforge.core.terminal.TerminalScreen
 import com.mrredhood.devforge.core.security.CredentialSecurityScreen
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
+import com.mrredhood.devforge.core.workspace.GitHubWorkspaceImportScreen
 import com.mrredhood.devforge.ui.theme.DevForgeTheme
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -480,6 +481,7 @@ private fun DestinationScreen(destination: DevForgeDestination, workspace: Works
 @Composable
 private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) {
     var showCreateWorkspace by rememberSaveable { mutableStateOf(false) }
+    var showGithubImport by rememberSaveable { mutableStateOf(false) }
     var workspaceName by rememberSaveable { mutableStateOf("") }
     var createKind by rememberSaveable { mutableStateOf<String?>(null) }
     var createName by rememberSaveable { mutableStateOf("") }
@@ -497,6 +499,15 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
             workspaceName = ""
             showCreateWorkspace = false
         }
+    }
+
+    if (showGithubImport) {
+        BackHandler(enabled = true) { showGithubImport = false }
+        GitHubWorkspaceImportScreen(
+            workspaceViewModel = workspace,
+            onBack = { showGithubImport = false },
+        )
+        return
     }
 
     fun launchWorkspacePicker() {
@@ -527,12 +538,18 @@ private fun FilesScreen(workspace: WorkspaceViewModel, editor: EditorViewModel) 
                     Text("Files", fontSize = 28.sp, fontWeight = FontWeight.Black)
                     Text(workspace.workspace?.name ?: "No workspace", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (workspace.workspace == null) {
-                    Button(onClick = { showCreateWorkspace = true }) { Text("New workspace") }
-                } else {
-                    TextButton(onClick = { createKind = "file"; createName = "" }) { Text("New file") }
-                    TextButton(onClick = { createKind = "folder"; createName = "" }) { Text("New folder") }
-                    IconButton(onClick = workspace::refresh) { Icon(Icons.Default.Refresh, "Refresh files") }
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Button(onClick = { showCreateWorkspace = true }) { Text("Add workspace") }
+                    OutlinedButton(onClick = { showGithubImport = true }) { Text("GitHub repo") }
+                    if (workspace.workspace != null) {
+                        TextButton(onClick = { createKind = "file"; createName = "" }) { Text("New file") }
+                        TextButton(onClick = { createKind = "folder"; createName = "" }) { Text("New folder") }
+                        IconButton(onClick = workspace::refresh) { Icon(Icons.Default.Refresh, "Refresh files") }
+                    }
                 }
             }
         }
