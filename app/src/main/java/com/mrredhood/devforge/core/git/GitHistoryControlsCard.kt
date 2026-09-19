@@ -71,7 +71,10 @@ fun GitHistoryControlsCard(viewModel: GitHistoryViewModel = viewModel()) {
                             FilterChip(selected = branch.name == selected, onClick = { viewModel.selectBranch(branch.name) }, label = { Text(branch.name) }, enabled = viewModel.conflictSession == null)
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Button(onClick = { viewModel.switchToSelectedBranch() }, enabled = canRun) { IconText(Icons.Default.CallSplit, "Switch") }
                         OutlinedButton(onClick = { viewModel.mergeSelectedBranch() }, enabled = canRun) { IconText(Icons.Default.MergeType, "Merge") }
                         OutlinedButton(onClick = { viewModel.rebaseOntoSelectedBranch() }, enabled = canRun) { IconText(Icons.Default.Replay, "Rebase") }
