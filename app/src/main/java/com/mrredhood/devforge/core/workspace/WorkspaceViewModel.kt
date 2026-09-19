@@ -290,7 +290,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         val detected = gitRepositoryService.detect(active.treeUri)
         if (detected is GitDetectionState.Detected && !detected.repository.remoteUrl.isNullOrBlank()) {
             if (tree.list(folderUri, 1).isEmpty()) {
-                runCatching { fileOperations.createFile(folderUri, ".gitkeep") }
+                fileOperations.createFile(folderUri, ".gitkeep")
             }
         }
     }
