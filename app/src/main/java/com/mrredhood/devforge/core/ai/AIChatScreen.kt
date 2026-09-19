@@ -69,6 +69,10 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
     val listState = rememberLazyListState()
     val selected = viewModel.selectedModel
 
+    LaunchedEffect(Unit) {
+        viewModel.syncProviderFromSettings()
+    }
+
     LaunchedEffect(viewModel.messages.size) {
         if (viewModel.messages.isNotEmpty()) listState.animateScrollToItem(viewModel.messages.lastIndex)
     }
