@@ -48,4 +48,18 @@ class AgentWorkspacePathTest {
             AgentWorkspacePath.canonicalize("Nexus/../secret.txt", "Nexus", scope)
         }
     }
+    @Test
+    fun doesNotStripARealWorkspaceRelativePathThatExists() {
+        val scope = WorkspacePathScope()
+        assertEquals(
+            "Nexus/file.kt",
+            AgentWorkspacePath.canonicalize(
+                rawPath = "Nexus/file.kt",
+                workspaceName = "Nexus",
+                scope = scope,
+                directPathExists = true,
+            ),
+        )
+    }
+
 }
