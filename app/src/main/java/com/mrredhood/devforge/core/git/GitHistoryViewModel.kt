@@ -16,6 +16,8 @@ import com.mrredhood.devforge.core.storage.ApprovalEntity
 import com.mrredhood.devforge.core.storage.ApprovalRepository
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
+import com.mrredhood.devforge.core.github.GitHubRepositoryGateway
+import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -30,6 +32,7 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
     private val historyService = GitHistoryOperationService(application)
     private val reviewService = GitCommitHistoryService(application.contentResolver)
     private val workspaces = WorkspaceDatabaseRepository(application)
+    private val githubHistory = GitHubRepositoryGateway(CredentialSecurityStore(application))
     private val approvalRepository = ApprovalRepository(DevForgeDatabase.get(application).approvalDao())
     private var detectionJob: Job? = null
     private var approvalJob: Job? = null
@@ -220,12 +223,52 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
             isLoadingHistory = true
             reviewJob = launch(Dispatchers.IO) {
                 val history = reviewService.load(current)
-                withContext(Dispatchers.Main.immediate) {
-                    commits = history.commits
-                    isLoadingHistory = false
+                if (history.commits.isNotEmpty()) {
+                    withContext(Dispatchers.Main.immediate) {
+                        commits = history.commits
+                        isLoadingHistory = false
+                    }
+                } else {
+                    val remote = parseGitHubRemote(current.remoteUrl)
+                    if (remote != null) {
+                        when (val remoteHistory = githubHistory.listCommits(
+                            remote.first,
+                            remote.second,
+                            current.branchName ?: "main",
+                        )) {
+                            is com.mrredhood.devforge.core.github.GitHubCommitHistoryResult.Success -> withContext(Dispatchers.Main.immediate) {
+                                commits = remoteHistory.commits.map { item ->
+                                    GitCommitHistoryEntry(
+                                        commitId = item.sha,
+                                        shortId = item.sha.take(12),
+                                        subject = item.subject.ifBlank { "(no commit message)" },
+                                        author = item.author.ifBlank { "Unknown author" },
+                                        authoredAtEpochMs = item.authoredAt?.let { java.time.Instant.parse(it).toEpochMilli() },
+                                        parents = emptyList(),
+                                        changedFileCount = 0,
+                                        changedFilesTruncated = false,
+                                    )
+                                }
+                                isLoadingHistory = false
+                            }
+                            is com.mrredhood.devforge.core.github.GitHubCommitHistoryResult.Failure -> withContext(Dispatchers.Main.immediate) {
+                                message = remoteHistory.message
+                                isLoadingHistory = false
+                            }
+                        }
+                    } else {
+                        withContext(Dispatchers.Main.immediate) { isLoadingHistory = false }
+                    }
                 }
             }
         }
+    }
+
+    private fun parseGitHubRemote(url: String?): Pair<String, String>? {
+        val value = url?.trim() ?: return null
+        val https = Regex("^https://github\\.com/([^/]+)/([^/]+?)(?:\\.git)?$")
+        val match = https.matchEntire(value) ?: return null
+        return match.groupValues[1] to match.groupValues[2]
     }
 
     private fun execute(
