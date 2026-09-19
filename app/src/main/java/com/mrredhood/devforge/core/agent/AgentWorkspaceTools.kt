@@ -3,6 +3,10 @@ package com.mrredhood.devforge.core.agent
 import android.content.ContentResolver
 import android.net.Uri
 import android.provider.DocumentsContract
+import com.mrredhood.devforge.core.git.GitDetectionState
+import com.mrredhood.devforge.core.git.GitRemoteResult
+import com.mrredhood.devforge.core.git.GitRemoteTransportService
+import com.mrredhood.devforge.core.git.GitRepositoryService
 import com.mrredhood.devforge.core.policy.Capability
 import com.mrredhood.devforge.core.policy.RiskLevel
 import com.mrredhood.devforge.core.security.WorkspacePathScope
@@ -22,7 +26,10 @@ import org.json.JSONObject
 class WorkspaceAgentToolProvider(
     private val resolver: ContentResolver,
     private val workspaceDao: WorkspaceDao,
+    private val gitRemoteService: GitRemoteTransportService,
 ) {
+    private val gitRepositoryService = GitRepositoryService(resolver)
+    private val gitSyncMutex = kotlinx.coroutines.sync.Mutex()
     fun registerAll(registry: AgentToolRegistry): AgentToolRegistry = registry
         .register(ReadFileTool())
         .register(ListFilesTool())
@@ -59,6 +66,29 @@ class WorkspaceAgentToolProvider(
         }
 
         protected val access = WorkspaceAgentFileAccess(resolver)
+
+        protected suspend fun syncGitHub(context: AgentToolContext, summary: String): String? {
+            val workspace = workspaceDao.findById(context.workspaceId) ?: return null
+            return when (val detected = gitRepositoryService.detect(Uri.parse(workspace.treeUri))) {
+                is GitDetectionState.Detected -> {
+                    if (detected.repository.remoteUrl.isNullOrBlank()) {
+                        null
+                    } else {
+                        when (val result = gitSyncMutex.withLock {
+                            gitRemoteService.autoSyncChanges(
+                                detected.repository,
+                                "DevForge agent: " + summary.take(160),
+                            )
+                        }) {
+                            is GitRemoteResult.Success -> result.message
+                            is GitRemoteResult.Failure ->
+                                "Local change saved. GitHub synchronization failed: " + result.message
+                        }
+                    }
+                }
+                else -> null
+            }
+        }
     }
 
     private inner class ReadFileTool : WorkspaceTool() {
@@ -194,8 +224,10 @@ class WorkspaceAgentToolProvider(
             }
             require(before != patch.content) { "Patch produces no content change for $path." }
             access.writeText(rootUri, path, patch.content)
+            val sync = syncGitHub(context, "update $path")
             AgentToolResult.Success(
-                summary = patch.summary.ifBlank { "Applied patch to $path." }.take(500),
+                summary = (patch.summary.ifBlank { "Applied patch to $path." } +
+                    (sync?.let { " $it" } ?: "")).take(500),
                 output = JSONObject()
                     .put("path", path)
                     .put("beforeHash", currentHash)
@@ -246,8 +278,9 @@ class WorkspaceAgentToolProvider(
             val path = scopedPath(context, args.optString("path").trim())
             val content = args.optString("content", "")
             access.createText(root(context), path, content)
+            val sync = syncGitHub(context, "create $path")
             AgentToolResult.Success(
-                summary = "Created $path.",
+                summary = ("Created $path." + (sync?.let { " $it" } ?: "")).take(500),
                 output = JSONObject().put("path", path).put("bytes", content.toByteArray(Charsets.UTF_8).size).toString(),
                 affectedPaths = listOf(path),
             )
@@ -271,8 +304,9 @@ class WorkspaceAgentToolProvider(
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val path = scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim())
             access.createDirectory(root(context), path)
+            val sync = syncGitHub(context, "create folder $path")
             AgentToolResult.Success(
-                summary = "Created folder $path.",
+                summary = ("Created folder $path." + (sync?.let { " $it" } ?: "")).take(500),
                 output = JSONObject().put("path", path).toString(),
                 affectedPaths = listOf(path),
             )
@@ -297,8 +331,9 @@ class WorkspaceAgentToolProvider(
             val path = scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim())
             require(path != ".git" && !path.startsWith(".git/")) { "The .git directory is protected." }
             access.delete(root(context), path)
+            val sync = syncGitHub(context, "delete $path")
             AgentToolResult.Success(
-                summary = "Deleted $path.",
+                summary = ("Deleted $path." + (sync?.let { " $it" } ?: "")).take(500),
                 output = JSONObject().put("path", path).toString(),
                 affectedPaths = listOf(path),
             )
@@ -324,8 +359,9 @@ class WorkspaceAgentToolProvider(
             val path = scopedPath(context, args.optString("path").trim())
             val content = args.optString("content", "")
             access.writeText(root(context), path, content)
+            val sync = syncGitHub(context, "write $path")
             AgentToolResult.Success(
-                summary = "Wrote $path.",
+                summary = ("Wrote $path." + (sync?.let { " $it" } ?: "")).take(500),
                 output = JSONObject()
                     .put("path", path)
                     .put("bytes", content.toByteArray(Charsets.UTF_8).size)
