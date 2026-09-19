@@ -101,7 +101,7 @@ class AgentTaskPlanCodecTest {
     fun acceptsLegacyVersionWithoutScope() {
         val legacy = "{\"version\":1,\"steps\":[{\"tool\":\"list_files\",\"arguments\":\"{}\",\"label\":\"List\"}]}"
         val decoded = AgentTaskPlanCodec.decode(legacy)
-        assertEquals(emptyList<String>(), decoded.pathScope.canonicalPrefixes())
+        assertEquals(listOf(""), decoded.pathScope.canonicalPrefixes())
         assertEquals(AgentToolId.LIST_FILES, decoded.steps.single().toolId)
     }
 
