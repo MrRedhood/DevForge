@@ -56,6 +56,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -1017,7 +1018,7 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
                     containerColor = if (message.contains("failed", true)) {
                         MaterialTheme.colorScheme.errorContainer
                     } else {
-                        MaterialTheme.colorScheme.surfaceContainer,
+                        MaterialTheme.colorScheme.surfaceContainer
                     },
                 ),
             ) {
@@ -1031,7 +1032,7 @@ private fun EditorScreen(editor: EditorViewModel, settings: DevForgeSettingsView
                         color = if (message.contains("failed", true)) {
                             MaterialTheme.colorScheme.onErrorContainer
                         } else {
-                            MaterialTheme.colorScheme.onSurface,
+                            MaterialTheme.colorScheme.onSurface
                         },
                         style = MaterialTheme.typography.bodySmall,
                     )
