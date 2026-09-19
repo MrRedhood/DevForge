@@ -107,8 +107,8 @@ class GitWorkspaceStatusService(private val resolver: ContentResolver) {
             files = files,
             truncated = truncated,
             message = when {
-                truncated -> "HEAD/index/worktree status is bounded; some entries were not inspected. Git mutations remain disabled."
-                else -> "Compared HEAD, the Git index, and the bounded working tree. Stage/commit/push operations remain disabled."
+                truncated -> "HEAD/index/worktree status is bounded; some entries were not inspected. Git mutations are limited until the status is complete."
+                else -> "Compared HEAD, the Git index, and the bounded working tree. Stage/commit/push operations are available."
             },
         )
     }
