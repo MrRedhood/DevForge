@@ -169,7 +169,19 @@ class ModelCatalogService {
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
             if (status !in 200..299) {
-                val message = runCatching { JSONObject(body).optJSONObject("error")?.optString("message") }.getOrNull().orEmpty()
+                val message = runCatching {
+                    val root = JSONObject(body)
+                    val nested = root.opt("error")
+                    when (nested) {
+                        is JSONObject -> nested.optString("message")
+                            .ifBlank { nested.optString("detail") }
+                        is String -> nested
+                        else -> ""
+                    }.ifBlank {
+                        root.optString("message")
+                            .ifBlank { root.optString("detail") }
+                    }.trim()
+                }.getOrDefault("")
                 error(message.ifBlank { "Model catalog request failed (HTTP $status)." })
             }
             JSONObject(body)
