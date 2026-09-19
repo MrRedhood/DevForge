@@ -70,12 +70,17 @@ class WorkspaceAgentToolProvider(
 
         protected suspend fun syncGitHub(context: AgentToolContext, summary: String): String? {
             val workspace = workspaceDao.findById(context.workspaceId) ?: return null
-            return when (val detected = gitRepositoryService.detect(Uri.parse(workspace.treeUri))) {
+            val rootUri = Uri.parse(workspace.treeUri)
+            return when (val detected = gitRepositoryService.detect(rootUri)) {
                 is GitDetectionState.Detected -> {
                     if (detected.repository.remoteUrl.isNullOrBlank()) {
                         null
                     } else {
                         when (val result = gitSyncMutex.withLock {
+                            if (summary.startsWith("create folder ")) {
+                                val folderPath = summary.removePrefix("create folder ").trim()
+                                access.ensureGitKeepIfEmpty(rootUri, folderPath)
+                            }
                             gitRemoteService.autoSyncChanges(
                                 detected.repository,
                                 "DevForge agent: " + summary.take(160),
@@ -453,6 +458,19 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
     fun exists(root: Uri, path: String): Boolean =
         runCatching { resolve(root, WorkspacePathScope.normalize(path, allowEmpty = true)); true }
             .getOrDefault(false)
+
+    suspend fun ensureGitKeepIfEmpty(root: Uri, path: String) = withContext(Dispatchers.IO) {
+        val directory = resolve(root, WorkspacePathScope.normalize(path))
+        require(isDirectory(directory)) { "Folder path is not a directory: $path" }
+        if (tree.list(directory, 2).isEmpty()) {
+            DocumentsContract.createDocument(
+                resolver,
+                documentParentUri(directory),
+                "text/plain",
+                ".gitkeep",
+            ) ?: throw IOException("Unable to preserve empty Git folder: $path")
+        }
+    }
 
     suspend fun readText(root: Uri, path: String): String = withContext(Dispatchers.IO) {
         val file = resolve(root, path)
