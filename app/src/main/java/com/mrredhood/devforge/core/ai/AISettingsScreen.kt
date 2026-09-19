@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -91,13 +92,27 @@ fun AISettingsScreen(viewModel: AISettingsViewModel = viewModel()) {
         Button(
             onClick = viewModel::save,
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            enabled = !viewModel.isTestingConnection,
         ) {
             Text("Save API key")
         }
 
         OutlinedButton(
+            onClick = viewModel::testConnection,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            enabled = !viewModel.isTestingConnection,
+        ) {
+            if (viewModel.isTestingConnection) {
+                CircularProgressIndicator(Modifier.heightIn(max = 18.dp), strokeWidth = 2.dp)
+            } else {
+                Text("Test connection")
+            }
+        }
+
+        OutlinedButton(
             onClick = viewModel::remove,
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            enabled = !viewModel.isTestingConnection,
         ) {
             Text("Remove saved key")
         }
