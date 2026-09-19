@@ -349,8 +349,12 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startMonitoring(runId: Long, buildConfiguration: BuildConfiguration, immediateOnly: Boolean) {
         monitorJob?.cancel()
+        monitoringMessage = null
         monitorJob = viewModelScope.launch(Dispatchers.IO) {
             do {
+                withContext(Dispatchers.Main.immediate) {
+                    monitoringMessage = null
+                }
                 val runResult = githubGateway.getRun(buildConfiguration.githubOwner, buildConfiguration.githubRepository, runId)
                 val snapshot = when (runResult) {
                     is GitHubRunResult.Success -> runResult.run
