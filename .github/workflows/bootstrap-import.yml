@@ -1,7 +1,6 @@
 name: DevForge source bootstrap
 
-on:
-  push:
+on: [push]
 
 permissions:
   contents: write

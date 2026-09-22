@@ -7,3 +7,7 @@ Prepared the temporary source-bootstrap workflow to accept the supplied DevForge
 ## 2026-09-22 — Bootstrap execution trigger
 
 Triggered the temporary bootstrap workflow from the main branch after preparing the source importer. The workflow will detect the root archive, restore the project tree, refresh repository documentation, and remove the temporary bootstrap files during finalization.
+
+## 2026-09-22 — Workflow syntax hardening
+
+Hardened the temporary bootstrap trigger configuration to use the canonical single-event push syntax before the archive import run.
