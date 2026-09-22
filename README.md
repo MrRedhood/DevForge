@@ -79,7 +79,7 @@ Files above 64 KiB automatically enter fast rendering mode with reduced syntax a
 
 ### Real Acode / VS Code extension support
 
-DevForge now has a real package-aware extension manager under More → AI Tools → Integrations → Manage Extensions. It accepts Acode ZIP plugins and VS Code VSIX packages, inspects their manifests and executable entry points, rejects unsupported runtimes instead of installing placeholders, persists compatible packages, and applies supported contributions through DevForge adapters.
+DevForge now has a dedicated real package-aware extension manager under More → Extensions. It accepts Acode ZIP plugins and VS Code VSIX packages, inspects their manifests and executable entry points, rejects unsupported runtimes instead of installing placeholders, persists compatible packages, and applies supported contributions through DevForge adapters.
 
 Icon themes are real: VS Code/Acode icon metadata is indexed and the active pack changes the workspace's file and folder icons. Programming-language packages are checked against DevForge's existing editor language catalog first; when the language is already supported, DevForge explicitly reports native support rather than claiming the package installed a compiler/runtime. Unsupported language engines are rejected until DevForge has a real language adapter.
 
