@@ -1,0 +1,67 @@
+package com.mrredhood.devforge.core.git
+
+import android.net.Uri
+
+sealed interface GitDetectionState {
+    data object NotDetected : GitDetectionState
+    data object Detecting : GitDetectionState
+    data class Detected(val repository: GitRepositoryState) : GitDetectionState
+    data class Unsupported(val reason: String) : GitDetectionState
+}
+
+data class GitRepositoryState(
+    val rootUri: Uri,
+    val gitDirectoryUri: Uri,
+    val branchName: String?,
+    val headRevision: String?,
+    val remoteUrl: String?,
+    val detachedHead: Boolean,
+    val branches: List<GitBranch> = emptyList(),
+    val supportsMetadataRead: Boolean = true,
+    val statusAvailability: GitStatusAvailability = GitStatusAvailability.MetadataOnly,
+)
+
+data class GitBranch(
+    val name: String,
+    val revision: String? = null,
+    val isCurrent: Boolean = false,
+    val isLocal: Boolean = true,
+)
+
+enum class GitStatusAvailability {
+    MetadataOnly,
+    IndexAwareWorktree,
+    IndexAndHeadAware,
+}
+
+enum class GitFileStatus {
+    Clean,
+    Modified,
+    Deleted,
+    Untracked,
+    Staged,
+    StagedAndModified,
+    Conflict,
+    Unchecked,
+}
+
+data class GitCapabilityState(
+    val stage: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val unstage: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val commit: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val createBranch: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val switchBranch: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val deleteBranch: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val mergeBranch: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val rebaseBranch: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val cherryPick: CapabilityAvailability = CapabilityAvailability.Unavailable,
+    val fetchRemote: CapabilityAvailability = CapabilityAvailability.NotConfigured,
+    val pullRemote: CapabilityAvailability = CapabilityAvailability.NotConfigured,
+    val pushRemote: CapabilityAvailability = CapabilityAvailability.NotConfigured,
+)
+
+enum class CapabilityAvailability {
+    Available,
+    Unavailable,
+    NotConfigured,
+}

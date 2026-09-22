@@ -1,0 +1,117 @@
+package com.mrredhood.devforge
+
+import android.Manifest
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.test.espresso.Espresso.pressBack
+import androidx.test.rule.GrantPermissionRule
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class MainActivityNavigationTest {
+
+    @get:Rule
+    val composeRule = createAndroidComposeRule<MainActivity>()
+
+    @get:Rule
+    val notificationPermissionRule: GrantPermissionRule =
+        GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+
+    private fun waitForNode(description: String, timeoutMillis: Long = 10_000L) {
+        composeRule.waitUntil(timeoutMillis = timeoutMillis) {
+            runCatching {
+                composeRule
+                    .onNodeWithContentDescription(description, useUnmergedTree = true)
+                    .assertExists()
+            }.isSuccess
+        }
+    }
+
+    @Test
+    fun editorIsPrimaryBottomBarDestinationAndWorkspaceMenuIsWorkspaceFocused() {
+        waitForNode("Editor navigation")
+        composeRule.onNodeWithContentDescription("Editor navigation", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Workspace menu", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Workspaces", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun chatProviderCanBeChangedWithoutOpeningSettings() {
+        waitForNode("AI Chat")
+        composeRule.onNodeWithContentDescription("AI Chat", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Google Gemini", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Anthropic Claude", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Anthropic Claude", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun chatPopupExposesAgentsAction() {
+        waitForNode("AI Chat")
+        composeRule.onNodeWithContentDescription("AI Chat", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithContentDescription("Agents", useUnmergedTree = true).performClick()
+        composeRule.onAllNodesWithText("Agents", useUnmergedTree = true).assertCountEquals(2)
+    }
+
+    @Test
+    fun moreContainsSingleSettingsEntryAndSettingsHidesPrimaryNavigation() {
+        waitForNode("More navigation")
+        composeRule.onNodeWithContentDescription("Files navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Settings", useUnmergedTree = true).performClick()
+        composeRule.onAllNodesWithText("Settings", useUnmergedTree = true).assertCountEquals(2)
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun aiChatIsOpenedOnlyThroughFloatingAction() {
+        waitForNode("AI Chat")
+        composeRule.onNodeWithContentDescription("AI Chat", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("AI Chat", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun filesShowsWorkspaceCreationUi() {
+        waitForNode("Files navigation")
+        composeRule.onNodeWithContentDescription("Files navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Add workspace", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Name", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Choose folder", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel", useUnmergedTree = true).performClick()
+    }
+
+    @Test
+    fun moreBackReturnsToMainMenuBeforeExitConfirmation() {
+        waitForNode("More navigation")
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+
+        pressBack()
+
+        waitForNode("Editor navigation")
+        composeRule.onNodeWithContentDescription("Editor navigation", useUnmergedTree = true).assertIsDisplayed()
+
+        pressBack()
+
+        composeRule.onNodeWithText("Exit DevForge?", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun backNavigatesOneDestinationAtATimeAndConfirmsExitAtRoot() {
+        waitForNode("Files navigation")
+        composeRule.onNodeWithContentDescription("Files navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Create a workspace", useUnmergedTree = true).assertIsDisplayed()
+
+        pressBack()
+
+        composeRule.onNodeWithText("Exit DevForge?", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel", useUnmergedTree = true).assertIsDisplayed()
+    }
+}
