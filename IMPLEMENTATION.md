@@ -1802,3 +1802,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added Editor 2 unit coverage.
 - [x] Updated More → ⓘ Help & guide and README.
 - [ ] Fresh Android CI and Android UI Tests validation is required before claiming this main commit is clean.
+
+## 2026-09-22 — CI compiler-failure repair after AI Mission integration
+- [x] Fixed the AI verification receipt Kotlin syntax error that blocked compilation.
+- [x] Fixed local GitHub publishing to return a typed `GitRemoteResult.Success` instead of leaking a raw message from the coroutine result.
+- [x] Restored expanded GitHub repository merge-setting fields on `GitHubRepository` and parsed them from GitHub REST responses.
+- [x] Restored missing Compose/import wiring for local workspace publishing and the Git remote result type in `WorkspaceViewModel`.
+- [x] Added Help & guide coverage for Build/CI reliability.

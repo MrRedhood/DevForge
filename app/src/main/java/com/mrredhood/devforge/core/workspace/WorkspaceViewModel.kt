@@ -11,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import com.mrredhood.devforge.core.git.GitRemoteTransportService
+import com.mrredhood.devforge.core.git.GitRemoteResult
 import com.mrredhood.devforge.core.git.GitRepositoryService
 import com.mrredhood.devforge.core.git.GitDetectionState
 import com.mrredhood.devforge.core.github.GitHubRepositoryGateway

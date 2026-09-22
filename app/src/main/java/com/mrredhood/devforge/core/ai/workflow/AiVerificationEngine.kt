@@ -49,7 +49,7 @@ class AiVerificationEngine(context: Context) {
                 detail = if (changedPaths.isEmpty()) {
                     "No file mutations were reported by the AI workflow."
                 } else {
-                    changedPaths.distinct().take(12).size.toString() + " changed paths observed.",
+                    changedPaths.distinct().take(12).size.toString() + " changed paths observed."
                 },
             )
         }

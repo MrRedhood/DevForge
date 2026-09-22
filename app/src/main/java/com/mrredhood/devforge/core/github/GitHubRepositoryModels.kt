@@ -20,6 +20,10 @@ data class GitHubRepository(
     val allowMergeCommit: Boolean = true,
     val allowRebaseMerge: Boolean = true,
     val allowAutoMerge: Boolean = false,
+    val deleteBranchOnMerge: Boolean = false,
+    val squashMergeTitle: String = "PR_TITLE",
+    val squashMergeMessage: String = "COMMIT_MESSAGES",
+    val mergeCommitTitle: String = "PR_TITLE",
     val mergeCommitMessage: String = "PR_TITLE",
 )
 

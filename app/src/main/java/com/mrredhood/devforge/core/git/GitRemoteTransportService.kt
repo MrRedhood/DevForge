@@ -127,7 +127,7 @@ class GitRemoteTransportService(
         val repoRoot = File(workRoot, "repo")
         return@withContext try {
             workRoot.mkdirs()
-            Git.init().setDirectory(repoRoot).call().use { git ->
+            val message = Git.init().setDirectory(repoRoot).call().use { git ->
                 val remoteUrl = "https://github.com/" + normalizedOwner + "/" + normalizedRepository + ".git"
                 git.remoteAdd().setName("origin").setUri(URIish(remoteUrl)).call()
                 val advertised = Git.lsRemoteRepository()
@@ -187,6 +187,7 @@ class GitRemoteTransportService(
                         " on " + normalizedBranch + " in commit " + commit.id.name.take(12) + "."
                 }
             }
+            GitRemoteResult.Success(message)
         } catch (error: Throwable) {
             GitRemoteResult.Failure(sanitizeError(error))
         } finally {

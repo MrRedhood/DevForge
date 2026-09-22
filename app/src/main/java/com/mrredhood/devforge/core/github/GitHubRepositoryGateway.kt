@@ -800,6 +800,10 @@ class GitHubRepositoryGateway(
             allowMergeCommit = json.optBoolean("allow_merge_commit", true),
             allowRebaseMerge = json.optBoolean("allow_rebase_merge", true),
             allowAutoMerge = json.optBoolean("allow_auto_merge", false),
+            deleteBranchOnMerge = json.optBoolean("delete_branch_on_merge", false),
+            squashMergeTitle = json.optString("squash_merge_commit_title", "PR_TITLE"),
+            squashMergeMessage = json.optString("squash_merge_commit_message", "COMMIT_MESSAGES"),
+            mergeCommitTitle = json.optString("merge_commit_title", "PR_TITLE"),
             mergeCommitMessage = json.optString("merge_commit_message", "PR_TITLE"),
         )
     }
