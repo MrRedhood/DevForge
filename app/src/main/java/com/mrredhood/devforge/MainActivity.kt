@@ -108,12 +108,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrredhood.devforge.core.ai.AIChatScreen
 import com.mrredhood.devforge.core.ai.AIChatViewModel
-import com.mrredhood.devforge.core.ai.AISettingsScreen
-import com.mrredhood.devforge.core.automation.AutomationCenterScreen
 import com.mrredhood.devforge.core.agent.ToolSettingsScreen
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.build.BuildViewModel
-import com.mrredhood.devforge.core.center.DevForgeCenterScreen
 import com.mrredhood.devforge.core.editor.ChainedVisualTransformation
 import com.mrredhood.devforge.core.editor.CodeSyntaxVisualTransformation
 import com.mrredhood.devforge.core.editor.EditorFolding
@@ -152,6 +149,7 @@ import com.mrredhood.devforge.core.storage.ApprovalEntity
 import com.mrredhood.devforge.core.picker.PickerBridge
 import com.mrredhood.devforge.core.picker.PickerResult
 import com.mrredhood.devforge.core.picker.SystemPickerActivity
+import com.mrredhood.devforge.core.settings.AiGitHubHubScreen
 import com.mrredhood.devforge.core.settings.DevForgeSettingsScreen
 import com.mrredhood.devforge.core.settings.DevForgeSettingsViewModel
 import com.mrredhood.devforge.core.settings.DensityMode
@@ -263,8 +261,6 @@ private fun DevForgeApp(
     var showChat by rememberSaveable { mutableStateOf(false) }
     var ideTool by rememberSaveable { mutableStateOf<IdeTool?>(null) }
     var showFeatureGuide by rememberSaveable { mutableStateOf(false) }
-    var showDevForgeCenter by rememberSaveable { mutableStateOf(false) }
-    var showRepositoryCreator by rememberSaveable { mutableStateOf(false) }
     var destinationHistory by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
     var showGlobalSearch by rememberSaveable { mutableStateOf(false) }
@@ -292,8 +288,6 @@ private fun DevForgeApp(
             showChat = false
             ideTool = null
             showFeatureGuide = false
-            showDevForgeCenter = false
-            showRepositoryCreator = false
             showProjectActivity = false
             commitDialogOpen = false
             gitCommitHistoryOpen = false
@@ -380,12 +374,6 @@ private fun DevForgeApp(
             destination == DevForgeDestination.Settings && settingsSection != "home" -> {
                 settingsSection = "home"
             }
-            showRepositoryCreator -> {
-                showRepositoryCreator = false
-            }
-            showDevForgeCenter -> {
-                showDevForgeCenter = false
-            }
             showEditorMenu -> {
                 showEditorMenu = false
             }
@@ -416,7 +404,7 @@ private fun DevForgeApp(
                     onSave = editor::saveActive,
                     onRefresh = editor::refreshActive,
                 )
-            } else if (destination != DevForgeDestination.Terminal && destination != DevForgeDestination.Extensions && destination != DevForgeDestination.Tools && !gitCommitHistoryOpen) {
+            } else if (destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Extensions, DevForgeDestination.Tools, DevForgeDestination.Connections) && !gitCommitHistoryOpen) {
                 DevForgeTopBar(
                     workspace = workspace,
                     screenTitle = screenTitle,
@@ -428,7 +416,7 @@ private fun DevForgeApp(
         },
         bottomBar = {
             if (
-                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions, DevForgeDestination.Tools) &&
+                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions, DevForgeDestination.Tools, DevForgeDestination.Connections) &&
                 !expanded &&
                 !gitCommitHistoryOpen
             ) {
@@ -518,8 +506,6 @@ private fun DevForgeApp(
                         onBack = ::handleBackNavigation,
                         onMoreDestination = ::navigateTo,
                         onOpenFeatureGuide = { showFeatureGuide = true },
-                        onOpenDevForgeCenter = { showDevForgeCenter = true },
-                        onOpenGitHubRepositoryCreator = { showRepositoryCreator = true },
                     )
                 }
             }
@@ -527,8 +513,6 @@ private fun DevForgeApp(
                 approvalCenter.pending.isEmpty() &&
                 !showChat &&
                 !showEditorMenu &&
-                !showDevForgeCenter &&
-                !showRepositoryCreator &&
                 !showFeatureGuide &&
                 !showProjectActivity
             ) {
@@ -561,51 +545,6 @@ private fun DevForgeApp(
             },
         )
     }
-
-    if (showDevForgeCenter) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
-        ) {
-            DevForgeCenterScreen(
-                onBack = { showDevForgeCenter = false },
-                onOpenBuild = {
-                    showDevForgeCenter = false
-                    navigateTo(DevForgeDestination.Build)
-                },
-                onOpenGitHubCreate = {
-                    showDevForgeCenter = false
-                    showRepositoryCreator = true
-                },
-                workspace = workspace,
-                editor = editor,
-            )
-        }
-    }
-
-    if (showRepositoryCreator) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
-        ) {
-            GitHubRepositoryCreationScreen(
-                onBack = { showRepositoryCreator = false },
-                onCreated = { repo ->
-                    showRepositoryCreator = false
-                    showDevForgeCenter = false
-                    showEditor = true
-                    appScope.launch {
-                        workspace.openOrActivateGitHubRepository(
-                            owner = repo.owner,
-                            repositoryName = repo.name,
-                            branch = repo.defaultBranch,
-                        )
-                    }
-                },
-            )
-        }
-    }
-
 
     if (showBuildWithAi) {
         BuildWithAiDialog(
@@ -1746,8 +1685,6 @@ private fun DestinationScreen(
     onBack: () -> Unit,
     onMoreDestination: (DevForgeDestination) -> Unit,
     onOpenFeatureGuide: () -> Unit,
-    onOpenDevForgeCenter: () -> Unit,
-    onOpenGitHubRepositoryCreator: () -> Unit,
 ) {
     when (destination) {
         DevForgeDestination.Files -> FilesScreen(workspace, editor, onCommitPending)
@@ -1763,9 +1700,9 @@ private fun DestinationScreen(
         )
         DevForgeDestination.LiveActions -> LiveActionsScreen(onBack = onBack)
         DevForgeDestination.Tools -> ToolSettingsScreen(onClose = onBack)
+        DevForgeDestination.Connections -> AiGitHubHubScreen(buildViewModel = build, onBack = onBack)
         DevForgeDestination.Extensions -> ExtensionCenterScreen(onClose = onBack)
         DevForgeDestination.Terminal -> TerminalScreen(onBack = onBack)
-        DevForgeDestination.Automations -> AutomationCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
         DevForgeDestination.Settings -> SettingsScreen(
             settings = settings,
@@ -1773,12 +1710,11 @@ private fun DestinationScreen(
             onSectionChange = onSettingsSectionChange,
             appSettingsSection = appSettingsSection,
             onAppSettingsSectionChange = onAppSettingsSectionChange,
+            onOpenConnections = { navigateTo(DevForgeDestination.Connections) },
         )
         DevForgeDestination.More -> MoreScreen(
             onSelect = { target -> onMoreDestination(target) },
             onOpenFeatureGuide = onOpenFeatureGuide,
-            onOpenDevForgeCenter = onOpenDevForgeCenter,
-            onOpenGitHubRepositoryCreator = onOpenGitHubRepositoryCreator,
         )
     }
 }
@@ -1802,7 +1738,7 @@ private fun MoreScreen(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                "Automation, approvals, AI tools, GitHub actions, and project utilities.",
+                "AI & GitHub, approvals, extensions, live actions, and project utilities.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
@@ -1841,20 +1777,6 @@ private fun MoreScreen(
         }
         item {
             SimpleSettingsTile(
-                title = "DevForge Center",
-                subtitle = "Project health, AI runs, testing, dependencies, backup, release, and extension controls",
-                onClick = onOpenDevForgeCenter,
-            )
-        }
-        item {
-            SimpleSettingsTile(
-                title = "Create GitHub repository",
-                subtitle = "Create a repository directly in your connected GitHub account",
-                onClick = onOpenGitHubRepositoryCreator,
-            )
-        }
-        item {
-            SimpleSettingsTile(
                 title = "Settings",
                 subtitle = "AI providers, GitHub, build, terminal, privacy, appearance and editor preferences",
                 onClick = { onSelect(DevForgeDestination.Settings) },
@@ -1876,17 +1798,9 @@ private fun MoreScreen(
         }
         item {
             SimpleSettingsTile(
-                title = "AI Tools",
-                subtitle = "Enable or disable the provider-neutral tools available to every AI model",
-                onClick = { onSelect(DevForgeDestination.Tools) },
-            )
-        }
-        item {
-            SimpleSettingsTile(
-                title = "Automation",
-                subtitle = "Manage automated workspace tasks",
-
-                onClick = { onSelect(DevForgeDestination.Automations) },
+                title = "AI & GitHub",
+                subtitle = "Choose GitHub, AI Models, or AI Tools",
+                onClick = { onSelect(DevForgeDestination.Connections) },
             )
         }
         item {
@@ -3199,9 +3113,9 @@ private fun SettingsScreen(
     onSectionChange: (String) -> Unit,
     appSettingsSection: String,
     onAppSettingsSectionChange: (String) -> Unit,
+    onOpenConnections: () -> Unit,
 ) {
     when (section) {
-        "ai" -> AISettingsScreen()
         "security" -> CredentialSecurityScreen()
         "app" -> DevForgeSettingsScreen(
             viewModel = settings,
@@ -3227,9 +3141,9 @@ private fun SettingsScreen(
             }
             item {
                 SimpleSettingsTile(
-                    title = "AI & models",
-                    subtitle = "Provider keys and model connections",
-                    onClick = { onSectionChange("ai") },
+                    title = "AI & GitHub",
+                    subtitle = "Choose GitHub, AI Models, or AI Tools",
+                    onClick = onOpenConnections,
                 )
             }
             item {
