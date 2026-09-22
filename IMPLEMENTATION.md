@@ -1694,3 +1694,23 @@ Restored the three project GitHub Actions workflows through the repository Git i
 
 ### 2026-09-22 — CI compile correction for approval cleanup
 - Restored the missing newline in the Build Center companion constants after the approval-lifetime cleanup exposed a formatting-induced Kotlin parse error.
+
+
+### 2026-09-22 — AI-managed agent orchestration and mobile editor performance
+
+- [x] Removed the user-facing Agent launcher surface and removed the `/agent` command from Chat.
+- [x] Kept the underlying agent runtime internal so the Chat AI is the only surface that can deploy coding agents.
+- [x] Added an AI-only top-level squad planner that creates bounded agent phases. Agents in the same phase may run concurrently; later phases wait for earlier phases to finish.
+- [x] Added a visible Chat plan/activity surface that shows plan phases, agent count, provider, model, elapsed time, current step, last tool, detailed tool steps and affected paths without exposing launch/stop/replay controls.
+- [x] Added an automatic final agent overview containing each worker's status, provider/model, elapsed duration, tool steps, changed paths and errors.
+- [x] Expanded mutation-intent detection so normal implementation/build/create/fix/refactor requests can automatically enter the AI-managed agent workflow without requiring a special user command.
+- [x] Hardened agent cleanup so unexpected Chat failures cancel active internal agent workers instead of leaving orphaned work.
+- [x] Kept cloud-only AI as the product model boundary; no on-device/local AI runtime was added.
+- [x] Removed the old user-facing Agent Center screen while retaining the underlying runtime/view-model state needed for read-only project activity and internal orchestration.
+- [x] Updated Project Activity and AI Run Inspector to be observation-only and to expose provider, model, elapsed time and current execution state.
+- [x] Reduced editor rendering cost for large files by automatically disabling expensive syntax/folding/invisible-character transforms above 128 KiB or 4,000 lines.
+- [x] Moved editor diagnostics to a debounced background calculation so typing no longer performs diagnostics synchronously on every content update.
+- [x] Added a cloud-only AI entry to More → ⓘ Help & guide and documented AI-managed agent plans, telemetry and editor performance behavior.
+- [x] Updated README and architecture documentation to describe the new AI-managed workflow and mobile editor performance boundary.
+- [x] Updated Android UI coverage so the chat verifies that user-facing Agent controls are absent.
+- [ ] Fresh Android CI and Android UI Tests validation is still required for this change set.
