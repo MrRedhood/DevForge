@@ -84,7 +84,7 @@ class AgentToolGateway(
                 parametersHash = action.parametersHash,
                 preconditionHash = action.preconditionHash,
                 payload = approvalPayload(context, request, action.preconditionHash),
-                expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_TTL_MS,
+                expiresAtEpochMs = System.currentTimeMillis() + com.mrredhood.devforge.core.storage.ApprovalRepository.APPROVAL_WINDOW_MS,
             )
             audit(
                 context,
@@ -369,9 +369,7 @@ class AgentToolGateway(
         }
     }
 
-    companion object {
-        private const val APPROVAL_TTL_MS = 10L * 60L * 1000L
-        private const val MAX_APPROVAL_PAYLOAD_CHARS = 64 * 1024
+    companion object {        private const val MAX_APPROVAL_PAYLOAD_CHARS = 64 * 1024
         private const val MAX_RECEIPT_CHARS = 64 * 1024
         private const val MAX_RECEIPT_PATHS = 16
     }

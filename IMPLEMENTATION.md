@@ -1663,3 +1663,9 @@ Restored the three project GitHub Actions workflows through the repository Git i
 ### 2026-09-22 — Attachment regression-test placement correction
 - [x] Corrected the new attachment MIME-fallback regression test so it remains inside the existing JUnit test class and cannot be emitted as a file-scope generated test class.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this corrected main commit.
+
+
+### 2026-09-22 — Approval lifetime hardening
+- Standardized all executable approvals on the documented 15-second approval lifetime across agent, build, Git, Git history, and terminal actions.
+- Repository-side approval creation clamps any requested expiry to the 15-second maximum, so an individual producer cannot accidentally create a longer-lived executable approval.
+- Approval Center actively expires due actions and shows a live remaining-time countdown; persistence and execution claims continue to reject expired approvals.

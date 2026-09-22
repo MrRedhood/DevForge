@@ -314,7 +314,7 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
                         parametersHash = action.parametersHash,
                         preconditionHash = precondition,
                         payload = encode(type, current, parameters),
-                        expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_WINDOW_MS,
+                        expiresAtEpochMs = System.currentTimeMillis() + com.mrredhood.devforge.core.storage.ApprovalRepository.APPROVAL_WINDOW_MS,
                     )
                 }.onSuccess { withContext(Dispatchers.Main.immediate) { message = "$summary is waiting for approval in Approval Center." } }
                     .onFailure { error -> withContext(Dispatchers.Main.immediate) { message = error.message ?: "Unable to create the history approval." } }
@@ -423,8 +423,6 @@ class GitHistoryViewModel(application: Application) : AndroidViewModel(applicati
         super.onCleared()
     }
 
-    companion object {
-        private const val APPROVAL_WINDOW_MS = 120_000L
-        private val SHA_PATTERN = Regex("^[0-9a-fA-F]{40}$")
+    companion object {        private val SHA_PATTERN = Regex("^[0-9a-fA-F]{40}$")
     }
 }

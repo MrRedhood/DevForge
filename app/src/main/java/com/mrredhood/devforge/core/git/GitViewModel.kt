@@ -240,7 +240,7 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
                     parametersHash = action.parametersHash,
                     preconditionHash = precondition,
                     payload = payload,
-                    expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_WINDOW_MS,
+                    expiresAtEpochMs = System.currentTimeMillis() + com.mrredhood.devforge.core.storage.ApprovalRepository.APPROVAL_WINDOW_MS,
                 )
             }.onSuccess {
                 withContext(Dispatchers.Main.immediate) {
@@ -444,7 +444,5 @@ class GitViewModel(application: Application) : AndroidViewModel(application) {
 
     private data class DecodedGitAction(val type: String, val repository: GitRepositoryState, val parameters: String)
 
-    companion object {
-        private const val APPROVAL_WINDOW_MS = 120_000L
-    }
+    companion object {    }
 }

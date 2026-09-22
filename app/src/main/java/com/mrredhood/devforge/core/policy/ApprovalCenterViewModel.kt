@@ -22,7 +22,9 @@ import com.mrredhood.devforge.core.security.WorkspacePathScope
 import com.mrredhood.devforge.DevForgeApplication
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -38,6 +40,7 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
     private var pendingJob: Job? = null
     private var auditJob: Job? = null
     private var grantsJob: Job? = null
+    private var expiryJob: Job? = null
 
     var pending by mutableStateOf<List<ApprovalEntity>>(emptyList())
         private set
@@ -59,6 +62,12 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
     init {
         pendingJob = viewModelScope.launch {
             repository.observePending().collectLatest { actions -> pending = actions }
+        }
+        expiryJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                repository.expireDue()
+                delay(250)
+            }
         }
         auditJob = viewModelScope.launch {
             database.auditEventDao().observeRecent(MAX_AUDIT_HISTORY).collectLatest { events -> auditHistory = events }
@@ -237,6 +246,7 @@ class ApprovalCenterViewModel(application: Application) : AndroidViewModel(appli
         pendingJob?.cancel()
         auditJob?.cancel()
         grantsJob?.cancel()
+        expiryJob?.cancel()
         super.onCleared()
     }
 

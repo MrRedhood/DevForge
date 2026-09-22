@@ -377,7 +377,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                             .put("repository", request.githubRepository)
                             .put("runId", run.id)
                             .toString(),
-                        expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_WINDOW_MS,
+                        expiresAtEpochMs = System.currentTimeMillis() + com.mrredhood.devforge.core.storage.ApprovalRepository.APPROVAL_WINDOW_MS,
                     )
                 }.onSuccess {
                     withContext(Dispatchers.Main.immediate) {
@@ -1011,9 +1011,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val MAX_ARTIFACT_FILES = 200
         private const val MAX_ARTIFACT_FILE_BYTES = 128L * 1024L * 1024L
-        private const val MAX_EXTRACTED_ARTIFACT_BYTES = 512L * 1024L * 1024L
-        private const val APPROVAL_WINDOW_MS = 120_000L
-        private const val POLL_INTERVAL_MS = 5_000L
+        private const val MAX_EXTRACTED_ARTIFACT_BYTES = 512L * 1024L * 1024L        private const val POLL_INTERVAL_MS = 5_000L
         private const val MAX_HISTORY = 20
         private val ACTIVE_RUN_STATUSES = setOf("queued", "in_progress", "waiting", "requested", "pending")
     }

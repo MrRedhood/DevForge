@@ -299,7 +299,7 @@ class TerminalCapability(
                     .put("sessionId", command.sessionId)
                     .toString()
                     .take(TerminalCommandPolicy.MAX_COMMAND_BYTES),
-                expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_TTL_MS,
+                expiresAtEpochMs = System.currentTimeMillis() + com.mrredhood.devforge.core.storage.ApprovalRepository.APPROVAL_WINDOW_MS,
             )
             audit(workspaceId, action, "TERMINAL_APPROVAL_REQUIRED", "Terminal approval requested.", id)
             return TerminalCapabilityResult.ApprovalRequired(id, action.summary)
@@ -378,9 +378,7 @@ class TerminalCapability(
         )
     }
 
-    private companion object {
-        const val APPROVAL_TTL_MS = 10L * 60L * 1000L
-    }
+    private companion object {    }
 }
 
 private class SandboxedTerminal(context: Context) {

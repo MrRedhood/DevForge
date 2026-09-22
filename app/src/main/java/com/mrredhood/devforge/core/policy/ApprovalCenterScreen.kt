@@ -54,6 +54,7 @@ import com.mrredhood.devforge.core.storage.capabilityOrNull
 import com.mrredhood.devforge.core.storage.riskOrNull
 import java.text.DateFormat
 import java.util.Date
+import kotlinx.coroutines.delay
 
 @Composable
 fun ApprovalCenterScreen(viewModel: ApprovalCenterViewModel = viewModel()) {
@@ -193,6 +194,16 @@ private fun ApprovalActionCard(
     onApprove: (ApprovalEntity) -> Unit,
     onReject: (ApprovalEntity) -> Unit,
 ) {
+    var now by remember(action.approvalId, action.expiresAtEpochMs) { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(action.approvalId, action.expiresAtEpochMs) {
+        while (true) {
+            now = System.currentTimeMillis()
+            if (now >= action.expiresAtEpochMs) break
+            delay(250)
+        }
+    }
+    val remainingMs = (action.expiresAtEpochMs - now).coerceAtLeast(0L)
+    val remainingSeconds = ((remainingMs + 999L) / 1000L).toInt()
     val risk = action.riskOrNull()?.name ?: action.risk
     val capability = action.capabilityOrNull()?.name ?: action.capability
     val isPatchApproval = runCatching {
@@ -212,12 +223,18 @@ private fun ApprovalActionCard(
             }
             Text("Workspace: ${action.workspaceId}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Created: ${formatTime(action.createdAtEpochMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Expires: ${formatTime(action.expiresAtEpochMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (remainingSeconds > 0) "Expires in ${remainingSeconds}s · ${formatTime(action.expiresAtEpochMs)}"
+                else "Expired · ${formatTime(action.expiresAtEpochMs)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (remainingSeconds > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (remainingSeconds > 0) FontWeight.Bold else FontWeight.Normal,
+            )
             if (isPatchApproval) {
                 PatchApprovalPreview(action) { patchReady = it }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onApprove(action) }, enabled = patchReady, modifier = Modifier.weight(1f)) {
+                Button(onClick = { onApprove(action) }, enabled = patchReady && remainingMs > 0L, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Check, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("Approve")

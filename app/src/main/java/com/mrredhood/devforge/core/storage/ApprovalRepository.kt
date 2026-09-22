@@ -40,9 +40,14 @@ class ApprovalRepository(private val dao: ApprovalDao) {
         require(preconditionHash == null || preconditionHash.matches(HASH_PATTERN)) {
             "Approval precondition hash is invalid."
         }
-        require(expiresAtEpochMs > System.currentTimeMillis()) {
+        val now = System.currentTimeMillis()
+        require(expiresAtEpochMs > now) {
             "Approval expiration must be in the future."
         }
+        val effectiveExpiresAtEpochMs = minOf(
+            expiresAtEpochMs,
+            now + APPROVAL_WINDOW_MS,
+        )
         require(payload.toByteArray(Charsets.UTF_8).size <= MAX_PAYLOAD_BYTES) {
             "Approval payload exceeds the persistence limit."
         }
@@ -61,8 +66,8 @@ class ApprovalRepository(private val dao: ApprovalDao) {
             preconditionHash = preconditionHash,
             payload = redactedPayload,
             status = STATUS_PENDING,
-            createdAtEpochMs = System.currentTimeMillis(),
-            expiresAtEpochMs = expiresAtEpochMs,
+            createdAtEpochMs = now,
+            expiresAtEpochMs = effectiveExpiresAtEpochMs,
         )
         dao.insertPending(entity)
         return entity
@@ -107,6 +112,7 @@ class ApprovalRepository(private val dao: ApprovalDao) {
         const val MAX_SUMMARY_LENGTH = 500
         const val MAX_PAYLOAD_BYTES = 64 * 1024
         const val MAX_APPROVED = 10
+        const val APPROVAL_WINDOW_MS = 15_000L
         const val MAX_ID_LENGTH = 200
         const val MAX_ACTION_ID_LENGTH = 500
         const val STALE_EXECUTION_MAX_AGE_MS = 15L * 60L * 1000L
