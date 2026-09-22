@@ -16,7 +16,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material.icons.outlined.Terminal
-import androidx.compose.material.icons.filled.Folder\nimport androidx.compose.material.icons.filled.FolderOpen\nimport androidx.compose.material.icons.outlined.Web
+import androidx.compose.material.icons.outlined.Web
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
