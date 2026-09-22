@@ -34,6 +34,7 @@ import com.mrredhood.devforge.core.settings.DevForgeSettingsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
@@ -691,8 +692,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         var failureMessage: String? = null
         for (phase in squad.phases) {
             currentCoroutineContext().ensureActive()
-            val results = phase.map { member ->
-                async {
+            val results = coroutineScope {
+                phase.map { member ->
+                    async {
                     val planIndex = planItems.indexOfFirst { it.title == member.title && it.phase == member.phase && it.taskId == null }
                     if (planIndex >= 0) {
                         planItems[planIndex] = planItems[planIndex].copy(status = "Starting")
@@ -709,8 +711,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                             ),
                         )
                     }
-                }
-            }.awaitAll()
+                    }
+                }.awaitAll()
+            }
 
             val phaseTaskIds = mutableListOf<String>()
             results.forEachIndexed { index, result ->
@@ -761,7 +764,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val planIndex = planItems.indexOfFirst { it.taskId == task.taskId }
                 if (planIndex >= 0) {
                     planItems[planIndex] = planItems[planIndex].copy(
-                        status = task.status.replace('_', ' ').lowercase().replaceFirstChar(Char::uppercase),
+                        status = task.status.replace('_', ' ').lowercase().replaceFirstChar { it.uppercaseChar() },
                     )
                 }
                 activeAgentTaskIds.remove(task.taskId)
