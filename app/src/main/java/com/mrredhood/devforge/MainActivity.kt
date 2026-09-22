@@ -486,6 +486,7 @@ private fun DevForgeApp(
                     )
                 } else {
                     DestinationScreen(
+                        build = build,
                         destination = destination,
                         workspace = workspace,
                         editor = editor,
@@ -1671,6 +1672,7 @@ private fun DestinationScreen(
     destination: DevForgeDestination,
     workspace: WorkspaceViewModel,
     editor: EditorViewModel,
+    build: BuildViewModel,
     settings: DevForgeSettingsViewModel,
     onCommitPending: () -> Unit,
     onOpenCommitHistory: () -> Unit,
