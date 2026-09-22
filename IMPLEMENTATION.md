@@ -1,3 +1,8 @@
+### 2026-09-22 — CI follow-up repair for Connections screen
+- [x] Fixed the Connections settings callback to use the existing destination-navigation callback instead of a local `navigateTo` function that is out of scope inside `DestinationScreen`.
+- [x] Preserved `rememberSaveable` in the AI & GitHub hub and explicitly opted its Material 3 top-app-bar surfaces into the experimental API required by the project's warning-as-error compilation settings.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the new repair head.
+
 ### 2026-09-22 — CI compile repair after AI/Extensions navigation cleanup
 - [x] Restored the missing `BuildViewModel` parameter on `DestinationScreen`, matching the existing `build = build` call site.
 - [x] Updated `AgentCommandBridge` to the renamed `AiCommandCatalog`.
