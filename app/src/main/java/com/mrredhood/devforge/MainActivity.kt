@@ -125,6 +125,7 @@ import com.mrredhood.devforge.core.editor.EditorTab
 import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.editor.FoldingVisualTransformation
 import com.mrredhood.devforge.core.editor.VisibleWhitespaceVisualTransformation
+import com.mrredhood.devforge.core.extension.ExtensionCenterScreen
 import com.mrredhood.devforge.core.git.GitDashboardScreen
 import com.mrredhood.devforge.core.git.GitDiffScreen
 import com.mrredhood.devforge.core.git.GitDiffViewModel
@@ -1853,6 +1854,7 @@ private fun DestinationScreen(
         )
         DevForgeDestination.LiveActions -> LiveActionsScreen(onBack = onBack)
         DevForgeDestination.Tools -> EngineeringPowerScreen()
+        DevForgeDestination.Extensions -> ExtensionCenterScreen(onClose = onBack)
         DevForgeDestination.Terminal -> TerminalScreen(onBack = onBack)
         DevForgeDestination.Automations -> AutomationCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
@@ -1954,6 +1956,13 @@ private fun MoreScreen(
                 title = "Live GitHub Actions",
                 subtitle = "Realtime workflow status, animated running state, jobs, and live logs",
                 onClick = { onSelect(DevForgeDestination.LiveActions) },
+            )
+        }
+        item {
+            SimpleSettingsTile(
+                title = "Extensions",
+                subtitle = "Install, activate, search, disable, switch icon themes, verify, and uninstall Acode / VS Code packages",
+                onClick = { onSelect(DevForgeDestination.Extensions) },
             )
         }
         item {
