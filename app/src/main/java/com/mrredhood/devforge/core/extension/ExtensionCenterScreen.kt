@@ -13,6 +13,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
@@ -35,8 +40,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExtensionCenterScreen() {
+fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val store = remember { ExtensionPackageStore(context) }
     val installer = remember { ExtensionPackageInstaller(context, store) }
@@ -73,10 +79,17 @@ fun ExtensionCenterScreen() {
     }
 
     Surface(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.fillMaxSize().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        Column(Modifier.fillMaxSize()) {
+            androidx.compose.material3.TopAppBar(
+                title = { Text("Extensions") },
+                navigationIcon = {
+                    IconButton(onClick = onClose) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
+                },
+            )
+            Column(
+                Modifier.fillMaxWidth().padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
             Text("Extensions", style = MaterialTheme.typography.headlineSmall)
             Text(
                 "Install real Acode plugins or VS Code packages. DevForge analyzes the package first and refuses packages whose required runtime cannot be safely supported.",
@@ -97,7 +110,6 @@ fun ExtensionCenterScreen() {
                 },
                 modifier = Modifier.fillMaxWidth().height(2.dp),
             )
-
             LazyColumn(
                 Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -138,6 +150,7 @@ fun ExtensionCenterScreen() {
                         },
                     )
                 }
+            }
             }
         }
     }
