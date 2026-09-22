@@ -1723,8 +1723,6 @@ private fun DestinationScreen(
 private fun MoreScreen(
     onSelect: (DevForgeDestination) -> Unit,
     onOpenFeatureGuide: () -> Unit,
-    onOpenDevForgeCenter: () -> Unit,
-    onOpenGitHubRepositoryCreator: () -> Unit,
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
