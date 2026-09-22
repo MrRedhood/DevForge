@@ -110,7 +110,6 @@ import com.mrredhood.devforge.core.ai.AIChatScreen
 import com.mrredhood.devforge.core.ai.AISettingsScreen
 import com.mrredhood.devforge.core.automation.AutomationCenterScreen
 import com.mrredhood.devforge.core.agent.ToolSettingsScreen
-import com.mrredhood.devforge.core.agent.AgentCenterScreen
 import com.mrredhood.devforge.core.agent.AgentCenterViewModel
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.build.BuildViewModel
@@ -263,7 +262,6 @@ private fun DevForgeApp(
     var showGlobalSearch by rememberSaveable { mutableStateOf(false) }
     var globalSearchQuery by rememberSaveable { mutableStateOf("") }
     var unsavedEditorUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    var showAgentPanel by rememberSaveable { mutableStateOf(false) }
     var showProjectActivity by rememberSaveable { mutableStateOf(false) }
     var commitDialogOpen by rememberSaveable { mutableStateOf(false) }
     var lastPendingSignature by rememberSaveable { mutableStateOf("") }
@@ -284,7 +282,6 @@ private fun DevForgeApp(
             showFeatureGuide = false
             showDevForgeCenter = false
             showRepositoryCreator = false
-            showAgentPanel = false
             showProjectActivity = false
             commitDialogOpen = false
             gitCommitHistoryOpen = false
@@ -327,7 +324,6 @@ private fun DevForgeApp(
         showEditor = true
         showEditorMenu = false
         ideTool = null
-        showAgentPanel = false
         showProjectActivity = false
     }
 
@@ -383,10 +379,6 @@ private fun DevForgeApp(
             }
             showProjectActivity -> {
                 showProjectActivity = false
-            }
-            showAgentPanel -> {
-                showAgentPanel = false
-                showChat = false
             }
             destinationHistory.isNotEmpty() -> {
                 val previous = destinationHistory.last()
@@ -473,7 +465,6 @@ private fun DevForgeApp(
                                 )
                                 ActivityRail(
                                     onActivity = { showProjectActivity = true },
-                                    onAgents = { showAgentPanel = true },
                                     modifier = Modifier.align(Alignment.CenterEnd).padding(end = 5.dp),
                                 )
                             }
@@ -632,12 +623,6 @@ private fun DevForgeApp(
                                 maxLines = 1,
                             )
                         }
-                        IconButton(onClick = {
-                            showChat = false
-                            showAgentPanel = true
-                        }) {
-                            Icon(Icons.Default.Person, contentDescription = "Agents")
-                        }
                         IconButton(onClick = { showChat = false }) {
                             Text("×", style = MaterialTheme.typography.titleLarge)
                         }
@@ -653,15 +638,6 @@ private fun DevForgeApp(
         ProjectActivityScreen(
             workspaceId = activeWorkspaceId,
             onDismiss = { showProjectActivity = false },
-            onOpenAgents = {
-                showProjectActivity = false
-                showAgentPanel = true
-            },
-            onReplay = { taskId ->
-                agents.replay(taskId)
-                showProjectActivity = false
-                showAgentPanel = true
-            },
         )
     }
 
@@ -727,29 +703,6 @@ private fun DevForgeApp(
             },
             dismissButton = { TextButton(onClick = { showGlobalSearch = false }) { Text("Cancel") } },
         )
-    }
-
-    if (showAgentPanel) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "Agents",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(onClick = { showAgentPanel = false }) { Text("Close") }
-                }
-                AgentCenterScreen()
-            }
-        }
     }
 
     if (commitDialogOpen && pendingBatch != null) {
@@ -973,7 +926,6 @@ private fun ProjectPulseStrip(
 @Composable
 private fun ActivityRail(
     onActivity: () -> Unit,
-    onAgents: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -989,9 +941,6 @@ private fun ActivityRail(
             IconButton(onClick = onActivity, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.List, contentDescription = "Activity")
             }
-            IconButton(onClick = onAgents, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Default.Person, contentDescription = "Agents")
-            }
             IconButton(onClick = onActivity, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.Refresh, contentDescription = "Replay and history")
             }
@@ -1003,8 +952,6 @@ private fun ActivityRail(
 private fun ProjectActivityScreen(
     workspaceId: String?,
     onDismiss: () -> Unit,
-    onOpenAgents: () -> Unit,
-    onReplay: (String) -> Unit,
 ) {
     val context = LocalContext.current
     val database = remember { DevForgeDatabase.get(context) }
@@ -1029,12 +976,11 @@ private fun ProjectActivityScreen(
                     Column(Modifier.weight(1f)) {
                         Text("Project activity", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(
-                            "Change Story · Agent Actions · Replay",
+                            "Change Story · AI-managed actions",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    TextButton(onClick = onOpenAgents) { Text("Agents") }
                     IconButton(onClick = onDismiss) { Text("×", style = MaterialTheme.typography.titleLarge) }
                 }
                 Divider()
@@ -1082,9 +1028,9 @@ private fun ProjectActivityScreen(
 
                     item {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("DevForge Replay", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("AI-managed agent history", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             Text(
-                                "Re-run completed or failed agent tasks",
+                                "Read-only",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -1101,22 +1047,25 @@ private fun ProjectActivityScreen(
                         }
                     } else {
                         items(tasks.take(12), key = { it.taskId }) { task ->
-                            val terminal = task.status in setOf(
-                                "COMPLETED", "FAILED", "CANCELLED"
-                            )
+                            val end = task.completedAtEpochMs ?: System.currentTimeMillis()
+                            val elapsed = ((end - (task.startedAtEpochMs ?: task.createdAtEpochMs)).coerceAtLeast(0L) / 1000L)
                             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(task.title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                                         Text(task.status.replace('_', ' '), style = MaterialTheme.typography.labelSmall)
                                     }
+                                    Text(
+                                        (task.modelProviderId ?: "Unknown provider") + " · " + (task.modelName ?: task.modelId ?: "Unknown model") +
+                                            " · " + elapsed + "s · step " + task.currentStep + "/" + task.stepCount,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                     task.lastToolId?.let {
                                         Text("Last tool · " + it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    if (terminal && task.modelProviderId != null && task.modelId != null) {
-                                        OutlinedButton(onClick = { onReplay(task.taskId) }) {
-                                            Text("Replay")
-                                        }
+                                    task.errorMessage?.let {
+                                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                                     }
                                 }
                             }
@@ -2643,27 +2592,35 @@ private fun EditorScreen(
         if (fieldValue.text != active.content) {
             fieldValue = TextFieldValue(active.content, TextRange(active.content.length))
         }
-        val validStarts = EditorFolding.ranges(active.content).map { it.startOffset }.toSet()
+        val validStarts = if (active.content.toByteArray(Charsets.UTF_8).size <= 128 * 1024 && active.content.count { it == '\n' } + 1 <= 4_000) {
+            EditorFolding.ranges(active.content).map { it.startOffset }.toSet()
+        } else emptySet()
         collapsedStarts = collapsedStarts.intersect(validStarts)
     }
 
     val byteSize = active.content.toByteArray(Charsets.UTF_8).size
-    val advanced = byteSize <= 256 * 1024
-    val foldRanges = if (advanced) EditorFolding.ranges(active.content) else emptyList()
+    val byteSize = active.content.toByteArray(Charsets.UTF_8).size
+    val lineCount = active.content.count { it == '\\n' } + 1
+    val richCodeRendering = byteSize <= 128 * 1024 && lineCount <= 4_000
+    val foldRanges = if (richCodeRendering) remember(active.uri, active.content) { EditorFolding.ranges(active.content) } else emptyList()
     val activeFolds = foldRanges.filter { it.startOffset in collapsedStarts }
     val language = EditorLanguage.detect(active.name)
-    val syntax = CodeSyntaxVisualTransformation(
-        language = language,
-        keywordColor = MaterialTheme.colorScheme.primary,
-        stringColor = MaterialTheme.colorScheme.tertiary,
-        commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        numberColor = MaterialTheme.colorScheme.secondary,
-    )
+    val syntax = if (richCodeRendering) {
+        CodeSyntaxVisualTransformation(
+            language = language,
+            keywordColor = MaterialTheme.colorScheme.primary,
+            stringColor = MaterialTheme.colorScheme.tertiary,
+            commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            numberColor = MaterialTheme.colorScheme.secondary,
+        )
+    } else {
+        VisualTransformation.None
+    }
     val baseTransformation: VisualTransformation =
         if (activeFolds.isEmpty()) syntax
         else ChainedVisualTransformation(FoldingVisualTransformation(active.content, activeFolds), syntax)
     val transformation: VisualTransformation =
-        if (settings.settings.showInvisibles && advanced) {
+        if (settings.settings.showInvisibles && richCodeRendering) {
             ChainedVisualTransformation(baseTransformation, VisibleWhitespaceVisualTransformation())
         } else {
             baseTransformation
@@ -2780,7 +2737,7 @@ private fun EditorScreen(
         if (!advanced) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Text(
-                    "Large file safeguard: syntax highlighting, folding and editor diagnostics pause above 256 KiB. Editing remains supported up to 8 MiB, with bounded undo history.",
+                    "Fast editor mode: syntax highlighting, folding and diagnostics are reduced above 128 KiB or 4,000 lines. Editing remains supported up to 8 MiB, with bounded undo history.",
                     Modifier.fillMaxWidth().padding(12.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
