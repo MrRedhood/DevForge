@@ -483,6 +483,12 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
 
     fun launchPicker(type: ChatAttachmentType) {
         attachmentMenuOpen = false
+        if (!viewModel.isAttachmentTypeAvailable(type)) {
+            viewModel.reportAttachmentPickerError(
+                IllegalStateException(viewModel.attachmentTypeUnavailableMessage(type))
+            )
+            return
+        }
         val activity = context.findFragmentActivity()
         if (activity == null) {
             viewModel.reportAttachmentPickerError(IllegalStateException("Unable to access the current Activity."))
@@ -564,9 +570,16 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                         onDismissRequest = { attachmentMenuOpen = false },
                     ) {
                         ChatAttachmentType.entries.forEach { type ->
+                            val available = viewModel.isAttachmentTypeAvailable(type)
                             DropdownMenuItem(
-                                text = { Text(type.label + " · " + maxUploadLabel(type.maxBytes)) },
+                                text = {
+                                    Text(
+                                        type.label + " · " + maxUploadLabel(type.maxBytes) +
+                                            if (available) "" else " · unavailable for ${viewModel.provider.displayName}"
+                                    )
+                                },
                                 onClick = { launchPicker(type) },
+                                enabled = available,
                             )
                         }
                     }

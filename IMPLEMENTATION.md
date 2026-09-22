@@ -1669,3 +1669,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - Standardized all executable approvals on the documented 15-second approval lifetime across agent, build, Git, Git history, and terminal actions.
 - Repository-side approval creation clamps any requested expiry to the 15-second maximum, so an individual producer cannot accidentally create a longer-lived executable approval.
 - Approval Center actively expires due actions and shows a live remaining-time countdown; persistence and execution claims continue to reject expired approvals.
+
+
+### 2026-09-22 — Attachment transport hardening
+- Added provider-aware attachment preflight so unsupported binary types are rejected at selection time instead of after Send.
+- Gemini remains the binary upload path; OpenRouter binary transport is restricted to images and PDF files, with video/audio options disabled there.
+- Failed or cancelled AI sends retain submitted attachments for retry while preserving URI-permission ownership.
+- Updated Help & guide and added provider transport regression coverage.

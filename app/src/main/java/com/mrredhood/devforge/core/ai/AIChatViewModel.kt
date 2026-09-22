@@ -399,6 +399,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         val requestGeneration = ++generationId
         sendJob = viewModelScope.launch(Dispatchers.IO) {
             var partialResponse = ""
+            var retainAttachmentsForRetry = false
             try {
                 if (settings.isApiKeyLocked(requestProvider)) {
                     error("Unlock protected credentials in Settings before sending AI requests.")
@@ -526,6 +527,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
             } catch (cancelled: CancellationException) {
+                retainAttachmentsForRetry = true
                 withContext(NonCancellable) {
                     if (partialResponse.isNotBlank()) {
                         chatRepository.addMessage(
@@ -536,11 +538,27 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             } catch (error: Throwable) {
+                retainAttachmentsForRetry = true
                 withContext(Dispatchers.Main.immediate) {
-                    sendError = error.message ?: "AI request failed."
+                    val merged = attachments.toMutableList()
+                    submittedAttachments.forEach { attachment ->
+                        if (merged.none { it.uri == attachment.uri } &&
+                            merged.size < MAX_ATTACHMENTS &&
+                            merged.sumOf { it.sizeBytes } + attachment.sizeBytes <= MAX_TOTAL_ATTACHMENT_BYTES
+                        ) {
+                            merged += attachment
+                        }
+                    }
+                    attachments = merged
+                    sendError = error.message ?: "AI request failed. The attachments were kept so you can retry."
                 }
             } finally {
-                submittedAttachments.forEach { releaseAttachmentPermission(it.uri) }
+                if (retainAttachmentsForRetry) {
+                    val retainedUris = withContext(Dispatchers.Main.immediate) { attachments.map { it.uri }.toSet() }
+                    submittedAttachments.filterNot { it.uri in retainedUris }.forEach { releaseAttachmentPermission(it.uri) }
+                } else {
+                    submittedAttachments.forEach { releaseAttachmentPermission(it.uri) }
+                }
                 withContext(NonCancellable + Dispatchers.Main.immediate) {
                     if (requestGeneration == generationId) {
                         streamingText = ""
@@ -656,9 +674,32 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun isAttachmentTypeAvailable(type: ChatAttachmentType): Boolean = when (type) {
+        ChatAttachmentType.PHOTO,
+        ChatAttachmentType.VIDEO,
+        ChatAttachmentType.AUDIO,
+        -> provider == AIProvider.GEMINI || (provider == AIProvider.OPENROUTER && type == ChatAttachmentType.PHOTO)
+        ChatAttachmentType.DOCUMENT,
+        ChatAttachmentType.ANY_FILE,
+        -> true
+    }
+
+    fun attachmentTypeUnavailableMessage(type: ChatAttachmentType): String =
+        when (type) {
+            ChatAttachmentType.PHOTO,
+            ChatAttachmentType.VIDEO,
+            ChatAttachmentType.AUDIO,
+            -> "${type.label} attachments are not supported by ${provider.displayName}. Choose Gemini, or choose OpenRouter for images."
+            ChatAttachmentType.DOCUMENT,
+            ChatAttachmentType.ANY_FILE,
+            -> "The selected provider may reject binary files it cannot transport; text-like files remain supported."
+        }
+
     fun addAttachments(uris: List<Uri>, type: ChatAttachmentType) {
         if (uris.isEmpty()) return
+        val requestProvider = provider
         viewModelScope.launch(Dispatchers.IO) {
+            val failureMessages = mutableListOf<String>()
             val additions = uris.mapNotNull { uri ->
                 runCatching {
                     val alreadyPersisted = resolver.persistedUriPermissions.any {
@@ -672,9 +713,18 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                     val metadata = readAttachmentMetadata(uri, type.maxBytes)
-                    require(type.accepts(metadata.mimeType, metadata.name))
-                    require(metadata.sizeBytes in 1..type.maxBytes)
+                    require(type.accepts(metadata.mimeType, metadata.name)) {
+                        "The selected item is not a supported ${type.label.lowercase()} attachment."
+                    }
+                    require(metadata.sizeBytes in 1..type.maxBytes) {
+                        "The attachment exceeds the ${formatSize(type.maxBytes)} limit."
+                    }
+                    require(supportsProviderAttachment(requestProvider, metadata.name, metadata.mimeType)) {
+                        "Binary attachments are not supported by ${requestProvider.displayName} for this file type."
+                    }
                     ChatAttachment(uri, metadata.name, metadata.mimeType, metadata.sizeBytes, type)
+                }.onFailure { error ->
+                    error.message?.takeIf { it.isNotBlank() }?.let(failureMessages::add)
                 }.getOrNull()
             }
             withContext(Dispatchers.Main.immediate) {
@@ -698,7 +748,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val accepted = additions.count { it.uri in finalUris && it.uri !in baselineUris }
                 val rejected = uris.size - accepted
                 if (rejected > 0) {
-                    sendError = rejected.toString() + " attachment(s) were rejected by type, size, or pending limits."
+                    sendError = failureMessages.firstOrNull()
+                        ?: (rejected.toString() + " attachment(s) were rejected by type, size, or pending limits.")
                 }
             }
         }

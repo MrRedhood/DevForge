@@ -13,6 +13,17 @@ class ProviderAttachmentAdapterTest {
     }
 
     @Test
+    fun providerBinarySupportMatchesTransportAdapters() {
+        assertTrue(supportsProviderAttachment(AIProvider.GEMINI, "clip.mp4", "video/mp4"))
+        assertTrue(supportsProviderAttachment(AIProvider.OPENROUTER, "photo.jpg", "image/jpeg"))
+        assertTrue(supportsProviderAttachment(AIProvider.OPENROUTER, "report.pdf", "application/pdf"))
+        assertFalse(supportsProviderAttachment(AIProvider.OPENROUTER, "clip.mp4", "video/mp4"))
+        assertFalse(supportsProviderAttachment(AIProvider.OPENROUTER, "recording.mp3", "audio/mpeg"))
+        assertFalse(supportsProviderAttachment(AIProvider.OPENAI, "photo.jpg", "image/jpeg"))
+        assertTrue(supportsProviderAttachment(AIProvider.OPENAI, "Main.kt", "text/x-kotlin"))
+    }
+
+    @Test
     fun mediaAndPdfAttachmentsRequireProviderUpload() {
         assertTrue(isBinaryMime("photo.jpg", "image/jpeg"))
         assertTrue(isBinaryMime("recording.mp3", "audio/mpeg"))

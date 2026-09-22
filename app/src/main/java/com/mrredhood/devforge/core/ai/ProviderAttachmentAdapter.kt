@@ -34,6 +34,17 @@ class UnsupportedProviderAttachmentsException(provider: AIProvider) :
             "Choose a compatible model/provider or attach the file as text when possible.",
     )
 
+fun supportsProviderAttachment(provider: AIProvider, name: String, mimeType: String): Boolean {
+    if (isTextLikeAttachment(name, mimeType)) return true
+    val normalized = mimeType.trim().lowercase()
+    return when (provider) {
+        AIProvider.GEMINI -> true
+        AIProvider.OPENROUTER ->
+            normalized.startsWith("image/") || normalized == "application/pdf"
+        else -> false
+    }
+}
+
 class UnsupportedProviderAttachmentAdapter(
     override val provider: AIProvider,
 ) : ProviderAttachmentAdapter {
@@ -132,6 +143,9 @@ class OpenRouterProviderAttachmentAdapter(private val resolver: ContentResolver)
 
     override suspend fun prepare(apiKey: String, attachments: List<ChatAttachment>): List<ProviderPreparedAttachment> =
         attachments.filter(::isBinaryAttachment).map { attachment ->
+            require(supportsProviderAttachment(provider, attachment.name, attachment.mimeType)) {
+                "OpenRouter supports binary attachments only for images and PDF files."
+            }
             require(attachment.sizeBytes in 1L..MAX_REQUEST_FILE_BYTES) {
                 "OpenRouter attachment '" + attachment.name + "' exceeds the 10 MiB inline safety limit."
             }
