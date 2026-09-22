@@ -376,6 +376,20 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         sendError = null
     }
 
+    fun prepareBuildWithAiPrompt(goal: String) {
+        val cleanGoal = goal.trim().take(MAX_AGENT_CHAT_INSTRUCTION_CHARS)
+        if (cleanGoal.isBlank()) {
+            sendError = "Describe what you want to build first."
+            return
+        }
+        updateInput(
+            "Build this project in the active DevForge workspace. " +
+                "Start by creating a clear engineering plan, inspect the workspace before editing, execute the plan sequentially, " +
+                "use internal agents only when useful, verify the result with tests/lint/build where applicable, and summarize everything that changed. " +
+                "Do not create or require a GitHub repository for this task.\n\nProject goal: " + cleanGoal,
+        )
+    }
+
     fun selectCommand(command: AICommandDefinition) {
         updateInput("/${command.name} ")
         suggestions = emptyList()

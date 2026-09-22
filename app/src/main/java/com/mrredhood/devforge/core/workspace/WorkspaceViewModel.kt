@@ -40,6 +40,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     private val gitRemoteService = GitRemoteTransportService(application)
     private val gitSyncMutex = Mutex()
     private val githubStore = GitHubWorkspaceStore(application)
+    private val localGitHubLinkStore = LocalGitHubRepositoryLinkStore(application)
     private val githubGateway = GitHubRepositoryGateway(CredentialSecurityStore(application))
     private var refreshJob: kotlinx.coroutines.Job? = null
     private var searchJob: kotlinx.coroutines.Job? = null
@@ -48,6 +49,8 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     var workspace by mutableStateOf<Workspace?>(null)
         private set
     var remoteWorkspace by mutableStateOf<GitHubWorkspaceRemote?>(null)
+        private set
+    var localGitHubLink by mutableStateOf<LocalGitHubRepositoryLink?>(null)
         private set
     var workspaces by mutableStateOf<List<Workspace>>(emptyList())
         private set
@@ -88,6 +91,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
             repository.activeWorkspace.collectLatest { active ->
                 workspace = active
                 remoteWorkspace = active?.let { githubStore.get(it.id) }
+                localGitHubLink = active?.let { localGitHubLinkStore.get(it.id) }
                 currentUri = active?.treeUri
                 currentName = active?.name ?: "Workspace"
                 breadcrumbs = active?.let {
@@ -118,6 +122,80 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         }
         viewModelScope.launch {
             repository.workspaces.collectLatest { workspaces = it }
+        }
+    }
+
+    suspend fun createLocalProject(parentUri: Uri, projectName: String): Result<Workspace> = withContext(Dispatchers.IO) {
+        runCatching {
+            val cleanName = projectName.trim()
+            require(cleanName.isNotBlank()) { "Project name is required." }
+            val childUri = fileOperations.createFolder(parentUri, cleanName)
+            val created = Workspace(name = cleanName.take(120), treeUri = childUri)
+            tree.list(childUri, 1)
+            repository.saveAndActivate(created)
+            created
+        }
+    }
+
+    suspend fun saveGitHubRepositoryLocally(
+        parentUri: Uri,
+        owner: String,
+        repositoryName: String,
+        branch: String,
+    ): Result<Workspace> = withContext(Dispatchers.IO) {
+        runCatching {
+            val clonedUri = gitRemoteService.cloneRepositoryInto(
+                parentUri = parentUri,
+                owner = owner,
+                repository = repositoryName,
+                branch = branch,
+                targetName = repositoryName,
+            ).getOrThrow()
+            val created = Workspace(name = repositoryName.trim().take(120), treeUri = clonedUri)
+            tree.list(clonedUri, 1)
+            localGitHubLinkStore.save(
+                LocalGitHubRepositoryLink(
+                    workspaceId = created.id,
+                    owner = owner.trim(),
+                    repository = repositoryName.trim(),
+                    branch = branch.trim().ifBlank { "main" },
+                ),
+            )
+            repository.saveAndActivate(created)
+            created
+        }
+    }
+
+    suspend fun publishLocalWorkspaceToGitHub(
+        owner: String,
+        repositoryName: String,
+        branch: String,
+        commitMessage: String = "DevForge: publish local workspace",
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val active = workspace ?: throw IllegalStateException("Select a local workspace before publishing.")
+            if (remoteWorkspace != null) throw IllegalStateException("This workspace is already GitHub-backed.")
+            when (val result = gitRemoteService.publishWorkspaceToGitHub(
+                workspaceRoot = active.treeUri,
+                owner = owner,
+                repository = repositoryName,
+                branch = branch,
+                commitMessage = commitMessage,
+            )) {
+                is GitRemoteResult.Failure -> throw IllegalStateException(result.message)
+                is GitRemoteResult.Success -> {
+                    localGitHubLinkStore.save(
+                        LocalGitHubRepositoryLink(
+                            workspaceId = active.id,
+                            owner = owner.trim(),
+                            repository = repositoryName.trim(),
+                            branch = branch.trim().ifBlank { "main" },
+                        ),
+                    )
+                    localGitHubLink = localGitHubLinkStore.get(active.id)
+                    result.message
+                }
+            }
         }
     }
 

@@ -12,6 +12,7 @@ import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.MergeCommand
 import org.eclipse.jgit.transport.RefSpec
 import org.eclipse.jgit.transport.CredentialsProvider
+import org.eclipse.jgit.transport.URIish
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import java.io.File
 import java.io.IOException
@@ -101,6 +102,95 @@ class GitRemoteTransportService(
                 tempRoot.deleteRecursively()
             }
             targetRoot
+        }
+    }
+
+    suspend fun publishWorkspaceToGitHub(
+        workspaceRoot: Uri,
+        owner: String,
+        repository: String,
+        branch: String,
+        commitMessage: String = "DevForge: publish local workspace",
+    ): GitRemoteResult = withContext(Dispatchers.IO) {
+        val normalizedOwner = owner.trim().takeIf { VALID_NAME.matches(it) }
+            ?: return@withContext GitRemoteResult.Failure("The GitHub owner is invalid.")
+        val normalizedRepository = repository.trim().takeIf { VALID_NAME.matches(it) }
+            ?: return@withContext GitRemoteResult.Failure("The GitHub repository is invalid.")
+        val normalizedBranch = branch.trim().ifBlank { "main" }
+        if (normalizedBranch.length > 255 || normalizedBranch.startsWith("/") || normalizedBranch.contains("..") ||
+            normalizedBranch.any { it == '\\' || it == '\n' || it == '\r' || it == ' ' }
+        ) return@withContext GitRemoteResult.Failure("The GitHub branch is invalid.")
+        val token = secretStore.get(GitHubConnectionViewModel.TOKEN_KEY)
+            ?: return@withContext GitRemoteResult.Failure("Connect GitHub before publishing a workspace.")
+        val credentials = UsernamePasswordCredentialsProvider("x-access-token", token)
+        val workRoot = File(context.cacheDir, "devforge-github-publish/" + UUID.randomUUID())
+        val repoRoot = File(workRoot, "repo")
+        return@withContext try {
+            workRoot.mkdirs()
+            Git.init().setDirectory(repoRoot).call().use { git ->
+                val remoteUrl = "https://github.com/" + normalizedOwner + "/" + normalizedRepository + ".git"
+                git.remoteAdd().setName("origin").setUri(URIish(remoteUrl)).call()
+                val advertised = Git.lsRemoteRepository()
+                    .setRemote(remoteUrl)
+                    .setCredentialsProvider(credentials)
+                    .setHeads(true)
+                    .setTags(false)
+                    .setTimeout(NETWORK_TIMEOUT_SECONDS)
+                    .call()
+                val remoteRef = "refs/heads/" + normalizedBranch
+                if (advertised.any { it.name == remoteRef }) {
+                    git.fetch()
+                        .setRemote("origin")
+                        .setRefSpecs(RefSpec("+" + remoteRef + ":refs/remotes/origin/" + normalizedBranch))
+                        .setCredentialsProvider(credentials)
+                        .setTimeout(NETWORK_TIMEOUT_SECONDS)
+                        .call()
+                    git.checkout()
+                        .setName(normalizedBranch)
+                        .setStartPoint("origin/" + normalizedBranch)
+                        .setCreateBranch(true)
+                        .call()
+                } else {
+                    git.checkout().setName(normalizedBranch).setCreateBranch(true).call()
+                }
+                repoRoot.listFiles()?.forEach { child ->
+                    if (child.name != ".git") child.deleteRecursively()
+                }
+                syncSafProjectToFile(workspaceRoot, repoRoot, CopyBudget(), "")
+                git.add().addFilepattern(".").call()
+                git.add().setUpdate(true).addFilepattern(".").call()
+                if (git.status().call().isClean) {
+                    "Workspace already matches GitHub branch " + normalizedBranch + "."
+                } else {
+                    val commit = git.commit()
+                        .setMessage(commitMessage.trim().take(200).ifBlank { "DevForge: publish local workspace" })
+                        .call()
+                    val results = git.push()
+                        .setRemote("origin")
+                        .setRefSpecs(RefSpec("refs/heads/" + normalizedBranch + ":refs/heads/" + normalizedBranch))
+                        .setCredentialsProvider(credentials)
+                        .setForce(false)
+                        .setTimeout(NETWORK_TIMEOUT_SECONDS)
+                        .call()
+                    val rejection = results.asSequence()
+                        .flatMap { it.getRemoteUpdates().asSequence() }
+                        .firstOrNull { update ->
+                            val statusName = update.getStatus().name
+                            statusName.contains("REJECTED", true) || statusName.contains("NON_FAST_FORWARD", true)
+                        }
+                    if (rejection != null) {
+                        throw IllegalStateException(
+                            "GitHub rejected the publish (" + rejection.getStatus().name + "). DevForge never force-pushes.",
+                        )
+                    }
+                    "Published workspace to " + normalizedOwner + "/" + normalizedRepository +
+                        " on " + normalizedBranch + " in commit " + commit.id.name.take(12) + "."
+                }
+            }
+        } catch (error: Throwable) {
+            GitRemoteResult.Failure(sanitizeError(error))
+        } finally {
+            workRoot.deleteRecursively()
         }
     }
 
@@ -287,14 +377,26 @@ class GitRemoteTransportService(
         copySafNode(documentUri(sourceRoot), targetRoot, CopyBudget(), "")
     }
 
-    private fun copySafNode(source: Uri, target: File, budget: CopyBudget, relativePath: String) {
+    private fun syncSafProjectToFile(sourceRoot: Uri, targetRoot: File, budget: CopyBudget, relativePath: String) {
+        targetRoot.mkdirs()
+        copySafNode(documentUri(sourceRoot), targetRoot, budget, relativePath, skipGitDirectory = true)
+    }
+
+    private fun copySafNode(
+        source: Uri,
+        target: File,
+        budget: CopyBudget,
+        relativePath: String,
+        skipGitDirectory: Boolean = false,
+    ) {
         val metadata = queryDocument(source) ?: throw IOException("Unable to inspect workspace document.")
         if (metadata.isDirectory) {
             target.mkdirs()
             listChildren(source).forEach { child ->
                 val safeName = requireSafeDocumentName(child.name)
+                if (skipGitDirectory && relativePath.isBlank() && safeName == ".git") return@forEach
                 val childPath = if (relativePath.isBlank()) safeName else relativePath + "/" + safeName
-                copySafNode(child.uri, File(target, safeName), budget, childPath)
+                copySafNode(child.uri, File(target, safeName), budget, childPath, skipGitDirectory)
             }
             return
         }
