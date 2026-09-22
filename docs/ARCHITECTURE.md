@@ -18,7 +18,9 @@ The UI never executes network or privileged operations directly.
 Files, indexing, hashing, Git state, snapshots and local source-of-truth data.
 
 ### AI / agent plane
-Context assembly, provider adapters, planning, task state, memory and verification.
+Context assembly, provider adapters, top-level AI squad planning, bounded agent task planning, task state, memory, tool telemetry and verification.
+
+AI is the only orchestrator exposed to agent execution. Users observe agent activity but do not launch, stop, replay or select agent workers directly. A squad plan is divided into sequential phases; independent members of the same phase may run concurrently, while each agent's detailed tool plan executes sequentially.
 
 ### Execution plane
 Typed tools, Git mutations, build dispatch, background tasks and artifact handling.
@@ -31,8 +33,9 @@ Capability checks, risk classification, approval, scope validation, limits and a
 ```text
 request
 → context manifest
-→ plan
-→ typed action
+→ AI plan
+→ agent assignment
+→ detailed tool plan
 → policy decision
 → approval
 → snapshot
@@ -41,7 +44,18 @@ request
 → verification
 → receipt
 → recovery
+→ user-visible overview
 ```
+
+The UI receives read-only progress from durable task state and audit events. Agent telemetry includes provider, model, elapsed time, current step, last tool, affected paths and terminal result.
+
+## AI runtime boundary
+
+DevForge uses configured cloud AI providers. The product does not expose an on-device/local model execution path. Local Android storage and workspaces remain supported independently of model execution.
+
+## Editor performance boundary
+
+The editor keeps editing state local to the active workspace while moving expensive diagnostics to a debounced background dispatcher. Syntax highlighting, folding and invisible-character rendering are automatically reduced for large files (over 128 KiB or 4,000 lines) to keep scrolling and typing responsive on mobile hardware.
 
 A model response is data. It is never an authorization to execute.
 
