@@ -16,16 +16,16 @@ The answer is an Android-first coding environment designed around fast project n
 
 ### Built for real project work
 
-- Local and GitHub-backed workspaces
+- Local-first and GitHub-backed workspaces, including device-local repository saves and direct local-project publishing
 - Code editing and workspace navigation
 - AI chat with project-aware context
 - AI-managed coding agents with bounded planning, ordered phases, live tool telemetry, verification and completion summaries
 - Controlled AI terminal execution
 - Git status, diffs, history, commit inspection, and reversible operations
-- GitHub repositories, files, issues, pull requests, and repository creation
+- GitHub repositories, files, issues, pull requests, repository creation, metadata editing, and local-project publishing
 - Build Center with debug APK, release APK, and release AAB workflows
 - Build artifacts plus lint, unit-test, and dependency reports
-- Diagnostics, recovery, offline actions, and workspace backup
+- Diagnostics, recovery, offline actions, workspace backup, and Build with AI local project bootstrap
 - Security-first handling of AI actions and credentials
 
 ### AI with boundaries

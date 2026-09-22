@@ -1775,3 +1775,16 @@ Restored the three project GitHub Actions workflows through the repository Git i
 
 - [x] Capped asynchronous fold-range extraction to 40 ranges so background editor analysis cannot grow unbounded on moderately sized files.
 - [ ] Fresh Android CI and Android UI Tests validation is still required for the current main head.
+
+
+### 2026-09-22 — Local-first project lifecycle and GitHub repository management
+- [x] Kept GitHub optional for normal local Workspace development; SAF workspaces remain usable without connecting a GitHub account or creating a repository.
+- [x] Added device-local GitHub repository saving. The GitHub workspace picker can clone a selected repository into a user-selected device folder and activate it as a local workspace.
+- [x] Added Build with AI project bootstrap. DevForge creates the local project folder first and opens AI Chat with a plan-first project-building request; GitHub is not required.
+- [x] Added local-project → existing GitHub repository publishing. DevForge snapshots the local SAF project into a temporary JGit worktree, stages additions/deletions, creates a normal commit and pushes without force-push. Binary files are handled by Git rather than text-only REST writes.
+- [x] Added persistent local-project → GitHub link state so the workspace can show which repository it is connected to and reuse the Upload/Update action.
+- [x] Added existing GitHub repository metadata editing for name, description, homepage, visibility, default branch, repository features, merge behavior and merge-message defaults.
+- [x] Repository rename migrations update GitHub-backed workspace mappings, local-project links, per-repository build-output settings and pending remote change state.
+- [x] Updated More → ⓘ Help & guide for local-first workspaces, Build with AI, Save on device, local-project publishing, and repository metadata editing.
+- [x] Reused the existing AI plan/agent/activity infrastructure rather than introducing a duplicate agent dashboard; these lifecycle features connect into the same AI Chat/workspace workflow.
+- [ ] Fresh Android CI and Android UI Tests validation is still required for the new main-branch commits.

@@ -180,7 +180,7 @@ fun GitHubWorkspaceImportScreen(
                             Text(repository.fullName)
                             Text(
                                 "Branch: " + repository.defaultBranch +
-                                    ". DevForge reads and writes the repository directly through GitHub; nothing is cloned to the device.",
+                                    ". Open from GitHub keeps the project remote; Save on device clones it into a local DevForge workspace.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
