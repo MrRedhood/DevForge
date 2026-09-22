@@ -85,7 +85,9 @@ object ExtensionPackageAnalyzer {
         val declarative = icons.isNotEmpty() || languages.isNotEmpty() || grammars.isNotEmpty() ||
             snippets.isNotEmpty() || themes.isNotEmpty()
         val executable = browser.isNotBlank() || main.isNotBlank() || commands.isNotEmpty()
+        val unsupportedLanguage = languages.isNotEmpty() && native.size < languages.size
         val compatibility = when {
+            unsupportedLanguage -> ExtensionCompatibility.UNSUPPORTED
             icons.isNotEmpty() -> ExtensionCompatibility.DECLARATIVE_SUPPORTED
             native.isNotEmpty() -> ExtensionCompatibility.NATIVE_LANGUAGE
             declarative && !executable -> ExtensionCompatibility.DECLARATIVE_SUPPORTED
@@ -93,8 +95,11 @@ object ExtensionPackageAnalyzer {
             else -> ExtensionCompatibility.UNSUPPORTED
         }
         val reason = if (compatibility == ExtensionCompatibility.UNSUPPORTED) {
-            if (main.isNotBlank()) "This package requires the VS Code Node extension host, which DevForge does not emulate on Android."
-            else "This package requires executable behavior that the DevForge Web extension bridge cannot safely verify."
+            when {
+                unsupportedLanguage -> "This package declares a programming language that DevForge does not currently support natively; it was not installed as a show-only language entry."
+                main.isNotBlank() -> "This package requires the VS Code Node extension host, which DevForge does not emulate on Android."
+                else -> "This package requires executable behavior that the DevForge Web extension bridge cannot safely verify."
+            }
         } else null
         return AnalyzedExtension(
             ExtensionManifest(
