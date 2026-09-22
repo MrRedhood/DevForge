@@ -447,11 +447,20 @@ private fun AgentRunCard(
                             Text("Executing · " + it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                         }
                         task.steps.take(if (compact) 5 else 12).forEach { step ->
-                            Text(
-                                (step.index + 1).toString() + ". " + step.label + " · " + step.toolId + " · " + step.status,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (step.status == "Running") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                Text(
+                                    (step.index + 1).toString() + ". " + step.label + " · " + step.toolId + " · " + step.status,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (step.status == "Running") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                step.activity?.let {
+                                    Text(
+                                        it.take(220),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                         }
                         if (task.affectedPaths.isNotEmpty()) {
                             Text(
