@@ -1658,3 +1658,8 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added regression coverage for extension-based attachment type detection.
 - [x] Expanded More → ⓘ Help & guide with the repository deletion entry, attachment limits, picker behavior and provider-specific binary attachment behavior.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this main commit.
+
+
+### 2026-09-22 — Attachment regression-test placement correction
+- [x] Corrected the new attachment MIME-fallback regression test so it remains inside the existing JUnit test class and cannot be emitted as a file-scope generated test class.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this corrected main commit.

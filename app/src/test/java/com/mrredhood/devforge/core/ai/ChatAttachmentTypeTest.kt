@@ -13,7 +13,9 @@ class ChatAttachmentTypeTest {
         assertFalse(ChatAttachmentType.PHOTO.accepts("video/mp4"))
         assertFalse(ChatAttachmentType.VIDEO.accepts("image/png"))
         assertFalse(ChatAttachmentType.AUDIO.accepts("application/pdf"))
-        @Test
+    }
+
+    @Test
     fun filenameExtensionsRecoverCommonMediaAndDocumentTypes() {
         assertTrue(ChatAttachmentType.PHOTO.accepts("application/octet-stream", "holiday.jpg"))
         assertTrue(ChatAttachmentType.VIDEO.accepts("application/octet-stream", "clip.mp4"))
@@ -21,7 +23,6 @@ class ChatAttachmentTypeTest {
         assertTrue(ChatAttachmentType.DOCUMENT.accepts("application/octet-stream", "report.docx"))
         assertFalse(ChatAttachmentType.DOCUMENT.accepts("application/octet-stream", "bundle.zip"))
     }
-}
 
     @Test
     fun documentTypesRejectUnrelatedBinaryMimeTypes() {
