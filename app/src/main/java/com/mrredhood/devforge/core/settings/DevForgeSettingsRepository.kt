@@ -44,7 +44,7 @@ class DevForgeSettingsRepository(context: Context) {
         githubBranch = prefs.getString(KEY_GH_BRANCH, "main").orEmpty().ifBlank { "main" },
         githubWorkflow = prefs.getString(KEY_GH_WORKFLOW, ".github/workflows/android.yml").orEmpty(),
         buildPollSeconds = prefs.getLong(KEY_BUILD_POLL, 5L).coerceIn(2L, 60L),
-        terminalTimeoutMs = prefs.getLong(KEY_TERMINAL_TIMEOUT, 10_000L).coerceIn(250L, 15_000L),
+        terminalTimeoutMs = prefs.getLong(KEY_TERMINAL_TIMEOUT, 10_000L).coerceIn(250L, 60_000L),
         automationEventIntervalMinutes = prefs.getLong(KEY_AUTOMATION_INTERVAL, 15L).coerceIn(15L, 7L * 24L * 60L),
         auditRetentionDays = prefs.getLong(KEY_AUDIT_RETENTION, 30L).coerceIn(1L, 365L),
         chatRetentionDays = prefs.getLong(KEY_CHAT_RETENTION, 90L).coerceIn(1L, 3650L),
