@@ -90,6 +90,10 @@ Imported the validated DevForge source archive into the new main-only repository
 The repository README was refreshed with DevForge-specific positioning and product messaging.
 EOF
 
+# The Actions token can push repository contents but cannot push workflow files.
+# Restore the project workflows afterward through the GitHub integration.
+rm -f .github/workflows/android.yml .github/workflows/ui.yml .github/workflows/release-validation.yml
+
 chmod +x gradlew 2>/dev/null || true
 chmod +x tools/check-build-budget.sh 2>/dev/null || true
 
