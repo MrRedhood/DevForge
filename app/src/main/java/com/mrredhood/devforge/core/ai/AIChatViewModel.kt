@@ -5,15 +5,6 @@ import android.net.Uri
 import android.content.Intent
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
-import com.mrredhood.devforge.DevForgeApplication
-import com.mrredhood.devforge.core.agent.AgentAccess
-import com.mrredhood.devforge.core.agent.AgentAssignment
-import com.mrredhood.devforge.core.agent.AgentModelBinding
-import com.mrredhood.devforge.core.agent.AgentTaskStep
-import com.mrredhood.devforge.core.agent.AgentToolId
-import com.mrredhood.devforge.core.agent.AgentSquadPlan
-import com.mrredhood.devforge.core.agent.AgentSquadPlanner
-import com.mrredhood.devforge.core.agent.AgentTaskStatus
 import com.mrredhood.devforge.core.agent.ToolSettingsStore
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,7 +76,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private var modelLoadJob: Job? = null
     private var modelLoadGeneration = 0L
     private var workspaceRoot: Uri? = null
-    private val activeAgentTaskIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private var generationId = 0L
 
     var provider by mutableStateOf(settings.selectedProvider())
@@ -130,13 +120,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private set
     var editingMessageId by mutableStateOf<String?>(null)
         private set
-    var agentRun by mutableStateOf<AgentRunState?>(null)
-        private set
     var aiWorkflow by mutableStateOf<AiWorkflowSnapshot?>(aiWorkflowEngine.active())
         private set
-
-    val isAgentWorkInProgress: Boolean
-        get() = agentRun?.completedAtEpochMs == null
 
     val isEditingMessage: Boolean
         get() = editingMessageId != null
@@ -166,15 +151,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     init {
         workspaceJob = viewModelScope.launch {
             workspaceRepository.activeWorkspace.collectLatest { workspace ->
-                val staleAgentIds = activeAgentTaskIds.toList()
-                activeAgentTaskIds.clear()
-                staleAgentIds.forEach { taskId ->
-                    launch(Dispatchers.IO) {
-                        runCatching {
-                            (getApplication<Application>() as? DevForgeApplication)?.agentRuntime?.cancel(taskId)
-                        }
-                    }
-                }
                 sendJob?.cancel()
                 sendJob = null
                 isSending = false
@@ -394,8 +370,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         }
         updateInput(
             "Build this project in the active DevForge workspace. " +
-                "Start by creating a clear engineering plan, inspect the workspace before editing, execute the plan sequentially, " +
-                "use internal agents only when useful, verify the result with tests/lint/build where applicable, and summarize everything that changed. " +
+                "Start by creating a clear plan, inspect the workspace before editing, execute the plan sequentially with the main AI tools, " +
+                "verify the result with tests/lint/build where applicable, and summarize everything that changed. " +
                 "Do not create or require a GitHub repository for this task.\n\nProject goal: " + cleanGoal,
         )
     }
@@ -519,7 +495,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val mentions = resolveMentionsForActiveWorkspace(raw)
                 val parsed = AICommandRegistry.parse(raw)?.let { it.copy(mentions = mentions) }
                 val finalInstruction = if (parsed != null) {
-                    if (parsed.command.name == "help") AgentCommandCatalog.systemSummary() else parsed.toAgentInstruction()
+                    if (parsed.command.name == "help") AiCommandCatalog.systemSummary() else parsed.toAgentInstruction()
                 } else {
                     buildString {
                         append(raw)
@@ -803,430 +779,14 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun stopGenerationLocally() {
-        val taskIds = activeAgentTaskIds.toList()
-        generationId += 1
-        toolActivities = emptyList()
-        streamingText = ""
-        isSending = false
-        sendError = null
-        activeAgentTaskIds.clear()
         val runningJob = sendJob
         sendJob = null
-        if (taskIds.isNotEmpty()) {
-            viewModelScope.launch(Dispatchers.IO) {
-                taskIds.forEach { taskId ->
-                    runCatching {
-                        (getApplication<Application>() as? DevForgeApplication)?.agentRuntime?.cancel(taskId)
-                    }
-                }
-            }
-        }
         runningJob?.cancel()
     }
 
     /** Stops only this Chat generation and any agent task created by this Chat turn. */
     fun stopGeneration() {
-        if (isAgentWorkInProgress) return
         stopGenerationLocally()
-    }
-
-    private fun shouldDelegateToWorkspaceAgent(
-        raw: String,
-        parsed: AICommandInvocation?,
-        currentWorkspaceId: String?,
-    ): Boolean {
-        if (currentWorkspaceId.isNullOrBlank()) return false
-        if (parsed != null) return false
-        val normalized = raw.trim().lowercase()
-        val explanatory = normalized.startsWith("how ") ||
-            normalized.startsWith("what ") ||
-            normalized.startsWith("why ")
-        if (explanatory) return false
-        return MUTATION_INTENT.containsMatchIn(raw) ||
-            implementationIntent.containsMatchIn(normalized)
-    }
-
-    private val implementationIntent = Regex(
-        "\\b(implement|build|create|add|fix|refactor|migrate|optimize|update|modify|remove|rename|upgrade|release|prepare)\\b",
-        RegexOption.IGNORE_CASE,
-    )
-
-    private suspend fun cancelActiveAgentTasks() {
-        val taskIds = activeAgentTaskIds.toList()
-        activeAgentTaskIds.clear()
-        val runtime = (getApplication<Application>() as? DevForgeApplication)?.agentRuntime ?: return
-        taskIds.forEach { taskId ->
-            runCatching { runtime.cancel(taskId) }
-        }
-    }
-
-    private fun buildAgentInstruction(
-        raw: String,
-        parsed: AICommandInvocation?,
-        effectiveInstruction: String,
-    ): String {
-        val explicitGoal = parsed?.takeIf { it.command.name == "agent" }?.arguments?.trim().orEmpty()
-        val goal = explicitGoal.ifBlank { raw.trim() }
-        return buildString {
-            append("Act as the coding agent for the current DevForge workspace. ")
-            append("Execute the requested file and folder changes directly; do not merely describe them. ")
-            append("Inspect the workspace first, choose exact workspace-relative paths, make the requested changes, and verify the resulting state.")
-            append("\nUser goal: ").append(goal)
-            if (effectiveInstruction != raw.trim() && explicitGoal.isBlank()) {
-                append("\nAdditional workspace context:\n").append(effectiveInstruction.take(MAX_AGENT_CHAT_INSTRUCTION_CHARS))
-            }
-        }.take(MAX_AGENT_CHAT_INSTRUCTION_CHARS)
-    }
-
-    private suspend fun executeChatAgent(
-        workspaceId: String,
-        model: AIModelInfo,
-        instruction: String,
-    ): String {
-        val runtime = (getApplication<Application>() as? DevForgeApplication)?.agentRuntime
-            ?: error("The agent runtime is unavailable in this DevForge build.")
-        val squadPlanner = AgentSquadPlanner(getApplication<Application>())
-        val startedAt = System.currentTimeMillis()
-
-        withContext(Dispatchers.Main.immediate) {
-            agentRun = AgentRunState(
-                goal = instruction,
-                planItems = emptyList(),
-                tasks = emptyList(),
-                startedAtEpochMs = startedAt,
-                completedAtEpochMs = null,
-                planning = true,
-            )
-        }
-
-        val squad = squadPlanner.plan(
-            model = model,
-            workspaceId = workspaceId,
-            goal = instruction,
-            customBaseUrl = settings.customBaseUrl(model.provider),
-        )
-        val planItems = squad.members.mapIndexed { index, member ->
-            AgentRunPlanItem(
-                id = "plan-$index",
-                phase = member.phase,
-                title = member.title,
-                instruction = member.instruction,
-                status = "Waiting",
-                taskId = null,
-            )
-        }.toMutableList()
-
-        publishAgentRun(
-            goal = instruction,
-            planItems = planItems,
-            taskIds = emptyList(),
-            startedAt = startedAt,
-            planning = false,
-        )
-
-        var failureMessage: String? = null
-        for (phase in squad.phases) {
-            currentCoroutineContext().ensureActive()
-            phase.forEach { member ->
-                val planIndex = planItems.indexOfFirst { it.title == member.title && it.phase == member.phase && it.taskId == null }
-                if (planIndex >= 0) planItems[planIndex] = planItems[planIndex].copy(status = "Starting")
-            }
-            publishAgentRun(
-                goal = instruction,
-                planItems = planItems,
-                taskIds = activeAgentTaskIds.toList(),
-                startedAt = startedAt,
-                planning = false,
-            )
-            val results = coroutineScope {
-                phase.map { member ->
-                    async {
-                        runCatching {
-                            runtime.assign(
-                                AgentAssignment(
-                                    workspaceId = workspaceId,
-                                    title = member.title,
-                                    instruction = member.instruction,
-                                    model = AgentModelBinding(model.provider, model.id, model.displayName),
-                                    pathScope = com.mrredhood.devforge.core.security.WorkspacePathScope(),
-                                    access = AgentAccess.CODING_DEFAULT,
-                                ),
-                            )
-                        }
-                    }
-                }.awaitAll()
-            }
-
-            val phaseTaskIds = mutableListOf<String>()
-            results.forEachIndexed { index, result ->
-                val member = phase[index]
-                val planIndex = planItems.indexOfFirst { it.title == member.title && it.phase == member.phase && it.taskId == null }
-                result.onSuccess { taskId ->
-                    phaseTaskIds += taskId
-                    activeAgentTaskIds.add(taskId)
-                    if (planIndex >= 0) {
-                        planItems[planIndex] = planItems[planIndex].copy(status = "Running", taskId = taskId)
-                    }
-                }.onFailure { error ->
-                    failureMessage = error.message ?: "Agent could not be deployed."
-                    if (planIndex >= 0) {
-                        planItems[planIndex] = planItems[planIndex].copy(status = "Failed")
-                    }
-                }
-            }
-
-            publishAgentRun(
-                goal = instruction,
-                planItems = planItems,
-                taskIds = activeAgentTaskIds.toList(),
-                startedAt = startedAt,
-                planning = false,
-            )
-
-            if (failureMessage != null || phaseTaskIds.isEmpty()) break
-
-            var phaseComplete = false
-            while (!phaseComplete) {
-                currentCoroutineContext().ensureActive()
-                val snapshot = phaseTaskIds.mapNotNull { database.agentTaskDao().get(it) }
-                publishAgentRun(
-                    goal = instruction,
-                    planItems = planItems,
-                    taskIds = activeAgentTaskIds.toList(),
-                    startedAt = startedAt,
-                    planning = false,
-                )
-                phaseComplete = snapshot.size == phaseTaskIds.size &&
-                    snapshot.all { it.status in AGENT_TERMINAL_STATUSES }
-                if (!phaseComplete) delay(350)
-            }
-
-            val completedPhase = phaseTaskIds.mapNotNull { database.agentTaskDao().get(it) }
-            completedPhase.forEach { task ->
-                val planIndex = planItems.indexOfFirst { it.taskId == task.taskId }
-                if (planIndex >= 0) {
-                    planItems[planIndex] = planItems[planIndex].copy(
-                        status = task.status.replace('_', ' ').lowercase().replaceFirstChar { it.uppercaseChar() },
-                    )
-                }
-                activeAgentTaskIds.remove(task.taskId)
-            }
-            if (completedPhase.any { it.status != AgentTaskStatus.COMPLETED.name }) {
-                failureMessage = completedPhase.firstOrNull { it.status != AgentTaskStatus.COMPLETED.name }
-                    ?.errorMessage
-                    ?: "One or more agents did not complete successfully."
-                break
-            }
-        }
-
-        val finishedAt = System.currentTimeMillis()
-        val allTaskIds = planItems.mapNotNull { it.taskId }.distinct()
-        publishAgentRun(
-            goal = instruction,
-            planItems = planItems,
-            taskIds = allTaskIds,
-            startedAt = startedAt,
-            planning = false,
-            completedAt = finishedAt,
-        )
-
-        val finalTasks = allTaskIds.mapNotNull { database.agentTaskDao().get(it) }
-        val overview = buildAgentOverview(
-            instruction = instruction,
-            plan = squad,
-            tasks = finalTasks,
-            failureMessage = failureMessage,
-        )
-        withContext(Dispatchers.Main.immediate) {
-            agentRun = agentRun?.copy(
-                completedAtEpochMs = finishedAt,
-                planning = false,
-                overview = overview,
-            )
-        }
-        activeAgentTaskIds.clear()
-        return overview
-    }
-
-    private suspend fun publishAgentRun(
-        goal: String,
-        planItems: List<AgentRunPlanItem>,
-        taskIds: List<String>,
-        startedAt: Long,
-        planning: Boolean,
-        completedAt: Long? = null,
-    ) {
-        val tasks = taskIds.mapNotNull { database.agentTaskDao().get(it) }
-        val snapshots = tasks.map { task -> snapshotAgentTask(task) }
-        withContext(Dispatchers.Main.immediate) {
-            agentRun = AgentRunState(
-                goal = goal,
-                planItems = planItems.toList(),
-                tasks = snapshots,
-                startedAtEpochMs = startedAt,
-                completedAtEpochMs = completedAt,
-                planning = planning,
-            )
-        }
-    }
-
-    private fun snapshotAgentTask(task: com.mrredhood.devforge.core.storage.AgentTaskEntity): AgentRunTaskSnapshot {
-        val steps = runCatching {
-            val activities = extractStepActivities(task.result)
-            com.mrredhood.devforge.core.agent.AgentTaskPlanCodec.decode(task.payload).steps.mapIndexed { index, step ->
-                AgentRunStepSnapshot(
-                    index = index,
-                    label = step.label,
-                    toolId = step.toolId.wireName,
-                    status = when {
-                        index < task.currentStep -> "Done"
-                        index == task.currentStep && task.status == AgentTaskStatus.RUNNING.name -> "Running"
-                        index == task.currentStep && task.status == AgentTaskStatus.WAITING_APPROVAL.name -> "Approval"
-                        index == task.currentStep && task.status == AgentTaskStatus.FAILED.name -> "Failed"
-                        task.status == AgentTaskStatus.COMPLETED.name -> "Done"
-                        else -> "Pending"
-                    },
-                    activity = activities.getOrNull(index),
-                    detail = describeAgentStep(step),
-                )
-            }
-        }.getOrDefault(emptyList())
-        return AgentRunTaskSnapshot(
-            taskId = task.taskId,
-            title = task.title,
-            status = task.status,
-            provider = task.modelProviderId ?: "Unknown provider",
-            model = task.modelName ?: task.modelId ?: "Unknown model",
-            startedAtEpochMs = task.startedAtEpochMs ?: task.createdAtEpochMs,
-            completedAtEpochMs = task.completedAtEpochMs,
-            currentStep = task.currentStep,
-            stepCount = task.stepCount,
-            lastToolId = task.lastToolId,
-            steps = steps,
-            affectedPaths = extractAffectedPaths(task.result),
-        )
-    }
-
-    private fun describeAgentStep(step: AgentTaskStep): String? {
-        val args = runCatching { JSONObject(step.argumentsJson) }.getOrNull() ?: return null
-        fun value(vararg keys: String): String? =
-            keys.asSequence()
-                .map { args.optString(it).trim() }
-                .firstOrNull { it.isNotBlank() }
-
-        val detail = when (step.toolId) {
-            AgentToolId.SEARCH_WORKSPACE,
-            AgentToolId.SEARCH_CONTENT,
-            AgentToolId.FIND_FILES,
-            -> value("query", "pattern")?.let { "Search: $it" }
-
-            AgentToolId.READ_FILE,
-            AgentToolId.LIST_FILES,
-            AgentToolId.FILE_INFO,
-            AgentToolId.COUNT_LINES,
-            AgentToolId.HASH_FILE,
-            AgentToolId.DIRECTORY_TREE,
-            -> value("path")?.let { "Path: $it" }
-
-            AgentToolId.PATCH_FILE,
-            AgentToolId.WRITE_FILE,
-            AgentToolId.CREATE_FILE,
-            AgentToolId.CREATE_FOLDER,
-            AgentToolId.DELETE_PATH,
-            -> value("path")?.let { "Path: $it" }
-
-            AgentToolId.RUN_COMMAND,
-            -> value("command")?.let { "Command: $it" }
-
-            AgentToolId.WEB_SEARCH,
-            -> value("query")?.let { "Web search: $it" }
-
-            AgentToolId.SCRAPE_URL,
-            AgentToolId.FETCH_URL,
-            AgentToolId.EXTRACT_LINKS,
-            -> value("url")?.let { "URL: $it" }
-
-            AgentToolId.GET_WORKSPACE_CONTEXT,
-            AgentToolId.RETRIEVE_RELEVANT_CONTEXT,
-            -> value("scope", "query")?.let { "Context: $it" }
-
-            else -> value("summary", "expression")?.let { "Detail: $it" }
-        }
-
-        return detail?.let { com.mrredhood.devforge.core.security.SecretRedactor.redact(it, 240) }
-    }
-
-    private fun extractStepActivities(result: String?): List<String> =
-        result.orEmpty()
-            .split("\n\n")
-            .mapNotNull { block ->
-                block.lineSequence().firstOrNull()
-                    ?.substringAfter(": ", missingDelimiterValue = "")
-                    ?.trim()
-                    ?.takeIf { it.isNotBlank() }
-            }
-            .take(12)
-
-    private fun extractAffectedPaths(result: String?): List<String> =
-        result.orEmpty()
-            .lineSequence()
-            .filter { it.trimStart().startsWith("receipt=", ignoreCase = true) }
-            .mapNotNull { line ->
-                runCatching {
-                    val json = org.json.JSONObject(line.trim().removePrefix("receipt="))
-                    val paths = json.optJSONArray("affectedPaths") ?: return@runCatching emptyList<String>()
-                    buildList {
-                        for (index in 0 until minOf(paths.length(), 20)) {
-                            paths.optString(index).trim().takeIf { it.isNotBlank() }?.let(::add)
-                        }
-                    }
-                }.getOrNull()
-            }
-            .flatten()
-            .distinct()
-            .take(40)
-            .toList()
-
-    private fun buildAgentOverview(
-        instruction: String,
-        plan: AgentSquadPlan,
-        tasks: List<com.mrredhood.devforge.core.storage.AgentTaskEntity>,
-        failureMessage: String?,
-    ): String = buildString {
-        append("## DevForge agent plan\n")
-        plan.members.forEachIndexed { index, member ->
-            append(index + 1).append(". Phase ").append(member.phase).append(" — ").append(member.title).append("\n")
-        }
-        append("\n## Agent overview\n")
-        if (tasks.isEmpty()) {
-            append("No agent task completed. ")
-            append(failureMessage ?: "The plan could not be started.")
-            return@buildString
-        }
-        tasks.forEach { task ->
-            val elapsed = formatAgentDuration(task.startedAtEpochMs ?: task.createdAtEpochMs, task.completedAtEpochMs ?: System.currentTimeMillis())
-            append("- **").append(task.title).append("** — ").append(task.status.replace('_', ' ').lowercase())
-                .append(" · ").append(task.modelProviderId ?: "Unknown provider")
-                .append(" / ").append(task.modelName ?: task.modelId ?: "Unknown model")
-                .append(" · ").append(elapsed).append("\n")
-            val steps = runCatching { com.mrredhood.devforge.core.agent.AgentTaskPlanCodec.decode(task.payload).steps }
-                .getOrDefault(emptyList())
-            steps.take(12).forEachIndexed { index, step ->
-                append("  - ").append(index + 1).append(". ").append(step.label.take(160))
-                    .append(" (").append(step.toolId.wireName).append(")\n")
-            }
-            val affected = extractAffectedPaths(task.result)
-            if (affected.isNotEmpty()) {
-                append("  - Changed: ").append(affected.joinToString(", ")).append("\n")
-            }
-            task.errorMessage?.let { append("  - Error: ").append(it).append("\n") }
-        }
-        failureMessage?.let { append("\nPlan stopped: ").append(it) }
-    }
-
-    private fun formatAgentDuration(start: Long, end: Long): String {
-        val seconds = ((end - start).coerceAtLeast(0L) / 1000L)
-        return if (seconds < 60L) seconds.toString() + "s" else (seconds / 60L).toString() + "m " + (seconds % 60L).toString() + "s"
     }
 
     fun isAttachmentTypeAvailable(type: ChatAttachmentType): Boolean = when (type) {
