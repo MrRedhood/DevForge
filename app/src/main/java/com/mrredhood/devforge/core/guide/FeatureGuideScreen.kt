@@ -883,6 +883,10 @@ t("Agent plans & activity","Chat shows the top-level engineering plan plus each 
                 ),
                 "More → AI Tools → Integrations → Manage Extensions.",
                 listOf("Full = installed feature is actually supported","Rejected = required runtime is unavailable")),
+            t("Extension search","Use the search icon in the Extensions top bar to filter the actual installed extension registry by name, ID, source, package type, version, or language contribution.",
+                listOf("Tap the search icon.","Enter a name, publisher/ID, language, or package type.","Results update immediately from the installed registry."),
+                "More → AI Tools → Integrations → Manage Extensions → Search.",
+                listOf("search = installed extensions only")),
         ),
     ),
     GuideCategory(
