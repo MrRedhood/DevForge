@@ -420,7 +420,7 @@ private fun DevForgeApp(
                     onSave = editor::saveActive,
                     onRefresh = editor::refreshActive,
                 )
-            } else if (destination != DevForgeDestination.Terminal && !gitCommitHistoryOpen) {
+            } else if (destination != DevForgeDestination.Terminal && destination != DevForgeDestination.Extensions && !gitCommitHistoryOpen) {
                 DevForgeTopBar(
                     workspace = workspace,
                     screenTitle = screenTitle,
@@ -432,7 +432,7 @@ private fun DevForgeApp(
         },
         bottomBar = {
             if (
-                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More) &&
+                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions) &&
                 !expanded &&
                 !gitCommitHistoryOpen
             ) {
@@ -449,7 +449,7 @@ private fun DevForgeApp(
             Row(Modifier.fillMaxSize()) {
                 if (
                     expanded &&
-                    destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More) &&
+                    destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions) &&
                     !gitCommitHistoryOpen
                 ) {
                     NavigationSide(
