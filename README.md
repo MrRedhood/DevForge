@@ -2,9 +2,9 @@
 
 ## Code on Android. Build from anywhere. Ship without a desktop.
 
-**DevForge turns an Android phone into a real development workshop — code, AI, AI-managed agents, Git, GitHub, terminal, automation, and cloud Android builds in one workflow.**
+**DevForge turns an Android phone into a real development workshop — code, one main AI, Git, GitHub, terminal, automation, and cloud Android builds in one workflow.**
 
-> **Write code. Ask AI. Plan. Let AI deploy the workers. Verify. Commit. Build. Ship.**
+> **Write code. Ask AI. Plan. Inspect. Execute. Verify. Commit. Build. Ship.**
 
 DevForge starts from a simple challenge: what happens when Android is not the backup machine, but the primary development screen?
 
@@ -23,7 +23,7 @@ The answer is an Android-first coding environment designed around fast project n
 - Mobile power-editing commands inspired by Vim, plus a searchable VS Code-style Command Palette
 - AI project rules and reusable skill profiles for Android, UI, testing, security, performance, and Git/GitHub work
 - Mission change summaries with observed paths, write/delete/command counts, and Build Center-backed build verification
-- AI-managed coding agents with bounded planning, ordered phases, live tool telemetry, verification and completion summaries
+- One main AI that plans, inspects the workspace, uses bounded tools to create/modify/delete files and folders, and verifies results
 - Controlled AI terminal execution
 - Git status, diffs, history, commit inspection, and reversible operations
 - GitHub repositories, files, issues, pull requests, repository creation, metadata editing, and local-project publishing
@@ -34,9 +34,9 @@ The answer is an Android-first coding environment designed around fast project n
 
 ### AI with boundaries
 
-DevForge treats AI output as untrusted input. Tool access is capability-scoped, terminal execution is constrained, and mutating agent actions require the appropriate approval path.
+DevForge treats AI output as untrusted input. Tool access is capability-scoped, terminal execution is constrained, and file/folder mutations require the appropriate approval path.
 
-Users do not launch or operate agents directly. AI can deploy bounded internal agents when a task benefits from parallel work. The user sees the plan, searches, tool execution, provider/model, elapsed time, current progress and final change overview.
+There is one main AI execution path. The AI creates its own plan, searches and reads the workspace, performs approved mutations, runs bounded commands when needed, and verifies the result. No user-facing worker or multi-agent workflow is exposed.
 
 DevForge uses cloud AI providers only. It intentionally does not expose an on-device/local inference runtime.
 
@@ -59,15 +59,13 @@ DevForge is not a desktop IDE squeezed into a phone. Its navigation, workspace m
 **Your phone is already a computer. DevForge turns it into a workshop.**
 
 
-### AI-managed development
+### Single main AI
 
-For coding requests, DevForge can create an engineering plan, inspect the workspace, deploy internal agents, execute bounded tool steps, verify results and return a structured overview of the work. Independent agents can run together inside a plan phase; later phases wait for earlier work to finish.
+For coding requests, DevForge's main AI creates a plan, inspects the active workspace, searches and reads relevant files, executes bounded file/folder mutations through the same tool gateway, and verifies the result. Tool execution is shown in Chat as compact expandable task labels so you can inspect what the AI is doing without a separate agent dashboard.
 
-The user-facing workflow is intentionally observational: there is no agent launcher, agent model picker, agent stop button or agent replay control.
+### AI Tools
 
-### Engineering Power
-
-More → AI Tools now provides one unified engineering surface for repeatable project tasks, AI Mission phase graph and proof package, development profiles, reviewer/refactor/debugger foundations, UI journey and Compose preview models, device-matrix targets, remote-development definitions, MCP registry, evidence-backed AI memory, learned-rule proposals, resource-aware cloud routing, automation blueprints, and native DevForge extension contracts. These features reuse the existing approval, workspace, Build Center and AI Mission boundaries rather than creating duplicate agent dashboards.
+More → AI Tools is a dedicated full-screen control surface for the tools available to the main AI. Workspace inspection and mutation tools are enabled by default for the main AI; destructive actions such as deletion remain protected by DevForge's approval policy. The screen also provides an "Enable coding tools" action and per-tool switches.
 
 ### Linux-style terminal
 
