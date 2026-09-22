@@ -12,13 +12,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Button
@@ -53,7 +51,6 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
     var extensions by remember { mutableStateOf(store.list()) }
     var status by remember { mutableStateOf<String?>(null) }
     var activeRuntime by remember { mutableStateOf<InstalledExtension?>(null) }
-    var searching by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val commands = remember { mutableStateListOf<RuntimeCommand>() }
@@ -91,8 +88,8 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                     IconButton(onClick = onClose) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
                 },
                 actions = {
-                    IconButton(onClick = { searching = !searching; if (!searching) searchQuery = "" }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search extensions")
+                    TextButton(onClick = { launcher.launch(arrayOf("*/*")) }) {
+                        Text("Install")
                     }
                 },
             )
@@ -100,16 +97,14 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                 Modifier.fillMaxWidth().padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-            if (searching) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it.take(120) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Search extensions") },
-                    placeholder = { Text("Name, publisher, language, or type") },
-                )
-            }
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it.take(120) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Search installed extensions") },
+                placeholder = { Text("Name, ID, language, or package type") },
+            )
             Text(
                 "Install real Acode plugins or VS Code packages. DevForge analyzes the package first and refuses packages whose required runtime cannot be safely supported.",
                 style = MaterialTheme.typography.bodySmall,
