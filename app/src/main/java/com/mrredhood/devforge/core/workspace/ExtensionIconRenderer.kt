@@ -15,6 +15,8 @@ import com.caverock.androidsvg.SVG
 import com.mrredhood.devforge.core.extension.ExtensionIconThemeStore
 import com.mrredhood.devforge.core.extension.ExtensionPackageStore
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun ExtensionThemeIcon(
@@ -35,7 +37,7 @@ internal fun ExtensionThemeIcon(
         return
     }
     val bitmap by produceState<Bitmap?>(initialValue = null, asset) {
-        value = loadAsset(File(asset))
+        value = withContext(Dispatchers.IO) { loadAsset(File(asset)) }
     }
     val image = bitmap
     if (image == null) fallback()
