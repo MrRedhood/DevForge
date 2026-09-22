@@ -1022,7 +1022,7 @@ private fun EditorWorkspaceTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onRefresh, enabled = fileName != null) {
+            IconButton(onClick = onRefresh) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh file")
             }
             if (fileName != null && dirty) {
