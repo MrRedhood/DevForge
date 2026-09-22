@@ -1854,3 +1854,15 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added Linux shell parser regression coverage for expanded bounded commands and interactive shell operators.
 - [x] Revalidated Help & guide coverage for Engineering Power and Linux-style Terminal behavior.
 - [ ] Fresh Android CI and Android UI Tests validation is still required for the current main head.
+
+
+### 2026-09-22 — CI failure repair and AI factuality hardening
+- [x] Fixed Android CI and Android UI Tests compilation failure caused by missing `description` arguments in the new Engineering Power task definitions.
+- [x] Added a live `AiTruthService` that derives tool counts from the actual registered runtime definitions plus current user tool settings instead of model memory.
+- [x] Tool-count/list questions are now answered directly from live DevForge state, including registered, user-configurable, enabled, disabled, internal and currently-usable counts.
+- [x] Added an authoritative-evidence contract to all Chat paths. Current DevForge/project questions must use authoritative tools or state and cannot be answered from model memory.
+- [x] Added a factuality gate that refuses to guess when a current-state question has no verified evidence instead of returning a hallucinated answer.
+- [x] Kept the distinction between registered, enabled, callable, attempted and successfully completed tools explicit so tool availability is not misreported as successful execution.
+- [x] Kept the live tool-status answer independent of model/API-key availability so it can report the actual DevForge tool state without another AI inference step.
+- [x] Updated More → ⓘ Help & guide with the AI factuality/evidence behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the repaired main head.
