@@ -73,7 +73,11 @@ class WorkspaceAgentToolProvider(
                 ?: throw IllegalArgumentException("Workspace '${context.workspaceId}' was not found.")
             val isRemote = remoteWorkspace(context) != null
             val toolPath = normalizeToolPath(rawPath, isRemote)
-            val normalized = WorkspacePathScope.normalize(toolPath, allowEmpty)
+            val normalized = if (toolPath.isBlank() && allowEmpty) {
+                ""
+            } else {
+                WorkspacePathScope.normalize(toolPath, allowEmpty)
+            }
             if (normalized.isBlank() && !allowEmpty) {
                 throw IllegalArgumentException("A file or folder path is required; DevForge selects the exact path automatically from the workspace.")
             }
