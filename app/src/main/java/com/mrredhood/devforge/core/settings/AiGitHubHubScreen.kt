@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Source
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ private enum class AiGitHubSection {
     TOOLS,
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiGitHubHubScreen(
     buildViewModel: BuildViewModel,
@@ -118,6 +120,7 @@ fun AiGitHubHubScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChildSurface(
     title: String,
