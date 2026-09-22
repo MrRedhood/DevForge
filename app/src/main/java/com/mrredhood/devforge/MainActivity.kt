@@ -2607,7 +2607,7 @@ private fun EditorScreen(
         if (fieldValue.text != active.content) {
             fieldValue = TextFieldValue(active.content, TextRange(active.content.length))
         }
-        val validStarts = if (active.content.toByteArray(Charsets.UTF_8).size <= 128 * 1024 && active.content.count { it == '\n' } + 1 <= 4_000) {
+        val validStarts = if (active.content.toByteArray(Charsets.UTF_8).size <= 64 * 1024 && active.content.count { it == '\n' } + 1 <= 2_000) {
             EditorFolding.ranges(active.content, maxRanges = 40).map { it.startOffset }.toSet()
         } else emptySet()
         collapsedStarts = collapsedStarts.intersect(validStarts)
