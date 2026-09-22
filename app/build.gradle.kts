@@ -110,6 +110,9 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
 
+    // Android SVG rendering is used for real VS Code/Acode icon-theme assets.
+    implementation("com.caverock:androidsvg:1.4")
+
     // Pure-Java Git transport; DevForge still uses SAF as the canonical workspace boundary.
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r")
 }
