@@ -401,6 +401,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         attachments = emptyList()
         streamingAnimationKind = StreamingAnimationKind.random()
         toolActivities = emptyList()
+        withContext(Dispatchers.Main.immediate) { agentRun = null }
         isSending = true
         streamingText = ""
         sendError = null
@@ -558,6 +559,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
             } catch (error: Throwable) {
                 retainAttachmentsForRetry = true
+                withContext(NonCancellable + Dispatchers.IO) {
+                    cancelActiveAgentTasks()
+                }
                 withContext(Dispatchers.Main.immediate) {
                     val merged = attachments.toMutableList()
                     submittedAttachments.forEach { attachment ->
@@ -622,7 +626,28 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         currentWorkspaceId: String?,
     ): Boolean {
         if (currentWorkspaceId.isNullOrBlank()) return false
-        return parsed?.command?.name == "agent" || MUTATION_INTENT.containsMatchIn(raw)
+        if (parsed?.command?.name == "agent") return true
+        val normalized = raw.trim().lowercase()
+        val explanatory = normalized.startsWith("how ") ||
+            normalized.startsWith("what ") ||
+            normalized.startsWith("why ")
+        if (explanatory) return false
+        return MUTATION_INTENT.containsMatchIn(raw) ||
+            implementationIntent.containsMatchIn(normalized)
+    }
+
+    private val implementationIntent = Regex(
+        "\\b(implement|build|create|add|fix|refactor|migrate|optimize|update|modify|remove|rename|upgrade|release|prepare)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private suspend fun cancelActiveAgentTasks() {
+        val taskIds = activeAgentTaskIds.toList()
+        activeAgentTaskIds.clear()
+        val runtime = (getApplication<Application>() as? DevForgeApplication)?.agentRuntime ?: return
+        taskIds.forEach { taskId ->
+            runCatching { runtime.cancel(taskId) }
+        }
     }
 
     private fun buildAgentInstruction(
