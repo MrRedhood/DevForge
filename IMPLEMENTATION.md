@@ -1914,3 +1914,12 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added regression coverage for nested VSIX icon-theme packages.
 - [x] Removed the duplicate extension-manager heading while retaining a direct Back control.
 - [ ] Fresh Android CI and Android UI Tests validation is still required for the latest main head.
+
+
+### 2026-09-22 — CI #126 repair and extension search
+- [x] Inspected Android CI #126 and Android UI Tests #126 on main head `71175d1679d64f3371a1285a70c71bdc68ee8b0e`.
+- [x] Fixed the release Kotlin compilation error in `ExtensionPackageAnalyzer.kt` caused by malformed quoted-string syntax in the VS Code Web runtime dependency check.
+- [x] Fixed the extension-manager `TextButton` unresolved reference by adding the required Compose import.
+- [x] Added a real search icon to the Extensions top bar with live filtering across extension name, ID/publisher text, source, package type, version and contributed/native language names.
+- [x] Search is UI-backed filtering of the actual installed extension registry; it does not create fake marketplace results.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the repair/search commit.
