@@ -56,6 +56,7 @@ data class WorkspacePathScope(
         fun normalize(path: String, allowEmpty: Boolean = false): String {
             val value = path.replace('\\', '/').trim('/')
             if (value.isEmpty() && allowEmpty) return ""
+            if (value == "." && allowEmpty) return ""
             require(value.isNotBlank()) { "Workspace path cannot be empty." }
             require(value.length <= MAX_PATH_LENGTH) { "Workspace path is too long." }
             val parts = value.split('/')
