@@ -108,7 +108,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrredhood.devforge.core.ai.AIChatScreen
 import com.mrredhood.devforge.core.ai.AIChatViewModel
-import com.mrredhood.devforge.core.agent.ToolSettingsScreen
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.build.BuildViewModel
 import com.mrredhood.devforge.core.editor.ChainedVisualTransformation
@@ -404,7 +403,7 @@ private fun DevForgeApp(
                     onSave = editor::saveActive,
                     onRefresh = editor::refreshActive,
                 )
-            } else if (destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Extensions, DevForgeDestination.Tools, DevForgeDestination.Connections) && !gitCommitHistoryOpen) {
+            } else if (destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Extensions, DevForgeDestination.Connections) && !gitCommitHistoryOpen) {
                 DevForgeTopBar(
                     workspace = workspace,
                     screenTitle = screenTitle,
@@ -416,7 +415,7 @@ private fun DevForgeApp(
         },
         bottomBar = {
             if (
-                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions, DevForgeDestination.Tools, DevForgeDestination.Connections) &&
+                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions, DevForgeDestination.Connections) &&
                 !expanded &&
                 !gitCommitHistoryOpen
             ) {
@@ -1699,7 +1698,6 @@ private fun DestinationScreen(
             onRepositoryPickerChange = onBuildRepositoryPickerChange,
         )
         DevForgeDestination.LiveActions -> LiveActionsScreen(onBack = onBack)
-        DevForgeDestination.Tools -> ToolSettingsScreen(onClose = onBack)
         DevForgeDestination.Connections -> AiGitHubHubScreen(buildViewModel = build, onBack = onBack)
         DevForgeDestination.Extensions -> ExtensionCenterScreen(onClose = onBack)
         DevForgeDestination.Terminal -> TerminalScreen(onBack = onBack)
