@@ -11,7 +11,7 @@ data class AnalyzedExtension(
 )
 
 object ExtensionPackageAnalyzer {
-    private val acodeModules = setOf("commands", "fileIcons", "editor", "settings", "keyboard", "storage")
+    private val acodeModules = setOf("commands")
 
     fun analyze(root: File): Result<AnalyzedExtension> = runCatching {
         val plugin = File(root, "plugin.json")
@@ -38,7 +38,7 @@ object ExtensionPackageAnalyzer {
             .findAll(source).map { it.groupValues[1] }.toSet()
         val unsupported = requires - acodeModules
         val isIconPack = File(root, "file_icons.json").isFile || File(root, "folder_icons.json").isFile ||
-            source.contains("fileIcons.register")
+            source.contains("file_icons.json") || source.contains("folder_icons.json")
         val kind = when {
             isIconPack -> ExtensionPackageKind.ICON_THEME
             source.contains("setPluginInit") -> ExtensionPackageKind.RUNTIME
