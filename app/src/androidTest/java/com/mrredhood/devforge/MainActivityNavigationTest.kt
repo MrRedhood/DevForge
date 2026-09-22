@@ -104,8 +104,11 @@ class MainActivityNavigationTest {
     fun aiAndGitHubHubIsSharedByMoreAndSettings() {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
-        waitForText("AI & GitHub")
-        composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).performClick()
+        waitForAiGitHubManagement()
+        composeRule.onNodeWithContentDescription(
+            "AI & GitHub management",
+            useUnmergedTree = true,
+        ).performClick()
         composeRule.onNodeWithText("GitHub", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("AI Models", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("AI Tools", useUnmergedTree = true).assertIsDisplayed()
