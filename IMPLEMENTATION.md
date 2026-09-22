@@ -1,3 +1,10 @@
+### 2026-09-22 — Final navigation surface cleanup
+- [x] Removed the standalone AI Tools destination; AI Tools now exists only inside the shared AI & GitHub hub, while remaining separately selectable there.
+- [x] Removed the remaining Automation entry from Help & guide and App Settings.
+- [x] Kept GitHub, AI Models, and AI Tools as separate child surfaces inside the shared hub so the three areas are not mixed together.
+- [x] Added/updated navigation regression coverage for the shared AI & GitHub hub and its AI Tools child screen.
+- [ ] Fresh Android CI and Android UI Tests validation is still required for this final main head.
+
 ### 2026-09-22 — Single-AI navigation and workspace execution cleanup
 - [x] Replaced the old multi-agent Chat execution path with one main AI tool loop. Coding requests now stay inside one plan → inspect → execute → verify flow.
 - [x] Removed the user-facing Engineering Power surface and deleted its source/test screens.
