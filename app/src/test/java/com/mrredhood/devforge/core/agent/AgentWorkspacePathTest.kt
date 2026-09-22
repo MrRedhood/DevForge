@@ -71,4 +71,21 @@ class AgentWorkspacePathTest {
         )
     }
 
+    @Test
+    fun allowsWorkspaceRootPath() {
+        val scope = WorkspacePathScope()
+        assertEquals(
+            "",
+            AgentWorkspacePath.canonicalize(".", "Nexus", scope, allowEmpty = true),
+        )
+    }
+
+    @Test
+    fun allowsRootPathAfterWorkspaceName() {
+        val scope = WorkspacePathScope()
+        assertEquals(
+            "",
+            AgentWorkspacePath.canonicalize("Nexus", "Nexus", scope, allowEmpty = true),
+        )
+    }
 }
