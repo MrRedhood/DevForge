@@ -90,7 +90,6 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                 Modifier.fillMaxWidth().padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-            Text("Extensions", style = MaterialTheme.typography.headlineSmall)
             Text(
                 "Install real Acode plugins or VS Code packages. DevForge analyzes the package first and refuses packages whose required runtime cannot be safely supported.",
                 style = MaterialTheme.typography.bodySmall,
