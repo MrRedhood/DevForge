@@ -315,7 +315,6 @@ private fun DevForgeApp(
         gitCommitHistoryOpen -> "Commit history"
         destination == DevForgeDestination.Build && buildRepositoryPickerOpen -> "GitHub repository"
         destination != DevForgeDestination.Settings -> destination.label
-        settingsSection == "ai" -> "AI & models"
         settingsSection == "security" -> "Security"
         settingsSection != "app" -> "Settings"
         appSettingsSection == "routing" -> "AI routing"
@@ -1780,7 +1779,7 @@ private fun MoreScreen(
         item {
             SimpleSettingsTile(
                 title = "Settings",
-                subtitle = "AI providers, GitHub, build, terminal, privacy, appearance and editor preferences",
+                subtitle = "GitHub, build, terminal, privacy, appearance and editor preferences",
                 onClick = { onSelect(DevForgeDestination.Settings) },
             )
         }
