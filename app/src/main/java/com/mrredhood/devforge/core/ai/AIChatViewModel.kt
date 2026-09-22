@@ -401,7 +401,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         attachments = emptyList()
         streamingAnimationKind = StreamingAnimationKind.random()
         toolActivities = emptyList()
-        withContext(Dispatchers.Main.immediate) { agentRun = null }
+        agentRun = null
         isSending = true
         streamingText = ""
         sendError = null
@@ -626,7 +626,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         currentWorkspaceId: String?,
     ): Boolean {
         if (currentWorkspaceId.isNullOrBlank()) return false
-        if (parsed?.command?.name == "agent") return true
+        if (parsed != null) return false
         val normalized = raw.trim().lowercase()
         val explanatory = normalized.startsWith("how ") ||
             normalized.startsWith("what ") ||
@@ -925,6 +925,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             .flatten()
             .distinct()
             .take(40)
+            .toList()
 
     private fun buildAgentOverview(
         instruction: String,
@@ -1287,7 +1288,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             "(?is)\\b(create|make|add|new|write|modify|edit|change|update|rewrite|replace|delete|remove|rename|move|fix|implement)\\b.{0,180}(?:\\b(file|files|folder|folders|directory|directories|path|script|source|code|class|function)\\b|(?:^|[\\s`(])[^\\s`]+\\.(?:kt|kts|java|py|js|ts|tsx|jsx|json|xml|yml|yaml|md|txt|gradle|properties|toml|sh|html|css|scss|c|cpp|h|hpp|rs|go|swift|sql)\\b)",
         )
     }
-}
 }
 
 data class AgentRunPlanItem(

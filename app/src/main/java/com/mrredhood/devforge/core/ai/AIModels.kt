@@ -1,5 +1,9 @@
 package com.mrredhood.devforge.core.ai
 
+/**
+ * DevForge's AI providers are remote/cloud services.
+ * There is intentionally no on-device/local inference provider in this registry.
+ */
 enum class AIProvider(
     val id: String,
     val displayName: String,

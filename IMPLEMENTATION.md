@@ -1696,6 +1696,15 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - Restored the missing newline in the Build Center companion constants after the approval-lifetime cleanup exposed a formatting-induced Kotlin parse error.
 
 
+### 2026-09-22 — AI-only routing and editor compile cleanup
+- [x] Fixed the AI delegation boundary so explicit slash commands keep their own typed command behavior; ordinary natural-language implementation requests can still enter the AI-managed agent workflow.
+- [x] Fixed the editor's remembered syntax transformation construction so Compose theme colors are captured outside the non-composable remember calculation, removing the release-build compile error.
+- [x] Fixed the AI squad planner to call the gateway with its required `userInstruction` parameter.
+- [x] Fixed agent run state cleanup and affected-path collection in Chat.
+- [x] Corrected the live agent counter label and clarified that model discovery is from the selected cloud provider only.
+- [x] Kept the cloud-only AI boundary explicit in the provider registry; no on-device/local inference runtime is exposed.
+- [ ] Fresh Android CI and Android UI Tests validation is pending for this corrected main commit.
+
 ### 2026-09-22 — AI-managed agent orchestration and mobile editor performance
 
 - [x] Removed the user-facing Agent launcher surface and removed the `/agent` command from Chat.

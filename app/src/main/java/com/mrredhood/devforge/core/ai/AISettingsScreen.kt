@@ -130,7 +130,7 @@ fun AISettingsScreen(viewModel: AISettingsViewModel = viewModel()) {
         )
 
         Text(
-            "Live models are loaded automatically from the provider when you open Chat or the agent launcher.",
+            "Live models are loaded automatically from the selected cloud provider when you open Chat.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

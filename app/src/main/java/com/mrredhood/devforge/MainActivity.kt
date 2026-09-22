@@ -913,7 +913,7 @@ private fun ProjectPulseStrip(
                 }
                 if (runningAgents > 0) {
                     Text(
-                        runningAgents.toString() + " agent" + if (runningAgents == 1) "" else "s" + " running",
+                        runningAgents.toString() + " agent" + (if (runningAgents == 1) "" else "s") + " running",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -2625,20 +2625,24 @@ private fun EditorScreen(
         foldRanges.filter { it.startOffset in collapsedStarts }
     }
     val language = remember(active.name) { EditorLanguage.detect(active.name) }
+    val syntaxPrimary = MaterialTheme.colorScheme.primary
+    val syntaxTertiary = MaterialTheme.colorScheme.tertiary
+    val syntaxOnSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val syntaxSecondary = MaterialTheme.colorScheme.secondary
     val syntax = if (richCodeRendering) {
         remember(
             language,
-            MaterialTheme.colorScheme.primary,
-            MaterialTheme.colorScheme.tertiary,
-            MaterialTheme.colorScheme.onSurfaceVariant,
-            MaterialTheme.colorScheme.secondary,
+            syntaxPrimary,
+            syntaxTertiary,
+            syntaxOnSurfaceVariant,
+            syntaxSecondary,
         ) {
             CodeSyntaxVisualTransformation(
                 language = language,
-                keywordColor = MaterialTheme.colorScheme.primary,
-                stringColor = MaterialTheme.colorScheme.tertiary,
-                commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                numberColor = MaterialTheme.colorScheme.secondary,
+                keywordColor = syntaxPrimary,
+                stringColor = syntaxTertiary,
+                commentColor = syntaxOnSurfaceVariant,
+                numberColor = syntaxSecondary,
             )
         }
     } else {

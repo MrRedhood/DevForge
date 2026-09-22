@@ -69,7 +69,7 @@ class AgentSquadPlanner(context: Context) {
             model = model,
             apiKey = key,
             history = emptyList(),
-            instruction = prompt,
+            userInstruction = prompt,
             attachments = emptyList(),
             customBaseUrl = customBaseUrl,
         )
