@@ -143,10 +143,30 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
             ) {
                 if (filteredExtensions.isEmpty()) {
                     item {
-                        Text(
-                            if (extensions.isEmpty()) "No compatible extensions installed yet." else "No extensions match \"" + searchQuery + "\".",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(
+                                Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Text(
+                                    if (extensions.isEmpty()) "No extensions installed" else "No matching extensions",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Text(
+                                    if (extensions.isEmpty()) {
+                                        "Install an Acode ZIP or VS Code VSIX package. DevForge validates compatibility before installation."
+                                    } else {
+                                        "No installed extension matches \"" + searchQuery + "\"."
+                                    },
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (extensions.isEmpty()) {
+                                    Button(onClick = { launcher.launch(arrayOf("*/*")) }) {
+                                        Text("Install extension")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 items(filteredExtensions, key = { it.manifest.id }) { extension ->
