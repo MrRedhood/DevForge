@@ -2,8 +2,8 @@
 
 ## 2026-09-22 — Clean repository bootstrap
 
-Hardened the temporary archive-import process for the clean main-only DevForge repository. The bootstrap now accepts the supplied ZIP under its uploaded filename and restores the source tree, project tooling, documentation, and build workflows before finalizing the fresh repository history.
+Prepared the main-only clean repository bootstrap for the DevForge source archive.
 
-## 2026-09-22 — Import trigger
+## 2026-09-22 — Bootstrap workflow validation
 
-Issued the final main-branch trigger for the prepared source import workflow.
+Reduced the temporary bootstrap workflow to a minimal valid GitHub Actions definition to verify workflow execution before restoring the import logic.
