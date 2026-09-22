@@ -66,7 +66,11 @@ class MainActivityNavigationTest {
     fun aiToolsIsAStandaloneManagementScreen() {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        waitForNode("More navigation")
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        waitForNode("AI & GitHub")
         composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).performClick()
+        waitForNode("AI Tools")
         composeRule.onNodeWithText("AI Tools", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Main AI execution controls", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Enable coding tools", useUnmergedTree = true).assertIsDisplayed()
