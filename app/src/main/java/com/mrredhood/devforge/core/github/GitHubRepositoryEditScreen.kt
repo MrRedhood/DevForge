@@ -103,7 +103,7 @@ fun GitHubRepositoryEditScreen(
                         expanded = visibilityOpen,
                         onDismissRequest = { visibilityOpen = false },
                     ) {
-                        listOf("public", "private").forEach { value ->
+                        listOf("public", "private", "internal").forEach { value ->
                             DropdownMenuItem(
                                 text = { Text(value.replaceFirstChar { it.uppercase() }) },
                                 onClick = {

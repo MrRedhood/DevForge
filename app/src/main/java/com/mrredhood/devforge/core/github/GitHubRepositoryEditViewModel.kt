@@ -83,7 +83,7 @@ class GitHubRepositoryEditViewModel(application: Application) : AndroidViewModel
                 name = repository.name,
                 description = repository.description,
                 homepage = repository.homepage,
-                visibility = if (repository.isPrivate) "private" else "public",
+                visibility = repository.visibility,
                 defaultBranch = repository.defaultBranch,
                 hasIssues = repository.hasIssues,
                 hasProjects = repository.hasProjects,

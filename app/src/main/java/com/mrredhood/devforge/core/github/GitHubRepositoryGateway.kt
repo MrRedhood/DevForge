@@ -440,8 +440,8 @@ class GitHubRepositoryGateway(
             return GitHubRepositoryResult.Failure(it.message ?: "The default branch is invalid.")
         }
         val visibility = request.visibility.trim().lowercase()
-        if (visibility !in setOf("public", "private")) {
-            return GitHubRepositoryResult.Failure("Only public and private visibility can be edited in DevForge.")
+        if (visibility !in setOf("public", "private", "internal")) {
+            return GitHubRepositoryResult.Failure("Repository visibility must be public, private, or internal.")
         }
         return runCatching {
             parseRepository(
@@ -451,7 +451,8 @@ class GitHubRepositoryGateway(
                         .put("name", normalizedName)
                         .put("description", request.description.trim())
                         .put("homepage", request.homepage.trim())
-                        .put("private", visibility == "private")
+.put("private", visibility == "private")
+                        .put("visibility", visibility)
                         .put("has_issues", request.hasIssues)
                         .put("has_projects", request.hasProjects)
                         .put("has_wiki", request.hasWiki)
@@ -784,6 +785,8 @@ class GitHubRepositoryGateway(
             name = name,
             fullName = json.optString("full_name", owner + "/" + name),
             isPrivate = json.optBoolean("private", false),
+            visibility = json.optString("visibility").takeIf(String::isNotBlank)
+                ?: if (json.optBoolean("private", false)) "private" else "public",
             defaultBranch = json.optString("default_branch", "main"),
             description = json.optString("description", ""),
             homepage = json.optString("homepage", ""),

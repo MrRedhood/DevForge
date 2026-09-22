@@ -6,6 +6,7 @@ data class GitHubRepository(
     val name: String,
     val fullName: String,
     val isPrivate: Boolean,
+    val visibility: String = if (isPrivate) "private" else "public",
     val defaultBranch: String,
     val description: String = "",
     val homepage: String = "",
