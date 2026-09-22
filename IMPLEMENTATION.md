@@ -1690,3 +1690,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 
 ### 2026-09-22 — Approval lifetime compile correction
 - Corrected the remaining Build Center approval expiry reference to the centralized `ApprovalRepository.APPROVAL_WINDOW_MS` constant after CI exposed the stale local reference.
+
+
+### 2026-09-22 — CI compile correction for approval cleanup
+- Restored the missing newline in the Build Center companion constants after the approval-lifetime cleanup exposed a formatting-induced Kotlin parse error.
