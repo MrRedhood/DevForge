@@ -307,7 +307,7 @@ private val guideCategories = listOf(
                 ),
                 "AI Chat and More → AI Tools.",
                 listOf("live registry = source of truth","no evidence = no guess","enabled ≠ successfully executed")),
-            t("AI Tools","Enable bounded tools that any DevForge AI model can use, including models without native function-calling support.",
+            t("AI Tools","Manage the tools available to the single main DevForge AI.",
                 listOf(
                     "Open More → AI Tools.",
                     "Enable the tools you want available to AI.",
@@ -315,7 +315,7 @@ private val guideCategories = listOf(
                     "During execution, Chat shows compact expandable task labels. Tap the arrow to inspect the tool name and result detail.",
                     "When a tool requires approval, the same Chat turn waits for the exact approval and resumes automatically after approval.",
                     "Stopping generation cancels the active provider request and rejects any pending Chat-only approval.",
-                     "Chat Stop cancels the active Chat generation. There is one main AI execution path; no user-facing worker or AI controls exist.",
+                     "Chat Stop cancels the active Chat generation. There is one main AI execution path; no user-facing worker or agent controls exist.",
                      "Persistent capability grants use an R3 approval-bypass ceiling for every grantable tool, bounded by the selected workspace/path scope.",
                      "GitHub-backed AI file and folder mutations commit directly to the configured branch after execution.",
                     "Folder creation uses .gitkeep because Git tracks files, not empty directories; folder deletion removes all tracked files under that folder.",
