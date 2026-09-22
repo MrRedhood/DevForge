@@ -76,3 +76,11 @@ The terminal runs a sandboxed Android `/system/bin/sh` for local workspaces and 
 ### Mobile editor performance
 
 Files above 64 KiB automatically enter fast rendering mode with reduced syntax and folding work. Fold calculation is debounced off the UI thread, diagnostics are bounded and debounced, and undo bookkeeping avoids rescanning the entire history on every keystroke so continuous typing and scrolling stay responsive on lower-end Android devices.
+
+### Real Acode / VS Code extension support
+
+DevForge now has a real package-aware extension manager under More → AI Tools → Integrations → Manage Extensions. It accepts Acode ZIP plugins and VS Code VSIX packages, inspects their manifests and executable entry points, rejects unsupported runtimes instead of installing placeholders, persists compatible packages, and applies supported contributions through DevForge adapters.
+
+Icon themes are real: VS Code/Acode icon metadata is indexed and the active pack changes the workspace's file and folder icons. Programming-language packages are checked against DevForge's existing editor language catalog first; when the language is already supported, DevForge explicitly reports native support rather than claiming the package installed a compiler/runtime. Unsupported language engines are rejected until DevForge has a real language adapter.
+
+Bundled Acode plugins and compatible VS Code Web packages can run through a restricted Android WebView extension host. Runtime JavaScript has file/network access blocked by default and only the supported API subset is exposed.
