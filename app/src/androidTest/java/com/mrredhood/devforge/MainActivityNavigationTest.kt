@@ -45,6 +45,14 @@ class MainActivityNavigationTest {
         }
     }
 
+    private fun closeChatIfOpen() {
+        runCatching {
+            composeRule
+                .onNodeWithContentDescription("Close AI Chat", useUnmergedTree = true)
+                .performClick()
+        }
+    }
+
     @Test
     fun editorIsPrimaryBottomBarDestinationAndWorkspaceMenuIsWorkspaceFocused() {
         waitForNode("Editor navigation")
@@ -74,6 +82,7 @@ class MainActivityNavigationTest {
 
     @Test
     fun aiToolsIsAStandaloneManagementScreen() {
+        closeChatIfOpen()
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
         waitForText("AI & GitHub")
@@ -86,6 +95,7 @@ class MainActivityNavigationTest {
 
     @Test
     fun aiAndGitHubHubIsSharedByMoreAndSettings() {
+        closeChatIfOpen()
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
         waitForText("AI & GitHub")
