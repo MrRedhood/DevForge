@@ -173,8 +173,9 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             }
             TerminalParsedCommand.Help -> {
                 appendTerminalLine(prompt(session) + " help")
-                appendTerminalLine("Real Android shell: pipes, redirects, quoting, variables, &&/||, command substitution, and available /system/bin tools.")
-                appendTerminalLine("Builtins: cd, clear, history, help. Use Ctrl+C / Stop to cancel a running command.")
+                appendTerminalLine("Linux-style Android shell: quoting, variables, pipes, redirects, &&/||, ;, command substitution and /system/bin tools.")
+                appendTerminalLine("Shell builtins: cd, clear, history, help, export, unset, env, command/type/which. Core tools include ls, cat, grep, find, sed, awk/toybox-backed tools, sort, uniq, cut, tr, head, tail, wc, mkdir, rm, cp, mv, chmod, stat, diff and sha256sum.")
+                appendTerminalLine("Workspace paths are sandboxed. Use Stop to cancel the running shell command; longer tasks use the configured terminal timeout.")
             }
             is TerminalParsedCommand.Shell -> {
                 appendTerminalLine(prompt(session) + " " + parsed.commandLine)
