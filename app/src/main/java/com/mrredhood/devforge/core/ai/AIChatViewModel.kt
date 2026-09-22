@@ -406,20 +406,85 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun submit() {
+        if (isSending) return
+        val raw = input.trim()
+        val pendingAttachments = attachments
+        if (raw.isBlank() && pendingAttachments.isEmpty()) return
+
+        val authoritativeAnswer = if (editingMessageId == null && pendingAttachments.isEmpty()) {
+            truthService.answerIfKnown(raw)
+        } else null
+
+        if (authoritativeAnswer != null) {
+            val sessionId = activeSessionId ?: run {
+                sendError = "Chat session is not ready yet."
+                return
+            }
+            input = ""
+            suggestions = emptyList()
+            attachments = emptyList()
+            toolActivities = emptyList()
+            agentRun = null
+            isSending = true
+            streamingAnimationKind = StreamingAnimationKind.HAMMER
+            streamingText = authoritativeAnswer.take(MAX_STREAM_VISIBLE_CHARS)
+            sendError = null
+            val requestGeneration = ++generationId
+            sendJob = viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    var workflowSnapshot = aiWorkflowEngine.start(
+                        request = raw,
+                        workspaceId = workspaceId,
+                        workspaceName = workspaceName,
+                    )
+                    chatRepository.addMessage(sessionId, "user", raw)
+                    workflowSnapshot = aiWorkflowEngine.phase(
+                        workflowSnapshot,
+                        AiWorkflowPhase.VERIFY,
+                        "Answering from live DevForge tool registry",
+                    )
+                    chatRepository.addMessage(sessionId, "assistant", authoritativeAnswer)
+                    workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
+                        workflowSnapshot,
+                        workspaceRoot = workspaceRoot,
+                        changedPaths = emptyList(),
+                        summary = authoritativeAnswer,
+                    )
+                    withContext(Dispatchers.Main.immediate) {
+                        if (requestGeneration == generationId) {
+                            aiWorkflow = workflowSnapshot
+                            streamingText = authoritativeAnswer.take(MAX_STREAM_VISIBLE_CHARS)
+                        }
+                    }
+                } catch (error: Throwable) {
+                    withContext(Dispatchers.Main.immediate) {
+                        if (requestGeneration == generationId) {
+                            sendError = error.message ?: "Unable to produce the authoritative answer."
+                        }
+                    }
+                } finally {
+                    withContext(Dispatchers.Main.immediate) {
+                        if (requestGeneration == generationId) {
+                            streamingText = ""
+                            isSending = false
+                            if (sendJob === currentCoroutineContext()[Job]) sendJob = null
+                        }
+                    }
+                }
+            }
+            return
+        }
+
         val model = selectedModel ?: run {
             sendError = "Select a model first."
             return
         }
-        if (isSending) return
         val requestProvider = provider
         if (model.provider != requestProvider) {
             sendError = "The selected model belongs to a different provider. Select it again."
             selectedModel = null
             return
         }
-        val raw = input.trim()
-        val pendingAttachments = attachments
-        if (raw.isBlank() && pendingAttachments.isEmpty()) return
         val sessionId = activeSessionId ?: run {
             sendError = "Chat session is not ready yet."
             return
