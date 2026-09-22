@@ -23,6 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -43,6 +44,7 @@ fun ExtensionCenterScreen() {
     var extensions by remember { mutableStateOf(store.list()) }
     var status by remember { mutableStateOf<String?>(null) }
     var activeRuntime by remember { mutableStateOf<InstalledExtension?>(null) }
+    val scope = rememberCoroutineScope()
     val commands = remember { mutableStateListOf<RuntimeCommand>() }
     val runtime = remember {
         ExtensionRuntimeHost(
@@ -54,7 +56,7 @@ fun ExtensionCenterScreen() {
     }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                 val result = installer.install(uri)
                 result.onSuccess {
                     extensions = store.list()
