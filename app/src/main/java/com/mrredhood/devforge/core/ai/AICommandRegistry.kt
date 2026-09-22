@@ -28,7 +28,6 @@ object AICommandRegistry {
         AICommandDefinition("build", description = "Prepare a build request", usage = "/build <target>", safety = AgentCommandSafety.SIDE_EFFECT, instruction = "Prepare a typed build request. A real build dispatch must pass DevForge's capability and approval gates."),
         AICommandDefinition("commit", description = "Prepare a commit", usage = "/commit <message>", safety = AgentCommandSafety.SIDE_EFFECT, instruction = "Prepare a Git commit proposal with affected files and a concise commit message. Actual commit execution requires the Git capability and approval policy."),
         AICommandDefinition("run", aliases = listOf("execute"), description = "Prepare a validated execution request", usage = "/run <action>", safety = AgentCommandSafety.SIDE_EFFECT, instruction = "Prepare a typed execution request. Never execute arbitrary shell commands without the terminal capability and policy gate."),
-        AICommandDefinition("agent", description = "Convert the request into an agent task", usage = "/agent <goal>", safety = AgentCommandSafety.PROPOSE_ACTION, instruction = "Turn the request into a bounded agent task with explicit tools, constraints, checkpoints, and verification."),
     )
 
     private val byName = commands.flatMap { definition ->
