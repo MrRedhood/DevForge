@@ -68,7 +68,7 @@ class ExtensionIconThemeStore(context: Context) {
         val resultKey = when {
             isFolder && expanded -> theme.folderNamesExpanded[base] ?: theme.folderExpanded
             isFolder -> theme.folderNames[base] ?: theme.folder
-            theme.fileNames[base] -> theme.fileNames[base]
+            theme.fileNames[base] != null -> theme.fileNames[base]
             else -> theme.fileExtensions[lower.substringAfterLast('.', "")] ?: theme.file
         } ?: return null
         return ResolvedIconAsset(resultKey, theme.label)
