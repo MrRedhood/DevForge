@@ -161,6 +161,7 @@ import com.mrredhood.devforge.core.terminal.TerminalScreen
 import com.mrredhood.devforge.core.security.CredentialSecurityScreen
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceLanguageIcon
+import com.mrredhood.devforge.core.workspace.WorkspaceFolderIcon
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import com.mrredhood.devforge.core.workspace.GitHubWorkspaceImportScreen
 import com.mrredhood.devforge.core.workspace.BuildWithAiDialog
@@ -1242,7 +1243,7 @@ private fun EditorHomeScreen(
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
                         ) {
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                if (entry.isDirectory) Icon(Icons.Default.Folder, contentDescription = null) else WorkspaceLanguageIcon(entry.name)
+                                if (entry.isDirectory) WorkspaceFolderIcon(entry.name) else WorkspaceLanguageIcon(entry.name)
                                 Spacer(Modifier.width(10.dp))
                                 Text(entry.name, Modifier.weight(1f), maxLines = 1)
                                 if (entry.isDirectory) Icon(Icons.Default.ChevronRight, contentDescription = null)
