@@ -293,8 +293,8 @@ private val guideCategories = listOf(
                 "AI Chat and AI Tools.",
                 listOf("approval = explicit permission","proposal = review before apply")),
             t("Cloud-only AI","DevForge uses configured cloud AI providers; it does not expose an on-device/local model runtime.",
-                listOf("Open Settings → AI Providers.","Configure a supported cloud provider.","Choose a model from the provider catalog."),
-                "More → Settings → AI Providers.",
+                listOf("Open More → AI & GitHub.","Choose AI Models.","Configure a supported cloud provider and choose a model from its catalog."),
+                "More → AI & GitHub → AI Models.",
                 listOf("local workspace = supported","local model execution = not a DevForge feature")),
 
             t("AI factuality and live state","DevForge uses live DevForge state and authoritative tool results for current project questions instead of guessing.",
