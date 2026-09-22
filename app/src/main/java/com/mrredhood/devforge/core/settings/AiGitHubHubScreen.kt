@@ -21,7 +21,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -44,10 +44,11 @@ fun AiGitHubHubScreen(
     buildViewModel: BuildViewModel,
     onBack: () -> Unit,
 ) {
-    var section by mutableStateOf(AiGitHubSection.HOME)
+    var sectionName by rememberSaveable { mutableStateOf(AiGitHubSection.HOME.name) }
+    val section = runCatching { AiGitHubSection.valueOf(sectionName) }.getOrDefault(AiGitHubSection.HOME)
 
     fun closeChild() {
-        section = AiGitHubSection.HOME
+        sectionName = AiGitHubSection.HOME.name
     }
 
     BackHandler(enabled = section != AiGitHubSection.HOME) { closeChild() }
@@ -82,21 +83,21 @@ fun AiGitHubHubScreen(
                         icon = Icons.Default.Source,
                         title = "GitHub",
                         subtitle = "Connection, repositories, workflows, repository settings, and Build Center integration.",
-                    ) { section = AiGitHubSection.GITHUB }
+                    ) { sectionName = AiGitHubSection.GITHUB.name }
                 }
                 item {
                     HubTile(
                         icon = Icons.Default.AutoAwesome,
                         title = "AI Models",
                         subtitle = "Cloud providers, API keys, model catalog, routing, and model selection.",
-                    ) { section = AiGitHubSection.MODELS }
+                    ) { sectionName = AiGitHubSection.MODELS.name }
                 }
                 item {
                     HubTile(
                         icon = Icons.Default.Code,
                         title = "AI Tools",
                         subtitle = "Tools used by the single main AI, including workspace file and folder operations.",
-                    ) { section = AiGitHubSection.TOOLS }
+                    ) { sectionName = AiGitHubSection.TOOLS.name }
                 }
             }
         }
