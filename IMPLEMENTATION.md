@@ -1846,3 +1846,11 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added regression coverage for Engineering Power routing and Mission Graph behavior.
 - [x] Updated More → ⓘ Help & guide and README with the full Engineering Power and Linux-style terminal behavior.
 - [ ] Fresh Android CI and Android UI Tests validation is required before calling the current main head green.
+
+
+### 2026-09-22 — Engineering Power and terminal validation follow-up
+- [x] Made repeatable Engineering Power tasks independently enable/disableable and portable for Android shells by invoking Gradle through `sh ./gradlew`.
+- [x] Kept task execution on the existing TerminalViewModel/capability path so sandboxing, output limits and approvals are not bypassed.
+- [x] Added Linux shell parser regression coverage for expanded bounded commands and interactive shell operators.
+- [x] Revalidated Help & guide coverage for Engineering Power and Linux-style Terminal behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is still required for the current main head.
