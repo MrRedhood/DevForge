@@ -65,6 +65,14 @@ For coding requests, DevForge can create an engineering plan, inspect the worksp
 
 The user-facing workflow is intentionally observational: there is no agent launcher, agent model picker, agent stop button or agent replay control.
 
+### Engineering Power
+
+More → AI Tools now provides one unified engineering surface for repeatable project tasks, AI Mission phase graph and proof package, development profiles, reviewer/refactor/debugger foundations, UI journey and Compose preview models, device-matrix targets, remote-development definitions, MCP registry, evidence-backed AI memory, learned-rule proposals, resource-aware cloud routing, automation blueprints, and native DevForge extension contracts. These features reuse the existing approval, workspace, Build Center and AI Mission boundaries rather than creating duplicate agent dashboards.
+
+### Linux-style terminal
+
+The terminal runs a sandboxed Android `/system/bin/sh` for local workspaces and supports normal shell syntax such as quoting, variables, pipes, redirects, `&&`, `||`, `;` and command substitution. The bounded AI command catalog now includes common navigation, file, text-processing, hashing, comparison, diagnostics, environment and write operations. Interactive terminal timeouts can be configured up to 60 seconds, with a separate bounded interactive ceiling.
+
 ### Mobile editor performance
 
 Files above 64 KiB automatically enter fast rendering mode with reduced syntax and folding work. Fold calculation is debounced off the UI thread, diagnostics are bounded and debounced, and undo bookkeeping avoids rescanning the entire history on every keystroke so continuous typing and scrolling stay responsive on lower-end Android devices.
