@@ -18,6 +18,14 @@ class TerminalCommandParserTest {
             TerminalExecutable.GETPROP,
             TerminalCommandParser.parseToolCommand("getprop ro.build.version.release", "", 10_000L, null).executable,
         )
+        assertEquals(
+            TerminalExecutable.PRINTENV,
+            TerminalCommandParser.parseToolCommand("printenv PATH", "", 10_000L, null).executable,
+        )
+        assertEquals(
+            TerminalExecutable.SLEEP,
+            TerminalCommandParser.parseToolCommand("sleep 1", "", 10_000L, null).executable,
+        )
     }
 
     @Test
