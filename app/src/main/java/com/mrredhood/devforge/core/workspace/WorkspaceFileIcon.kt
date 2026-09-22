@@ -1,6 +1,8 @@
 package com.mrredhood.devforge.core.workspace
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Audiotrack
 import androidx.compose.material.icons.outlined.Code
@@ -118,11 +120,38 @@ fun WorkspaceLanguageIcon(
     name: String,
     modifier: Modifier = Modifier,
 ) {
-    val spec = remember(name) { LanguageIconPack.forName(name) }
-    Icon(
-        imageVector = spec.icon,
-        contentDescription = spec.description,
+    ExtensionThemeIcon(
+        name = name,
+        isFolder = false,
+        expanded = false,
         modifier = modifier.size(26.dp),
-        tint = spec.tint.copy(alpha = 0.96f),
-    )
+    ) {
+        val spec = remember(name) { LanguageIconPack.forName(name) }
+        Icon(
+            imageVector = spec.icon,
+            contentDescription = spec.description,
+            modifier = modifier.size(26.dp),
+            tint = spec.tint.copy(alpha = 0.96f),
+        )
+    }
+}
+
+@Composable
+fun WorkspaceFolderIcon(
+    name: String,
+    expanded: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    ExtensionThemeIcon(
+        name = name,
+        isFolder = true,
+        expanded = expanded,
+        modifier = modifier.size(26.dp),
+    ) {
+        Icon(
+            imageVector = if (expanded) Icons.Filled.FolderOpen else Icons.Filled.Folder,
+            contentDescription = if (expanded) "Open folder" else "Folder",
+            modifier = modifier.size(26.dp),
+        )
+    }
 }
