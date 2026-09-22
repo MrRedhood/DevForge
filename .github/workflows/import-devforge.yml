@@ -3,7 +3,8 @@ name: Import DevForge archive
 on:
   push:
     paths:
-      - "DevForge-source.zip"
+      - "*.zip"
+      - ".github/workflows/import-devforge.yml"
 
 permissions:
   contents: write
@@ -22,7 +23,10 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/devforge
           mkdir -p /tmp/devforge
-          unzip -q DevForge-source.zip -d /tmp/devforge
+
+          ZIP="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+          test -n "$ZIP"
+          unzip -q "$ZIP" -d /tmp/devforge
 
           SRC="$(find /tmp/devforge -mindepth 1 -maxdepth 1 -type d | head -n 1)"
           test -n "$SRC"
@@ -31,7 +35,7 @@ jobs:
           cp -a "$SRC/." .
 
           rm -rf docs/screenshots
-          rm -f DevForge-source.zip
+          rm -f "$ZIP"
 
           cat > README.md <<'EOF'
 # DevForge
