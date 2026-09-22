@@ -1,3 +1,12 @@
+### 2026-09-22 — Dedicated Extensions UI
+
+- [x] Promoted the real extension manager to a dedicated top-level `Extensions` destination instead of embedding it inside Engineering Power or another utility screen.
+- [x] Added a direct More → Extensions entry for installing and managing Acode ZIP and VS Code VSIX packages.
+- [x] Kept the existing real install/analyze/store/runtime/icon-theme behavior intact inside the dedicated screen.
+- [x] Removed the embedded Engineering Power extension surface so extension management has one clear entry point and lifecycle.
+- [x] Updated More → ⓘ Help & guide and README to document the dedicated Extensions path.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
 ### 2026-09-22 — Fix README screenshot formats
 - [x] Verified that all five uploaded screenshot assets are JPEG images even though they were stored with `.png` filenames.
 - [x] Renamed the repository screenshot paths from `.png` to `.jpg` without altering the image blobs.
