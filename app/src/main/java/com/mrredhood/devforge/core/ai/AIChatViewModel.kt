@@ -862,6 +862,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun snapshotAgentTask(task: com.mrredhood.devforge.core.storage.AgentTaskEntity): AgentRunTaskSnapshot {
         val steps = runCatching {
+            val activities = extractStepActivities(task.result)
             com.mrredhood.devforge.core.agent.AgentTaskPlanCodec.decode(task.payload).steps.mapIndexed { index, step ->
                 AgentRunStepSnapshot(
                     index = index,
@@ -875,6 +876,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         task.status == AgentTaskStatus.COMPLETED.name -> "Done"
                         else -> "Pending"
                     },
+                    activity = activities.getOrNull(index),
                 )
             }
         }.getOrDefault(emptyList())
@@ -893,6 +895,17 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             affectedPaths = extractAffectedPaths(task.result),
         )
     }
+
+    private fun extractStepActivities(result: String?): List<String> =
+        result.orEmpty()
+            .split("\n\n")
+            .mapNotNull { block ->
+                block.lineSequence().firstOrNull()
+                    ?.substringAfter(": ", missingDelimiterValue = "")
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+            }
+            .take(12)
 
     private fun extractAffectedPaths(result: String?): List<String> =
         result.orEmpty()
@@ -1291,6 +1304,7 @@ data class AgentRunStepSnapshot(
     val label: String,
     val toolId: String,
     val status: String,
+    val activity: String? = null,
 )
 
 data class AgentRunTaskSnapshot(
