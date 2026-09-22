@@ -55,38 +55,13 @@ fun DevForgeSettingsScreen(
             }
         }
 
-        "github" -> {
-            val settings = viewModel.settings
-            var owner by remember(settings.githubOwner) { mutableStateOf(settings.githubOwner) }
-            var repository by remember(settings.githubRepository) { mutableStateOf(settings.githubRepository) }
-            var branch by remember(settings.githubBranch) { mutableStateOf(settings.githubBranch) }
-            var workflow by remember(settings.githubWorkflow) { mutableStateOf(settings.githubWorkflow) }
-
-            SettingsDetail("GitHub") {
-                SettingsHint("Repository and workflow used by Build Center. Credentials stay in the secure credential store.")
-                OutlinedTextField(owner, { owner = it.take(200) }, Modifier.fillMaxWidth(), label = { Text("Owner") }, singleLine = true)
-                OutlinedTextField(repository, { repository = it.take(200) }, Modifier.fillMaxWidth(), label = { Text("Repository") }, singleLine = true)
-                OutlinedTextField(branch, { branch = it.take(200) }, Modifier.fillMaxWidth(), label = { Text("Default branch") }, singleLine = true)
-                OutlinedTextField(workflow, { workflow = it.take(300) }, Modifier.fillMaxWidth(), label = { Text("Workflow file") }, singleLine = true)
-                SettingsAction("Save repository defaults") {
-                    viewModel.saveGithub(owner, repository, branch, workflow)
-                }
-            }
-        }
-
         "build" -> {
             val settings = viewModel.settings
             var buildPoll by remember(settings.buildPollSeconds) { mutableStateOf(settings.buildPollSeconds.toString()) }
-            var automationInterval by remember(settings.automationEventIntervalMinutes) { mutableStateOf(settings.automationEventIntervalMinutes.toString()) }
-
-            SettingsDetail("Build & automation") {
-                SettingsHint("Polling and event intervals are bounded by DevForge.")
+            SettingsDetail("Build") {
+                SettingsHint("Build polling controls how often DevForge checks remote build status.")
                 NumberField("Build polling seconds", buildPoll) { buildPoll = it.take(3) }
-                NumberField("Automation event interval (minutes)", automationInterval) { automationInterval = it.take(4) }
-                SettingsAction("Apply") {
-                    viewModel.setBuildPoll(buildPoll)
-                    viewModel.setAutomationInterval(automationInterval)
-                }
+                SettingsAction("Apply") { viewModel.setBuildPoll(buildPoll) }
             }
         }
 
@@ -192,8 +167,7 @@ fun DevForgeSettingsScreen(
                 )
             }
             item { SimpleSettingsTile("AI routing", "How DevForge chooses a model", { onSectionChange("routing") }) }
-            item { SimpleSettingsTile("GitHub", "Repository and CI defaults", { onSectionChange("github") }) }
-            item { SimpleSettingsTile("Build & automation", "Polling and event timing", { onSectionChange("build") }) }
+            item { SimpleSettingsTile("Build", "Polling for remote build status", { onSectionChange("build") }) }
             item { SimpleSettingsTile("Terminal", "Default execution timeout", { onSectionChange("terminal") }) }
             item { SimpleSettingsTile("Privacy & retention", "Local history limits", { onSectionChange("privacy") }) }
             item { SimpleSettingsTile("Appearance", "Theme and information density", { onSectionChange("appearance") }) }
