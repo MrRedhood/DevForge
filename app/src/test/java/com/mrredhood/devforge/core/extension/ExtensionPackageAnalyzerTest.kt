@@ -32,6 +32,20 @@ class ExtensionPackageAnalyzerTest {
     }
 
     @Test
+    fun recognizesVsixStyleNestedExtensionDirectory() {
+        val root = createTempDir()
+        val extension = File(root, "extension").apply { mkdirs() }
+        File(extension, "package.json").writeText(
+            """{"publisher":"test","name":"icon-theme","displayName":"Icon Theme","version":"1.0.0","contributes":{"iconThemes":[{"id":"icons","label":"Icons","path":"theme.json"}]}}""",
+        )
+        File(extension, "theme.json").writeText("""{"iconDefinitions":{}}""")
+        val result = ExtensionPackageAnalyzer.analyze(root).getOrThrow()
+        assertEquals(ExtensionSource.VSCODE, result.manifest.source)
+        assertEquals(ExtensionPackageKind.ICON_THEME, result.manifest.kind)
+        root.deleteRecursively()
+    }
+
+    @Test
     fun rejectsUnknownProgrammingLanguageInsteadOfPretendingSupport() {
         val root = createTempDir()
         File(root, "package.json").writeText(
