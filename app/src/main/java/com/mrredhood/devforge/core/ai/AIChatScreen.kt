@@ -1,5 +1,7 @@
 package com.mrredhood.devforge.core.ai
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -481,7 +483,7 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
 
     fun launchPicker(type: ChatAttachmentType) {
         attachmentMenuOpen = false
-        val activity = context as? FragmentActivity
+        val activity = context.findFragmentActivity()
         if (activity == null) {
             viewModel.reportAttachmentPickerError(IllegalStateException("Unable to access the current Activity."))
             return
@@ -580,6 +582,18 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
             }
         }
     }
+}
+
+private fun Context.findFragmentActivity(): FragmentActivity? {
+    var current: Context? = this
+    repeat(8) {
+        when (val value = current) {
+            is FragmentActivity -> return value
+            is ContextWrapper -> current = value.baseContext
+            else -> return null
+        }
+    }
+    return null
 }
 
 private fun modelMetaLine(model: AIModelInfo): String = buildString {

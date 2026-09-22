@@ -7,6 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.security.CredentialSecurityStore
+import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
+import com.mrredhood.devforge.core.workspace.GitHubWorkspaceStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -14,6 +16,8 @@ import kotlinx.coroutines.withContext
 
 class GitHubRepositoryViewModel(application: Application) : AndroidViewModel(application) {
     private val gateway = GitHubRepositoryGateway(CredentialSecurityStore(application))
+    private val workspaceRepository = WorkspaceDatabaseRepository(application)
+    private val githubWorkspaceStore = GitHubWorkspaceStore(application)
 
     var state by mutableStateOf(GitHubRepositoryState())
         private set
@@ -181,6 +185,13 @@ class GitHubRepositoryViewModel(application: Application) : AndroidViewModel(app
                 deletingRepositoryId = null
                 if (generation != operationGeneration) return@withContext
                 if (result.isSuccess) {
+                    val remoteWorkspaceIds = githubWorkspaceStore.removeByRepository(
+                        repository.owner,
+                        repository.name,
+                    )
+                    remoteWorkspaceIds.forEach { workspaceId ->
+                        workspaceRepository.delete(workspaceId)
+                    }
                     state = state.copy(
                         repositories = state.repositories.filterNot { it.id == repository.id },
                         selectedRepository = if (state.selectedRepository?.id == repository.id) null else state.selectedRepository,

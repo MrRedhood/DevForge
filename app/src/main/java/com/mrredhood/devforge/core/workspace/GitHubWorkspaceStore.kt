@@ -59,6 +59,31 @@ class GitHubWorkspaceStore(context: Context) {
         prefs.edit().remove(KEY_PREFIX + workspaceId).apply()
     }
 
+    fun removeByRepository(owner: String, repository: String): Set<String> {
+        val matchingIds = prefs.all.entries.mapNotNull { (key, value) ->
+            if (!key.startsWith(KEY_PREFIX) || value !is String) return@mapNotNull null
+            runCatching {
+                val json = JSONObject(value)
+                val storedOwner = json.optString("owner")
+                val storedRepository = json.optString("repository")
+                if (
+                    storedOwner.equals(owner.trim(), ignoreCase = true) &&
+                    storedRepository.equals(repository.trim(), ignoreCase = true)
+                ) {
+                    key.removePrefix(KEY_PREFIX)
+                } else {
+                    null
+                }
+            }.getOrNull()
+        }.toSet()
+        if (matchingIds.isNotEmpty()) {
+            prefs.edit().apply {
+                matchingIds.forEach { remove(KEY_PREFIX + it) }
+            }.apply()
+        }
+        return matchingIds
+    }
+
     companion object {
         private const val KEY_PREFIX = "workspace::"
     }

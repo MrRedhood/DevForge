@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import android.content.Intent
 import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
 import com.mrredhood.devforge.DevForgeApplication
 import com.mrredhood.devforge.core.agent.AgentAccess
 import com.mrredhood.devforge.core.agent.AgentAssignment
@@ -671,7 +672,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                     val metadata = readAttachmentMetadata(uri, type.maxBytes)
-                    require(type.accepts(metadata.mimeType))
+                    require(type.accepts(metadata.mimeType, metadata.name))
                     require(metadata.sizeBytes in 1..type.maxBytes)
                     ChatAttachment(uri, metadata.name, metadata.mimeType, metadata.sizeBytes, type)
                 }.getOrNull()
@@ -712,16 +713,27 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun readAttachmentMetadata(uri: Uri, maxBytes: Long): AttachmentMetadata {
         var name = uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { "attachment" } ?: "attachment"
-        val mime = resolver.getType(uri).orEmpty().ifBlank { "application/octet-stream" }
+        var mime = resolver.getType(uri).orEmpty().trim()
         var size = -1L
         resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
             if (cursor.moveToFirst()) {
-                if (nameIndex >= 0) name = cursor.getString(nameIndex)?.take(MAX_ATTACHMENT_NAME_CHARS).orEmpty().ifBlank { name }
+                if (nameIndex >= 0) {
+                    name = cursor.getString(nameIndex)
+                        ?.take(MAX_ATTACHMENT_NAME_CHARS)
+                        .orEmpty()
+                        .ifBlank { name }
+                }
                 if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) size = cursor.getLong(sizeIndex)
             }
         }
+        if (mime.isBlank() || mime.equals("application/octet-stream", ignoreCase = true)) {
+            mime = MimeTypeMap.getSingleton()
+                .getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
+                .orEmpty()
+        }
+        if (mime.isBlank()) mime = "application/octet-stream"
         if (size <= 0L || size > maxBytes) size = countBytesBounded(uri, maxBytes)
         require(size in 1..maxBytes)
         return AttachmentMetadata(name, mime, size)
@@ -948,12 +960,28 @@ enum class ChatAttachmentType(val maxBytes: Long) {
     AUDIO(30L * 1024L * 1024L),
     DOCUMENT(10L * 1024L * 1024L);
 
-    fun accepts(mime: String): Boolean = when (this) {
-        ANY_FILE -> true
-        PHOTO -> mime.startsWith("image/")
-        VIDEO -> mime.startsWith("video/")
-        AUDIO -> mime.startsWith("audio/")
-        DOCUMENT -> mime.startsWith("text/") || mime == "application/pdf" || mime == "application/json" || mime == "application/xml" || mime == "application/rtf" || mime == "text/csv" || mime == "application/msword" || mime == "application/vnd.ms-excel" || mime == "application/vnd.ms-powerpoint" || mime.startsWith("application/vnd.openxmlformats-officedocument.") || mime == "application/epub+zip"
+    fun accepts(mime: String, name: String = ""): Boolean {
+        val normalizedMime = mime.trim().lowercase()
+        val extension = name.substringAfterLast('.', "").lowercase()
+        return when (this) {
+            ANY_FILE -> true
+            PHOTO -> normalizedMime.startsWith("image/") || extension in PHOTO_EXTENSIONS
+            VIDEO -> normalizedMime.startsWith("video/") || extension in VIDEO_EXTENSIONS
+            AUDIO -> normalizedMime.startsWith("audio/") || extension in AUDIO_EXTENSIONS
+            DOCUMENT ->
+                normalizedMime.startsWith("text/") ||
+                    normalizedMime == "application/pdf" ||
+                    normalizedMime == "application/json" ||
+                    normalizedMime == "application/xml" ||
+                    normalizedMime == "application/rtf" ||
+                    normalizedMime == "text/csv" ||
+                    normalizedMime == "application/msword" ||
+                    normalizedMime == "application/vnd.ms-excel" ||
+                    normalizedMime == "application/vnd.ms-powerpoint" ||
+                    normalizedMime.startsWith("application/vnd.openxmlformats-officedocument.") ||
+                    normalizedMime == "application/epub+zip" ||
+                    extension in DOCUMENT_EXTENSIONS
+        }
     }
 
     val label: String get() = when (this) {
@@ -962,5 +990,15 @@ enum class ChatAttachmentType(val maxBytes: Long) {
         VIDEO -> "Video"
         AUDIO -> "Audio"
         DOCUMENT -> "Document"
+    }
+
+    private companion object {
+        val PHOTO_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "bmp", "avif")
+        val VIDEO_EXTENSIONS = setOf("mp4", "m4v", "mov", "webm", "mkv", "3gp", "avi")
+        val AUDIO_EXTENSIONS = setOf("mp3", "m4a", "aac", "wav", "ogg", "flac", "opus")
+        val DOCUMENT_EXTENSIONS = setOf(
+            "txt", "md", "csv", "tsv", "rtf", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+            "odt", "ods", "odp", "epub", "html", "xml", "json",
+        )
     }
 }

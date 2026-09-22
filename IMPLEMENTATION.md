@@ -1647,3 +1647,14 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Triggered a new push-to-main validation run after the GitHub Actions release-signing secrets were updated.
 - [x] This main-branch change is intentionally documentation-only; no application source behavior was changed.
 - [ ] Android CI and Android UI Tests results are pending completion.
+
+
+### 2026-09-22 — Repository deletion and attachment reliability hardening
+- [x] Added a repository-row delete action so every repository visible in the connected GitHub repository list can be selected for deletion without first opening its details.
+- [x] Kept the exact-name permanent-delete confirmation and GitHub permission enforcement already present in the repository deletion flow.
+- [x] Cleaned up matching GitHub-backed workspace registrations after successful remote repository deletion so deleted remotes do not remain as broken active workspaces.
+- [x] Hardened the Android attachment picker activity lookup by unwrapping Compose context wrappers before launching the system picker.
+- [x] Hardened attachment type detection by inferring common image, video, audio and document MIME types from filenames when document providers return a generic or missing MIME type.
+- [x] Added regression coverage for extension-based attachment type detection.
+- [x] Expanded More → ⓘ Help & guide with the repository deletion entry, attachment limits, picker behavior and provider-specific binary attachment behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this main commit.

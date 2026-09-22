@@ -144,9 +144,16 @@ fun GitHubRepositoryScreen(
                 }
 
                 items(filtered, key = { it.id }) { repository ->
-                    RepositoryRow(repository, selected = state.selectedRepository?.id == repository.id) {
-                        viewModel.selectRepository(repository)
-                    }
+                    RepositoryRow(
+                        repository = repository,
+                        selected = state.selectedRepository?.id == repository.id,
+                        deleting = viewModel.deletingRepositoryId == repository.id,
+                        onClick = { viewModel.selectRepository(repository) },
+                        onDelete = {
+                            deleteConfirmation = ""
+                            deleteTarget = repository
+                        },
+                    )
                 }
 
                 state.selectedRepository?.let { repository ->
@@ -509,15 +516,39 @@ private fun BuildSettingRow(
 private fun RepositoryRow(
     repository: GitHubRepository,
     selected: Boolean,
+    deleting: Boolean,
     onClick: () -> Unit,
+    onDelete: () -> Unit,
 ) {
-    Card(onClick = onClick, colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+        ),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Icon(if (repository.isPrivate) Icons.Default.Lock else Icons.Default.Source, null)
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(repository.fullName, fontWeight = FontWeight.SemiBold)
-                Text(repository.defaultBranch, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    repository.defaultBranch,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(
+                onClick = onDelete,
+                enabled = !deleting,
+            ) {
+                if (deleting) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete repository")
+                }
             }
             Icon(Icons.Default.ChevronRight, null)
         }
