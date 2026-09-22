@@ -91,6 +91,9 @@ class WorkspaceAgentToolProvider(
 
         private fun normalizeToolPath(rawPath: String, remote: Boolean): String {
             var value = rawPath.trim()
+            if (value.isBlank() || value == "." || value == "./" || value == "/") {
+                return ""
+            }
             if (remote) {
                 when {
                     value.startsWith("github://", ignoreCase = true) ->
