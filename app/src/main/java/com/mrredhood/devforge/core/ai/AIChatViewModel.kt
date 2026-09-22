@@ -597,33 +597,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         summary = authoritativeAnswer,
                     )
                     withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
-                } else if (shouldDelegateToWorkspaceAgent(raw, parsed, workspaceId)) {
-                    val targetWorkspaceId = workspaceId ?: error("Create or select a workspace before asking the agent to change files.")
-                    workflowSnapshot = aiWorkflowEngine.phase(
-                        workflowSnapshot,
-                        AiWorkflowPhase.EXECUTE,
-                        "Executing implementation",
-                    )
-                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
-                    val agentInstruction = buildAgentInstruction(raw, parsed, effectiveInstruction)
-                    val response = executeChatAgent(
-                        workspaceId = targetWorkspaceId,
-                        model = model,
-                        instruction = agentInstruction,
-                    )
-                    chatRepository.addMessage(sessionId, "assistant", response)
-                    workflowSnapshot = aiWorkflowEngine.phase(
-                        workflowSnapshot,
-                        AiWorkflowPhase.EXECUTE,
-                        "Agents completed implementation",
-                    )
-                    workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
-                        workflowSnapshot,
-                        workspaceRoot = workspaceRoot,
-                        changedPaths = emptyList(),
-                        summary = response,
-                    )
-                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 } else if (parsed?.command?.name == "help") {
                     chatRepository.addMessage(sessionId, "assistant", effectiveInstruction)
                     workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
