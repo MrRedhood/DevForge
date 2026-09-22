@@ -28,7 +28,18 @@ class ExtensionPackageInstaller(
             }
             val finalRoot = root.resolve(safeId(manifest.id))
             finalRoot.deleteRecursively()
-            require(staging.renameTo(finalRoot)) { "Unable to install extension files." }
+            val packageRoot = analyzed.packageRoot.canonicalFile
+            val stagingCanonical = staging.canonicalFile
+            require(
+                packageRoot.path == stagingCanonical.path ||
+                    packageRoot.path.startsWith(stagingCanonical.path + File.separator),
+            ) { "Extension package root escapes staging directory." }
+            if (packageRoot.path == stagingCanonical.path) {
+                require(staging.renameTo(finalRoot)) { "Unable to install extension files." }
+            } else {
+                require(packageRoot.renameTo(finalRoot)) { "Unable to install extension payload." }
+                staging.deleteRecursively()
+            }
             val installed = InstalledExtension(
                 manifest = manifest.copy(rootPath = finalRoot.absolutePath),
                 enabled = true,
