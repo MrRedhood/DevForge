@@ -903,16 +903,17 @@ private fun ProjectPulseStrip(
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
-                if (agents.tasks.any {
+                val runningAgents = agents.tasks.count {
                     it.status in setOf(
                         com.mrredhood.devforge.core.agent.AgentTaskStatus.QUEUED.name,
                         com.mrredhood.devforge.core.agent.AgentTaskStatus.PLANNING.name,
                         com.mrredhood.devforge.core.agent.AgentTaskStatus.RUNNING.name,
                         com.mrredhood.devforge.core.agent.AgentTaskStatus.WAITING_APPROVAL.name,
                     )
-                }) {
+                }
+                if (runningAgents > 0) {
                     Text(
-                        "AI working",
+                        runningAgents.toString() + " agent" + if (runningAgents == 1) "" else "s" + " running",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -962,6 +963,21 @@ private fun ProjectActivityScreen(
     }
     val auditEvents = auditFlow?.collectAsState(initial = emptyList())?.value.orEmpty()
     val tasks = taskFlow?.collectAsState(initial = emptyList())?.value.orEmpty()
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    LaunchedEffect(tasks.map { it.taskId to it.status }) {
+        while (isActive && tasks.any {
+            it.status in setOf(
+                "QUEUED",
+                "PLANNING",
+                "RUNNING",
+                "WAITING_APPROVAL",
+            )
+        }) {
+            now = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -2597,20 +2613,34 @@ private fun EditorScreen(
         collapsedStarts = collapsedStarts.intersect(validStarts)
     }
 
-    val byteSize = active.content.toByteArray(Charsets.UTF_8).size
-    val lineCount = active.content.count { it == '\n' } + 1
-    val richCodeRendering = byteSize <= 128 * 1024 && lineCount <= 4_000
-    val foldRanges = if (richCodeRendering) remember(active.uri, active.content) { EditorFolding.ranges(active.content) } else emptyList()
-    val activeFolds = foldRanges.filter { it.startOffset in collapsedStarts }
-    val language = EditorLanguage.detect(active.name)
+    val byteSize = remember(active.content) { active.content.toByteArray(Charsets.UTF_8).size }
+    val lineCount = remember(active.content) { active.content.count { it == '\n' } + 1 }
+    val richCodeRendering = remember(byteSize, lineCount) { byteSize <= 128 * 1024 && lineCount <= 4_000 }
+    val foldRanges = if (richCodeRendering) {
+        remember(active.uri, active.content) { EditorFolding.ranges(active.content) }
+    } else {
+        emptyList()
+    }
+    val activeFolds = remember(foldRanges, collapsedStarts) {
+        foldRanges.filter { it.startOffset in collapsedStarts }
+    }
+    val language = remember(active.name) { EditorLanguage.detect(active.name) }
     val syntax = if (richCodeRendering) {
-        CodeSyntaxVisualTransformation(
-            language = language,
-            keywordColor = MaterialTheme.colorScheme.primary,
-            stringColor = MaterialTheme.colorScheme.tertiary,
-            commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            numberColor = MaterialTheme.colorScheme.secondary,
-        )
+        remember(
+            language,
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            MaterialTheme.colorScheme.secondary,
+        ) {
+            CodeSyntaxVisualTransformation(
+                language = language,
+                keywordColor = MaterialTheme.colorScheme.primary,
+                stringColor = MaterialTheme.colorScheme.tertiary,
+                commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                numberColor = MaterialTheme.colorScheme.secondary,
+            )
+        }
     } else {
         VisualTransformation.None
     }
