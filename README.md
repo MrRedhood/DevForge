@@ -34,7 +34,7 @@ DevForge treats AI output as untrusted input. Tool access is capability-scoped, 
 
 Users do not launch or operate agents directly. AI can deploy bounded internal agents when a task benefits from parallel work. The user sees the plan, searches, tool execution, provider/model, elapsed time, current progress and final change overview.
 
-DevForge uses cloud AI providers. It does not expose an on-device/local model runtime.
+DevForge uses cloud AI providers only. It intentionally does not expose an on-device/local inference runtime.
 
 ### Android-first by design
 
@@ -63,4 +63,4 @@ The user-facing workflow is intentionally observational: there is no agent launc
 
 ### Mobile editor performance
 
-Large files automatically enter a faster rendering mode that reduces expensive syntax highlighting and folding work. Diagnostics are debounced and calculated off the UI thread so continuous typing and scrolling remain responsive.
+Files above 64 KiB automatically enter fast rendering mode with reduced syntax and folding work. Fold calculation is debounced off the UI thread, diagnostics are bounded and debounced, and undo bookkeeping avoids rescanning the entire history on every keystroke so continuous typing and scrolling stay responsive on lower-end Android devices.

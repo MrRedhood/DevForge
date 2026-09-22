@@ -1742,3 +1742,22 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Updated README and architecture documentation to describe the new AI-managed workflow and mobile editor performance boundary.
 - [x] Updated Android UI coverage so the chat verifies that user-facing Agent controls are absent.
 - [ ] Fresh Android CI and Android UI Tests validation is still required for this change set.
+
+
+### 2026-09-22 — AI agent observability and mobile editor responsiveness hardening
+
+- [x] Kept the AI-managed agent architecture cloud-only. No on-device/local inference runtime is exposed.
+- [x] Kept agent deployment internal to the AI workflow. The user remains an observer and cannot launch, stop, replay, or choose individual coding agents.
+- [x] Prevented the Chat stop control from cancelling an active AI-managed agent plan; agents now complete their assigned bounded work and terminate at their normal terminal state.
+- [x] Added explicit per-step execution detail in the live Chat agent panel for workspace searches, content searches, file/folder paths, commands, web searches, URLs, and workspace-context requests.
+- [x] Kept tool telemetry bounded and redacted; file contents and credential-like values are not surfaced as telemetry.
+- [x] Preserved ordered plan execution: agents within a phase may run concurrently, while later phases wait for earlier phases to finish.
+- [x] Removed the duplicate Project Activity rail action that was labelled like a replay/history control; user-facing project activity remains read-only.
+- [x] Reduced rich editor rendering to a 64 KiB content boundary and removed the synchronous fold scan from the typing/recomposition path.
+- [x] Moved fold-range calculation to a debounced background calculation.
+- [x] Kept split-editor syntax highlighting on the same existing fast-rendering boundary.
+- [x] Reworked editor undo bookkeeping to use incremental bounded byte accounting instead of rebuilding byte arrays and rescanning the complete undo stack on every keystroke.
+- [x] Increased editor diagnostics debounce and skipped full diagnostics for files above 256 KiB.
+- [x] Increased recovery snapshot debounce to reduce background work during continuous typing.
+- [x] Updated More → ⓘ Help & guide and README with the AI-only agent boundary and editor performance rules.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this main-branch change.

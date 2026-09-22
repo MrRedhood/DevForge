@@ -67,6 +67,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private var openGeneration = 0L
     private var activeWorkspaceId: String? = null
     private val undoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
+    private val undoBytes = mutableMapOf<Uri, Long>()
     private val redoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
 
     val activeTab: EditorTab?
@@ -105,6 +106,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         diagnosticsJob?.cancel()
         diagnosticsJob = null
         undoStacks.clear()
+        undoBytes.clear()
         redoStacks.clear()
         tabs = emptyList()
         activeUri = null
@@ -220,14 +222,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val uri = activeUri ?: return
         val current = tabs.firstOrNull { it.uri == uri }?.content ?: return
         if (current == content) return
-        if (current.toByteArray(Charsets.UTF_8).size <= MAX_UNDO_CONTENT_BYTES) {
-            val undo = undoStacks.getOrPut(uri) { ArrayDeque() }
-            undo.addLast(current)
-            while (undo.size > MAX_UNDO) undo.removeFirst()
-            while (undo.sumOf { it.toByteArray(Charsets.UTF_8).size.toLong() } > MAX_UNDO_TOTAL_BYTES && undo.isNotEmpty()) {
-                undo.removeFirst()
-            }
-        }
+        recordUndo(uri, current)
         redoStacks.getOrPut(uri) { ArrayDeque() }.clear()
         applyContent(uri, content)
     }
@@ -238,15 +233,27 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         if (currentActive != uri) {
             val current = tabs.firstOrNull { it.uri == uri }?.content ?: return
             if (current == content) return
-            if (current.toByteArray(Charsets.UTF_8).size <= MAX_UNDO_CONTENT_BYTES) {
-                val undo = undoStacks.getOrPut(uri) { ArrayDeque() }
-                undo.addLast(current)
-                while (undo.size > MAX_UNDO) undo.removeFirst()
-            }
+            recordUndo(uri, current)
             redoStacks.getOrPut(uri) { ArrayDeque() }.clear()
             applyContent(uri, content)
         } else {
             updateContent(content)
+        }
+    }
+
+    private fun recordUndo(uri: Uri, content: String) {
+        val entryBytes = (content.length.toLong() * 2L).coerceAtLeast(1L)
+        if (entryBytes > MAX_UNDO_CONTENT_BYTES) return
+        val stack = undoStacks.getOrPut(uri) { ArrayDeque() }
+        stack.addLast(content)
+        undoBytes[uri] = (undoBytes[uri] ?: 0L) + entryBytes
+        while (stack.size > MAX_UNDO) {
+            val removed = stack.removeFirst()
+            undoBytes[uri] = (undoBytes[uri] ?: 0L) - (removed.length.toLong() * 2L).coerceAtLeast(1L)
+        }
+        while ((undoBytes[uri] ?: 0L) > MAX_UNDO_TOTAL_BYTES && stack.isNotEmpty()) {
+            val removed = stack.removeFirst()
+            undoBytes[uri] = (undoBytes[uri] ?: 0L) - (removed.length.toLong() * 2L).coerceAtLeast(1L)
         }
     }
 
@@ -326,8 +333,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             val tab = tabs.firstOrNull { it.uri == uri } ?: return@launch
             val content = tab.content
             val name = tab.name
-            val result = withContext(Dispatchers.Default) {
-                EditorDiagnostics.analyze(name, content).diagnostics
+            val result = if (content.length.toLong() * 2L > MAX_DIAGNOSTIC_CONTENT_BYTES) {
+                emptyList()
+            } else {
+                withContext(Dispatchers.Default) {
+                    EditorDiagnostics.analyze(name, content).diagnostics
+                }
             }
             if (activeUri == uri && tabs.firstOrNull { it.uri == uri }?.content == content) {
                 diagnostics = result
@@ -412,6 +423,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         recoveryJobs.remove(uri)?.cancel()
         tabs = tabs.filterNot { it.uri == uri }
         undoStacks.remove(uri)
+        undoBytes.remove(uri)
         redoStacks.remove(uri)
         activeUri = tabs.lastOrNull()?.uri
         diagnostics = activeUri?.let { diagnosticsFor(it) }.orEmpty()
@@ -530,7 +542,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private fun scheduleRecovery(uri: Uri) {
         recoveryJobs.remove(uri)?.cancel()
         recoveryJobs[uri] = viewModelScope.launch {
-            delay(750)
+            delay(1_200)
             val tab = tabs.firstOrNull { it.uri == uri } ?: return@launch
             if (tab.isDirty) {
                 withContext(Dispatchers.IO) {
@@ -561,6 +573,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         openJob?.cancel()
         diagnosticsJob?.cancel()
         openJob = null
+        undoStacks.clear()
+        undoBytes.clear()
+        redoStacks.clear()
         recoveryJobs.values.forEach(Job::cancel)
         recoveryJobs.clear()
         super.onCleared()
@@ -572,7 +587,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         const val MAX_UNDO = 100
         const val MAX_UNDO_CONTENT_BYTES = 512 * 1024
         const val MAX_UNDO_TOTAL_BYTES = 4 * 1024 * 1024
-        const val DIAGNOSTICS_DEBOUNCE_MS = 300L
+        const val DIAGNOSTICS_DEBOUNCE_MS = 450L
+        const val MAX_DIAGNOSTIC_CONTENT_BYTES = 256L * 1024L
     }
 }
 

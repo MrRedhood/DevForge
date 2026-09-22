@@ -453,6 +453,13 @@ private fun AgentRunCard(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (step.status == "Running") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                                step.detail?.let {
+                                    Text(
+                                        it.take(240),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
                                 step.activity?.let {
                                     Text(
                                         it.take(220),
@@ -714,10 +721,20 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                 Spacer(Modifier.weight(1f))
                 IconButton(
                     onClick = if (viewModel.isSending) viewModel::stopGeneration else viewModel::submit,
-                    enabled = viewModel.isSending || viewModel.input.isNotBlank() || viewModel.attachments.isNotEmpty(),
+                    enabled = if (viewModel.isSending) {
+                        !viewModel.isAgentWorkInProgress
+                    } else {
+                        viewModel.input.isNotBlank() || viewModel.attachments.isNotEmpty()
+                    },
                 ) {
-                    if (viewModel.isSending) Text("■", fontWeight = FontWeight.Black)
-                    else Icon(Icons.Default.Send, "Send")
+                    if (viewModel.isSending) {
+                        Text(
+                            if (viewModel.isAgentWorkInProgress) "…" else "■",
+                            fontWeight = FontWeight.Black,
+                        )
+                    } else {
+                        Icon(Icons.Default.Send, "Send")
+                    }
                 }
             }
         }

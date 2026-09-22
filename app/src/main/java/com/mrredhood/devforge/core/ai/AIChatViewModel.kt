@@ -9,6 +9,8 @@ import com.mrredhood.devforge.DevForgeApplication
 import com.mrredhood.devforge.core.agent.AgentAccess
 import com.mrredhood.devforge.core.agent.AgentAssignment
 import com.mrredhood.devforge.core.agent.AgentModelBinding
+import com.mrredhood.devforge.core.agent.AgentTaskStep
+import com.mrredhood.devforge.core.agent.AgentToolId
 import com.mrredhood.devforge.core.agent.AgentSquadPlan
 import com.mrredhood.devforge.core.agent.AgentSquadPlanner
 import com.mrredhood.devforge.core.agent.AgentTaskStatus
@@ -44,6 +46,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import kotlinx.coroutines.withContext
 
 class AIChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -121,6 +124,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private set
     var agentRun by mutableStateOf<AgentRunState?>(null)
         private set
+
+    val isAgentWorkInProgress: Boolean
+        get() = agentRun?.completedAtEpochMs == null
 
     val isEditingMessage: Boolean
         get() = editingMessageId != null
@@ -617,6 +623,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Stops only this Chat generation and any agent task created by this Chat turn. */
     fun stopGeneration() {
+        if (isAgentWorkInProgress) return
         stopGenerationLocally()
     }
 
@@ -877,6 +884,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         else -> "Pending"
                     },
                     activity = activities.getOrNull(index),
+                    detail = describeAgentStep(step),
                 )
             }
         }.getOrDefault(emptyList())
@@ -894,6 +902,55 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             steps = steps,
             affectedPaths = extractAffectedPaths(task.result),
         )
+    }
+
+    private fun describeAgentStep(step: AgentTaskStep): String? {
+        val args = runCatching { JSONObject(step.argumentsJson) }.getOrNull() ?: return null
+        fun value(vararg keys: String): String? =
+            keys.asSequence()
+                .map { args.optString(it).trim() }
+                .firstOrNull { it.isNotBlank() }
+
+        val detail = when (step.toolId) {
+            AgentToolId.SEARCH_WORKSPACE,
+            AgentToolId.SEARCH_CONTENT,
+            AgentToolId.FIND_FILES,
+            -> value("query", "pattern")?.let { "Search: $it" }
+
+            AgentToolId.READ_FILE,
+            AgentToolId.LIST_FILES,
+            AgentToolId.FILE_INFO,
+            AgentToolId.COUNT_LINES,
+            AgentToolId.HASH_FILE,
+            AgentToolId.DIRECTORY_TREE,
+            -> value("path")?.let { "Path: $it" }
+
+            AgentToolId.PATCH_FILE,
+            AgentToolId.WRITE_FILE,
+            AgentToolId.CREATE_FILE,
+            AgentToolId.CREATE_FOLDER,
+            AgentToolId.DELETE_PATH,
+            -> value("path")?.let { "Path: $it" }
+
+            AgentToolId.RUN_COMMAND,
+            -> value("command")?.let { "Command: $it" }
+
+            AgentToolId.WEB_SEARCH,
+            -> value("query")?.let { "Web search: $it" }
+
+            AgentToolId.SCRAPE_URL,
+            AgentToolId.FETCH_URL,
+            AgentToolId.EXTRACT_LINKS,
+            -> value("url")?.let { "URL: $it" }
+
+            AgentToolId.GET_WORKSPACE_CONTEXT,
+            AgentToolId.RETRIEVE_RELEVANT_CONTEXT,
+            -> value("scope", "query")?.let { "Context: $it" }
+
+            else -> value("summary", "expression")?.let { "Detail: $it" }
+        }
+
+        return detail?.let { com.mrredhood.devforge.core.security.SecretRedactor.redact(it, 240) }
     }
 
     private fun extractStepActivities(result: String?): List<String> =
@@ -1305,6 +1362,7 @@ data class AgentRunStepSnapshot(
     val toolId: String,
     val status: String,
     val activity: String? = null,
+    val detail: String? = null,
 )
 
 data class AgentRunTaskSnapshot(

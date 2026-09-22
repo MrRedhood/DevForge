@@ -118,6 +118,7 @@ import com.mrredhood.devforge.core.editor.ChainedVisualTransformation
 import com.mrredhood.devforge.core.editor.CodeSyntaxVisualTransformation
 import com.mrredhood.devforge.core.editor.EditorFolding
 import com.mrredhood.devforge.core.editor.EditorLanguage
+import com.mrredhood.devforge.core.editor.EditorFoldRange
 import com.mrredhood.devforge.core.editor.EditorTab
 import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.editor.FoldingVisualTransformation
@@ -161,10 +162,12 @@ import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import com.mrredhood.devforge.core.workspace.GitHubWorkspaceImportScreen
 import com.mrredhood.devforge.core.workspace.GitHubWorkspaceUris
 import com.mrredhood.devforge.ui.theme.DevForgeTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : FragmentActivity() {
     companion object {
@@ -940,9 +943,6 @@ private fun ActivityRail(
         ) {
             IconButton(onClick = onActivity, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.List, contentDescription = "Activity")
-            }
-            IconButton(onClick = onActivity, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Default.Refresh, contentDescription = "Replay and history")
             }
         }
     }
@@ -2603,24 +2603,34 @@ private fun EditorScreen(
         }
     }
 
+    val estimatedBytes = remember(active.content) { active.content.length.toLong() * 2L }
+    val richCodeRendering = remember(estimatedBytes) { estimatedBytes <= 64L * 1024L }
+    var foldRanges by remember(active.uri) { mutableStateOf<List<EditorFoldRange>>(emptyList()) }
+
     LaunchedEffect(active.content) {
         if (fieldValue.text != active.content) {
             fieldValue = TextFieldValue(active.content, TextRange(active.content.length))
         }
-        val validStarts = if (active.content.toByteArray(Charsets.UTF_8).size <= 64 * 1024 && active.content.count { it == '\n' } + 1 <= 2_000) {
-            EditorFolding.ranges(active.content, maxRanges = 40).map { it.startOffset }.toSet()
-        } else emptySet()
-        collapsedStarts = collapsedStarts.intersect(validStarts)
     }
 
-    val byteSize = remember(active.content) { active.content.toByteArray(Charsets.UTF_8).size }
-    val lineCount = remember(active.content) { active.content.count { it == '\n' } + 1 }
-    val richCodeRendering = remember(byteSize, lineCount) { byteSize <= 64 * 1024 && lineCount <= 2_000 }
-    val foldRanges = if (richCodeRendering) {
-        remember(active.uri, active.content) { EditorFolding.ranges(active.content, maxRanges = 40) }
-    } else {
-        emptyList()
+    LaunchedEffect(active.uri, active.content, richCodeRendering) {
+        if (!richCodeRendering) {
+            foldRanges = emptyList()
+            collapsedStarts = emptySet()
+            return@LaunchedEffect
+        }
+        delay(220)
+        val snapshot = active.content
+        val computed = withContext(Dispatchers.Default) {
+            EditorFolding.ranges(snapshot)
+        }
+        if (editor.activeTab?.uri == active.uri && editor.activeTab?.content == snapshot) {
+            foldRanges = computed
+            val validStarts = computed.map { it.startOffset }.toSet()
+            collapsedStarts = collapsedStarts.intersect(validStarts)
+        }
     }
+
     val activeFolds = remember(foldRanges, collapsedStarts) {
         foldRanges.filter { it.startOffset in collapsedStarts }
     }
@@ -2669,7 +2679,7 @@ private fun EditorScreen(
             ) {
                 Text(active.name, fontWeight = FontWeight.Bold, maxLines = 1)
                 Text(
-                    language.name.replace('_', ' ') + " · " + (active.content.count { it == '\n' } + 1) + " lines",
+                    language.name.replace('_', ' ') + " · " + formatEditorSize(estimatedBytes) + " · " + active.content.length + " chars",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -3236,3 +3246,10 @@ private fun formatBytes(value: Long?): String = when {
 
 
 private const val MAX_DESTINATION_HISTORY = 32
+
+
+private fun formatEditorSize(estimatedBytes: Long): String = when {
+    estimatedBytes >= 1024L * 1024L -> String.format(java.util.Locale.US, "%.1f MB", estimatedBytes / (1024f * 1024f))
+    estimatedBytes >= 1024L -> String.format(java.util.Locale.US, "%.1f KB", estimatedBytes / 1024f)
+    else -> estimatedBytes.toString() + " B"
+}
