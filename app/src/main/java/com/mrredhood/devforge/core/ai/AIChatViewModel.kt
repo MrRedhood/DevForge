@@ -467,7 +467,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         attachments = emptyList()
         streamingAnimationKind = StreamingAnimationKind.random()
         toolActivities = emptyList()
-        agentRun = null
         isSending = true
         streamingText = ""
         sendError = null
