@@ -1769,3 +1769,9 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Updated only the AI-managed agent topic to explicitly state the observer-only control boundary.
 - [x] Added the mobile editor performance topic without removing existing Files, DevForge Center, Quality & Reliability, GitHub creation, identity, or symbols topics.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this follow-up.
+
+
+### 2026-09-22 — Bound background editor folding work
+
+- [x] Capped asynchronous fold-range extraction to 40 ranges so background editor analysis cannot grow unbounded on moderately sized files.
+- [ ] Fresh Android CI and Android UI Tests validation is still required for the current main head.

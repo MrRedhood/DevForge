@@ -2622,7 +2622,7 @@ private fun EditorScreen(
         delay(220)
         val snapshot = active.content
         val computed = withContext(Dispatchers.Default) {
-            EditorFolding.ranges(snapshot)
+            EditorFolding.ranges(snapshot, maxRanges = 40)
         }
         if (editor.activeTab?.uri == active.uri && editor.activeTab?.content == snapshot) {
             foldRanges = computed
