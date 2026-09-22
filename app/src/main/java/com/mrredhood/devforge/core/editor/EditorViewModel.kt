@@ -62,6 +62,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     private var recoveryJobs = mutableMapOf<Uri, Job>()
     private var openJob: Job? = null
+    private var diagnosticsJob: Job? = null
     private var workspaceJob: Job? = null
     private var openGeneration = 0L
     private var activeWorkspaceId: String? = null
@@ -101,6 +102,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         openJob = null
         recoveryJobs.values.forEach(Job::cancel)
         recoveryJobs.clear()
+        diagnosticsJob?.cancel()
+        diagnosticsJob = null
         undoStacks.clear()
         redoStacks.clear()
         tabs = emptyList()
@@ -129,7 +132,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         )
         tabs = tabs.filterNot { it.uri == uri } + tab
         activeUri = uri
-        diagnostics = EditorDiagnostics.analyze(tab.name, tab.content).diagnostics
+        scheduleDiagnostics(uri, immediate = true)
         viewModelScope.launch(Dispatchers.IO) {
             durable.saveEditorTab(tab, active = true)
         }
@@ -163,7 +166,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 if (generation != openGeneration) return@onSuccess
                 tabs = tabs.filterNot { it.uri == entry.uri } + tab
                 activeUri = entry.uri
-                diagnostics = EditorDiagnostics.analyze(entry.name, initial).diagnostics
+                scheduleDiagnostics(entry.uri, immediate = true)
                 isLoading = false
                 withContext(Dispatchers.IO) {
                     durable.saveEditorTab(tab, active = true)
@@ -207,6 +210,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun select(uri: Uri) {
         activeUri = uri
+        scheduleDiagnostics(uri, immediate = true)
         tabs.firstOrNull { it.uri == uri }?.let { selected ->
             viewModelScope.launch(Dispatchers.IO) { durable.saveEditorTab(selected, active = true) }
         }
@@ -310,8 +314,25 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
         tabs = tabs.map { if (it.uri == uri) it.copy(content = content, updatedAt = System.currentTimeMillis()) else it }
-        diagnostics = diagnosticsFor(uri)
+        if (uri == activeUri) diagnostics = emptyList()
+        scheduleDiagnostics(uri)
         scheduleRecovery(uri)
+    }
+
+    private fun scheduleDiagnostics(uri: Uri, immediate: Boolean = false) {
+        diagnosticsJob?.cancel()
+        diagnosticsJob = viewModelScope.launch {
+            if (!immediate) delay(DIAGNOSTICS_DEBOUNCE_MS)
+            val tab = tabs.firstOrNull { it.uri == uri } ?: return@launch
+            val content = tab.content
+            val name = tab.name
+            val result = withContext(Dispatchers.Default) {
+                EditorDiagnostics.analyze(name, content).diagnostics
+            }
+            if (activeUri == uri && tabs.firstOrNull { it.uri == uri }?.content == content) {
+                diagnostics = result
+            }
+        }
     }
 
     fun saveActive() {
@@ -538,6 +559,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         workspaceJob?.cancel()
         openJob?.cancel()
+        diagnosticsJob?.cancel()
         openJob = null
         recoveryJobs.values.forEach(Job::cancel)
         recoveryJobs.clear()
@@ -550,6 +572,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         const val MAX_UNDO = 100
         const val MAX_UNDO_CONTENT_BYTES = 512 * 1024
         const val MAX_UNDO_TOTAL_BYTES = 4 * 1024 * 1024
+        const val DIAGNOSTICS_DEBOUNCE_MS = 300L
     }
 }
 
