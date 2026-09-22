@@ -1761,3 +1761,11 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Increased recovery snapshot debounce to reduce background work during continuous typing.
 - [x] Updated More → ⓘ Help & guide and README with the AI-only agent boundary and editor performance rules.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this main-branch change.
+
+
+### 2026-09-22 — Restore and preserve the complete Help & guide catalog
+
+- [x] Restored the full current Help & guide catalog from the latest main observer/compile-fix commit instead of dropping unrelated guide categories.
+- [x] Updated only the AI-managed agent topic to explicitly state the observer-only control boundary.
+- [x] Added the mobile editor performance topic without removing existing Files, DevForge Center, Quality & Reliability, GitHub creation, identity, or symbols topics.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this follow-up.
