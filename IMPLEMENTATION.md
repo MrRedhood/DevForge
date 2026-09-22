@@ -1906,3 +1906,11 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added an extension-manager back affordance and lifecycle-aware installation coroutine.
 - [x] Kept native-language detection strict: unsupported language engines remain rejected rather than appearing as installed language support.
 - [ ] Fresh Android CI and Android UI Tests validation is still required for the latest main head.
+
+
+### 2026-09-22 — VSIX packaging and extension-manager polish
+- [x] Added real VSIX layout discovery for packages that store their manifest and payload under the conventional `extension/` directory.
+- [x] Installation now promotes the actual VSIX/Acode package payload as the installed root so entry points and icon resources resolve against the correct files.
+- [x] Added regression coverage for nested VSIX icon-theme packages.
+- [x] Removed the duplicate extension-manager heading while retaining a direct Back control.
+- [ ] Fresh Android CI and Android UI Tests validation is still required for the latest main head.
