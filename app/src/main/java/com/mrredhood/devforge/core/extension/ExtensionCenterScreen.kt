@@ -18,6 +18,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +53,8 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
     var extensions by remember { mutableStateOf(store.list()) }
     var status by remember { mutableStateOf<String?>(null) }
     var activeRuntime by remember { mutableStateOf<InstalledExtension?>(null) }
+    var searching by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val commands = remember { mutableStateListOf<RuntimeCommand>() }
     val runtime = remember {
@@ -85,11 +90,26 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                 navigationIcon = {
                     IconButton(onClick = onClose) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
                 },
+                actions = {
+                    IconButton(onClick = { searching = !searching; if (!searching) searchQuery = "" }) {
+                        Icon(Icons.Default.Search, contentDescription = "Search extensions")
+                    }
+                },
             )
             Column(
                 Modifier.fillMaxWidth().padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+            if (searching) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it.take(120) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Search extensions") },
+                    placeholder = { Text("Name, publisher, language, or type") },
+                )
+            }
             Text(
                 "Install real Acode plugins or VS Code packages. DevForge analyzes the package first and refuses packages whose required runtime cannot be safely supported.",
                 style = MaterialTheme.typography.bodySmall,
@@ -109,14 +129,32 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                 },
                 modifier = Modifier.fillMaxWidth().height(2.dp),
             )
+            val filteredExtensions = extensions.filter { extension ->
+                val query = searchQuery.trim()
+                query.isBlank() || listOf(
+                    extension.manifest.name,
+                    extension.manifest.id,
+                    extension.manifest.source.name,
+                    extension.manifest.kind.name,
+                    extension.manifest.version,
+                    extension.manifest.nativeLanguages.joinToString(" "),
+                    extension.manifest.contributions.languages.joinToString(" ") { it.label + " " + it.id },
+                ).any { it.contains(query, ignoreCase = true) }
+            }
+
             LazyColumn(
                 Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (extensions.isEmpty()) {
-                    item { Text("No compatible extensions installed yet.") }
+                if (filteredExtensions.isEmpty()) {
+                    item {
+                        Text(
+                            if (extensions.isEmpty()) "No compatible extensions installed yet." else "No extensions match \"" + searchQuery + "\".",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                items(extensions, key = { it.manifest.id }) { extension ->
+                items(filteredExtensions, key = { it.manifest.id }) { extension ->
                     ExtensionCard(
                         extension = extension,
                         isActiveIconTheme = store.activeIconThemeId() == extension.manifest.id,
