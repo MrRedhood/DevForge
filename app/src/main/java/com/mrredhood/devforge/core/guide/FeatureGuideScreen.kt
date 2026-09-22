@@ -629,7 +629,7 @@ private val guideCategories = listOf(
     ),
     GuideCategory(
         "Settings",
-        "Configure AI, GitHub, build, terminal, AI-driven action, privacy, appearance, and editor behavior.",
+        "Configure GitHub, build, terminal, privacy, appearance, and editor behavior.",
         listOf(
             t("AI & GitHub hub","A single management surface for GitHub, AI Models, and AI Tools.",
                 listOf(
@@ -639,9 +639,6 @@ private val guideCategories = listOf(
                 ),
                 "More → AI & GitHub.",
                 listOf("AI & GitHub management = shared management hub")),
-            t("AI settings","Provider credentials and model configuration.",
-                listOf("Open Settings → AI & models.","Configure provider connection.","Return to Chat."),
-                "Settings → AI & models."),
             t("GitHub settings","Account and repository integration settings.",
                 listOf("Open Settings → GitHub.","Validate connection.","Return to repository/workspace tools."),
                 "Settings → GitHub."),
@@ -669,7 +666,7 @@ private val guideCategories = listOf(
         listOf(
             t("Protected credentials","Keep provider/GitHub secrets out of normal UI state and logs.",
                 listOf("Enter credentials through dedicated settings screens.","Never paste secrets into ordinary Chat or source files."),
-                "Settings → AI/GitHub/Security."),
+                "More → AI & GitHub → AI Models and Settings → Security."),
             t("Approval binding","Approvals correspond to the exact action state they were created for.",
                 listOf("Read the exact summary.","Approve only the request you intended to allow."),
                 "Approval system.",
