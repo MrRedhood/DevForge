@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrredhood.devforge.core.ai.AIChatViewModel
 import com.mrredhood.devforge.core.terminal.TerminalViewModel
+import com.mrredhood.devforge.core.extension.ExtensionCenterScreen
 
 @Composable
 fun EngineeringPowerScreen(
@@ -47,11 +48,17 @@ fun EngineeringPowerScreen(
     var mcpServers by remember { mutableStateOf(mcpStore.list()) }
     var learnedRules by remember { mutableStateOf(ruleStore.list()) }
     var selectedSection by remember { mutableStateOf("mission") }
+    var showExtensionCenter by remember { mutableStateOf(false) }
     val graph = remember(workflow) { EngineeringMissionGraph.from(workflow) }
     val proof = remember(workflow) { AiProofPackage.from(workflow) }
 
     LaunchedEffect(profile.id) {
         profileStore.select(profile.id)
+    }
+
+    if (showExtensionCenter) {
+        ExtensionCenterScreen()
+        return
     }
 
     Surface(Modifier.fillMaxSize()) {
@@ -227,7 +234,8 @@ fun EngineeringPowerScreen(
                                     }
                                     HorizontalDivider()
                                     Text("Remote Development / Extensions", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
-                                    Text("Controller/worker endpoint and native extension contracts are approval-scoped definitions; execution is never implicit.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                                    Text("Install and run compatible Acode/VS Code packages through the real extension manager. Unsupported runtimes are rejected instead of being shown as installed.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                                    Button(onClick = { showExtensionCenter = true }) { Text("Manage Extensions") }
                                     HorizontalDivider()
                                     Text("Learned Rules", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
                                     if (learnedRules.isEmpty()) {
