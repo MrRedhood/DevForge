@@ -146,7 +146,7 @@ object ExtensionPackageAnalyzer {
         val source = file.readText(Charsets.UTF_8)
         if (Regex("""\b(import|export)\s""").containsMatchIn(source)) return false
         return listOf("child_process", "fs", "net", "http", "https").none {
-            source.contains(""$it"") || source.contains("'$it'")
+            source.contains("\"$it\"") || source.contains("'$it'")
         }
     }
 
