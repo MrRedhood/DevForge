@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Warning
@@ -202,9 +201,8 @@ fun DevForgeCenterScreen(
             CenterPage.HOME -> CenterHome(
                 padding,
                 listOf(
-                    CenterCard(CenterPage.HEALTH, "Project Health", "One dashboard for workspace, agent, build, Git and approvals."),
+                    CenterCard(CenterPage.HEALTH, "Project Health", "One dashboard for workspace, AI activity, build, Git and approvals."),
                     CenterCard(CenterPage.QUALITY, "Quality & Reliability", "Operations, workspace integrity, security scan, performance budgets and release readiness."),
-                    CenterCard(CenterPage.AI_RUNS, "AI Run Inspector", "Inspect agent tasks, models, approvals, tools and results."),
                     CenterCard(CenterPage.TESTING, "Testing Center", "Review CI state, artifacts, logs and the existing build/test entry point."),
                     CenterCard(CenterPage.DEPENDENCIES, "Dependencies", "Detect dependency manifests and identify where dependency work lives."),
                     CenterCard(CenterPage.DIAGNOSIS, "Build Diagnosis", "Turn workflow logs into grouped failure findings and evidence."),
@@ -218,9 +216,8 @@ fun DevForgeCenterScreen(
                 ),
                 onClick = { page = it.name },
             )
-            CenterPage.HEALTH -> ProjectHealthPage(padding, workspace, editor, agent, build)
+            CenterPage.HEALTH -> ProjectHealthPage(padding, workspace, editor, build)
             CenterPage.QUALITY -> QualityReliabilityPage(padding, workspace, editor, build)
-            CenterPage.AI_RUNS -> AIRunsPage(padding, agent, selectedTaskId, { selectedTaskId = it.takeIf(String::isNotBlank) })
             CenterPage.TESTING -> TestingPage(padding, build, onOpenBuild)
             CenterPage.DEPENDENCIES -> DependenciesPage(padding, workspace)
             CenterPage.DIAGNOSIS -> BuildDiagnosisPage(padding, build)
@@ -283,7 +280,6 @@ private fun CenterPage.title(): String = when (this) {
     CenterPage.HOME -> "DevForge Center"
     CenterPage.HEALTH -> "Project Health"
     CenterPage.QUALITY -> "Quality & Reliability"
-    CenterPage.AI_RUNS -> "AI Run Inspector"
     CenterPage.TESTING -> "Testing Center"
     CenterPage.DEPENDENCIES -> "Dependencies"
     CenterPage.DIAGNOSIS -> "Build Diagnosis"
