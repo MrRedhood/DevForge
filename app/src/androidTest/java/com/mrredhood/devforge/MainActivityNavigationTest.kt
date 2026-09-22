@@ -105,7 +105,7 @@ class MainActivityNavigationTest {
         waitForText("AI & GitHub")
         composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).performClick()
         composeRule.onNodeWithTag("ai-github-hub-list", useUnmergedTree = true).performScrollToIndex(3)
-        waitForNode("AI Tools")
+        waitForText("AI Tools")
         composeRule.onNodeWithText("AI Tools", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Main AI execution controls", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Enable coding tools", useUnmergedTree = true).assertIsDisplayed()
