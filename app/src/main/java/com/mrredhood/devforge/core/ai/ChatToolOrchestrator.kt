@@ -284,7 +284,7 @@ class ChatToolOrchestrator(
     ): String = buildString {
         append(instruction)
         append("\n\nDevForge tool protocol:")
-        append("\nYou may call an enabled DevForge tool whenever it is needed to answer or perform the user's request.")
+        append("\nFor coding or project-change requests, first form a concise plan, then inspect the active workspace before editing, execute the required changes with the enabled tools, and verify the resulting state. Do not stop after planning or describing the change.")
         append("\nThis protocol works even when your model does not have native function-calling support.")
         append("\nFor a tool call, output ONLY this exact envelope for that turn:")
         append("\n<devforge_tool>{\"tool\":\"tool_name\",\"arguments\":{\"key\":\"value\"}}</devforge_tool>")
@@ -341,10 +341,10 @@ class ChatToolOrchestrator(
     )
 
     companion object {
-        private const val MAX_TOOL_STEPS = 6
-        private const val MAX_TOOL_CALLS = 6
+        private const val MAX_TOOL_STEPS = 24
+        private const val MAX_TOOL_CALLS = 24
         private const val MAX_TRANSCRIPT_CHARS = 18_000
-        private const val MAX_TOOL_RESULT_CHARS = 8_000
+        private const val MAX_TOOL_RESULT_CHARS = 12_000
         private const val CHAT_APPROVAL_REJECTED = "CHAT_APPROVAL_REJECTED"
     }
 }
