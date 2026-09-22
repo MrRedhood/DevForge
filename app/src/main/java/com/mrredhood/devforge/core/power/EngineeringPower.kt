@@ -89,12 +89,12 @@ class EngineeringTaskStore(context: Context) {
     }
 
     private fun defaultTasks(): List<EngineeringTask> = listOf(
-        EngineeringTask("verify", "Verify project", "./gradlew test lint"),
-        EngineeringTask("debug-build", "Debug APK", "./gradlew assembleDebug"),
-        EngineeringTask("release-build", "Release APK", "./gradlew assembleRelease"),
-        EngineeringTask("unit", "Unit tests", "./gradlew test"),
-        EngineeringTask("lint", "Lint", "./gradlew lint"),
-        EngineeringTask("clean", "Clean build", "./gradlew clean"),
+        EngineeringTask("verify", "Verify project", "sh ./gradlew test lint"),
+        EngineeringTask("debug-build", "Debug APK", "sh ./gradlew assembleDebug"),
+        EngineeringTask("release-build", "Release APK", "sh ./gradlew assembleRelease"),
+        EngineeringTask("unit", "Unit tests", "sh ./gradlew test"),
+        EngineeringTask("lint", "Lint", "sh ./gradlew lint"),
+        EngineeringTask("clean", "Clean build", "sh ./gradlew clean"),
         EngineeringTask("status", "Git status", "git status --short"),
         EngineeringTask("changed", "Changed files", "git diff --stat"),
     )
