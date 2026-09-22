@@ -5,7 +5,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import com.mrredhood.devforge.core.automation.AutomationScheduler
 
 class DevForgeSettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = DevForgeSettingsRepository(application)
@@ -35,12 +34,6 @@ class DevForgeSettingsViewModel(application: Application) : AndroidViewModel(app
     fun setTerminalTimeout(value: String) {
         value.toLongOrNull()?.let { repository.setTerminalTimeoutMs(it) }
         settings = repository.snapshot()
-    }
-
-    fun setAutomationInterval(value: String) {
-        value.toLongOrNull()?.let { repository.setAutomationEventIntervalMinutes(it) }
-        settings = repository.snapshot()
-        AutomationScheduler.initialize(getApplication())
     }
 
     fun setAuditRetention(value: String) {
