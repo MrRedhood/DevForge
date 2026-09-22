@@ -1896,3 +1896,13 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added regression tests for native-language recognition, unsupported-language rejection and Acode command-plugin compatibility.
 - [x] Updated More → ⓘ Help & guide and README with the real extension behavior and rejection rules.
 - [ ] Fresh Android CI and Android UI Tests validation is still required for the current main head.
+
+
+### 2026-09-22 — Extension runtime hardening and full file-tree icon integration
+- [x] Routed every active workspace file/folder row and quick-open browser folder row through the extension-aware icon renderer so an installed icon theme changes actual visible icons rather than only storing theme metadata.
+- [x] Added actual SVG/raster icon rendering from installed VS Code/Acode theme assets, with decoding moved to a background dispatcher.
+- [x] Rejected Acode plugins that require unsupported runtime modules instead of providing non-functional stubs; the currently executable Acode subset is deliberately limited to the implemented command bridge.
+- [x] Added regression coverage proving an unsupported Acode editor API plugin is rejected.
+- [x] Added an extension-manager back affordance and lifecycle-aware installation coroutine.
+- [x] Kept native-language detection strict: unsupported language engines remain rejected rather than appearing as installed language support.
+- [ ] Fresh Android CI and Android UI Tests validation is still required for the latest main head.
