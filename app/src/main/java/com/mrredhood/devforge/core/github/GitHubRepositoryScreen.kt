@@ -66,6 +66,7 @@ fun GitHubRepositoryScreen(
     var deleteConfirmation by remember { mutableStateOf("") }
     var workflowDeleteSelection by remember(state.selectedRepository?.id) { mutableStateOf<Set<Long>>(emptySet()) }
     var workflowDeleteTargets by remember { mutableStateOf<List<GitHubWorkflow>?>(null) }
+    var editingRepository by remember { mutableStateOf<GitHubRepository?>(null) }
 
     LaunchedEffect(connected) {
         if (connected && state.repositories.isEmpty()) viewModel.refreshRepositories()
@@ -80,6 +81,18 @@ fun GitHubRepositoryScreen(
     LaunchedEffect(state.selectedRepository?.id, state.workflows.map { it.id }) {
         val ids = state.workflows.map { it.id }.toSet()
         workflowDeleteSelection = workflowDeleteSelection.intersect(ids)
+    }
+
+    if (editingRepository != null) {
+        GitHubRepositoryEditScreen(
+            repository = editingRepository!!,
+            onBack = { editingRepository = null },
+            onSaved = {
+                viewModel.applyRepositoryUpdate(it)
+                editingRepository = null
+            },
+        )
+        return
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -173,6 +186,12 @@ fun GitHubRepositoryScreen(
                                 ) {
                                     FilterChip(selected = true, onClick = {}, enabled = false, label = { Text(if (repository.isPrivate) "Private" else "Public") })
                                     Spacer(Modifier.weight(1f))
+                                    OutlinedButton(
+                                        onClick = { editingRepository = repository },
+                                        enabled = viewModel.deletingRepositoryId == null,
+                                    ) {
+                                        Text("Edit repository")
+                                    }
                                     Button(
                                         onClick = {
                                             deleteConfirmation = ""

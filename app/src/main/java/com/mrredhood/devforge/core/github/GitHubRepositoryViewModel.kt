@@ -130,6 +130,14 @@ class GitHubRepositoryViewModel(application: Application) : AndroidViewModel(app
         }
     }
 
+    fun applyRepositoryUpdate(updated: GitHubRepository) {
+        state = state.copy(
+            repositories = state.repositories.map { if (it.id == updated.id) updated else it },
+            selectedRepository = if (state.selectedRepository?.id == updated.id) updated else state.selectedRepository,
+            error = null,
+        )
+    }
+
     fun selectWorkflow(workflow: GitHubWorkflow) {
         if (!state.isLoading) state = state.copy(selectedWorkflow = workflow)
     }
