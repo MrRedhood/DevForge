@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import com.mrredhood.devforge.core.storage.WorkspaceDatabaseRepository
 import com.mrredhood.devforge.core.workspace.GitHubWorkspaceStore
+import com.mrredhood.devforge.core.workspace.LocalGitHubRepositoryLinkStore
 import com.mrredhood.devforge.core.build.GitHubBuildSettingsStore
 import com.mrredhood.devforge.core.terminal.TerminalSessionRepository
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ class GitHubRepositoryViewModel(application: Application) : AndroidViewModel(app
     private val gateway = GitHubRepositoryGateway(CredentialSecurityStore(application))
     private val workspaceRepository = WorkspaceDatabaseRepository(application)
     private val githubWorkspaceStore = GitHubWorkspaceStore(application)
+    private val localGitHubLinkStore = LocalGitHubRepositoryLinkStore(application)
     private val buildSettingsStore = GitHubBuildSettingsStore(application)
     private val terminalSessions = TerminalSessionRepository(application)
 
@@ -206,6 +208,7 @@ class GitHubRepositoryViewModel(application: Application) : AndroidViewModel(app
                         workspaceRepository.delete(workspaceId)
                     }
                     GitHubPendingChanges.clearMany(remoteWorkspaceIds)
+                    localGitHubLinkStore.removeByRepository(repository.owner, repository.name)
                     buildSettingsStore.remove(repository.owner, repository.name)
                     state = state.copy(
                         repositories = state.repositories.filterNot { it.id == repository.id },
