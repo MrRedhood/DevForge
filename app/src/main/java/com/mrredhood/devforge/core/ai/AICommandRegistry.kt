@@ -97,7 +97,7 @@ object AICommandRegistry {
     private const val MAX_MENTION_BYTES = 32 * 1024
 }
 
-object AgentCommandCatalog {
+object AiCommandCatalog {
     val commands: List<AICommandDefinition> = AICommandRegistry.commands
 
     fun systemSummary(): String = buildString {
