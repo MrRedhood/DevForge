@@ -615,6 +615,14 @@ private val guideCategories = listOf(
         "Settings",
         "Configure AI, GitHub, build, terminal, AI-driven action, privacy, appearance, and editor behavior.",
         listOf(
+            t("AI & GitHub hub","A single management surface for GitHub, AI Models, and AI Tools.",
+                listOf(
+                    "Open More.",
+                    "Choose AI & GitHub.",
+                    "Use the separate GitHub, AI Models, or AI Tools surface.",
+                ),
+                "More → AI & GitHub.",
+                listOf("AI & GitHub management = shared management hub")),
             t("AI settings","Provider credentials and model configuration.",
                 listOf("Open Settings → AI & models.","Configure provider connection.","Return to Chat."),
                 "Settings → AI & models."),
