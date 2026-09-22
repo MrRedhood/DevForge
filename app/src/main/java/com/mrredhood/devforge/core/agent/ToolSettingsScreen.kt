@@ -142,3 +142,4 @@ fun ToolSettingsScreen(onClose: () -> Unit = {}) {
         }
     }
     }
+}
