@@ -27,6 +27,7 @@ import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
@@ -61,7 +62,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     private var recoveryJobs = mutableMapOf<Uri, Job>()
     private var openJob: Job? = null
+    private var workspaceJob: Job? = null
     private var openGeneration = 0L
+    private var activeWorkspaceId: String? = null
     private val undoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
     private val redoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
 
@@ -69,11 +72,47 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         get() = tabs.firstOrNull { it.uri == activeUri }
 
     init {
+        viewModelScope.launch {
+            val initialWorkspaceId = withContext(Dispatchers.IO) {
+                workspaceRepository.activeWorkspace.first()?.id
+            }
+            val restored = withContext(Dispatchers.IO) {
+                durable.loadEditorTabs()
+            }
+            activeWorkspaceId = initialWorkspaceId
+            tabs = restored
+            activeUri = restored.firstOrNull()?.uri
+            workspaceJob = launch {
+                workspaceRepository.activeWorkspace.collectLatest { workspace ->
+                    val nextWorkspaceId = workspace?.id
+                    if (activeWorkspaceId != null && nextWorkspaceId == null) {
+                        clearWorkspaceEditorState()
+                    }
+                    activeWorkspaceId = nextWorkspaceId
+                }
+            }
+        }
+    }
+
+    private fun clearWorkspaceEditorState() {
+        val oldTabs = tabs
+        openGeneration += 1
+        openJob?.cancel()
+        openJob = null
+        recoveryJobs.values.forEach(Job::cancel)
+        recoveryJobs.clear()
+        undoStacks.clear()
+        redoStacks.clear()
+        tabs = emptyList()
+        activeUri = null
+        lastOpenEntry = null
+        diagnostics = emptyList()
+        error = null
+        refreshConfirmationRequired = false
         viewModelScope.launch(Dispatchers.IO) {
-            val restored = durable.loadEditorTabs()
-            withContext(Dispatchers.Main.immediate) {
-                tabs = restored
-                activeUri = restored.firstOrNull()?.uri
+            oldTabs.forEach { tab ->
+                durable.deleteEditorTab(tab.uri)
+                repository.clearRecoveryDraft(tab.uri)
             }
         }
     }
@@ -497,6 +536,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
+        workspaceJob?.cancel()
         openJob?.cancel()
         openJob = null
         recoveryJobs.values.forEach(Job::cancel)

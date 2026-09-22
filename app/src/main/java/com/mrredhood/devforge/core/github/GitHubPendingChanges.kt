@@ -52,6 +52,12 @@ object GitHubPendingChanges {
     }
 
     @Synchronized
+    fun clearMany(workspaceIds: Collection<String>) {
+        if (workspaceIds.isEmpty()) return
+        state.value = state.value - workspaceIds.toSet()
+    }
+
+    @Synchronized
     fun replaceBranch(workspaceId: String, branch: String) {
         val current = state.value[workspaceId] ?: return
         state.value = state.value + (workspaceId to current.copy(branch = branch.trim().ifBlank { "main" }))

@@ -312,7 +312,7 @@ private val guideCategories = listOf(
                 "GitHub repository screen → Workflows.",
                 tips = listOf("This removes workflow definitions; existing historical workflow runs are not deleted.")),
             t("Delete GitHub repository","Permanently delete any repository shown by the connected GitHub account when the GitHub account has permission to delete it.",
-                listOf("Open Build Center → GitHub repository.","Use the trash action on a repository row, or open a repository and tap Delete repository.","Type the exact repository name.","Confirm Delete permanently.","After a successful deletion, DevForge removes matching GitHub-backed workspace records so the deleted remote cannot remain as a broken workspace."),
+                listOf("Open Build Center → GitHub repository.","Use the trash action on a repository row, or open a repository and tap Delete repository.","Type the exact repository name.","Confirm Delete permanently.","After a successful deletion, DevForge removes matching GitHub-backed workspace records, pending GitHub edits, terminal sessions and per-repository build-output settings.","If the deleted repository was the active workspace, the editor state is invalidated so stale remote tabs cannot remain open."),
                 "Build Center → GitHub repository → repository list or repository details.",
                 listOf("exact name = required confirmation","delete = permanent remote operation","GitHub still enforces repository-owner/admin permissions")),
             t("Open remote worktree","Treat a GitHub repository as a DevForge workspace.",

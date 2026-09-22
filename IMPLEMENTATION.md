@@ -1676,3 +1676,9 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - Gemini remains the binary upload path; OpenRouter binary transport is restricted to images and PDF files, with video/audio options disabled there.
 - Failed or cancelled AI sends retain submitted attachments for retry while preserving URI-permission ownership.
 - Updated Help & guide and added provider transport regression coverage.
+
+
+### 2026-09-22 — Repository deletion cleanup hardening
+- Remote repository deletion now also clears matching terminal sessions, pending GitHub change batches, and per-repository build-output settings in addition to deleting GitHub-backed workspace records.
+- Editor ViewModel observes the active workspace lifecycle and invalidates stale remote editor tabs when the active workspace disappears.
+- Help & guide now documents the complete deletion cleanup behavior.

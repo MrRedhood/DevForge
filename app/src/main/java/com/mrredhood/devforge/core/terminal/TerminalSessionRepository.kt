@@ -72,6 +72,10 @@ class TerminalSessionRepository(context: Context) {
         return list(workspaceId)
     }
 
+    fun clear(workspaceId: String) {
+        prefs.edit().remove(key(workspaceId)).apply()
+    }
+
     private fun save(workspaceId: String, sessions: List<TerminalSession>) {
         val array = JSONArray()
         sessions.take(MAX_SESSIONS).forEach { session ->

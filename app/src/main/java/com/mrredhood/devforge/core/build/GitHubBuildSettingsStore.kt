@@ -39,6 +39,10 @@ class GitHubBuildSettingsStore(context: Context) {
         )
     }
 
+    fun remove(owner: String, repository: String) {
+        prefs.edit().remove(key(owner, repository)).apply()
+    }
+
     fun set(owner: String, repository: String, settings: BuildOutputSettings) {
         prefs.edit()
             .putString(
