@@ -1833,3 +1833,16 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added an explicit AI engineering-policy rule stating that Build Center and its receipts are authoritative for build, test and lint evidence.
 - [x] Kept the rule aligned with the verification engine so model text can never be treated as proof of successful verification.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the updated main head.
+
+
+### 2026-09-22 — Engineering Power hub and expanded Linux-style terminal
+- [x] Added a unified More → AI Tools Engineering Power hub for repeatable project tasks, Mission Graph/proof evidence, development profiles and integration catalogs.
+- [x] Added reusable contracts for semantic navigation, branching undo, registers, structural/AI refactoring, reviewer/critic roles, debugger state, UI journeys, Compose preview requests, device matrix targets, remote development, extensions, MCP, AI memory, learned rules and engineering automations.
+- [x] Added resource-aware cloud routing classes without adding any local/on-device AI runtime.
+- [x] Added persistent task, profile, memory, learned-rule and MCP registry stores; external integrations remain registry-first and approval-aware.
+- [x] Expanded the bounded AI terminal command catalog with environment, command discovery, boolean/sleep/system-property utilities in addition to the existing file/text/diagnostic commands.
+- [x] Extended the real Android `/system/bin/sh` interactive terminal with broader Linux-style help/environment and longer bounded engineering timeouts.
+- [x] Extended the configurable terminal timeout ceiling to 60 seconds; interactive shell execution has a separate bounded 120-second ceiling.
+- [x] Added regression coverage for Engineering Power routing and Mission Graph behavior.
+- [x] Updated More → ⓘ Help & guide and README with the full Engineering Power and Linux-style terminal behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is required before calling the current main head green.
