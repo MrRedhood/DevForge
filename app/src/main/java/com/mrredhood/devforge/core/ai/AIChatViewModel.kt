@@ -692,25 +692,32 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         var failureMessage: String? = null
         for (phase in squad.phases) {
             currentCoroutineContext().ensureActive()
+            phase.forEach { member ->
+                val planIndex = planItems.indexOfFirst { it.title == member.title && it.phase == member.phase && it.taskId == null }
+                if (planIndex >= 0) planItems[planIndex] = planItems[planIndex].copy(status = "Starting")
+            }
+            publishAgentRun(
+                goal = instruction,
+                planItems = planItems,
+                taskIds = activeAgentTaskIds.toList(),
+                startedAt = startedAt,
+                planning = false,
+            )
             val results = coroutineScope {
                 phase.map { member ->
                     async {
-                    val planIndex = planItems.indexOfFirst { it.title == member.title && it.phase == member.phase && it.taskId == null }
-                    if (planIndex >= 0) {
-                        planItems[planIndex] = planItems[planIndex].copy(status = "Starting")
-                    }
-                    runCatching {
-                        runtime.assign(
-                            AgentAssignment(
-                                workspaceId = workspaceId,
-                                title = member.title,
-                                instruction = member.instruction,
-                                model = AgentModelBinding(model.provider, model.id, model.displayName),
-                                pathScope = com.mrredhood.devforge.core.security.WorkspacePathScope(),
-                                access = AgentAccess.CODING_DEFAULT,
-                            ),
-                        )
-                    }
+                        runCatching {
+                            runtime.assign(
+                                AgentAssignment(
+                                    workspaceId = workspaceId,
+                                    title = member.title,
+                                    instruction = member.instruction,
+                                    model = AgentModelBinding(model.provider, model.id, model.displayName),
+                                    pathScope = com.mrredhood.devforge.core.security.WorkspacePathScope(),
+                                    access = AgentAccess.CODING_DEFAULT,
+                                ),
+                            )
+                        }
                     }
                 }.awaitAll()
             }
