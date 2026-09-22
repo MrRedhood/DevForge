@@ -1788,3 +1788,17 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Updated More → ⓘ Help & guide for local-first workspaces, Build with AI, Save on device, local-project publishing, and repository metadata editing.
 - [x] Reused the existing AI plan/agent/activity infrastructure rather than introducing a duplicate agent dashboard; these lifecycle features connect into the same AI Chat/workspace workflow.
 - [ ] Fresh Android CI and Android UI Tests validation is still required for the new main-branch commits.
+
+
+### 2026-09-22 — Unified AI Mission, activity timeline, verification, background recovery and Editor 2 foundation
+- [x] Added first-class AI Mission workflow state for normal Chat requests: Understand → Plan → Inspect/Execute → Verify → Review.
+- [x] Added one normalized AI activity model for search, read, write, delete, command, test/build markers, agents, approvals, verification, errors and information.
+- [x] Persisted the current AI Mission and a bounded activity history so leaving Chat does not erase task context.
+- [x] Added a WorkManager-backed recovery worker that re-enters the existing durable AgentRuntime recovery path after process recreation.
+- [x] Added an explicit verification receipt with passed, failed and skipped checks; Build Center, test and lint receipts remain authoritative for those operations.
+- [x] Added the compact AI Mission card to Chat so users see workflow progress without seeing internal agent/runtime controls.
+- [x] Added the Editor 2 document foundation: chunked text storage, reusable line indexing, incremental token-cache contract and viewport window model.
+- [x] Connected EditorViewModel line navigation and content updates to the Editor 2 document model.
+- [x] Added Editor 2 unit coverage.
+- [x] Updated More → ⓘ Help & guide and README.
+- [ ] Fresh Android CI and Android UI Tests validation is required before claiming this main commit is clean.

@@ -68,6 +68,7 @@ import com.mrredhood.devforge.core.ai.MarkdownText
 import com.mrredhood.devforge.core.agent.DevForgeToolCatalog
 import com.mrredhood.devforge.core.picker.PickerBridge
 import com.mrredhood.devforge.core.picker.SystemPickerActivity
+import com.mrredhood.devforge.core.ai.workflow.AiWorkflowCard
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -85,6 +86,7 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ModelSelector(viewModel)
+        AiWorkflowCard(viewModel.aiWorkflow)
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (viewModel.messages.isEmpty()) {

@@ -31,6 +31,12 @@ import com.mrredhood.devforge.core.github.GitHubRepositoryGateway
 import com.mrredhood.devforge.core.workspace.GitHubWorkspaceUris
 import com.mrredhood.devforge.core.workspace.GitHubWorkspaceStore
 import com.mrredhood.devforge.core.security.CredentialSecurityStore
+import com.mrredhood.devforge.core.ai.workflow.AiActivity
+import com.mrredhood.devforge.core.ai.workflow.AiActivityKind
+import com.mrredhood.devforge.core.ai.workflow.AiActivityStatus
+import com.mrredhood.devforge.core.ai.workflow.AiWorkflowEngine
+import com.mrredhood.devforge.core.ai.workflow.AiWorkflowPhase
+import com.mrredhood.devforge.core.ai.workflow.AiWorkflowSnapshot
 import com.mrredhood.devforge.core.settings.AiRoutingMode
 import com.mrredhood.devforge.core.settings.DevForgeSettingsRepository
 import kotlinx.coroutines.CancellationException
@@ -69,6 +75,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private val githubGateway = GitHubRepositoryGateway(CredentialSecurityStore(application))
     private val toolOrchestrator = ChatToolOrchestrator(application, chatGateway)
     private val toolSettings = ToolSettingsStore(application)
+    private val aiWorkflowEngine = AiWorkflowEngine(application)
     private var messageJob: Job? = null
     private var sendJob: Job? = null
     private var workspaceJob: Job? = null
@@ -123,6 +130,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     var editingMessageId by mutableStateOf<String?>(null)
         private set
     var agentRun by mutableStateOf<AgentRunState?>(null)
+        private set
+    var aiWorkflow by mutableStateOf<AiWorkflowSnapshot?>(aiWorkflowEngine.active())
         private set
 
     val isAgentWorkInProgress: Boolean
@@ -429,6 +438,14 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         sendJob = viewModelScope.launch(Dispatchers.IO) {
             var partialResponse = ""
             var retainAttachmentsForRetry = false
+            var workflowSnapshot = aiWorkflowEngine.start(
+                request = raw,
+                workspaceId = workspaceId,
+                workspaceName = workspaceName,
+            )
+            withContext(Dispatchers.Main.immediate) {
+                aiWorkflow = workflowSnapshot
+            }
             try {
                 if (settings.isApiKeyLocked(requestProvider)) {
                     error("Unlock protected credentials in Settings before sending AI requests.")
@@ -453,6 +470,12 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
                 val key = settings.getApiKey(requestProvider) ?: error("API key is not configured.")
+                workflowSnapshot = aiWorkflowEngine.phase(
+                    workflowSnapshot,
+                    AiWorkflowPhase.PLAN,
+                    "Building execution plan",
+                )
+                withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 val attachmentContext = prepareAttachmentContext(submittedAttachments)
                 val compactWorkspaceContext = workspaceId?.let { workspaceContextService.compactPrompt(it) }.orEmpty()
                 // Repeat only the compact workspace identity. Rich workspace state and source code are fetched on demand.
@@ -493,8 +516,27 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         instruction = agentInstruction,
                     )
                     chatRepository.addMessage(sessionId, "assistant", response)
+                    workflowSnapshot = aiWorkflowEngine.phase(
+                        workflowSnapshot,
+                        AiWorkflowPhase.EXECUTE,
+                        "Agents completed implementation",
+                    )
+                    workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
+                        workflowSnapshot,
+                        workspaceRoot = workspaceRoot,
+                        changedPaths = emptyList(),
+                        summary = response,
+                    )
+                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 } else if (parsed?.command?.name == "help") {
                     chatRepository.addMessage(sessionId, "assistant", effectiveInstruction)
+                    workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
+                        aiWorkflowEngine.phase(workflowSnapshot, AiWorkflowPhase.VERIFY, "Verifying request"),
+                        workspaceRoot = workspaceRoot,
+                        changedPaths = emptyList(),
+                        summary = effectiveInstruction,
+                    )
+                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 } else if (toolSettings.enabledToolIds().isNotEmpty()) {
                     val toolResult = toolOrchestrator.run(
                         model = model,
@@ -507,6 +549,35 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         onActivity = { activity ->
                             withContext(Dispatchers.Main.immediate) {
                                 if (requestGeneration != generationId) return@withContext
+                                val kind = when {
+                                    activity.toolId.wireName.contains("search", true) -> AiActivityKind.SEARCH
+                                    activity.toolId.wireName.contains("read", true) ||
+                                        activity.toolId.wireName.contains("context", true) -> AiActivityKind.READ
+                                    activity.toolId.wireName.contains("write", true) ||
+                                        activity.toolId.wireName.contains("patch", true) ||
+                                        activity.toolId.wireName.contains("create", true) -> AiActivityKind.WRITE
+                                    activity.toolId.wireName.contains("delete", true) -> AiActivityKind.DELETE
+                                    activity.toolId.wireName.contains("terminal", true) ||
+                                        activity.toolId.wireName.contains("command", true) -> AiActivityKind.COMMAND
+                                    else -> AiActivityKind.INFO
+                                }
+                                val status = when (activity.status) {
+                                    ChatToolActivity.Status.RUNNING -> AiActivityStatus.RUNNING
+                                    ChatToolActivity.Status.COMPLETED -> AiActivityStatus.COMPLETED
+                                    ChatToolActivity.Status.FAILED -> AiActivityStatus.FAILED
+                                }
+                                workflowSnapshot = aiWorkflowEngine.activity(
+                                    workflowSnapshot,
+                                    AiActivity(
+                                        id = activity.callId,
+                                        kind = kind,
+                                        status = status,
+                                        title = activity.toolId.wireName,
+                                        detail = activity.detail,
+                                        createdAtEpochMs = System.currentTimeMillis(),
+                                    ),
+                                )
+                                aiWorkflow = workflowSnapshot
                                 val current = toolActivities.toMutableList()
                                 val index = current.indexOfFirst { it.callId == activity.callId }
                                 if (index >= 0) current[index] = activity else current += activity
@@ -521,6 +592,17 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         "assistant",
                         toolResult.response,
                     )
+                    workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
+                        aiWorkflowEngine.phase(workflowSnapshot, AiWorkflowPhase.VERIFY, "Verifying workspace state"),
+                        workspaceRoot = workspaceRoot,
+                        changedPaths = toolResult.activities
+                            .filter { it.status == ChatToolActivity.Status.COMPLETED }
+                            .map { it.detail }
+                            .filter { it.contains("/") }
+                            .take(20),
+                        summary = toolResult.response,
+                    )
+                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 } else if (!model.supportsStreaming) {
                     val response = chatGateway.send(
                         model,
@@ -531,6 +613,13 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         settings.customBaseUrl(requestProvider),
                     )
                     chatRepository.addMessage(sessionId, "assistant", response)
+                    workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
+                        aiWorkflowEngine.phase(workflowSnapshot, AiWorkflowPhase.VERIFY, "Verifying workspace state"),
+                        workspaceRoot = workspaceRoot,
+                        changedPaths = emptyList(),
+                        summary = response,
+                    )
+                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 } else {
                     val builder = StringBuilder()
                     chatGateway.stream(
@@ -548,14 +637,20 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                             if (requestGeneration == generationId) streamingText = visible
                         }
                     }
-                    chatRepository.addMessage(
-                        sessionId,
-                        "assistant",
-                        partialResponse.ifBlank { "The model returned an empty response." },
+                    val finalText = partialResponse.ifBlank { "The model returned an empty response." }
+                    chatRepository.addMessage(sessionId, "assistant", finalText)
+                    workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
+                        aiWorkflowEngine.phase(workflowSnapshot, AiWorkflowPhase.VERIFY, "Verifying workspace state"),
+                        workspaceRoot = workspaceRoot,
+                        changedPaths = emptyList(),
+                        summary = finalText,
                     )
+                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 }
             } catch (cancelled: CancellationException) {
                 retainAttachmentsForRetry = true
+                workflowSnapshot = aiWorkflowEngine.fail(workflowSnapshot, "AI Mission cancelled.")
+                withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 withContext(Dispatchers.Main.immediate) {
                     val merged = attachments.toMutableList()
                     submittedAttachments.forEach { attachment ->
@@ -579,6 +674,15 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
             } catch (error: Throwable) {
                 retainAttachmentsForRetry = true
+                if (workflowSnapshot.status == AiWorkflowSnapshot.Status.RUNNING ||
+                    workflowSnapshot.status == AiWorkflowSnapshot.Status.WAITING
+                ) {
+                    workflowSnapshot = aiWorkflowEngine.fail(
+                        workflowSnapshot,
+                        error.message ?: "AI Mission failed.",
+                    )
+                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
+                }
                 withContext(NonCancellable + Dispatchers.IO) {
                     cancelActiveAgentTasks()
                 }

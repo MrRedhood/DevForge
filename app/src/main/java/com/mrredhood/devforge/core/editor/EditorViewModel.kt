@@ -69,6 +69,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     private val undoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
     private val undoBytes = mutableMapOf<Uri, Long>()
     private val redoStacks = mutableMapOf<Uri, ArrayDeque<String>>()
+    private val editor2Documents = mutableMapOf<Uri, Editor2Document>()
 
     val activeTab: EditorTab?
         get() = tabs.firstOrNull { it.uri == activeUri }
@@ -168,6 +169,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 if (generation != openGeneration) return@onSuccess
                 tabs = tabs.filterNot { it.uri == entry.uri } + tab
                 activeUri = entry.uri
+                editor2Documents[entry.uri] = Editor2Document(initial)
                 scheduleDiagnostics(entry.uri, immediate = true)
                 isLoading = false
                 withContext(Dispatchers.IO) {
@@ -300,6 +302,8 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         uri?.let { current -> tabs.firstOrNull { it.uri == current }?.let { EditorDiagnostics.analyze(it.name, it.content).diagnostics } } ?: emptyList()
 
     fun lineStartOffset(line: Int): Int {
+        val uri = activeUri
+        editor2Documents[uri]?.let { return it.lineStart(line.coerceAtLeast(1)) }
         val content = activeTab?.content ?: return 0
         val target = line.coerceAtLeast(1)
         var currentLine = 1
@@ -321,6 +325,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
         tabs = tabs.map { if (it.uri == uri) it.copy(content = content, updatedAt = System.currentTimeMillis()) else it }
+        editor2Documents[uri]?.reset(content)
         if (uri == activeUri) diagnostics = emptyList()
         scheduleDiagnostics(uri)
         scheduleRecovery(uri)
@@ -422,6 +427,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         if (tab.isDirty && !discard) return
         recoveryJobs.remove(uri)?.cancel()
         tabs = tabs.filterNot { it.uri == uri }
+        editor2Documents.remove(uri)
         undoStacks.remove(uri)
         undoBytes.remove(uri)
         redoStacks.remove(uri)
@@ -518,6 +524,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             result.onSuccess { freshContent ->
                 val refreshed = tab.copy(content = freshContent, savedContent = freshContent)
                 tabs = tabs.map { if (it.uri == tab.uri) refreshed else it }
+                editor2Documents[tab.uri]?.reset(freshContent) ?: run { editor2Documents[tab.uri] = Editor2Document(freshContent) }
                 activeUri = tab.uri
                 diagnostics = EditorDiagnostics.analyze(tab.name, freshContent).diagnostics
                 undoStacks.remove(tab.uri)
@@ -576,6 +583,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         undoStacks.clear()
         undoBytes.clear()
         redoStacks.clear()
+        editor2Documents.clear()
         recoveryJobs.values.forEach(Job::cancel)
         recoveryJobs.clear()
         super.onCleared()
