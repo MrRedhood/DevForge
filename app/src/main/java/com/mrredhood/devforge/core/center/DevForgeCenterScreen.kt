@@ -821,7 +821,7 @@ private fun ExtensionsPage(padding: PaddingValues) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Sandboxed extensions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Extension manifests can now be validated and registered with bounded capabilities. Execution still has to cross DevForge's capability, policy, approval, path-scope and audit boundaries; unrestricted extension/MCP execution is not enabled.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Extension manifests can now be validated and registered with bounded capabilities. Compatible Acode ZIP and VS Code VSIX packages now run through DevForge's bounded extension manager. Icon and language contributions are applied through native adapters; unsupported runtimes or language engines are rejected instead of being shown as installed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
