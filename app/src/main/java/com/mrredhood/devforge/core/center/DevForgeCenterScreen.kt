@@ -54,7 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mrredhood.devforge.core.agent.AgentCenterViewModel
+import com.mrredhood.devforge.core.agent.AgentActivityViewModel
 import com.mrredhood.devforge.core.build.BuildFailureDiagnosis
 import com.mrredhood.devforge.core.build.BuildViewModel
 import com.mrredhood.devforge.core.editor.EditorViewModel
@@ -97,7 +97,7 @@ fun DevForgeCenterScreen(
 ) {
     var page by rememberSaveable { mutableStateOf(CenterPage.HOME.name) }
     var selectedTaskId by rememberSaveable { mutableStateOf<String?>(null) }
-    val agent: AgentCenterViewModel = viewModel()
+    val agent: AgentActivityViewModel = viewModel()
     val build: BuildViewModel = viewModel()
     val repos: GitHubRepositoryViewModel = viewModel()
     val queue = remember { OfflineActionQueue(editor.getApplication<Application>()) }
@@ -434,7 +434,7 @@ private fun ProjectHealthPage(
     padding: PaddingValues,
     workspace: WorkspaceViewModel,
     editor: EditorViewModel,
-    agent: AgentCenterViewModel,
+    agent: AgentActivityViewModel,
     build: BuildViewModel,
 ) {
     val db = DevForgeDatabase.get(editor.getApplication<Application>())

@@ -92,31 +92,42 @@ class CodeSyntaxVisualTransformation(
     private val commentColor: Color,
     private val numberColor: Color,
 ) : VisualTransformation {
+    private var cachedSource: String? = null
+    private var cachedResult: TransformedText? = null
+
     override fun filter(text: AnnotatedString): TransformedText {
-        if (text.text.length > 256 * 1024 || language == EditorLanguage.PLAIN) {
-            return TransformedText(text, OffsetMapping.Identity)
+        val source = text.text
+        if (source === cachedSource) return cachedResult ?: TransformedText(text, OffsetMapping.Identity)
+        if (source.length > 256 * 1024 || language == EditorLanguage.PLAIN) {
+            val result = TransformedText(text, OffsetMapping.Identity)
+            cachedSource = source
+            cachedResult = result
+            return result
         }
-        val builder = AnnotatedString.Builder(text.text)
+        val builder = AnnotatedString.Builder(source)
         val keywords = KEYWORDS[language].orEmpty()
         keywords.forEach { keyword ->
             val options = if (language in CASE_INSENSITIVE_KEYWORD_LANGUAGES) setOf(RegexOption.IGNORE_CASE) else emptySet()
-            Regex("\\b" + Regex.escape(keyword) + "\\b", options).findAll(text.text).forEach { match ->
+            Regex("\\b" + Regex.escape(keyword) + "\\b", options).findAll(source).forEach { match ->
                 builder.addStyle(SpanStyle(color = keywordColor), match.range.first, match.range.last + 1)
             }
         }
-        NUMBER_REGEX.findAll(text.text).forEach { match ->
+        NUMBER_REGEX.findAll(source).forEach { match ->
             builder.addStyle(SpanStyle(color = numberColor), match.range.first, match.range.last + 1)
         }
-        STRING_REGEX.findAll(text.text).forEach { match ->
+        STRING_REGEX.findAll(source).forEach { match ->
             builder.addStyle(SpanStyle(color = stringColor), match.range.first, match.range.last + 1)
         }
-        (COMMENT_REGEX_BY_LANGUAGE[language] ?: COMMENT_REGEX).findAll(text.text).forEach { match ->
+        (COMMENT_REGEX_BY_LANGUAGE[language] ?: COMMENT_REGEX).findAll(source).forEach { match ->
             builder.addStyle(SpanStyle(color = commentColor), match.range.first, match.range.last + 1)
         }
-        return TransformedText(builder.toAnnotatedString(), OffsetMapping.Identity)
+        val result = TransformedText(builder.toAnnotatedString(), OffsetMapping.Identity)
+        cachedSource = source
+        cachedResult = result
+        return result
     }
 
-    private companion object {
+private companion object {
         val STRING_REGEX = Regex("""("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')""")
         val COMMENT_REGEX = Regex("//[^\\n]*|/\\*[\\s\\S]*?\\*/|#[^\\n]*")
         val NUMBER_REGEX = Regex("\\b(?:0x[0-9A-Fa-f]+|\\d+(?:\\.\\d+)?)\\b")
@@ -314,13 +325,12 @@ object EditorDiagnostics {
             origin = "DevForge editor",
         )
     }
-}
-
-
-class FoldingVisualTransformation(
+}class FoldingVisualTransformation(
     private val source: String,
     ranges: List<EditorFoldRange>,
 ) : VisualTransformation {
+    private var cachedInput: String? = null
+    private var cachedResult: TransformedText? = null
     private val ranges = ranges
         .sortedBy { it.startOffset }
         .fold(mutableListOf<EditorFoldRange>()) { result, range ->
@@ -331,7 +341,13 @@ class FoldingVisualTransformation(
         }
 
     override fun filter(text: AnnotatedString): TransformedText {
-        if (text.text != source || ranges.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
+        if (text.text === cachedInput) return cachedResult ?: TransformedText(text, OffsetMapping.Identity)
+        if (text.text !== source || ranges.isEmpty()) {
+            val result = TransformedText(text, OffsetMapping.Identity)
+            cachedInput = text.text
+            cachedResult = result
+            return result
+        }
         val output = StringBuilder()
         val originalToTransformed = IntArray(source.length + 1)
         val transformedToOriginal = mutableListOf<Int>()
@@ -347,9 +363,7 @@ class FoldingVisualTransformation(
                 originalToTransformed[sourceCursor] = outputCursor
             }
             val placeholderPosition = outputCursor
-            for (offset in sourceCursor until range.endOffset) {
-                originalToTransformed[offset] = placeholderPosition
-            }
+            for (offset in sourceCursor until range.endOffset) originalToTransformed[offset] = placeholderPosition
             output.append('…')
             transformedToOriginal += range.startOffset + 1
             outputCursor++
@@ -366,13 +380,18 @@ class FoldingVisualTransformation(
         val reverse = IntArray(output.length + 1)
         transformedToOriginal.forEachIndexed { index, original -> reverse[index] = original }
         reverse[output.length] = source.length
-        return TransformedText(
+        val result = TransformedText(
             AnnotatedString(output.toString()),
             object : OffsetMapping {
-                override fun originalToTransformed(offset: Int): Int = originalToTransformed[offset.coerceIn(0, source.length)].coerceIn(0, output.length)
-                override fun transformedToOriginal(offset: Int): Int = reverse[offset.coerceIn(0, output.length)].coerceIn(0, source.length)
+                override fun originalToTransformed(offset: Int): Int =
+                    originalToTransformed[offset.coerceIn(0, source.length)].coerceIn(0, output.length)
+                override fun transformedToOriginal(offset: Int): Int =
+                    reverse[offset.coerceIn(0, output.length)].coerceIn(0, source.length)
             },
         )
+        cachedInput = text.text
+        cachedResult = result
+        return result
     }
 }
 
@@ -380,7 +399,11 @@ class ChainedVisualTransformation(
     private val first: VisualTransformation,
     private val second: VisualTransformation,
 ) : VisualTransformation {
+    private var cachedSource: String? = null
+    private var cachedResult: TransformedText? = null
+
     override fun filter(text: AnnotatedString): TransformedText {
+        if (text.text === cachedSource) return cachedResult ?: TransformedText(text, OffsetMapping.Identity)
         val a = first.filter(text)
         val b = second.filter(a.text)
         val mapping = object : OffsetMapping {
@@ -389,14 +412,25 @@ class ChainedVisualTransformation(
             override fun transformedToOriginal(offset: Int): Int =
                 a.offsetMapping.transformedToOriginal(b.offsetMapping.transformedToOriginal(offset))
         }
-        return TransformedText(b.text, mapping)
+        val result = TransformedText(b.text, mapping)
+        cachedSource = text.text
+        cachedResult = result
+        return result
     }
 }
 
-
 class VisibleWhitespaceVisualTransformation : VisualTransformation {
+    private var cachedSource: String? = null
+    private var cachedResult: TransformedText? = null
+
     override fun filter(text: AnnotatedString): TransformedText {
-        if (text.text.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
+        if (text.text === cachedSource) return cachedResult ?: TransformedText(text, OffsetMapping.Identity)
+        if (text.text.isEmpty()) {
+            val result = TransformedText(text, OffsetMapping.Identity)
+            cachedSource = text.text
+            cachedResult = result
+            return result
+        }
         val output = StringBuilder()
         val originalToTransformed = IntArray(text.text.length + 1)
         val transformedToOriginal = mutableListOf<Int>()
@@ -418,7 +452,9 @@ class VisibleWhitespaceVisualTransformation : VisualTransformation {
             originalToTransformed[index + 1] = transformedOffset
         }
         transformedToOriginal += text.text.length
-        return TransformedText(
+        val reverse = IntArray(output.length + 1)
+        transformedToOriginal.forEachIndexed { index, original -> reverse[index] = original }
+        val result = TransformedText(
             AnnotatedString(output.toString()),
             object : OffsetMapping {
                 override fun originalToTransformed(offset: Int): Int =
@@ -427,5 +463,8 @@ class VisibleWhitespaceVisualTransformation : VisualTransformation {
                     transformedToOriginal[offset.coerceIn(0, transformedToOriginal.lastIndex)]
             },
         )
+        cachedSource = text.text
+        cachedResult = result
+        return result
     }
 }

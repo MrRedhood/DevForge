@@ -2608,16 +2608,16 @@ private fun EditorScreen(
             fieldValue = TextFieldValue(active.content, TextRange(active.content.length))
         }
         val validStarts = if (active.content.toByteArray(Charsets.UTF_8).size <= 128 * 1024 && active.content.count { it == '\n' } + 1 <= 4_000) {
-            EditorFolding.ranges(active.content).map { it.startOffset }.toSet()
+            EditorFolding.ranges(active.content, maxRanges = 40).map { it.startOffset }.toSet()
         } else emptySet()
         collapsedStarts = collapsedStarts.intersect(validStarts)
     }
 
     val byteSize = remember(active.content) { active.content.toByteArray(Charsets.UTF_8).size }
     val lineCount = remember(active.content) { active.content.count { it == '\n' } + 1 }
-    val richCodeRendering = remember(byteSize, lineCount) { byteSize <= 128 * 1024 && lineCount <= 4_000 }
+    val richCodeRendering = remember(byteSize, lineCount) { byteSize <= 64 * 1024 && lineCount <= 2_000 }
     val foldRanges = if (richCodeRendering) {
-        remember(active.uri, active.content) { EditorFolding.ranges(active.content) }
+        remember(active.uri, active.content) { EditorFolding.ranges(active.content, maxRanges = 40) }
     } else {
         emptyList()
     }
@@ -2769,7 +2769,7 @@ private fun EditorScreen(
         if (!richCodeRendering) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Text(
-                    "Fast editor mode: syntax highlighting, folding and diagnostics are reduced above 128 KiB or 4,000 lines. Editing remains supported up to 8 MiB, with bounded undo history.",
+                    "Fast editor mode: syntax highlighting, folding and diagnostics are reduced above 64 KiB or 2,000 lines. Editing remains supported up to 8 MiB, with bounded undo history.",
                     Modifier.fillMaxWidth().padding(12.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2901,6 +2901,22 @@ private fun EditorScreen(
                 LaunchedEffect(splitTab.uri, splitTab.content) {
                     if (splitValue.text != splitTab.content) splitValue = TextFieldValue(splitTab.content)
                 }
+                val splitLanguage = remember(splitTab.name) { EditorLanguage.detect(splitTab.name) }
+                val splitSyntax = remember(
+                    splitLanguage,
+                    MaterialTheme.colorScheme.primary,
+                    MaterialTheme.colorScheme.tertiary,
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                    MaterialTheme.colorScheme.secondary,
+                ) {
+                    CodeSyntaxVisualTransformation(
+                        language = splitLanguage,
+                        keywordColor = MaterialTheme.colorScheme.primary,
+                        stringColor = MaterialTheme.colorScheme.tertiary,
+                        commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        numberColor = MaterialTheme.colorScheme.secondary,
+                    )
+                }
                 BasicTextField(
                     value = splitValue,
                     onValueChange = {
@@ -2913,13 +2929,7 @@ private fun EditorScreen(
                         fontSize = settings.settings.editorFontSize.sp.sp,
                         color = MaterialTheme.colorScheme.onBackground,
                     ),
-                    visualTransformation = CodeSyntaxVisualTransformation(
-                        language = EditorLanguage.detect(splitTab.name),
-                        keywordColor = MaterialTheme.colorScheme.primary,
-                        stringColor = MaterialTheme.colorScheme.tertiary,
-                        commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        numberColor = MaterialTheme.colorScheme.secondary,
-                    ),
+                    visualTransformation = if (splitValue.text.toByteArray(Charsets.UTF_8).size <= 64 * 1024 && splitValue.text.count { it == '\n' } + 1 <= 2_000) splitSyntax else VisualTransformation.None,
                     decorationBox = { inner -> Box(Modifier.fillMaxSize().padding(vertical = 2.dp)) { inner() } },
                 )
             }

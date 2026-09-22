@@ -263,10 +263,10 @@ private val guideCategories = listOf(
         "Editor performance",
         "Keep the code editor responsive on mobile by automatically reducing expensive rendering work for large files.",
         listOf(
-            t("Fast editor mode","For files above 128 KiB or 4,000 lines, DevForge reduces syntax highlighting and folding work and debounces diagnostics off the UI thread.",
+            t("Fast editor mode","For files above 64 KiB or 2,000 lines, DevForge reduces syntax highlighting and folding work and debounces diagnostics off the UI thread.",
                 listOf("Open a large source file.","Continue editing normally.","Diagnostics update after a short pause instead of running on every keystroke."),
                 "Editor → large-file notice.",
-                listOf("rich rendering = ≤128 KiB and ≤4,000 lines","fast mode = larger files","maximum supported content = 8 MiB")),
+                listOf("rich rendering = ≤64 KiB and ≤2,000 lines","fast mode = larger files","maximum supported content = 8 MiB")),
             t("Editor diagnostics","Syntax diagnostics are calculated on a background dispatcher and debounced while typing.",
                 listOf("Edit code quickly.","Keep typing without waiting for diagnostics.","Pause briefly to let the latest diagnostics settle."),
                 "Editor → diagnostics panel."),
@@ -752,8 +752,8 @@ t("Agent plans & activity","Chat shows the top-level engineering plan plus each 
                 listOf("Open DevForge Center → Quality & Reliability.","Review checks before a risky change or release.","Approval notifications now reopen DevForge directly on Approvals.","Operations and notification progress are lifecycle-bound so leaving a screen does not cancel or orphan the underlying state."),
                 "More → DevForge Center → Quality & Reliability.",
                 listOf("notification approval deep links = open Approvals","progress worker = coroutine-backed and retryable")),
-            t("AI Run Inspector","Read-only monitoring for AI-managed agent runs. User controls for launching, stopping, replaying or selecting agent models are not exposed here.",
-                listOf("Open DevForge Center → AI Run Inspector.","Select a task.","Review status, provider, model, elapsed time, current step, last tool, approval, errors and result."),
+            t("AI Run Inspector","Read-only monitoring for AI-managed agent runs. Users cannot launch, stop, replay, pause, resume or select agent models from this surface.",
+                listOf("Open DevForge Center → AI Run Inspector.","Select a task.","Review status, provider, model, elapsed time, current step, last tool, approval, errors, step activity, affected paths and result."),
                 "More → DevForge Center → AI Run Inspector.",
                 listOf("agent launcher = removed from user UI","replay/stop agent = AI-controlled only","running count = visible")),
 

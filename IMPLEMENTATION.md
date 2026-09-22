@@ -1696,6 +1696,16 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - Restored the missing newline in the Build Center companion constants after the approval-lifetime cleanup exposed a formatting-induced Kotlin parse error.
 
 
+### 2026-09-22 — AI-managed agent UX and mobile editor performance hardening
+- [x] Removed the remaining user-facing Agent Center ViewModel/API surface; DevForge Center now uses a read-only agent activity observer.
+- [x] Users cannot launch, replay, pause, resume or cancel agents from the UI; only AI orchestration can deploy internal agents.
+- [x] Kept AI Run Inspector and project activity observational: status, agent count, provider, model, elapsed time, current step, last tool, approvals, step activity, affected paths, errors and final results remain visible.
+- [x] Kept AI-generated plans phase-ordered: phases execute sequentially while independent agents within a phase may run concurrently for faster development.
+- [x] Hardened editor visual transformations with result caching so repeated scroll/recomposition no longer reruns whole-file syntax, folding or invisible-character processing.
+- [x] Reduced rich editor rendering thresholds from 128 KiB/4,000 lines to 64 KiB/2,000 lines and reduced folding to 40 ranges so large source files enter the lighter path earlier on mobile.
+- [x] Updated Help & guide to match the agent control boundary and editor performance thresholds.
+- [ ] Fresh Android CI and Android UI Tests validation is pending for this commit.
+
 ### 2026-09-22 — AI-only routing and editor compile cleanup
 - [x] Fixed the AI delegation boundary so explicit slash commands keep their own typed command behavior; ordinary natural-language implementation requests can still enter the AI-managed agent workflow.
 - [x] Fixed the editor's remembered syntax transformation construction so Compose theme colors are captured outside the non-composable remember calculation, removing the release-build compile error.
