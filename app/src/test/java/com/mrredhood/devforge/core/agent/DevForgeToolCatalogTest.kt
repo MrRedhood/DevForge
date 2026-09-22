@@ -20,8 +20,8 @@ class DevForgeToolCatalogTest {
     }
 
     @Test
-    fun destructiveDeleteToolDefaultsOff() {
-        assertFalse(DevForgeToolCatalog.defaultEnabledIds.contains(AgentToolId.DELETE_PATH))
+    fun destructiveDeleteToolDefaultsOnButApprovalProtected() {
+        assertTrue(DevForgeToolCatalog.defaultEnabledIds.contains(AgentToolId.DELETE_PATH))
         assertTrue(DevForgeToolCatalog.isUserTool(AgentToolId.WEB_SEARCH))
     }
     @Test

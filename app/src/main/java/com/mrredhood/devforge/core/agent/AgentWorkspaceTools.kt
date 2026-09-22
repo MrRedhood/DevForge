@@ -898,7 +898,14 @@ internal object AgentWorkspacePath {
         allowEmpty: Boolean = false,
         directPathExists: Boolean = false,
     ): String {
-        var normalized = WorkspacePathScope.normalize(rawPath, allowEmpty)
+        val rootMarker = rawPath.trim().let {
+            it.isEmpty() || it == "." || it == "./" || it == "/"
+        }
+        var normalized = if (rootMarker && allowEmpty) {
+            ""
+        } else {
+            WorkspacePathScope.normalize(rawPath, allowEmpty)
+        }
         if (!directPathExists) {
             normalized = removeAccidentalTextSuffix(normalized)
         }
