@@ -7,8 +7,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.rule.GrantPermissionRule
 import org.junit.Rule
@@ -99,6 +101,7 @@ class MainActivityNavigationTest {
         resetToEditorHome()
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag("more-screen-list", useUnmergedTree = true).performScrollToIndex(5)
         waitForText("AI & GitHub")
         composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).performClick()
         waitForNode("AI Tools")
@@ -112,6 +115,7 @@ class MainActivityNavigationTest {
         resetToEditorHome()
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag("more-screen-list", useUnmergedTree = true).performScrollToIndex(5)
         waitForText("AI & GitHub")
         composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("GitHub", useUnmergedTree = true).assertIsDisplayed()
