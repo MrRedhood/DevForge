@@ -1696,6 +1696,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - Restored the missing newline in the Build Center companion constants after the approval-lifetime cleanup exposed a formatting-induced Kotlin parse error.
 
 
+### 2026-09-22 — Align editor folding threshold
+- [x] Aligned the editor's folding calculation guard with the 64 KiB / 2,000-line fast-rendering threshold so large-file folding work is skipped consistently before transformation creation.
+- [ ] Fresh Android CI and Android UI Tests validation is pending for this follow-up commit.
+
 ### 2026-09-22 — AI-managed agent UX and mobile editor performance hardening
 - [x] Removed the remaining user-facing Agent Center ViewModel/API surface; DevForge Center now uses a read-only agent activity observer.
 - [x] Users cannot launch, replay, pause, resume or cancel agents from the UI; only AI orchestration can deploy internal agents.
