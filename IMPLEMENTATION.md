@@ -1637,3 +1637,7 @@ Specifically:
 Imported the validated DevForge source archive into the new main-only repository from the supplied source snapshot. The bootstrap restores the application source, tests, Gradle configuration, GitHub Actions workflows, tools, and project documentation while starting a fresh repository history.
 
 The repository README was refreshed with DevForge-specific positioning and product messaging.
+
+## 2026-09-22 — Restored project workflows
+
+Restored the three project GitHub Actions workflows through the repository Git integration after the bootstrap import. The temporary importer workflow is not part of the DevForge baseline.
