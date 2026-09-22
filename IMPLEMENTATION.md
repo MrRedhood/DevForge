@@ -1866,3 +1866,11 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Kept the live tool-status answer independent of model/API-key availability so it can report the actual DevForge tool state without another AI inference step.
 - [x] Updated More → ⓘ Help & guide with the AI factuality/evidence behavior.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the repaired main head.
+
+
+### 2026-09-22 — Latest Android CI unit-test repair
+- [x] Inspected Android CI #83 and found the failure was isolated to `TerminalCommandParserTest`: the newly added `env`/expanded terminal commands were declared in `TerminalExecutable` but were missing from the bounded AI parser name map.
+- [x] Registered `env`, `printenv`, `which`, `true`, `false`, `sleep`, and `getprop` in `TerminalCommandParser`.
+- [x] Expanded terminal parser regression coverage so the new command aliases are verified at the parser boundary.
+- [x] Android UI Tests #83 was already successful on the same pre-fix head; the remaining failure was Android unit-test-only.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the new repair commit.
