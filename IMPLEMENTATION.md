@@ -1,3 +1,15 @@
+### 2026-09-22 — Single main AI and dedicated AI Tools
+- [x] Removed the user-facing Engineering Power surface and its dedicated source/test files; AI work is no longer split across a separate engineering control room.
+- [x] Restored More → AI Tools as a dedicated full-screen tool-management surface with per-tool enable/disable controls, a coding-tools enable action, and reset behavior.
+- [x] Made the main AI's workspace inspection and mutation tool set enabled by default, including create file, create folder, write/patch, and delete-path tools; destructive deletion remains approval-gated.
+- [x] Removed the normal Chat path's delegation into the multi-agent squad planner. Coding requests now stay in the single main AI tool loop: plan → inspect → execute bounded tools → verify.
+- [x] Fixed workspace-root tool path normalization so empty/root requests such as `.`, `./`, and `/` resolve to the active workspace root instead of failing as an invalid workspace path.
+- [x] Removed the old agent run card, agent overview, agent history, and worker controls from the user-facing Chat/Project Activity surfaces.
+- [x] Converted live AI tool execution into compact expandable task labels showing running/completed/failed state, tool name, and execution detail.
+- [x] Made AI Chat a full-screen surface instead of a constrained dialog.
+- [x] Updated Help & guide and README to describe the single main AI workflow and the dedicated AI Tools screen; removed the Engineering Power and user-facing Agents guide categories.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
 ### 2026-09-22 — Dedicated Extensions UI
 
 - [x] Promoted the real extension manager to a dedicated top-level `Extensions` destination instead of embedding it inside Engineering Power or another utility screen.
