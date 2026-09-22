@@ -1,7 +1,6 @@
 package com.mrredhood.devforge
 
 import android.app.Application
-import com.mrredhood.devforge.core.automation.AutomationScheduler
 import com.mrredhood.devforge.core.settings.DevForgeSettingsRepository
 import com.mrredhood.devforge.core.storage.DevForgeDataRetentionService
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
@@ -19,9 +18,13 @@ class DevForgeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        AutomationScheduler.initialize(this)
         ApprovalNotificationManager.initialize(this)
         DevForgeActivityNotificationManager.initialize(this)
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            runCatching {
+                com.mrredhood.devforge.core.automation.AutomationScheduler.disableAll(this@DevForgeApplication)
+            }
+        }
         ApprovalNotificationManager.repostPending()
         agentRuntime
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
