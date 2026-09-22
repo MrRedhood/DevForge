@@ -556,7 +556,11 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 } else {
                     compactWorkspaceContext + "\n\n" + finalInstruction
                 }
-                val effectiveInstruction = if (attachmentContext.isBlank()) effectiveBase else effectiveBase + "\n\n" + attachmentContext
+                val effectiveInstruction = buildString {
+                    append(if (attachmentContext.isBlank()) effectiveBase else effectiveBase + "\n\n" + attachmentContext)
+                    append("\n\n")
+                    append(truthService.groundingInstruction(raw))
+                }
                 val visibleUserMessage = raw.ifBlank {
                     submittedAttachments.joinToString(", ") { it.name }.ifBlank { "Attachment" }
                 }
