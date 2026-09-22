@@ -8,12 +8,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,25 +31,34 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun ToolSettingsScreen() {
+fun ToolSettingsScreen(onClose: () -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val store = remember { ToolSettingsStore(context) }
     var revision by remember { mutableStateOf(0) }
     val groups = remember { DevForgeToolCatalog.entries.groupBy { it.group } }
 
-    LazyColumn(
+    Column(Modifier.fillMaxSize()) {
+        CenterAlignedTopAppBar(
+            title = { Text("AI Tools", fontWeight = FontWeight.Bold) },
+            navigationIcon = {
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                }
+            },
+        )
+        LazyColumn(
         Modifier.fillMaxSize().testTag("tool-settings-list"),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
             Text(
-                "AI Tools",
+                "Main AI execution controls",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                "Enabled tools are available to every AI model used in DevForge, including models without native function-calling support. Mutating tools still pass through DevForge's workspace, policy, lease, precondition, and approval boundaries.",
+                "The single DevForge AI uses these tools to inspect workspaces, create/modify/delete files and folders, search the web, use Git, and run bounded terminal commands. Mutations remain protected by workspace boundaries, preconditions, leases, and approval policy.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
@@ -82,7 +97,7 @@ fun ToolSettingsScreen() {
                             )
                             if (entry.id == AgentToolId.DELETE_PATH) {
                                 Text(
-                                    "Disabled by default because it is destructive.",
+                                    "Enabled by default for the main AI, but deletion still requires approval.",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.error,
                                 )
@@ -101,14 +116,29 @@ fun ToolSettingsScreen() {
         }
 
         item {
-            TextButton(
-                onClick = {
-                    store.resetToDefaults()
-                    revision++
-                },
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("Reset tool settings")
+                Button(
+                    onClick = {
+                        DevForgeToolCatalog.entries
+                            .filter { it.group == "Workspace" }
+                            .forEach { store.setEnabled(it.id, true) }
+                        revision++
+                    },
+                ) {
+                    Text("Enable coding tools")
+                }
+                TextButton(
+                    onClick = {
+                        store.resetToDefaults()
+                        revision++
+                    },
+                ) {
+                    Text("Reset")
+                }
             }
         }
     }
-}
+    }
