@@ -61,7 +61,7 @@ DevForge is not a desktop IDE squeezed into a phone. Its navigation, workspace m
 
 ### Single main AI
 
-For coding requests, DevForge's main AI creates a plan, inspects the active workspace, searches and reads relevant files, executes bounded file/folder mutations through the same tool gateway, and verifies the result. Tool execution is shown in Chat as compact expandable task labels so you can inspect what the AI is doing without a separate agent dashboard.
+For coding requests, DevForge's main AI creates a plan, inspects the active workspace, searches and reads relevant files, executes bounded file/folder mutations through the same tool gateway, and verifies the result. Tool execution is shown in Chat as compact expandable task labels so you can inspect what the AI is doing without a separate worker dashboard.
 
 ### AI Tools
 
