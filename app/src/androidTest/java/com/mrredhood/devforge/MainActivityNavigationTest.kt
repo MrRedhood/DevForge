@@ -45,6 +45,19 @@ class MainActivityNavigationTest {
         }
     }
 
+    private fun waitForAiGitHubManagement(timeoutMillis: Long = 10_000L) {
+        composeRule.waitUntil(timeoutMillis = timeoutMillis) {
+            runCatching {
+                composeRule
+                    .onNodeWithContentDescription(
+                        "AI & GitHub management",
+                        useUnmergedTree = true,
+                    )
+                    .assertExists()
+            }.isSuccess
+        }
+    }
+
     @Test
     fun editorIsPrimaryBottomBarDestinationAndWorkspaceMenuIsWorkspaceFocused() {
         waitForNode("Editor navigation")
@@ -76,8 +89,11 @@ class MainActivityNavigationTest {
     fun aiToolsIsAStandaloneManagementScreen() {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
-        waitForText("AI & GitHub")
-        composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).performClick()
+        waitForAiGitHubManagement()
+        composeRule.onNodeWithContentDescription(
+            "AI & GitHub management",
+            useUnmergedTree = true,
+        ).performClick()
         waitForNode("AI Tools")
         composeRule.onNodeWithText("AI Tools", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Main AI execution controls", useUnmergedTree = true).assertIsDisplayed()
