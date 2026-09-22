@@ -1874,3 +1874,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Expanded terminal parser regression coverage so the new command aliases are verified at the parser boundary.
 - [x] Android UI Tests #83 was already successful on the same pre-fix head; the remaining failure was Android unit-test-only.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the new repair commit.
+
+
+### 2026-09-22 — Android CI #86 parser-map repair
+- [x] Inspected the latest Android CI #86 failure on main commit `9c739512`; the build and compilation succeeded, but `TerminalCommandParserTest.parsesExpandedReadOnlyCommandsForAiTools` failed because the parser map still lacked the expanded executable names.
+- [x] Registered `env`, `printenv`, `which`, `true`, `false`, `sleep`, and `getprop` in the actual `TerminalCommandParser` implementation.
+- [x] Preserved the existing bounded AI-command policy and the separate interactive real-shell path; this repair only completes the missing parser registration.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the repair commit.
