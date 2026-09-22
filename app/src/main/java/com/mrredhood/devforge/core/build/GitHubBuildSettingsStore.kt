@@ -43,6 +43,14 @@ class GitHubBuildSettingsStore(context: Context) {
         prefs.edit().remove(key(owner, repository)).apply()
     }
 
+    fun renameRepository(owner: String, oldRepository: String, newRepository: String) {
+        val oldKey = key(owner, oldRepository)
+        if (!prefs.contains(oldKey)) return
+        val settings = get(owner, oldRepository)
+        set(owner, newRepository, settings)
+        prefs.edit().remove(oldKey).apply()
+    }
+
     fun set(owner: String, repository: String, settings: BuildOutputSettings) {
         prefs.edit()
             .putString(

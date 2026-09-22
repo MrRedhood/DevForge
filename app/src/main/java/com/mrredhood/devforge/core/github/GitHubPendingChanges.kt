@@ -58,6 +58,16 @@ object GitHubPendingChanges {
     }
 
     @Synchronized
+    fun renameRepository(owner: String, oldRepository: String, newRepository: String) {
+        state.value = state.value.mapValues { (_, batch) ->
+            if (
+                batch.owner.equals(owner.trim(), ignoreCase = true) &&
+                batch.repository.equals(oldRepository.trim(), ignoreCase = true)
+            ) batch.copy(repository = newRepository.trim()) else batch
+        }
+    }
+
+    @Synchronized
     fun replaceBranch(workspaceId: String, branch: String) {
         val current = state.value[workspaceId] ?: return
         state.value = state.value + (workspaceId to current.copy(branch = branch.trim().ifBlank { "main" }))

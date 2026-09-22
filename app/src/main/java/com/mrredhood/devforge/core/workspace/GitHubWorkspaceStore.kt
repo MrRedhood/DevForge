@@ -59,6 +59,31 @@ class GitHubWorkspaceStore(context: Context) {
         prefs.edit().remove(KEY_PREFIX + workspaceId).apply()
     }
 
+    fun renameRepository(owner: String, oldRepository: String, newRepository: String): Set<String> {
+        val ids = prefs.all.entries.mapNotNull { (key, value) ->
+            if (!key.startsWith(KEY_PREFIX) || value !is String) return@mapNotNull null
+            runCatching {
+                val json = JSONObject(value)
+                if (
+                    json.optString("owner").equals(owner.trim(), ignoreCase = true) &&
+                    json.optString("repository").equals(oldRepository.trim(), ignoreCase = true)
+                ) {
+                    val id = key.removePrefix(KEY_PREFIX)
+                    save(
+                        GitHubWorkspaceRemote(
+                            workspaceId = id,
+                            owner = json.optString("owner"),
+                            repository = newRepository.trim(),
+                            branch = json.optString("branch", "main").ifBlank { "main" },
+                        ),
+                    )
+                    id
+                } else null
+            }.getOrNull()
+        }.toSet()
+        return ids
+    }
+
     fun removeByRepository(owner: String, repository: String): Set<String> {
         val matchingIds = prefs.all.entries.mapNotNull { (key, value) ->
             if (!key.startsWith(KEY_PREFIX) || value !is String) return@mapNotNull null

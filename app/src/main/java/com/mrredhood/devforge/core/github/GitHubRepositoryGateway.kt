@@ -421,6 +421,60 @@ class GitHubRepositoryGateway(
         )
     }
 
+    fun updateRepository(
+        owner: String,
+        repository: String,
+        request: GitHubRepositoryUpdateRequest,
+    ): GitHubRepositoryResult {
+        val normalizedOwner = validateName(owner)
+            ?: return GitHubRepositoryResult.Failure("The GitHub owner is invalid.")
+        val normalizedRepository = validateName(repository)
+            ?: return GitHubRepositoryResult.Failure("The GitHub repository is invalid.")
+        val normalizedName = validateName(request.name)
+            ?: return GitHubRepositoryResult.Failure("The repository name is invalid.")
+        if (request.description.length > 5_000 || request.homepage.length > 2_000) {
+            return GitHubRepositoryResult.Failure("Repository metadata is too large.")
+        }
+        val branch = request.defaultBranch.trim().ifBlank { "main" }
+        requireSafeBranch(branch).getOrElse {
+            return GitHubRepositoryResult.Failure(it.message ?: "The default branch is invalid.")
+        }
+        val visibility = request.visibility.trim().lowercase()
+        if (visibility !in setOf("public", "private")) {
+            return GitHubRepositoryResult.Failure("Only public and private visibility can be edited in DevForge.")
+        }
+        return runCatching {
+            parseRepository(
+                patchJson(
+                    "/repos/" + normalizedOwner + "/" + normalizedRepository,
+                    JSONObject()
+                        .put("name", normalizedName)
+                        .put("description", request.description.trim())
+                        .put("homepage", request.homepage.trim())
+                        .put("private", visibility == "private")
+                        .put("has_issues", request.hasIssues)
+                        .put("has_projects", request.hasProjects)
+                        .put("has_wiki", request.hasWiki)
+                        .put("has_discussions", request.hasDiscussions)
+                        .put("has_downloads", request.hasDownloads)
+                        .put("allow_squash_merge", request.allowSquashMerge)
+                        .put("allow_merge_commit", request.allowMergeCommit)
+                        .put("allow_rebase_merge", request.allowRebaseMerge)
+                        .put("allow_auto_merge", request.allowAutoMerge)
+                        .put("delete_branch_on_merge", request.deleteBranchOnMerge)
+                        .put("squash_merge_commit_title", request.squashMergeTitle)
+                        .put("squash_merge_commit_message", request.squashMergeMessage)
+                        .put("merge_commit_title", request.mergeCommitTitle)
+                        .put("merge_commit_message", request.mergeCommitMessage)
+                        .put("default_branch", branch),
+                ),
+            )
+        }.fold(
+            onSuccess = { GitHubRepositoryResult.Success(it) },
+            onFailure = { GitHubRepositoryResult.Failure(safeMessage(it)) },
+        )
+    }
+
     fun getCommitDetails(
         owner: String,
         repository: String,
@@ -731,6 +785,13 @@ class GitHubRepositoryGateway(
             fullName = json.optString("full_name", owner + "/" + name),
             isPrivate = json.optBoolean("private", false),
             defaultBranch = json.optString("default_branch", "main"),
+            description = json.optString("description", ""),
+            homepage = json.optString("homepage", ""),
+            hasIssues = json.optBoolean("has_issues", true),
+            hasProjects = json.optBoolean("has_projects", true),
+            hasWiki = json.optBoolean("has_wiki", false),
+            hasDiscussions = json.optBoolean("has_discussions", false),
+            isTemplate = json.optBoolean("is_template", false),
             hasDownloads = json.optBoolean("has_downloads", true),
             allowSquashMerge = json.optBoolean("allow_squash_merge", true),
             allowMergeCommit = json.optBoolean("allow_merge_commit", true),
