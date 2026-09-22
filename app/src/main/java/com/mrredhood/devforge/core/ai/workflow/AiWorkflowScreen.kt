@@ -59,6 +59,15 @@ fun AiWorkflowCard(workflow: AiWorkflowSnapshot?) {
                 }
             }
 
+            Text(workflow.changeSummary, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            if (workflow.changedPaths.isNotEmpty()) {
+                Text(
+                    workflow.changedPaths.take(3).joinToString(" · ") + if (workflow.changedPaths.size > 3) " · …" else "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (expanded) {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),

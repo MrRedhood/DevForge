@@ -12,6 +12,9 @@ interface BuildReceiptDao {
     @Query("SELECT * FROM build_receipts ORDER BY recordedAtEpochMs DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<BuildReceiptEntity>>
 
+    @Query("SELECT * FROM build_receipts ORDER BY recordedAtEpochMs DESC LIMIT 1")
+    suspend fun latest(): BuildReceiptEntity?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfAbsent(receipt: BuildReceiptEntity)
 

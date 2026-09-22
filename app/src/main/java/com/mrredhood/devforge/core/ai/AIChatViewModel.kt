@@ -477,6 +477,12 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 )
                 withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 val attachmentContext = prepareAttachmentContext(submittedAttachments)
+                workflowSnapshot = aiWorkflowEngine.phase(
+                    workflowSnapshot,
+                    AiWorkflowPhase.INSPECT,
+                    "Inspecting workspace context",
+                )
+                withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 val compactWorkspaceContext = workspaceId?.let { workspaceContextService.compactPrompt(it) }.orEmpty()
                 // Repeat only the compact workspace identity. Rich workspace state and source code are fetched on demand.
                 val effectiveBase = if (compactWorkspaceContext.isBlank()) {
@@ -509,6 +515,12 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val history = buildBoundedHistory(model, historySource, effectiveInstruction.length)
                 if (shouldDelegateToWorkspaceAgent(raw, parsed, workspaceId)) {
                     val targetWorkspaceId = workspaceId ?: error("Create or select a workspace before asking the agent to change files.")
+                    workflowSnapshot = aiWorkflowEngine.phase(
+                        workflowSnapshot,
+                        AiWorkflowPhase.EXECUTE,
+                        "Executing implementation",
+                    )
+                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                     val agentInstruction = buildAgentInstruction(raw, parsed, effectiveInstruction)
                     val response = executeChatAgent(
                         workspaceId = targetWorkspaceId,
@@ -538,6 +550,12 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     )
                     withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 } else if (toolSettings.enabledToolIds().isNotEmpty()) {
+                    workflowSnapshot = aiWorkflowEngine.phase(
+                        workflowSnapshot,
+                        AiWorkflowPhase.EXECUTE,
+                        "Executing bounded tools",
+                    )
+                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                     val toolResult = toolOrchestrator.run(
                         model = model,
                         apiKey = key,

@@ -92,10 +92,15 @@ class AiWorkflowEngine(context: Context) {
         requestedTests: Boolean = false,
         requestedLint: Boolean = false,
     ): AiWorkflowSnapshot {
+        val observedPaths = (changedPaths + snapshot.activities.flatMap { it.paths })
+            .filter(String::isNotBlank)
+            .distinct()
+            .take(40)
         val verification = verifier.verify(
             workspaceId = snapshot.workspaceId,
             workspaceRoot = workspaceRoot,
-            changedPaths = changedPaths,
+            changedPaths = observedPaths,
+            missionStartedAtEpochMs = snapshot.startedAtEpochMs,
             requestedBuild = requestedBuild,
             requestedTests = requestedTests,
             requestedLint = requestedLint,

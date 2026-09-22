@@ -45,5 +45,26 @@ data class AiWorkflowSnapshot(
     val startedAtEpochMs: Long,
     val updatedAtEpochMs: Long,
 ) {
+    val changedPaths: List<String>
+        get() = activities.flatMap { it.paths }.distinct().take(40)
+
+    val writeCount: Int
+        get() = activities.count { it.kind == AiActivityKind.WRITE && it.status != AiActivityStatus.FAILED }
+
+    val deleteCount: Int
+        get() = activities.count { it.kind == AiActivityKind.DELETE && it.status != AiActivityStatus.FAILED }
+
+    val commandCount: Int
+        get() = activities.count { it.kind == AiActivityKind.COMMAND && it.status != AiActivityStatus.FAILED }
+
+    val changeSummary: String
+        get() {
+            val parts = mutableListOf<String>()
+            if (writeCount > 0) parts += "$writeCount writes"
+            if (deleteCount > 0) parts += "$deleteCount deletes"
+            if (commandCount > 0) parts += "$commandCount commands"
+            if (changedPaths.isNotEmpty()) parts += changedPaths.size.toString() + " paths"
+            return parts.joinToString(" · ").ifBlank { "No recorded file mutations" }
+        }
     enum class Status { RUNNING, WAITING, COMPLETED, FAILED, CANCELLED }
 }

@@ -2653,6 +2653,7 @@ private fun EditorScreen(
     var showGoToLine by remember(active.uri) { mutableStateOf(false) }
     var showSymbols by remember(active.uri) { mutableStateOf(false) }
     var showCommandPalette by remember(active.uri) { mutableStateOf(false) }
+    var commandQuery by remember(active.uri) { mutableStateOf("") }
     var showQuickOpen by remember(active.uri) { mutableStateOf(false) }
     var splitUri by rememberSaveable(active.uri) { mutableStateOf<android.net.Uri?>(null) }
     var findQuery by remember(active.uri) { mutableStateOf("") }
@@ -3090,48 +3091,95 @@ private fun EditorScreen(
     }
 
     if (showCommandPalette) {
-        val commands = listOf("Find and replace", "Go to line", "Symbols", "Problems", "Save", "Split editor", "Git", "Build", "Terminal", "Approvals", "Settings", "Overview", "Project map", "Dependencies", "Activity", "Local history", "Logs")
+        val commands = listOf(
+            "Find and replace", "Go to line", "Symbols", "Problems", "Save",
+            "Select line", "Duplicate line", "Delete line", "Move line up",
+            "Move line down", "Toggle comment", "Split editor", "Git", "Build",
+            "Terminal", "Approvals", "Settings", "Overview", "Project map",
+            "Dependencies", "Activity", "Local history", "Logs",
+        )
+        val filteredCommands = commands.filter { command ->
+            commandQuery.isBlank() || command.contains(commandQuery.trim(), ignoreCase = true)
+        }
         AlertDialog(
-            onDismissRequest = { showCommandPalette = false },
+            onDismissRequest = { showCommandPalette = false; commandQuery = "" },
             title = { Text("Command palette") },
             text = {
-                LazyColumn {
-                    items(commands) { command ->
-                        TextButton(
-                            onClick = {
-                                showCommandPalette = false
-                                when (command) {
-                                    "Find and replace" -> showFind = true
-                                    "Go to line" -> showGoToLine = true
-                                    "Symbols" -> showSymbols = true
-                                    "Problems" -> { /* problems are visible in the editor */ }
-                                    "Save" -> editor.saveActive()
-                                    "Split editor" -> {
-                                        splitUri = if (splitUri == null) editor.tabs.firstOrNull { it.uri != active.uri }?.uri else null
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = commandQuery,
+                        onValueChange = { commandQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Search commands") },
+                    )
+                    LazyColumn {
+                        items(filteredCommands) { command ->
+                            TextButton(
+                                onClick = {
+                                    showCommandPalette = false
+                                    commandQuery = ""
+                                    when (command) {
+                                        "Find and replace" -> showFind = true
+                                        "Go to line" -> showGoToLine = true
+                                        "Symbols" -> showSymbols = true
+                                        "Problems" -> { /* problems are visible in the editor */ }
+                                        "Save" -> editor.saveActive()
+                                        "Select line" -> {
+                                            editor.selectCurrentLine(fieldValue.selection.start)?.let { edit ->
+                                                fieldValue = TextFieldValue(edit.content, TextRange(edit.selectionStart, edit.selectionEnd))
+                                            }
+                                        }
+                                        "Duplicate line" -> {
+                                            editor.duplicateCurrentLine(fieldValue.selection.start)?.let { edit ->
+                                                fieldValue = TextFieldValue(edit.content, TextRange(edit.cursor))
+                                            }
+                                        }
+                                        "Delete line" -> {
+                                            editor.deleteCurrentLine(fieldValue.selection.start)?.let { edit ->
+                                                fieldValue = TextFieldValue(edit.content, TextRange(edit.cursor))
+                                            }
+                                        }
+                                        "Move line up" -> {
+                                            editor.moveCurrentLine(fieldValue.selection.start, -1)?.let { edit ->
+                                                fieldValue = TextFieldValue(edit.content, TextRange(edit.cursor))
+                                            }
+                                        }
+                                        "Move line down" -> {
+                                            editor.moveCurrentLine(fieldValue.selection.start, 1)?.let { edit ->
+                                                fieldValue = TextFieldValue(edit.content, TextRange(edit.cursor))
+                                            }
+                                        }
+                                        "Toggle comment" -> {
+                                            editor.toggleCurrentLineComment(fieldValue.selection.start)?.let { edit ->
+                                                fieldValue = TextFieldValue(edit.content, TextRange(edit.cursor))
+                                            }
+                                        }
+                                        "Split editor" -> {
+                                            splitUri = if (splitUri == null) editor.tabs.firstOrNull { it.uri != active.uri }?.uri else null
+                                        }
+                                        "Git" -> onOpenDestination(DevForgeDestination.Git)
+                                        "Build" -> onOpenDestination(DevForgeDestination.Build)
+                                        "Terminal" -> onOpenDestination(DevForgeDestination.Terminal)
+                                        "Approvals" -> onOpenDestination(DevForgeDestination.Approvals)
+                                        "Settings" -> onOpenDestination(DevForgeDestination.Settings)
+                                        "Overview" -> onOpenIdeTool(IdeTool.OVERVIEW)
+                                        "Project map" -> onOpenIdeTool(IdeTool.PROJECT_MAP)
+                                        "Dependencies" -> onOpenIdeTool(IdeTool.DEPENDENCIES)
+                                        "Activity" -> onOpenIdeTool(IdeTool.ACTIVITY)
+                                        "Local history" -> onOpenIdeTool(IdeTool.LOCAL_HISTORY)
+                                        "Logs" -> onOpenIdeTool(IdeTool.LOGS)
                                     }
-                                    "Git" -> onOpenDestination(DevForgeDestination.Git)
-                                    "Build" -> onOpenDestination(DevForgeDestination.Build)
-                                    "Terminal" -> onOpenDestination(DevForgeDestination.Terminal)
-                                    "Approvals" -> onOpenDestination(DevForgeDestination.Approvals)
-                                    "Settings" -> onOpenDestination(DevForgeDestination.Settings)
-                                    "Overview" -> onOpenIdeTool(IdeTool.OVERVIEW)
-                                    "Project map" -> onOpenIdeTool(IdeTool.PROJECT_MAP)
-                                    "Dependencies" -> onOpenIdeTool(IdeTool.DEPENDENCIES)
-                                    "Activity" -> onOpenIdeTool(IdeTool.ACTIVITY)
-                                    "Local history" -> onOpenIdeTool(IdeTool.LOCAL_HISTORY)
-                                    "Logs" -> onOpenIdeTool(IdeTool.LOGS)
-// Logs is an IDE tool and is routed above.
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text(command, Modifier.fillMaxWidth()) }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(command, Modifier.fillMaxWidth()) }
+                        }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showCommandPalette = false }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { showCommandPalette = false; commandQuery = "" }) { Text("Close") } },
         )
     }
-
     if (editor.refreshConfirmationRequired) {
         AlertDialog(
             onDismissRequest = editor::cancelRefreshConfirmation,

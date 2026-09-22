@@ -298,6 +298,33 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         return count
     }
 
+    fun selectCurrentLine(cursor: Int): EditorPowerEdit? =
+        activeTab?.let { EditorPowerEngine.selectLine(it.content, cursor) }
+
+    fun duplicateCurrentLine(cursor: Int): EditorPowerEdit? = applyPowerEdit {
+        EditorPowerEngine.duplicateLine(it.content, cursor)
+    }
+
+    fun deleteCurrentLine(cursor: Int): EditorPowerEdit? = applyPowerEdit {
+        EditorPowerEngine.deleteLine(it.content, cursor)
+    }
+
+    fun moveCurrentLine(cursor: Int, direction: Int): EditorPowerEdit? = applyPowerEdit {
+        EditorPowerEngine.moveLine(it.content, cursor, direction)
+    }
+
+    fun toggleCurrentLineComment(cursor: Int): EditorPowerEdit? = applyPowerEdit {
+        EditorPowerEngine.toggleComment(it.content, cursor, EditorLanguage.detect(it.name))
+    }
+
+    private fun applyPowerEdit(transform: (EditorTab) -> EditorPowerEdit): EditorPowerEdit? {
+        val tab = activeTab ?: return null
+        val edit = transform(tab)
+        if (edit.content == tab.content) return edit
+        updateContent(edit.content)
+        return edit
+    }
+
     fun diagnosticsFor(uri: Uri?): List<Diagnostic> =
         uri?.let { current -> tabs.firstOrNull { it.uri == current }?.let { EditorDiagnostics.analyze(it.name, it.content).diagnostics } } ?: emptyList()
 

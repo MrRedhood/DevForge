@@ -1809,3 +1809,17 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Restored expanded GitHub repository merge-setting fields on `GitHubRepository` and parsed them from GitHub REST responses.
 - [x] Restored missing Compose/import wiring for local workspace publishing and the Git remote result type in `WorkspaceViewModel`.
 - [x] Added Help & guide coverage for Build/CI reliability.
+
+
+### 2026-09-22 — Mobile-native engineering power layer
+- [x] Added cursor-aware Vim-inspired mobile editing actions: select line, duplicate line, delete line, move line up/down, and toggle comment.
+- [x] Expanded the VS Code-style Command Palette with searchable commands and direct mobile editor actions.
+- [x] Added reusable AI skill profiles for Android, UI, testing, security, performance, and Git/GitHub work.
+- [x] Added persistent project-rule guidance: AI Missions now instruct the model to inspect `.devforge/rules/` and `.devforge/skills/` before mutation and to surface rule conflicts.
+- [x] Added mission change summaries for writes, deletes, commands and observed workspace paths.
+- [x] Added Build Center receipt integration to AI verification so a fresh successful build can produce an actual verification pass; stale or failed receipts never become a false pass.
+- [x] Added Android/Gradle project detection to AI verification.
+- [x] Added agent completion activity to the unified AI Mission timeline and path extraction for completed tool activity.
+- [x] Added unit coverage for mobile power editing and AI skill selection.
+- [x] Updated More → ⓘ Help & guide and README with the new mobile-native engineering features.
+- [ ] Fresh Android CI and Android UI Tests validation is required before calling this commit green.
