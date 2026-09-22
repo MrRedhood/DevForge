@@ -59,6 +59,13 @@ enum class TerminalExecutable(val binaryPath: String, val risk: RiskLevel) {
     UNAME("/system/bin/uname", RiskLevel.R1),
     ID("/system/bin/id", RiskLevel.R1),
     WHOAMI("/system/bin/whoami", RiskLevel.R1),
+    ENV("/system/bin/env", RiskLevel.R1),
+    PRINTENV("/system/bin/printenv", RiskLevel.R1),
+    WHICH("/system/bin/which", RiskLevel.R1),
+    TRUE("/system/bin/true", RiskLevel.R1),
+    FALSE("/system/bin/false", RiskLevel.R1),
+    SLEEP("/system/bin/sleep", RiskLevel.R1),
+    GETPROP("/system/bin/getprop", RiskLevel.R1),
     PS("/system/bin/ps", RiskLevel.R1),
     SHA256SUM("/system/bin/sha256sum", RiskLevel.R1),
     CMP("/system/bin/cmp", RiskLevel.R1),
@@ -94,8 +101,10 @@ object TerminalCommandPolicy {
     const val MAX_ARG_LENGTH = 256
     const val MAX_COMMAND_BYTES = 8 * 1024
     const val MAX_OUTPUT_BYTES = 64 * 1024
-    const val DEFAULT_TIMEOUT_MS = 10_000L
-    const val MAX_TIMEOUT_MS = 15_000L
+    const val DEFAULT_TIMEOUT_MS = 20_000L
+    const val MAX_TIMEOUT_MS = 60_000L
+    const val DEFAULT_INTERACTIVE_TIMEOUT_MS = 30_000L
+    const val MAX_INTERACTIVE_TIMEOUT_MS = 120_000L
 
     fun validate(command: TerminalCommand) {
         require(command.args.size <= MAX_ARGS) { "Too many arguments." }
@@ -200,11 +209,14 @@ class TerminalCapability(
         require('\u0000' !in normalized && '\r' !in normalized && '\n' !in normalized) {
             "Control characters are not allowed."
         }
+        require(timeoutMs in 250L..TerminalCommandPolicy.MAX_INTERACTIVE_TIMEOUT_MS) {
+            "Interactive shell timeout is out of range."
+        }
         TerminalCommandPolicy.validate(
             TerminalCommand(
                 executable = TerminalExecutable.PWD,
                 workingDirectory = workingDirectory,
-                timeoutMs = timeoutMs,
+                timeoutMs = minOf(timeoutMs, TerminalCommandPolicy.MAX_TIMEOUT_MS),
             ),
         )
         val remote = githubStore.get(workspaceId)
@@ -418,6 +430,10 @@ private class SandboxedTerminal(context: Context) {
                     environment().clear()
                     environment()["PATH"] = "/system/bin:/system/xbin"
                     environment()["HOME"] = sandboxRoot.absolutePath
+                    environment()["ANDROID_ROOT"] = "/system"
+                    environment()["ANDROID_DATA"] = sandboxRoot.absolutePath
+                    environment()["COLORTERM"] = "truecolor"
+                    environment()["LC_ALL"] = "C"
                     environment()["PWD"] = workingDirectoryFile.absolutePath
                     environment()["TMPDIR"] = File(sandboxRoot, "tmp").apply { mkdirs() }.absolutePath
                     environment()["SHELL"] = "/system/bin/sh"
