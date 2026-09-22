@@ -1,3 +1,11 @@
+### 2026-09-22 — CI compile repair after AI/Extensions navigation cleanup
+- [x] Restored the missing `BuildViewModel` parameter on `DestinationScreen`, matching the existing `build = build` call site.
+- [x] Updated `AgentCommandBridge` to the renamed `AiCommandCatalog`.
+- [x] Added the missing Compose icon imports for Extensions and expandable AI execution.
+- [x] Added the Material 3 experimental opt-in required by the dedicated AI Tools top app bar.
+- [x] Preserved the explicit `rememberSaveable` import in the AI & GitHub hub surface.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the repair head.
+
 ### 2026-09-22 — CI repair after single-AI cleanup
 - [x] Fixed the failed Android CI compile caused by the single-AI cleanup: restored the BuildViewModel dependency in DestinationScreen, aligned the renamed AiCommandCatalog, imported the expandable execution icon, replaced the unavailable Extensions navigation icon, and opted the AI Tools top app bar into Material 3 experimental API.
 - [x] Verified the existing AiGitHubHubScreen rememberSaveable import is present on the current main head.
