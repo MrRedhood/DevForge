@@ -110,7 +110,12 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
                                 viewModel.streamingText,
                                 viewModel.streamingAnimationKind,
                                 viewModel.toolActivities,
+                                viewModel.agentRun,
                             )
+                        }
+                    } else if (viewModel.agentRun != null) {
+                        item {
+                            AgentRunCard(viewModel.agentRun!!)
                         }
                     }
                 }
@@ -314,6 +319,7 @@ private fun StreamingBubble(
     content: String,
     animationKind: StreamingAnimationKind,
     toolActivities: List<ChatToolActivity>,
+    agentRun: AgentRunState?,
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         Card(
@@ -345,6 +351,7 @@ private fun StreamingBubble(
                         }
                     }
                 }
+                agentRun?.let { AgentRunCard(it, compact = true) }
                 if (content.isNotBlank()) {
                     MarkdownText(content)
                 }
@@ -352,6 +359,117 @@ private fun StreamingBubble(
         }
     }
 }
+
+@Composable
+private fun AgentRunCard(
+    run: AgentRunState,
+    compact: Boolean = false,
+) {
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(run.completedAtEpochMs, run.planning) {
+        while (run.completedAtEpochMs == null) {
+            now = System.currentTimeMillis()
+            kotlinx.coroutines.delay(500)
+        }
+    }
+    val runningCount = run.tasks.count { it.status !in setOf("COMPLETED", "FAILED", "CANCELLED") }
+    val totalAgents = maxOf(run.planItems.size, run.tasks.size)
+    val header = when {
+        run.planning -> "Planning workspace work…"
+        run.completedAtEpochMs != null -> "Agent overview"
+        else -> "AI-managed agents · " + runningCount + " running"
+    }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(if (compact) 10.dp else 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(header, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                if (totalAgents > 0) {
+                    Text(
+                        totalAgents.toString() + " agent" + if (totalAgents == 1) "" else "s",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                "Plan steps execute in order; independent agents may run together inside the same phase.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (run.planItems.isNotEmpty()) {
+                run.planItems.forEachIndexed { index, item ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Text(
+                            (index + 1).toString() + ".",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.width(24.dp),
+                        )
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(item.title, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Phase " + item.phase + " · " + item.status + (item.taskId?.let { " · " + it.take(8) } ?: ""),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+            run.tasks.forEach { task ->
+                val end = task.completedAtEpochMs ?: now
+                val elapsed = ((end - task.startedAtEpochMs).coerceAtLeast(0L) / 1000L)
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(task.title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text(task.status.replace('_', ' '), style = MaterialTheme.typography.labelSmall)
+                        }
+                        Text(
+                            task.provider + " · " + task.model + " · " + elapsed + "s · step " + task.currentStep + "/" + task.stepCount,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        task.lastToolId?.let {
+                            Text("Executing · " + it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                        task.steps.take(if (compact) 5 else 12).forEach { step ->
+                            Text(
+                                (step.index + 1).toString() + ". " + step.label + " · " + step.toolId + " · " + step.status,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (step.status == "Running") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (task.affectedPaths.isNotEmpty()) {
+                            Text(
+                                "Changed: " + task.affectedPaths.take(12).joinToString(", "),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+            run.overview?.let {
+                MarkdownText(it)
+            }
+        }
+    }
+}
+
 
 @Composable
 private fun ToolActivityChip(
