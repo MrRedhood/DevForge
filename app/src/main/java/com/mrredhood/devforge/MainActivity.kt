@@ -102,7 +102,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -112,8 +111,6 @@ import com.mrredhood.devforge.core.ai.AIChatViewModel
 import com.mrredhood.devforge.core.ai.AISettingsScreen
 import com.mrredhood.devforge.core.automation.AutomationCenterScreen
 import com.mrredhood.devforge.core.agent.ToolSettingsScreen
-import com.mrredhood.devforge.core.power.EngineeringPowerScreen
-import com.mrredhood.devforge.core.agent.AgentActivityViewModel
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.build.BuildViewModel
 import com.mrredhood.devforge.core.center.DevForgeCenterScreen
@@ -310,7 +307,6 @@ private fun DevForgeApp(
     val workspace: WorkspaceViewModel = viewModel()
     val editor: EditorViewModel = viewModel()
     val build: BuildViewModel = viewModel()
-    val agents: AgentActivityViewModel = viewModel()
     val approvalCenter: ApprovalCenterViewModel = viewModel()
     val githubRepositories: GitHubRepositoryViewModel = viewModel()
     val aiChat: AIChatViewModel = viewModel()
@@ -420,7 +416,7 @@ private fun DevForgeApp(
                     onSave = editor::saveActive,
                     onRefresh = editor::refreshActive,
                 )
-            } else if (destination != DevForgeDestination.Terminal && destination != DevForgeDestination.Extensions && !gitCommitHistoryOpen) {
+            } else if (destination != DevForgeDestination.Terminal && destination != DevForgeDestination.Extensions && destination != DevForgeDestination.Tools && !gitCommitHistoryOpen) {
                 DevForgeTopBar(
                     workspace = workspace,
                     screenTitle = screenTitle,
@@ -432,7 +428,7 @@ private fun DevForgeApp(
         },
         bottomBar = {
             if (
-                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions) &&
+                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions, DevForgeDestination.Tools) &&
                 !expanded &&
                 !gitCommitHistoryOpen
             ) {
@@ -466,7 +462,6 @@ private fun DevForgeApp(
                                 workspace = workspace,
                                 editor = editor,
                                 build = build,
-                                agents = agents,
                                 pendingBatch = pendingBatch,
                                 onClick = { showProjectActivity = true },
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
@@ -654,37 +649,31 @@ private fun DevForgeApp(
     }
 
     if (showChat) {
-        Dialog(onDismissRequest = { showChat = false }) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth(0.94f)
-                    .widthIn(max = 560.dp)
-                    .fillMaxHeight(0.82f),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.background,
-                tonalElevation = 8.dp,
-            ) {
-                Column(Modifier.fillMaxSize()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
+        BackHandler(enabled = true) { showChat = false }
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                androidx.compose.material3.TopAppBar(
+                    title = {
+                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text("AI Chat", fontWeight = FontWeight.Bold)
                             Text(
-                                "Ask, edit, search, build or delegate",
+                                "Single main AI · plans, searches, edits and executes",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                             )
                         }
+                    },
+                    navigationIcon = {
                         IconButton(onClick = { showChat = false }) {
-                            Text("×", style = MaterialTheme.typography.titleLarge)
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Close AI Chat")
                         }
-                    }
-                    Divider()
-                    AIChatScreen()
-                }
+                    },
+                )
+                AIChatScreen()
             }
         }
     }
@@ -901,7 +890,6 @@ private fun ProjectPulseStrip(
     workspace: WorkspaceViewModel,
     editor: EditorViewModel,
     build: BuildViewModel,
-    agents: AgentActivityViewModel,
     pendingBatch: GitHubPendingChangeBatch?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -959,21 +947,6 @@ private fun ProjectPulseStrip(
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
-                val runningAgents = agents.tasks.count {
-                    it.status in setOf(
-                        com.mrredhood.devforge.core.agent.AgentTaskStatus.QUEUED.name,
-                        com.mrredhood.devforge.core.agent.AgentTaskStatus.PLANNING.name,
-                        com.mrredhood.devforge.core.agent.AgentTaskStatus.RUNNING.name,
-                        com.mrredhood.devforge.core.agent.AgentTaskStatus.WAITING_APPROVAL.name,
-                    )
-                }
-                if (runningAgents > 0) {
-                    Text(
-                        runningAgents.toString() + " agent" + (if (runningAgents == 1) "" else "s") + " running",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
             }
         }
     }
@@ -1011,137 +984,72 @@ private fun ProjectActivityScreen(
     val auditFlow = remember(workspaceId) {
         workspaceId?.let { database.auditEventDao().observeForWorkspace(it, 40) }
     }
-    val taskFlow = remember(workspaceId) {
-        workspaceId?.let { database.agentTaskDao().observe(it, 20) }
-    }
     val auditEvents = auditFlow?.collectAsState(initial = emptyList())?.value.orEmpty()
-    val tasks = taskFlow?.collectAsState(initial = emptyList())?.value.orEmpty()
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
-
-    LaunchedEffect(tasks.map { it.taskId to it.status }) {
-        while (isActive && tasks.any {
-            it.status in setOf(
-                "QUEUED",
-                "PLANNING",
-                "RUNNING",
-                "WAITING_APPROVAL",
-            )
-        }) {
-            now = System.currentTimeMillis()
-            delay(1000)
-        }
-    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Project activity", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(
-                            "Change Story · AI-managed actions",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = onDismiss) { Text("×", style = MaterialTheme.typography.titleLarge) }
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Project activity", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Change Story · AI tool actions",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                Divider()
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+                IconButton(onClick = onDismiss) { Text("×", style = MaterialTheme.typography.titleLarge) }
+            }
+            Divider()
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item {
+                    Text("Change Story", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+                if (auditEvents.isEmpty()) {
                     item {
-                        Text("Change Story", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    if (auditEvents.isEmpty()) {
-                        item {
-                            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                                Text(
-                                    "No recorded project activity yet. Tool calls, approvals, builds and agent actions will appear here.",
-                                    Modifier.fillMaxWidth().padding(14.dp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    } else {
-                        items(auditEvents.take(18), key = { it.eventId }) { event ->
-                            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            event.eventType.replace('_', ' '),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        Text(
-                                            java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
-                                                .format(java.util.Date(event.createdAtEpochMs)),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    Text(event.summary)
-                                }
-                            }
-                        }
-                    }
-
-                    item {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("AI-managed agent history", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                             Text(
-                                "Read-only",
-                                style = MaterialTheme.typography.labelSmall,
+                                "No recorded project activity yet. AI tool calls, approvals, and builds will appear here.",
+                                Modifier.fillMaxWidth().padding(14.dp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
-
-                    if (tasks.isEmpty()) {
-                        item {
-                            Text(
-                                "No agent tasks recorded for this workspace.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    } else {
-                        items(tasks.take(12), key = { it.taskId }) { task ->
-                            val end = task.completedAtEpochMs ?: System.currentTimeMillis()
-                            val elapsed = ((end - (task.startedAtEpochMs ?: task.createdAtEpochMs)).coerceAtLeast(0L) / 1000L)
-                            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(task.title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                        Text(task.status.replace('_', ' '), style = MaterialTheme.typography.labelSmall)
-                                    }
+                } else {
+                    items(auditEvents.take(18), key = { it.eventId }) { event ->
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        (task.modelProviderId ?: "Unknown provider") + " · " + (task.modelName ?: task.modelId ?: "Unknown model") +
-                                            " · " + elapsed + "s · step " + task.currentStep + "/" + task.stepCount,
+                                        event.eventType.replace('_', ' '),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Text(
+                                        java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+                                            .format(java.util.Date(event.createdAtEpochMs)),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    task.lastToolId?.let {
-                                        Text("Last tool · " + it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    task.errorMessage?.let {
-                                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                                    }
                                 }
+                                Text(event.summary)
                             }
                         }
                     }
                 }
             }
         }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1854,7 +1762,7 @@ private fun DestinationScreen(
             onRepositoryPickerChange = onBuildRepositoryPickerChange,
         )
         DevForgeDestination.LiveActions -> LiveActionsScreen(onBack = onBack)
-        DevForgeDestination.Tools -> EngineeringPowerScreen()
+        DevForgeDestination.Tools -> ToolSettingsScreen(onClose = onBack)
         DevForgeDestination.Extensions -> ExtensionCenterScreen(onClose = onBack)
         DevForgeDestination.Terminal -> TerminalScreen(onBack = onBack)
         DevForgeDestination.Automations -> AutomationCenterScreen()
