@@ -24,7 +24,6 @@ enum class DevForgeDestination(
     Diffs("Diffs", Icons.Default.Description),
     Build("Build", Icons.Default.Build),
     LiveActions("Live Actions", Icons.Default.Refresh),
-    Tools("AI Tools", Icons.Default.Build),
     Connections("AI & GitHub", Icons.Default.Source),
     Extensions("Extensions", Icons.Default.Extension),
     Terminal("Terminal", Icons.Default.Terminal),
