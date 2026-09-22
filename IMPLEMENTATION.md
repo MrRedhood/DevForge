@@ -1,3 +1,7 @@
+### 2026-09-22 — CI repair after single-AI cleanup
+- [x] Fixed the failed Android CI compile caused by the single-AI cleanup: restored the BuildViewModel dependency in DestinationScreen, aligned the renamed AiCommandCatalog, imported the expandable execution icon, replaced the unavailable Extensions navigation icon, and opted the AI Tools top app bar into Material 3 experimental API.
+- [x] Verified the existing AiGitHubHubScreen rememberSaveable import is present on the current main head.
+- [ ] Fresh Android CI and Android UI Tests validation remains required for the repair commits.
 ### 2026-09-22 — Final navigation surface cleanup
 - [x] Removed the standalone AI Tools destination; AI Tools now exists only inside the shared AI & GitHub hub, while remaining separately selectable there.
 - [x] Removed the remaining Automation entry from Help & guide and App Settings.
