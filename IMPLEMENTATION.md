@@ -1,3 +1,10 @@
+### 2026-09-22 — Android UI Test #204 AI & GitHub semantics repair
+- [x] Inspected Android UI Tests #204 (run `35749108033`) and downloaded the instrumentation report; exactly two navigation tests timed out while the other 11 UI/instrumentation tests passed.
+- [x] Added a stable accessibility/content-description target, `AI & GitHub management`, to the More → AI & GitHub management tile.
+- [x] Updated both affected navigation tests to wait for and click that stable semantic target instead of relying on the rendered title text node.
+- [x] Added the shared AI & GitHub hub to More → Help & guide so its location and three child management areas are documented.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
+
 ### 2026-09-22 — Android UI Test #202 navigation-race repair
 - [x] Inspected Android UI Tests #202 (run `35747528445`) and extracted the two remaining failures from the instrumentation report.
 - [x] Confirmed the application and tool-settings assertions were passing; the failures were confined to AI & GitHub navigation timing/input.
