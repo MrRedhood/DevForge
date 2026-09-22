@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Source
 import androidx.compose.material3.Card
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -102,14 +103,44 @@ fun AiGitHubHubScreen(
             }
         }
 
-        AiGitHubSection.GITHUB -> GitHubRepositoryScreen(
-            buildViewModel = buildViewModel,
-            onBack = ::closeChild,
-        )
+        AiGitHubSection.GITHUB -> ChildSurface("GitHub", ::closeChild) {
+            GitHubRepositoryScreen(
+                buildViewModel = buildViewModel,
+                onBack = ::closeChild,
+            )
+        }
 
-        AiGitHubSection.MODELS -> AISettingsScreen()
+        AiGitHubSection.MODELS -> ChildSurface("AI Models", ::closeChild) {
+            AISettingsScreen()
+        }
 
         AiGitHubSection.TOOLS -> ToolSettingsScreen(onClose = ::closeChild)
+    }
+}
+
+@Composable
+private fun ChildSurface(
+    title: String,
+    onBack: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(title, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Text("←", style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        androidx.compose.foundation.layout.Box(
+            Modifier.fillMaxSize().padding(padding),
+        ) {
+            content()
+        }
     }
 }
 
