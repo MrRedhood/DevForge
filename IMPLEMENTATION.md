@@ -1,4 +1,6 @@
 ### 2026-09-22 — CI unit-test repair: workspace root and coding-tool defaults
+- [x] Triggered fresh push-based Android CI and Android UI Tests validation for commit `42f9975d0cc5a779de803e95926336c36736ed67`.
+
 - [x] Fixed `AgentWorkspacePath.canonicalize` so root markers (`. `, `./`, and `/`) resolve to the active workspace root when empty paths are explicitly allowed, matching the main AI workspace-tool behavior.
 - [x] Updated the stale `DevForgeToolCatalogTest` expectation to reflect the current single-AI policy: workspace mutation tools, including delete-path, are enabled by default while destructive deletion remains approval-gated by the capability/policy layer.
 - [x] Release compilation already succeeded on the failing CI run; this repair targets the two failing unit tests only.
