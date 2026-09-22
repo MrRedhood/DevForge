@@ -1710,7 +1710,7 @@ private fun DestinationScreen(
             onSectionChange = onSettingsSectionChange,
             appSettingsSection = appSettingsSection,
             onAppSettingsSectionChange = onAppSettingsSectionChange,
-            onOpenConnections = { navigateTo(DevForgeDestination.Connections) },
+            onOpenConnections = { onMoreDestination(DevForgeDestination.Connections) },
         )
         DevForgeDestination.More -> MoreScreen(
             onSelect = { target -> onMoreDestination(target) },
