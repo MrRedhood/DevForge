@@ -2347,7 +2347,7 @@ private fun FileRow(
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (entry.isDirectory) {
-                Icon(Icons.Default.Folder, contentDescription = "Folder", Modifier.size(22.dp))
+                WorkspaceFolderIcon(entry.name, modifier = Modifier.size(22.dp))
             } else {
                 WorkspaceLanguageIcon(entry.name)
             }
@@ -3079,7 +3079,7 @@ private fun EditorScreen(
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    if (entry.isDirectory) Icon(Icons.Default.Folder, contentDescription = null) else WorkspaceLanguageIcon(entry.name)
+                                    if (entry.isDirectory) WorkspaceFolderIcon(entry.name) else WorkspaceLanguageIcon(entry.name)
                                     Spacer(Modifier.width(8.dp))
                                     Text(entry.name, Modifier.weight(1f), maxLines = 1)
                                 }
