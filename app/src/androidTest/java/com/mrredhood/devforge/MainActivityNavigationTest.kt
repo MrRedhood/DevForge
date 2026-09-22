@@ -126,6 +126,30 @@ class MainActivityNavigationTest {
     }
 
     @Test
+    fun extensionsScreenProvidesVisibleSearchAndInstallActions() {
+        resetToEditorHome()
+        waitForNode("More navigation")
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag("more-screen-list", useUnmergedTree = true).performScrollToIndex(4)
+        waitForText("Extensions")
+        composeRule.onNodeWithText("Extensions", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Extensions", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Search installed extensions", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Install ZIP / VSIX", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsDoesNotExposeLegacyAiProviderEntry() {
+        resetToEditorHome()
+        waitForNode("More navigation")
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Settings", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("AI providers", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("AI Providers", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
     fun moreContainsSingleSettingsEntryAndSettingsHidesPrimaryNavigation() {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("Files navigation", useUnmergedTree = true).performClick()
