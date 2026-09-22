@@ -107,6 +107,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrredhood.devforge.core.ai.AIChatScreen
+import com.mrredhood.devforge.core.ai.AIChatViewModel
 import com.mrredhood.devforge.core.ai.AISettingsScreen
 import com.mrredhood.devforge.core.automation.AutomationCenterScreen
 import com.mrredhood.devforge.core.agent.ToolSettingsScreen
@@ -143,6 +144,7 @@ import com.mrredhood.devforge.core.ide.IdeTool
 import com.mrredhood.devforge.core.ide.IdeToolScreen
 import com.mrredhood.devforge.core.guide.FeatureGuideScreen
 import com.mrredhood.devforge.core.github.GitHubRepositoryViewModel
+import com.mrredhood.devforge.core.github.GitHubRepository
 import com.mrredhood.devforge.core.model.DevForgeDestination
 import com.mrredhood.devforge.core.policy.ApprovalCenterScreen
 import com.mrredhood.devforge.core.policy.ApprovalCenterViewModel
@@ -160,6 +162,8 @@ import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceLanguageIcon
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import com.mrredhood.devforge.core.workspace.GitHubWorkspaceImportScreen
+import com.mrredhood.devforge.core.workspace.BuildWithAiDialog
+import com.mrredhood.devforge.core.workspace.LocalProjectPublishDialog
 import com.mrredhood.devforge.core.workspace.GitHubWorkspaceUris
 import com.mrredhood.devforge.ui.theme.DevForgeTheme
 import kotlinx.coroutines.Dispatchers
@@ -273,6 +277,10 @@ private fun DevForgeApp(
     var settingsSection by rememberSaveable { mutableStateOf("home") }
     var appSettingsSection by rememberSaveable { mutableStateOf("home") }
     var buildRepositoryPickerOpen by rememberSaveable { mutableStateOf(false) }
+    var showBuildWithAi by rememberSaveable { mutableStateOf(false) }
+    var buildWithAiBusy by rememberSaveable { mutableStateOf(false) }
+    var buildWithAiError by rememberSaveable { mutableStateOf<String?>(null) }
+    var showPublishLocalProject by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(openApprovalId) {
         if (!openApprovalId.isNullOrBlank()) {
@@ -301,6 +309,7 @@ private fun DevForgeApp(
     val agents: AgentActivityViewModel = viewModel()
     val approvalCenter: ApprovalCenterViewModel = viewModel()
     val githubRepositories: GitHubRepositoryViewModel = viewModel()
+    val aiChat: AIChatViewModel = viewModel()
     val activeWorkspaceId = workspace.workspace?.id
     val pendingBatch = activeWorkspaceId?.let { pendingBatches[it] }
     val destination = DevForgeDestination.entries.firstOrNull { it.name == destinationName } ?: DevForgeDestination.Files
@@ -476,6 +485,10 @@ private fun DevForgeApp(
                         workspace = workspace,
                         editor = editor,
                         onMenu = { showEditorMenu = true },
+                        onBuildWithAi = {
+                            buildWithAiError = null
+                            showBuildWithAi = true
+                        },
                     )
                 } else if (ideTool == null && destination == DevForgeDestination.Git && gitCommitHistoryOpen) {
                     GitCommitHistoryScreen(
@@ -543,6 +556,10 @@ private fun DevForgeApp(
             editor = editor,
             github = githubRepositories,
             onClose = { showEditorMenu = false },
+            onPublishLocalProject = {
+                showEditorMenu = false
+                showPublishLocalProject = true
+            },
         )
     }
 
@@ -590,6 +607,38 @@ private fun DevForgeApp(
         }
     }
 
+
+    if (showBuildWithAi) {
+        BuildWithAiDialog(
+            busy = buildWithAiBusy,
+            error = buildWithAiError,
+            onDismiss = { if (!buildWithAiBusy) showBuildWithAi = false },
+            onCreateProject = { parentUri, projectName, goal ->
+                buildWithAiBusy = true
+                buildWithAiError = null
+                appScope.launch {
+                    workspace.createLocalProject(parentUri, projectName).onSuccess {
+                        aiChat.prepareBuildWithAiPrompt(goal)
+                        buildWithAiBusy = false
+                        showBuildWithAi = false
+                        showEditor = true
+                        showChat = true
+                    }.onFailure {
+                        buildWithAiBusy = false
+                        buildWithAiError = it.message ?: "Unable to create the local project."
+                    }
+                }
+            },
+        )
+    }
+
+    if (showPublishLocalProject) {
+        LocalProjectPublishDialog(
+            workspace = workspace,
+            github = githubRepositories,
+            onDismiss = { showPublishLocalProject = false },
+        )
+    }
 
     if (showFeatureGuide) {
         Surface(
@@ -1134,6 +1183,7 @@ private fun EditorHomeScreen(
     workspace: WorkspaceViewModel,
     editor: EditorViewModel,
     onMenu: () -> Unit,
+    onBuildWithAi: () -> Unit,
 ) {
     var createKind by rememberSaveable { mutableStateOf<String?>(null) }
     var createName by rememberSaveable { mutableStateOf("") }
@@ -1151,6 +1201,7 @@ private fun EditorHomeScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Button(onClick = onMenu) { Text("Open workspace menu") }
+                OutlinedButton(onClick = onBuildWithAi) { Text("Build with AI") }
             }
         } else {
             LazyColumn(
@@ -1247,6 +1298,7 @@ private fun EditorWorkspaceMenu(
     editor: EditorViewModel,
     github: GitHubRepositoryViewModel,
     onClose: () -> Unit,
+    onPublishLocalProject: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var createKind by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1291,6 +1343,8 @@ private fun EditorWorkspaceMenu(
                             when {
                                 workspace.remoteWorkspace != null ->
                                     workspace.remoteWorkspace!!.owner + "/" + workspace.remoteWorkspace!!.repository
+                                workspace.localGitHubLink != null ->
+                                    "GitHub · " + workspace.localGitHubLink!!.owner + "/" + workspace.localGitHubLink!!.repository
                                 workspace.workspace != null -> "Local workspace"
                                 else -> "No workspace"
                             },
@@ -1389,6 +1443,39 @@ private fun EditorWorkspaceMenu(
                                 "No workspace selected",
                                 "Choose a local workspace or a GitHub repository below.",
                             )
+                        }
+                    }
+
+                    if (workspace.workspace != null && workspace.remoteWorkspace == null) {
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            ) {
+                                Column(
+                                    Modifier.fillMaxWidth().padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        if (workspace.localGitHubLink == null) "Local project" else "GitHub-linked local project",
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        if (workspace.localGitHubLink == null) {
+                                            "Work locally without GitHub, or upload this project to an existing repository."
+                                        } else {
+                                            "Linked repository: " + workspace.localGitHubLink!!.owner + "/" + workspace.localGitHubLink!!.repository
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Button(
+                                        onClick = onPublishLocalProject,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Text(if (workspace.localGitHubLink == null) "Upload to GitHub" else "Update GitHub repository")
+                                    }
+                                }
+                            }
                         }
                     }
 
