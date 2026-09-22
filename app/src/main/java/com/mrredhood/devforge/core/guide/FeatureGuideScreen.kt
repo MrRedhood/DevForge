@@ -874,7 +874,7 @@ t("Agent plans & activity","Chat shows the top-level engineering plan plus each 
                 listOf("All extension/MCP actions must remain behind capabilities, policy, approvals, workspace path scopes and audit records."),
                 "More → DevForge Center → Extensions & MCP.",
                 listOf("untrusted = extension/AI output is not authorization")),
-            t("Real extensions","Install Acode ZIPs and VS Code VSIX packages from More → AI Tools → Integrations → Manage Extensions. DevForge analyzes each package before installation and refuses unsupported runtimes or unsupported programming languages.",
+            t("Real extensions","Install Acode ZIPs and VS Code VSIX packages from More → AI Tools → Integrations → Manage Extensions. DevForge analyzes each package before installation and refuses unsupported runtimes, unsupported Acode APIs, or unsupported programming languages.",
                 listOf(
                     "Icon themes are indexed from real VS Code/Acode icon metadata and applied to the workspace file and folder tree.",
                     "When a language package maps to a language DevForge already supports, DevForge reports native support instead of pretending the package added compiler/runtime support.",
