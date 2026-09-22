@@ -1,3 +1,14 @@
+### 2026-09-23 — Extensions, AI settings, delete defaults, and editor refresh repair
+- [x] Reworked More → Extensions so an empty install registry is not presented as a blank screen: the manager now keeps search visible, exposes a persistent Install action, and shows an actionable empty-state card with ZIP/VSIX installation guidance.
+- [x] Kept extension discovery honest: search filters the installed compatible extension registry; DevForge does not fabricate marketplace results or claim unsupported runtimes.
+- [x] Removed the legacy AI provider/AI model configuration path from More → Settings; Settings now contains security and app settings, while AI Models remains available from More → AI & GitHub.
+- [x] Updated Help & guide to point cloud-provider configuration to More → AI & GitHub → AI Models and documented the repaired Extensions surface.
+- [x] Changed Delete Path to disabled by default while keeping destructive execution approval-protected.
+- [x] Added a versioned existing-install migration so the prior workspace-tool default does not silently re-enable Delete Path.
+- [x] Fixed the Editor Refresh action so it is no longer visually disabled based on the active tab's filename; the existing ViewModel safely no-ops when no active tab exists and still prompts before replacing dirty content.
+- [x] Added UI regression coverage for Extensions search/install visibility and the removal of the legacy AI provider Settings entry.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the repaired main head.
+
 ### 2026-09-22 — Android UI Test #204 AI & GitHub semantics repair
 - [x] Inspected Android UI Tests #204 (run `35749108033`) and downloaded the instrumentation report; exactly two navigation tests timed out while the other 11 UI/instrumentation tests passed.
 - [x] Added a stable accessibility/content-description target, `AI & GitHub management`, to the More → AI & GitHub management tile.
