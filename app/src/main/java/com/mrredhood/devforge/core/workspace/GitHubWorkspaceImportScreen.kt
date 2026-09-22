@@ -1,5 +1,8 @@
 package com.mrredhood.devforge.core.workspace
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -53,10 +56,40 @@ fun GitHubWorkspaceImportScreen(
 ) {
     val scope = rememberCoroutineScope()
     var opening by rememberSaveable { mutableStateOf(false) }
+    var savingOnDevice by rememberSaveable { mutableStateOf(false) }
     var openMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedRepository by remember { mutableStateOf<GitHubRepository?>(null) }
     val connected = connectionViewModel.snapshot.state is GitHubConnectionState.Connected
     val state = repositoryViewModel.state
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val saveToDeviceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { parentUri ->
+        val repository = selectedRepository ?: return@rememberLauncherForActivityResult
+        if (parentUri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                parentUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+        }
+        savingOnDevice = true
+        openMessage = "Saving " + repository.fullName + " on this device…"
+        scope.launch {
+            workspaceViewModel.saveGitHubRepositoryLocally(
+                parentUri = parentUri,
+                owner = repository.owner,
+                repositoryName = repository.name,
+                branch = repository.defaultBranch,
+            ).onSuccess {
+                savingOnDevice = false
+                openMessage = "Saved " + repository.fullName + " on this device."
+                onBack()
+            }.onFailure {
+                savingOnDevice = false
+                openMessage = it.message ?: "Unable to save the repository on this device."
+            }
+        }
+    }
+
 
     LaunchedEffect(connected) {
         if (connected && state.repositories.isEmpty()) repositoryViewModel.refreshRepositories()
@@ -151,9 +184,13 @@ fun GitHubWorkspaceImportScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Button(
-                                onClick = {
-                                    if (opening) return@Button
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Button(
+                                    onClick = {
+                                        if (opening || savingOnDevice) return@Button
                                     opening = true
                                     openMessage = "Opening " + repository.fullName + " directly from GitHub…"
                                     scope.launch {
@@ -171,12 +208,19 @@ fun GitHubWorkspaceImportScreen(
                                             openMessage = it.message ?: "Unable to open the GitHub repository."
                                         }
                                     }
-                                },
-                                enabled = !opening,
-                            ) {
-                                Icon(Icons.Default.Cloud, null)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Open directly from GitHub")
+                                    },
+                                    enabled = !opening && !savingOnDevice,
+                                ) {
+                                    Icon(Icons.Default.Cloud, null)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Open from GitHub")
+                                }
+                                TextButton(
+                                    onClick = { saveToDeviceLauncher.launch(null) },
+                                    enabled = !opening && !savingOnDevice,
+                                ) {
+                                    Text(if (savingOnDevice) "Saving…" else "Save on device")
+                                }
                             }
                         }
                     }
