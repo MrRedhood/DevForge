@@ -40,8 +40,12 @@ fun EngineeringPowerScreen(
     val context = LocalContext.current
     val taskStore = remember { EngineeringTaskStore(context) }
     val profileStore = remember { DevelopmentProfileStore(context) }
+    val mcpStore = remember { McpServerStore(context) }
+    val ruleStore = remember { LearnedRuleStore(context) }
     var tasks by remember { mutableStateOf(taskStore.list()) }
     var profile by remember { mutableStateOf(profileStore.current()) }
+    var mcpServers by remember { mutableStateOf(mcpStore.list()) }
+    var learnedRules by remember { mutableStateOf(ruleStore.list()) }
     var selectedSection by remember { mutableStateOf("mission") }
     val graph = remember(workflow) { EngineeringMissionGraph.from(workflow) }
     val proof = remember(workflow) { AiProofPackage.from(workflow) }
@@ -141,14 +145,23 @@ fun EngineeringPowerScreen(
                                             Text(task.description, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
                                             Text(task.command, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
                                         }
-                                        Button(
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Switch(
+                                                checked = task.enabled,
+                                                onCheckedChange = {
+                                                    taskStore.setEnabled(task.id, it)
+                                                    tasks = taskStore.list()
+                                                },
+                                            )
+                                            Button(
                                             onClick = {
                                                 terminal.updateCommandLine(task.command)
                                                 terminal.run()
                                             },
                                             enabled = !terminal.isRunning && terminal.workspaceId != null,
-                                        ) {
-                                            Text("Run")
+                                            ) {
+                                                Text("Run")
+                                            }
                                         }
                                     }
                                 }
@@ -191,16 +204,55 @@ fun EngineeringPowerScreen(
                             Card(Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text("Integration & future-proofing", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                                    IntegrationRow("MCP Gateway", "Approval-aware external tool server registry")
-                                    IntegrationRow("UI Journeys", "Declarative Android interaction and assertion model")
-                                    IntegrationRow("Compose Preview Lab", "Device/reference/accessibility preview requests")
-                                    IntegrationRow("Device Matrix", "Phone, tablet, foldable and multi-window targets")
-                                    IntegrationRow("Remote Development", "Controller/worker remote workspace definitions")
-                                    IntegrationRow("Extensions", "Native DevForge extension contract")
-                                    IntegrationRow("AI Memory", "Global, workspace and mission evidence layers")
-                                    IntegrationRow("Learned Rules", "Rules remain proposals until accepted")
-                                    IntegrationRow("Resource Routing", "Complexity-aware model/provider selection; no local AI requirement")
-                                    IntegrationRow("Automations", "CI, issue, dependency and failure-watch blueprints")
+                                    Text("MCP servers", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+                                    mcpServers.forEach { server ->
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(server.name)
+                                                Text(server.endpoint, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                                            }
+                                            Switch(
+                                                checked = server.enabled,
+                                                onCheckedChange = {
+                                                    mcpStore.setEnabled(server.id, it)
+                                                    mcpServers = mcpStore.list()
+                                                },
+                                            )
+                                        }
+                                    }
+                                    HorizontalDivider()
+                                    Text("UI Journeys / Compose Preview / Device Matrix", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+                                    DeviceMatrixCatalog.defaults.forEach { target ->
+                                        Text(target.label + " — " + target.notes, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                                    }
+                                    HorizontalDivider()
+                                    Text("Remote Development / Extensions", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+                                    Text("Controller/worker endpoint and native extension contracts are approval-scoped definitions; execution is never implicit.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                                    HorizontalDivider()
+                                    Text("Learned Rules", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+                                    if (learnedRules.isEmpty()) {
+                                        Text("No rule proposals yet.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                                    } else {
+                                        learnedRules.forEachIndexed { index, rule ->
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(rule.rule)
+                                                    Text(rule.evidence, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                                                }
+                                                if (!rule.accepted) {
+                                                    TextButton(onClick = {
+                                                        ruleStore.accept(index)
+                                                        learnedRules = ruleStore.list()
+                                                    }) { Text("Accept") }
+                                                } else {
+                                                    AssistChip(onClick = {}, label = { Text("Accepted") })
+                                                }
+                                            }
+                                        }
+                                    }
+                                    HorizontalDivider()
+                                    Text("AI Memory / Routing / Automations", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+                                    Text("Memory keeps evidence with scope; routing selects fast/standard/deep cloud work; automation blueprints cover CI watch, issue triage, dependency review, nightly verification and release evidence.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
