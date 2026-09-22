@@ -25,7 +25,7 @@ object DevForgeToolCatalog {
         DevForgeToolCatalogEntry(AgentToolId.WRITE_FILE, "Write file", "Write complete text content to an existing workspace path.", "Workspace"),
         DevForgeToolCatalogEntry(AgentToolId.CREATE_FILE, "Create file", "Create a new workspace text file.", "Workspace"),
         DevForgeToolCatalogEntry(AgentToolId.CREATE_FOLDER, "Create folder", "Create a new workspace folder.", "Workspace"),
-        DevForgeToolCatalogEntry(AgentToolId.DELETE_PATH, "Delete path", "Delete a workspace file or folder. High impact.", "Workspace", false),
+        DevForgeToolCatalogEntry(AgentToolId.DELETE_PATH, "Delete path", "Delete a workspace file or folder. High impact; destructive actions still require approval.", "Workspace"),
         DevForgeToolCatalogEntry(AgentToolId.WEB_SEARCH, "Web search", "Search the public web for current information.", "Web"),
         DevForgeToolCatalogEntry(AgentToolId.SCRAPE_URL, "Scrape URL", "Fetch a web page and extract readable text.", "Web"),
         DevForgeToolCatalogEntry(AgentToolId.FETCH_URL, "Fetch URL", "Fetch bounded raw content from an HTTP(S) URL.", "Web"),
@@ -80,7 +80,29 @@ class ToolSettingsStore(context: Context) {
         prefs.edit().clear().apply()
     }
 
+    init {
+        migrateMainAiCodingDefaults()
+    }
+
+    /**
+     * One-time migration for existing installs: the main AI owns workspace coding now,
+     * so all workspace inspection and mutation tools are enabled by default.
+     * Users can still disable individual tools from AI Tools.
+     */
+    private fun migrateMainAiCodingDefaults() {
+        val current = prefs.getInt(TOOL_DEFAULTS_VERSION_KEY, 0)
+        if (current >= TOOL_DEFAULTS_VERSION) return
+        prefs.edit().apply {
+            DevForgeToolCatalog.entries
+                .filter { it.group == "Workspace" }
+                .forEach { putBoolean("enabled_" + it.id.wireName, true) }
+            putInt(TOOL_DEFAULTS_VERSION_KEY, TOOL_DEFAULTS_VERSION)
+        }.apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "devforge_tool_settings"
+        private const val TOOL_DEFAULTS_VERSION_KEY = "tool_defaults_version"
+        private const val TOOL_DEFAULTS_VERSION = 1
     }
 }
