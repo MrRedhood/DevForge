@@ -57,7 +57,7 @@ fun EngineeringPowerScreen(
     }
 
     if (showExtensionCenter) {
-        ExtensionCenterScreen()
+        ExtensionCenterScreen(onClose = { showExtensionCenter = false })
         return
     }
 
