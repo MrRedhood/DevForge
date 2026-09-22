@@ -245,7 +245,7 @@ object EngineeringMissionGraph {
         fun state(target: String): EngineeringMissionNode.State = when {
             workflow == null -> EngineeringMissionNode.State.WAITING
             phase?.name == target && status == AiWorkflowSnapshot.Status.RUNNING -> EngineeringMissionNode.State.ACTIVE
-            target == "VERIFY" && workflow.verification?.failedCount ?: 0 > 0 -> EngineeringMissionNode.State.FAILED
+            target == "VERIFY" && ((workflow.verification?.failedCount ?: 0) > 0) -> EngineeringMissionNode.State.FAILED
             phase?.ordinal ?: -1 > when (target) {
                 "UNDERSTAND" -> 0
                 "PLAN" -> 1
