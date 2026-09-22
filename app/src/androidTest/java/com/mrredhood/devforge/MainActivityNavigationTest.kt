@@ -113,7 +113,7 @@ class MainActivityNavigationTest {
     }
 
     @Test
-    fun aiAndGitHubHubIsSharedByMoreAndSettings() {
+    fun aiAndGitHubHubIsAvailableFromMore() {
         resetToEditorHome()
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
