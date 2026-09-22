@@ -514,9 +514,12 @@ private fun AIRunsPage(
                 ) {
                     Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(task.title, fontWeight = FontWeight.SemiBold)
+                        val end = task.completedAtEpochMs ?: System.currentTimeMillis()
+                        val elapsedSeconds = ((end - (task.startedAtEpochMs ?: task.createdAtEpochMs)).coerceAtLeast(0L) / 1000L)
                         Text(task.status + " · step " + task.currentStep + "/" + task.stepCount, style = MaterialTheme.typography.bodySmall)
                         Text(
-                            (task.modelName ?: task.modelId ?: "Unknown model") + " · " + (task.modelProviderId ?: "Unknown provider"),
+                            (task.modelName ?: task.modelId ?: "Unknown model") + " · " + (task.modelProviderId ?: "Unknown provider") +
+                                " · " + elapsedSeconds + "s",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -533,6 +536,11 @@ private fun AIRunsPage(
                     DetailField("Provider", selected.modelProviderId ?: "Unknown")
                     DetailField("Model", selected.modelName ?: selected.modelId ?: "Unknown")
                     DetailField("Step", selected.currentStep.toString() + "/" + selected.stepCount)
+                    DetailField(
+                        "Elapsed",
+                        (((selected.completedAtEpochMs ?: System.currentTimeMillis()) - (selected.startedAtEpochMs ?: selected.createdAtEpochMs))
+                            .coerceAtLeast(0L) / 1000L).toString() + "s",
+                    )
                     DetailField("Last tool", selected.lastToolId ?: "None")
                     DetailField("Approval", selected.approvalId ?: "None")
                     selected.errorMessage?.let { DetailField("Error", it) }
