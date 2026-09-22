@@ -1851,7 +1851,7 @@ private fun DestinationScreen(
             onRepositoryPickerChange = onBuildRepositoryPickerChange,
         )
         DevForgeDestination.LiveActions -> LiveActionsScreen(onBack = onBack)
-        DevForgeDestination.Tools -> EngineeringPowerScreen(workflow = aiChat.aiWorkflow)
+        DevForgeDestination.Tools -> EngineeringPowerScreen()
         DevForgeDestination.Terminal -> TerminalScreen(onBack = onBack)
         DevForgeDestination.Automations -> AutomationCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
