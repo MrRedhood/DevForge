@@ -604,14 +604,14 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                 IconButton(
                     onClick = if (viewModel.isSending) viewModel::stopGeneration else viewModel::submit,
                     enabled = if (viewModel.isSending) {
-                        !viewModel.isAgentWorkInProgress
+                        true
                     } else {
                         viewModel.input.isNotBlank() || viewModel.attachments.isNotEmpty()
                     },
                 ) {
                     if (viewModel.isSending) {
                         Text(
-                            if (viewModel.isAgentWorkInProgress) "…" else "■",
+                            "■",
                             fontWeight = FontWeight.Black,
                         )
                     } else {
