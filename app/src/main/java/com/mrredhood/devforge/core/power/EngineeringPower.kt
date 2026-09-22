@@ -246,7 +246,7 @@ object EngineeringMissionGraph {
             workflow == null -> EngineeringMissionNode.State.WAITING
             phase?.name == target && status == AiWorkflowSnapshot.Status.RUNNING -> EngineeringMissionNode.State.ACTIVE
             target == "VERIFY" && ((workflow.verification?.failedCount ?: 0) > 0) -> EngineeringMissionNode.State.FAILED
-            phase?.ordinal ?: -1 > when (target) {
+            (phase?.ordinal ?: -1) > when (target) {
                 "UNDERSTAND" -> 0
                 "PLAN" -> 1
                 "INSPECT" -> 2
