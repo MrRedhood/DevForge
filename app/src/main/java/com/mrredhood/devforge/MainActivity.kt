@@ -98,6 +98,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
@@ -1799,6 +1801,9 @@ private fun MoreScreen(
                 title = "AI & GitHub",
                 subtitle = "Choose GitHub, AI Models, or AI Tools",
                 onClick = { onSelect(DevForgeDestination.Connections) },
+                modifier = Modifier.semantics {
+                    contentDescription = "AI & GitHub management"
+                },
             )
         }
         item {
@@ -3167,9 +3172,11 @@ private fun SimpleSettingsTile(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Card(
         onClick = onClick,
+        modifier = modifier,
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
