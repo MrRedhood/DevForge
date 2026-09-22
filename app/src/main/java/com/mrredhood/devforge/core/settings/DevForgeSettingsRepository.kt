@@ -66,7 +66,7 @@ class DevForgeSettingsRepository(context: Context) {
             .putString(KEY_GH_BRANCH, value.githubBranch.trim().ifBlank { "main" }.take(200))
             .putString(KEY_GH_WORKFLOW, value.githubWorkflow.trim().take(300))
             .putLong(KEY_BUILD_POLL, value.buildPollSeconds.coerceIn(2L, 60L))
-            .putLong(KEY_TERMINAL_TIMEOUT, value.terminalTimeoutMs.coerceIn(250L, 15_000L))
+            .putLong(KEY_TERMINAL_TIMEOUT, value.terminalTimeoutMs.coerceIn(250L, 60_000L))
             .putLong(KEY_AUTOMATION_INTERVAL, value.automationEventIntervalMinutes.coerceIn(15L, 7L * 24L * 60L))
             .putLong(KEY_AUDIT_RETENTION, value.auditRetentionDays.coerceIn(1L, 365L))
             .putLong(KEY_CHAT_RETENTION, value.chatRetentionDays.coerceIn(1L, 3650L))
