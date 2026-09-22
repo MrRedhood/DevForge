@@ -31,9 +31,6 @@ import com.mrredhood.devforge.core.ai.workflow.AiWorkflowSnapshot
 import com.mrredhood.devforge.core.settings.AiRoutingMode
 import com.mrredhood.devforge.core.settings.DevForgeSettingsRepository
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
@@ -41,7 +38,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import kotlinx.coroutines.withContext
@@ -400,7 +396,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             suggestions = emptyList()
             attachments = emptyList()
             toolActivities = emptyList()
-            agentRun = null
             isSending = true
             streamingAnimationKind = StreamingAnimationKind.HAMMER
             streamingText = authoritativeAnswer.take(MAX_STREAM_VISIBLE_CHARS)
@@ -744,9 +739,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     )
                     withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 }
-                withContext(NonCancellable + Dispatchers.IO) {
-                    cancelActiveAgentTasks()
-                }
                 withContext(Dispatchers.Main.immediate) {
                     val merged = attachments.toMutableList()
                     submittedAttachments.forEach { attachment ->
@@ -784,7 +776,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         runningJob?.cancel()
     }
 
-    /** Stops only this Chat generation and any agent task created by this Chat turn. */
     fun stopGeneration() {
         stopGenerationLocally()
     }
@@ -1099,60 +1090,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private const val DEFAULT_REQUEST_CHARS = 256_000L
         private const val MAX_STREAM_VISIBLE_CHARS = 512 * 1024
         private const val MAX_AGENT_CHAT_INSTRUCTION_CHARS = 60_000
-        private val AGENT_TERMINAL_STATUSES = setOf(
-            AgentTaskStatus.COMPLETED.name,
-            AgentTaskStatus.FAILED.name,
-            AgentTaskStatus.CANCELLED.name,
-        )
-        private val MUTATION_INTENT = Regex(
-            "(?is)\\b(create|make|add|new|write|modify|edit|change|update|rewrite|replace|delete|remove|rename|move|fix|implement)\\b.{0,180}(?:\\b(file|files|folder|folders|directory|directories|path|script|source|code|class|function)\\b|(?:^|[\\s`(])[^\\s`]+\\.(?:kt|kts|java|py|js|ts|tsx|jsx|json|xml|yml|yaml|md|txt|gradle|properties|toml|sh|html|css|scss|c|cpp|h|hpp|rs|go|swift|sql)\\b)",
-        )
+
     }
 }
-
-data class AgentRunPlanItem(
-    val id: String,
-    val phase: Int,
-    val title: String,
-    val instruction: String,
-    val status: String,
-    val taskId: String?,
-)
-
-data class AgentRunStepSnapshot(
-    val index: Int,
-    val label: String,
-    val toolId: String,
-    val status: String,
-    val activity: String? = null,
-    val detail: String? = null,
-)
-
-data class AgentRunTaskSnapshot(
-    val taskId: String,
-    val title: String,
-    val status: String,
-    val provider: String,
-    val model: String,
-    val startedAtEpochMs: Long,
-    val completedAtEpochMs: Long?,
-    val currentStep: Int,
-    val stepCount: Int,
-    val lastToolId: String?,
-    val steps: List<AgentRunStepSnapshot>,
-    val affectedPaths: List<String>,
-)
-
-data class AgentRunState(
-    val goal: String,
-    val planItems: List<AgentRunPlanItem>,
-    val tasks: List<AgentRunTaskSnapshot>,
-    val startedAtEpochMs: Long,
-    val completedAtEpochMs: Long?,
-    val planning: Boolean,
-    val overview: String? = null,
-)
-
 
 data class ChatAttachment(
     val uri: Uri,
