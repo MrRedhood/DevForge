@@ -1713,7 +1713,6 @@ private fun DestinationScreen(
             onSectionChange = onSettingsSectionChange,
             appSettingsSection = appSettingsSection,
             onAppSettingsSectionChange = onAppSettingsSectionChange,
-            onOpenConnections = { onMoreDestination(DevForgeDestination.Connections) },
         )
         DevForgeDestination.More -> MoreScreen(
             onSelect = { target -> onMoreDestination(target) },
@@ -3117,7 +3116,6 @@ private fun SettingsScreen(
     onSectionChange: (String) -> Unit,
     appSettingsSection: String,
     onAppSettingsSectionChange: (String) -> Unit,
-    onOpenConnections: () -> Unit,
 ) {
     when (section) {
         "security" -> CredentialSecurityScreen()
@@ -3141,13 +3139,6 @@ private fun SettingsScreen(
                     "Keep setup and maintenance in a few clear sections.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-            item {
-                SimpleSettingsTile(
-                    title = "AI & GitHub",
-                    subtitle = "Choose GitHub, AI Models, or AI Tools",
-                    onClick = onOpenConnections,
                 )
             }
             item {
