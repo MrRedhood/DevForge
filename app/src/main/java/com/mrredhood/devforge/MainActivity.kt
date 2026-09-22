@@ -111,6 +111,7 @@ import com.mrredhood.devforge.core.ai.AIChatViewModel
 import com.mrredhood.devforge.core.ai.AISettingsScreen
 import com.mrredhood.devforge.core.automation.AutomationCenterScreen
 import com.mrredhood.devforge.core.agent.ToolSettingsScreen
+import com.mrredhood.devforge.core.power.EngineeringPowerScreen
 import com.mrredhood.devforge.core.agent.AgentActivityViewModel
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.build.BuildViewModel
@@ -1850,7 +1851,7 @@ private fun DestinationScreen(
             onRepositoryPickerChange = onBuildRepositoryPickerChange,
         )
         DevForgeDestination.LiveActions -> LiveActionsScreen(onBack = onBack)
-        DevForgeDestination.Tools -> ToolSettingsScreen()
+        DevForgeDestination.Tools -> EngineeringPowerScreen(workflow = aiChat.aiWorkflow)
         DevForgeDestination.Terminal -> TerminalScreen(onBack = onBack)
         DevForgeDestination.Automations -> AutomationCenterScreen()
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
