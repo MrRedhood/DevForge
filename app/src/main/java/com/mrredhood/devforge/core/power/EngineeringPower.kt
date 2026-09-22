@@ -302,3 +302,100 @@ private fun JSONArray.clearAndCopyFrom(source: JSONArray) {
     }
     for (index in 0 until source.length()) put(source.get(index))
 }
+
+
+object AiResourceRouter {
+    enum class RouteClass { FAST, STANDARD, DEEP }
+    fun classify(request: String): RouteClass {
+        val value = request.lowercase()
+        return when {
+            value.contains("architecture") ||
+                value.contains("security audit") ||
+                value.contains("refactor entire") ||
+                value.contains("debug complex") ||
+                value.contains("release") -> RouteClass.DEEP
+            value.contains("build") ||
+                value.contains("test") ||
+                value.contains("fix") ||
+                value.contains("implement") -> RouteClass.STANDARD
+            else -> RouteClass.FAST
+        }
+    }
+}
+
+class LearnedRuleStore(context: Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("devforge_learned_rules", Context.MODE_PRIVATE)
+
+    fun list(): List<LearnedRuleProposal> = runCatching {
+        val array = JSONArray(prefs.getString("rules", "[]"))
+        buildList {
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                add(LearnedRuleProposal(item.optString("rule"), item.optString("evidence"), item.optBoolean("accepted")))
+            }
+        }
+    }.getOrDefault(emptyList())
+
+    fun propose(rule: String, evidence: String) {
+        val array = JSONArray(prefs.getString("rules", "[]"))
+        array.put(JSONObject().put("rule", rule.take(400)).put("evidence", evidence.take(600)).put("accepted", false))
+        while (array.length() > 60) array.remove(0)
+        prefs.edit().putString("rules", array.toString()).apply()
+    }
+
+    fun accept(index: Int) {
+        val rules = list().mapIndexed { itemIndex, item ->
+            if (itemIndex == index) item.copy(accepted = true) else item
+        }
+        val array = JSONArray()
+        rules.forEach { item ->
+            array.put(
+                JSONObject()
+                    .put("rule", item.rule)
+                    .put("evidence", item.evidence)
+                    .put("accepted", item.accepted),
+            )
+        }
+        prefs.edit().putString("rules", array.toString()).apply()
+    }
+}
+
+class McpServerStore(context: Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("devforge_mcp_servers", Context.MODE_PRIVATE)
+
+    fun list(): List<McpServerDefinition> {
+        val defaults = listOf(
+            McpServerDefinition("github", "GitHub", "github://tool-gateway", enabled = false),
+            McpServerDefinition("sentry", "Sentry", "sentry://tool-gateway", enabled = false),
+            McpServerDefinition("figma", "Figma", "figma://tool-gateway", enabled = false),
+            McpServerDefinition("firebase", "Firebase", "firebase://tool-gateway", enabled = false),
+        )
+        val saved = prefs.getStringSet("enabled", emptySet()).orEmpty()
+        return defaults.map { it.copy(enabled = it.id in saved) }
+    }
+
+    fun setEnabled(id: String, enabled: Boolean) {
+        val updated = prefs.getStringSet("enabled", emptySet()).orEmpty().toMutableSet()
+        if (enabled) updated += id else updated -= id
+        prefs.edit().putStringSet("enabled", updated).apply()
+    }
+}
+
+object DeviceMatrixCatalog {
+    val defaults = listOf(
+        DeviceTarget("phone", "Phone", "Compact portrait/landscape"),
+        DeviceTarget("tablet", "Tablet", "Expanded width and two-pane layouts"),
+        DeviceTarget("foldable", "Foldable", "Fold/unfold posture and hinge-aware layout"),
+        DeviceTarget("multiwindow", "Multi-window", "Resizable split-screen layout"),
+    )
+}
+
+object AutomationBlueprintCatalog {
+    val defaults = listOf(
+        "CI failure watch",
+        "Issue triage",
+        "Dependency review",
+        "Nightly verification",
+        "Release evidence collection",
+    )
+}
