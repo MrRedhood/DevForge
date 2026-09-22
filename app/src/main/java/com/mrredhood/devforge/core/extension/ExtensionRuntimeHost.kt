@@ -29,6 +29,7 @@ class ExtensionRuntimeHost(
         view.settings.domStorageEnabled = true
         view.settings.allowFileAccess = false
         view.settings.allowContentAccess = false
+        view.settings.blockNetworkLoads = true
         view.webViewClient = WebViewClient()
         view.addJavascriptInterface(Bridge(), "DevForgeBridge")
     }
@@ -56,7 +57,7 @@ class ExtensionRuntimeHost(
             shim +
             "</script><script>try{" +
             source.replace("</script>", "<\\/script>") +
-            "}catch(e){DevForgeBridge.status('Activation failed: '+(e&&e.message?e.message:e));}</script></body></html>"
+            ";try{window.__dfActivate&&window.__dfActivate();}catch(e){DevForgeBridge.status('Activation failed: '+(e&&e.message?e.message:e));}</script></body></html>"
         view.loadDataWithBaseURL(
             "https://devforge.invalid/" + extension.manifest.id + "/",
             html,
