@@ -89,14 +89,14 @@ class EngineeringTaskStore(context: Context) {
     }
 
     private fun defaultTasks(): List<EngineeringTask> = listOf(
-        EngineeringTask("verify", "Verify project", "sh ./gradlew test lint"),
-        EngineeringTask("debug-build", "Debug APK", "sh ./gradlew assembleDebug"),
-        EngineeringTask("release-build", "Release APK", "sh ./gradlew assembleRelease"),
-        EngineeringTask("unit", "Unit tests", "sh ./gradlew test"),
-        EngineeringTask("lint", "Lint", "sh ./gradlew lint"),
-        EngineeringTask("clean", "Clean build", "sh ./gradlew clean"),
-        EngineeringTask("status", "Git status", "git status --short"),
-        EngineeringTask("changed", "Changed files", "git diff --stat"),
+        EngineeringTask("verify", "Verify project", "sh ./gradlew test lint", "Run unit tests and Android lint."),
+        EngineeringTask("debug-build", "Debug APK", "sh ./gradlew assembleDebug", "Build a debug APK."),
+        EngineeringTask("release-build", "Release APK", "sh ./gradlew assembleRelease", "Build a release APK."),
+        EngineeringTask("unit", "Unit tests", "sh ./gradlew test", "Run JVM unit tests."),
+        EngineeringTask("lint", "Lint", "sh ./gradlew lint", "Run Android lint."),
+        EngineeringTask("clean", "Clean build", "sh ./gradlew clean", "Remove generated build outputs."),
+        EngineeringTask("status", "Git status", "git status --short", "Show concise Git working-tree status."),
+        EngineeringTask("changed", "Changed files", "git diff --stat", "Show changed-file summary."),
     )
 
     private companion object { const val KEY = "tasks" }
