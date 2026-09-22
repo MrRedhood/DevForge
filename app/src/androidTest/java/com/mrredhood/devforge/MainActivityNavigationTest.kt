@@ -54,11 +54,11 @@ class MainActivityNavigationTest {
     }
 
     @Test
-    fun chatPopupExposesAgentsAction() {
+    fun chatPopupDoesNotExposeUserAgentControls() {
         waitForNode("AI Chat")
         composeRule.onNodeWithContentDescription("AI Chat", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithContentDescription("Agents", useUnmergedTree = true).performClick()
-        composeRule.onAllNodesWithText("Agents", useUnmergedTree = true).assertCountEquals(2)
+        composeRule.onNodeWithContentDescription("Agents", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("DevForge AI", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
