@@ -53,6 +53,20 @@ class MainActivityNavigationTest {
         }
     }
 
+    private fun resetToEditorHome() {
+        closeChatIfOpen()
+        repeat(4) {
+            if (runCatching {
+                    composeRule
+                        .onNodeWithContentDescription("Editor navigation", useUnmergedTree = true)
+                        .assertExists()
+                }.isSuccess
+            ) return
+            pressBack()
+        }
+        waitForNode("Editor navigation")
+    }
+
     @Test
     fun editorIsPrimaryBottomBarDestinationAndWorkspaceMenuIsWorkspaceFocused() {
         waitForNode("Editor navigation")
@@ -82,7 +96,7 @@ class MainActivityNavigationTest {
 
     @Test
     fun aiToolsIsAStandaloneManagementScreen() {
-        closeChatIfOpen()
+        resetToEditorHome()
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
         waitForText("AI & GitHub")
@@ -95,7 +109,7 @@ class MainActivityNavigationTest {
 
     @Test
     fun aiAndGitHubHubIsSharedByMoreAndSettings() {
-        closeChatIfOpen()
+        resetToEditorHome()
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
         waitForText("AI & GitHub")
