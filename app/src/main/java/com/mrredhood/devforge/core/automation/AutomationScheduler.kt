@@ -23,6 +23,15 @@ object AutomationScheduler {
     private const val WORK_PREFIX = "devforge-automation"
     private const val EVENT_MONITOR_WORK = "devforge-automation-event-monitor"
 
+    suspend fun disableAll(context: Context) {
+        val appContext = context.applicationContext
+        val workManager = WorkManager.getInstance(appContext)
+        workManager.cancelUniqueWork(EVENT_MONITOR_WORK)
+        DurableStateRepository(DevForgeDatabase.get(appContext))
+            .listAutomations()
+            .forEach { automation -> workManager.cancelAllWorkByTag(tag(automation.automationId)) }
+    }
+
     fun initialize(context: Context) {
         val appContext = context.applicationContext
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
