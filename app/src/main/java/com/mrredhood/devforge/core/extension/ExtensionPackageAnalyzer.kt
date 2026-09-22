@@ -14,13 +14,23 @@ object ExtensionPackageAnalyzer {
     private val acodeModules = setOf("commands")
 
     fun analyze(root: File): Result<AnalyzedExtension> = runCatching {
-        val plugin = File(root, "plugin.json")
-        val packageJson = File(root, "package.json")
+        val packageRoot = locatePackageRoot(root)
+        val plugin = File(packageRoot, "plugin.json")
+        val packageJson = File(packageRoot, "package.json")
         when {
-            plugin.isFile -> analyzeAcode(root, JSONObject(plugin.readText()))
-            packageJson.isFile -> analyzeVsCode(root, JSONObject(packageJson.readText()))
+            plugin.isFile -> analyzeAcode(packageRoot, JSONObject(plugin.readText()))
+            packageJson.isFile -> analyzeVsCode(packageRoot, JSONObject(packageJson.readText()))
             else -> error("Package must contain plugin.json (Acode) or package.json (VS Code).")
         }
+    }
+
+    private fun locatePackageRoot(root: File): File {
+        if (File(root, "plugin.json").isFile || File(root, "package.json").isFile) return root
+        val children = root.listFiles()?.filter { it.isDirectory } ?: emptyList()
+        val nested = children.firstOrNull { child ->
+            File(child, "plugin.json").isFile || File(child, "package.json").isFile
+        }
+        return nested ?: root
     }
 
     private fun analyzeAcode(root: File, json: JSONObject): AnalyzedExtension {
