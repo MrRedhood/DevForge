@@ -2599,8 +2599,7 @@ private fun EditorScreen(
     }
 
     val byteSize = active.content.toByteArray(Charsets.UTF_8).size
-    val byteSize = active.content.toByteArray(Charsets.UTF_8).size
-    val lineCount = active.content.count { it == '\\n' } + 1
+    val lineCount = active.content.count { it == '\n' } + 1
     val richCodeRendering = byteSize <= 128 * 1024 && lineCount <= 4_000
     val foldRanges = if (richCodeRendering) remember(active.uri, active.content) { EditorFolding.ranges(active.content) } else emptyList()
     val activeFolds = foldRanges.filter { it.startOffset in collapsedStarts }
@@ -2676,8 +2675,8 @@ private fun EditorScreen(
             horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = editor::undo, enabled = advanced) { Text("↶") }
-            IconButton(onClick = editor::redo, enabled = advanced) { Text("↷") }
+            IconButton(onClick = editor::undo, enabled = richCodeRendering) { Text("↶") }
+            IconButton(onClick = editor::redo, enabled = richCodeRendering) { Text("↷") }
             IconButton(onClick = { showQuickOpen = true }) { Icon(Icons.Default.Search, "Quick open") }
             IconButton(onClick = { showFind = true }) { Text("⌕") }
             IconButton(onClick = { showGoToLine = true }) { Text("#") }
@@ -2691,7 +2690,7 @@ private fun EditorScreen(
             Surface(shape = RoundedCornerShape(9.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                 Text(language.name.replace('_', ' '), Modifier.padding(horizontal = 8.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1)
             }
-            TextButton(onClick = { showSymbols = true }, enabled = advanced) { Text("Symbols", maxLines = 1) }
+            TextButton(onClick = { showSymbols = true }, enabled = richCodeRendering) { Text("Symbols", maxLines = 1) }
             if (editor.tabs.size > 1) {
                 TextButton(onClick = { splitUri = if (splitUri == null) editor.tabs.firstOrNull { it.uri != active.uri }?.uri else null }) {
                     Text(if (splitUri == null) "Split" else "Unsplit", maxLines = 1)
@@ -2734,7 +2733,7 @@ private fun EditorScreen(
             onExpandedChange = { changesExpanded = it },
         )
 
-        if (!advanced) {
+        if (!richCodeRendering) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Text(
                     "Fast editor mode: syntax highlighting, folding and diagnostics are reduced above 128 KiB or 4,000 lines. Editing remains supported up to 8 MiB, with bounded undo history.",
