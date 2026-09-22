@@ -57,6 +57,20 @@ class ExtensionPackageAnalyzerTest {
     }
 
     @Test
+    fun rejectsAcodePluginUsingUnsupportedEditorModule() {
+        val root = createTempDir()
+        File(root, "plugin.json").writeText(
+            """{"id":"test.editor","name":"Editor Plugin","version":"1.0.0","main":"main.js"}""",
+        )
+        File(root, "main.js").writeText(
+            """acode.setPluginInit("test.editor", () => acode.require("editor"));""",
+        )
+        val result = ExtensionPackageAnalyzer.analyze(root).getOrThrow()
+        assertEquals(ExtensionCompatibility.UNSUPPORTED, result.manifest.compatibility)
+        root.deleteRecursively()
+    }
+
+    @Test
     fun recognizesBundledAcodeCommandPlugin() {
         val root = createTempDir()
         File(root, "plugin.json").writeText(
