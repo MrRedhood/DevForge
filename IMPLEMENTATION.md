@@ -1828,3 +1828,8 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Switched the new mobile power-editing and AI skill unit tests from unavailable `kotlin.test` imports to the repository's existing JUnit 4 test conventions.
 - [x] Kept the feature implementation unchanged; this repair only aligns test imports with the established Android JVM test setup.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the repaired main head.
+
+### 2026-09-22 — Make Build Center authority explicit in AI policy
+- [x] Added an explicit AI engineering-policy rule stating that Build Center and its receipts are authoritative for build, test and lint evidence.
+- [x] Kept the rule aligned with the verification engine so model text can never be treated as proof of successful verification.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the updated main head.

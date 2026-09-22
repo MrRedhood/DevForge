@@ -61,6 +61,7 @@ object DevForgeAiSkills {
             "- Before changing files, inspect relevant workspace state and any `.devforge/rules/` or `.devforge/skills/` files that exist in the workspace.",
             "- Do not override explicit project rules with model preferences; if a rule conflicts with the requested work, surface the conflict instead of silently ignoring it.",
             "- Separate plan, execution and verification. Do not claim a build, test or lint passed without an authoritative receipt.",
+            "- Build Center and its receipts are authoritative for build, test and lint evidence; never infer success from a model response.",
             "- Keep changes narrowly scoped to the mission and preserve unrelated user work.",
             "- Prefer safe, reversible operations and ask for approval whenever the existing capability policy requires it.",
             "Matched skill profile:",
