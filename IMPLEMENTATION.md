@@ -1641,3 +1641,9 @@ The repository README was refreshed with DevForge-specific positioning and produ
 ## 2026-09-22 — Restored project workflows
 
 Restored the three project GitHub Actions workflows through the repository Git integration after the bootstrap import. The temporary importer workflow is not part of the DevForge baseline.
+
+
+### 2026-09-22 — Fresh CI/UI validation after release-signing secret update
+- [x] Triggered a new push-to-main validation run after the GitHub Actions release-signing secrets were updated.
+- [x] This main-branch change is intentionally documentation-only; no application source behavior was changed.
+- [ ] Android CI and Android UI Tests results are pending completion.
