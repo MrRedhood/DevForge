@@ -136,7 +136,7 @@ fun EngineeringPowerScreen(
                                 }
                             }
                         }
-                        items(tasks.filter { it.enabled }) { task ->
+                        items(tasks) { task ->
                             Card(Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -158,7 +158,7 @@ fun EngineeringPowerScreen(
                                                 terminal.updateCommandLine(task.command)
                                                 terminal.run()
                                             },
-                                            enabled = !terminal.isRunning && terminal.workspaceId != null,
+                                            enabled = task.enabled && !terminal.isRunning && terminal.workspaceId != null,
                                             ) {
                                                 Text("Run")
                                             }
