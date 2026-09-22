@@ -1,7 +1,7 @@
 package com.mrredhood.devforge.core.ai
 
-import kotlin.test.Test
-import kotlin.test.assertTrue
+import org.junit.Assert.assertTrue
+import org.junit.Test
 
 class DevForgeAiSkillsTest {
     @Test

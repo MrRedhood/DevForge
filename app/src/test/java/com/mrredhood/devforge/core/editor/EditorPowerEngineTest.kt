@@ -1,7 +1,7 @@
 package com.mrredhood.devforge.core.editor
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+import org.junit.Assert.assertEquals
+import org.junit.Test
 
 class EditorPowerEngineTest {
     @Test

@@ -1823,3 +1823,8 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added unit coverage for mobile power editing and AI skill selection.
 - [x] Updated More → ⓘ Help & guide and README with the new mobile-native engineering features.
 - [ ] Fresh Android CI and Android UI Tests validation is required before calling this commit green.
+
+### 2026-09-22 — Unit-test framework compatibility repair
+- [x] Switched the new mobile power-editing and AI skill unit tests from unavailable `kotlin.test` imports to the repository's existing JUnit 4 test conventions.
+- [x] Kept the feature implementation unchanged; this repair only aligns test imports with the established Android JVM test setup.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the repaired main head.
