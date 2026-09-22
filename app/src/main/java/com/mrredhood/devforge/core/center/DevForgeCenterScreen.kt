@@ -487,7 +487,7 @@ private fun MetricRow(
 @Composable
 private fun AIRunsPage(
     padding: PaddingValues,
-    agent: AgentCenterViewModel,
+    agent: AgentActivityViewModel,
     selectedTaskId: String?,
     onSelect: (String) -> Unit,
 ) {

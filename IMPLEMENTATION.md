@@ -1696,6 +1696,11 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - Restored the missing newline in the Build Center companion constants after the approval-lifetime cleanup exposed a formatting-induced Kotlin parse error.
 
 
+### 2026-09-22 — Fix agent observer and split-editor Compose compilation errors
+- [x] Replaced the remaining MainActivity and DevForge Center references to the removed user-facing Agent Center with the read-only Agent Activity observer.
+- [x] Fixed split-editor syntax transformation creation so Compose theme colors are captured before the non-composable remember calculation.
+- [ ] Fresh Android CI and Android UI Tests validation is pending for this follow-up compile fix.
+
 ### 2026-09-22 — Align editor folding threshold
 - [x] Aligned the editor's folding calculation guard with the 64 KiB / 2,000-line fast-rendering threshold so large-file folding work is skipped consistently before transformation creation.
 - [ ] Fresh Android CI and Android UI Tests validation is pending for this follow-up commit.

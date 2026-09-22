@@ -110,7 +110,7 @@ import com.mrredhood.devforge.core.ai.AIChatScreen
 import com.mrredhood.devforge.core.ai.AISettingsScreen
 import com.mrredhood.devforge.core.automation.AutomationCenterScreen
 import com.mrredhood.devforge.core.agent.ToolSettingsScreen
-import com.mrredhood.devforge.core.agent.AgentCenterViewModel
+import com.mrredhood.devforge.core.agent.AgentActivityViewModel
 import com.mrredhood.devforge.core.build.BuildCenterScreen
 import com.mrredhood.devforge.core.build.BuildViewModel
 import com.mrredhood.devforge.core.center.DevForgeCenterScreen
@@ -295,7 +295,7 @@ private fun DevForgeApp(
     val workspace: WorkspaceViewModel = viewModel()
     val editor: EditorViewModel = viewModel()
     val build: BuildViewModel = viewModel()
-    val agents: AgentCenterViewModel = viewModel()
+    val agents: AgentActivityViewModel = viewModel()
     val approvalCenter: ApprovalCenterViewModel = viewModel()
     val githubRepositories: GitHubRepositoryViewModel = viewModel()
     val activeWorkspaceId = workspace.workspace?.id
@@ -845,7 +845,7 @@ private fun ProjectPulseStrip(
     workspace: WorkspaceViewModel,
     editor: EditorViewModel,
     build: BuildViewModel,
-    agents: AgentCenterViewModel,
+    agents: AgentActivityViewModel,
     pendingBatch: GitHubPendingChangeBatch?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -2902,19 +2902,23 @@ private fun EditorScreen(
                     if (splitValue.text != splitTab.content) splitValue = TextFieldValue(splitTab.content)
                 }
                 val splitLanguage = remember(splitTab.name) { EditorLanguage.detect(splitTab.name) }
+                val splitKeywordColor = MaterialTheme.colorScheme.primary
+                val splitStringColor = MaterialTheme.colorScheme.tertiary
+                val splitCommentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                val splitNumberColor = MaterialTheme.colorScheme.secondary
                 val splitSyntax = remember(
                     splitLanguage,
-                    MaterialTheme.colorScheme.primary,
-                    MaterialTheme.colorScheme.tertiary,
-                    MaterialTheme.colorScheme.onSurfaceVariant,
-                    MaterialTheme.colorScheme.secondary,
+                    splitKeywordColor,
+                    splitStringColor,
+                    splitCommentColor,
+                    splitNumberColor,
                 ) {
                     CodeSyntaxVisualTransformation(
                         language = splitLanguage,
-                        keywordColor = MaterialTheme.colorScheme.primary,
-                        stringColor = MaterialTheme.colorScheme.tertiary,
-                        commentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        numberColor = MaterialTheme.colorScheme.secondary,
+                        keywordColor = splitKeywordColor,
+                        stringColor = splitStringColor,
+                        commentColor = splitCommentColor,
+                        numberColor = splitNumberColor,
                     )
                 }
                 BasicTextField(
