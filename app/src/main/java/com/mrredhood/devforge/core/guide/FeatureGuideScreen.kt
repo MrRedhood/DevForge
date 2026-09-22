@@ -297,6 +297,16 @@ private val guideCategories = listOf(
                 "More → Settings → AI Providers.",
                 listOf("local workspace = supported","local model execution = not a DevForge feature")),
 
+            t("AI factuality and live state","DevForge refuses to guess about current tool or project state when authoritative evidence is required.",
+                listOf(
+                    "Tool-count and tool-list questions are answered from the live registered tool runtime and current tool settings, not from model memory.",
+                    "The live answer distinguishes registered, user-configurable, enabled, disabled, internal and currently-usable tools.",
+                    "For current workspace, build, Git, settings and codebase questions, AI is instructed to verify state through authoritative tools before answering.",
+                    "When a current-state question has no verified evidence, Chat returns an explicit verification-required response instead of inventing an answer.",
+                    "Tool availability is never described as successful execution. Registered, enabled, called, completed and verified are separate states.",
+                ),
+                "AI Chat and More → AI Tools.",
+                listOf("live registry = source of truth","no evidence = no guess","enabled ≠ successfully executed")),
             t("AI Tools","Enable bounded tools that any DevForge AI model can use, including models without native function-calling support.",
                 listOf(
                     "Open More → AI Tools.",
