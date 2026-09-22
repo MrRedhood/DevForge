@@ -75,6 +75,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private val githubGateway = GitHubRepositoryGateway(CredentialSecurityStore(application))
     private val toolOrchestrator = ChatToolOrchestrator(application, chatGateway)
     private val toolSettings = ToolSettingsStore(application)
+    private val truthService = AiTruthService(application)
     private val aiWorkflowEngine = AiWorkflowEngine(application)
     private var messageJob: Job? = null
     private var sendJob: Job? = null
@@ -513,7 +514,21 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     messages
                 }
                 val history = buildBoundedHistory(model, historySource, effectiveInstruction.length)
-                if (shouldDelegateToWorkspaceAgent(raw, parsed, workspaceId)) {
+                val authoritativeAnswer = if (editingId == null && submittedAttachments.isEmpty()) {
+                    truthService.answerIfKnown(raw)
+                } else null
+                if (authoritativeAnswer != null) {
+                    partialResponse = authoritativeAnswer.take(MAX_STREAM_VISIBLE_CHARS)
+                    withContext(Dispatchers.Main.immediate) { streamingText = partialResponse }
+                    chatRepository.addMessage(sessionId, "assistant", authoritativeAnswer)
+                    workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
+                        aiWorkflowEngine.phase(workflowSnapshot, AiWorkflowPhase.VERIFY, "Verifying authoritative DevForge state"),
+                        workspaceRoot = workspaceRoot,
+                        changedPaths = emptyList(),
+                        summary = authoritativeAnswer,
+                    )
+                    withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
+                } else if (shouldDelegateToWorkspaceAgent(raw, parsed, workspaceId)) {
                     val targetWorkspaceId = workspaceId ?: error("Create or select a workspace before asking the agent to change files.")
                     workflowSnapshot = aiWorkflowEngine.phase(
                         workflowSnapshot,
@@ -621,6 +636,16 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         summary = toolResult.response,
                     )
                     withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
+                } else if (truthService.requiresAuthoritativeEvidence(raw)) {
+                    val response = "I cannot verify that current fact from DevForge's live state in this turn, so I will not guess. Enable the relevant DevForge tool/state lookup and ask again."
+                    chatRepository.addMessage(sessionId, "assistant", response)
+                    workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
+                        aiWorkflowEngine.phase(workflowSnapshot, AiWorkflowPhase.VERIFY, "Verification required"),
+                        workspaceRoot = workspaceRoot,
+                        changedPaths = emptyList(),
+                        summary = response,
+                    )
+                    withContext(Dispatchers.Main.immediate) { streamingText = response; aiWorkflow = workflowSnapshot }
                 } else if (!model.supportsStreaming) {
                     val response = chatGateway.send(
                         model,
