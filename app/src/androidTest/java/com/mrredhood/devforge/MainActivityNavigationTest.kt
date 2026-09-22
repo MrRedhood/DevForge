@@ -54,11 +54,21 @@ class MainActivityNavigationTest {
     }
 
     @Test
-    fun chatPopupDoesNotExposeUserAgentControls() {
+    fun chatFullscreenDoesNotExposeAgentControls() {
         waitForNode("AI Chat")
         composeRule.onNodeWithContentDescription("AI Chat", useUnmergedTree = true).performClick()
         composeRule.onNodeWithContentDescription("Agents", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Single main AI · plans, searches, edits and executes", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("DevForge AI", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun aiToolsIsAStandaloneManagementScreen() {
+        waitForNode("More navigation")
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("AI Tools", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Main AI execution controls", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Enable coding tools", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
