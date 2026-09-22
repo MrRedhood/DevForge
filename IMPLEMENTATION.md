@@ -1,3 +1,20 @@
+### 2026-09-22 — Single-AI navigation and workspace execution cleanup
+- [x] Replaced the old multi-agent Chat execution path with one main AI tool loop. Coding requests now stay inside one plan → inspect → execute → verify flow.
+- [x] Removed the user-facing Engineering Power surface and deleted its source/test screens.
+- [x] Added a shared full-screen AI & GitHub hub available from both Settings and More. GitHub, AI Models, and AI Tools open as separate child screens rather than being mixed together.
+- [x] Moved GitHub management into the shared hub so Settings and More no longer expose separate GitHub management surfaces.
+- [x] Restored AI Tools as its own dedicated screen with per-tool controls and an explicit "Enable coding tools" action.
+- [x] Main AI workspace inspection/mutation tools are enabled by default for upgraded installs; create file, create folder, write/patch, and delete tools remain bounded by the approval and workspace policy layers.
+- [x] Fixed workspace-root normalization so root paths such as ".", "./", "/", and the workspace-name-only form can be accepted by root-aware AI listing/search tools without producing "Workspace path is invalid".
+- [x] Increased the main AI coding tool loop budget from 6 to 24 tool steps/calls and explicitly instructs the model to plan, inspect, execute, and verify instead of stopping at a plan.
+- [x] Replaced the old vertical agent execution card with compact expandable AI execution labels showing tool state, name, and detail.
+- [x] Made AI Chat full-screen and removed the user-facing worker/agent execution surface.
+- [x] Removed DevForge Center from navigation and deleted its dedicated screen.
+- [x] Removed Automation from More and primary destinations. Background automation scheduling is no longer initialized; startup disables legacy scheduled automation work from previous installs.
+- [x] Removed Automation settings controls and the old GitHub settings duplicate from App Settings; the shared AI & GitHub hub is now the single entry point for GitHub and AI setup.
+- [x] Updated More, Settings, Help & guide, and README to reflect the single-AI architecture and removed user-facing Agents, Automation, and Engineering Power documentation.
+- [ ] Fresh Android CI and Android UI Tests validation remains required for this main head.
+
 ### 2026-09-22 — Single main AI and dedicated AI Tools
 - [x] Removed the user-facing Engineering Power surface and its dedicated source/test files; AI work is no longer split across a separate engineering control room.
 - [x] Restored More → AI Tools as a dedicated full-screen tool-management surface with per-tool enable/disable controls, a coding-tools enable action, and reset behavior.
