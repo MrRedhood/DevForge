@@ -111,6 +111,13 @@ private fun terminalExecutableForName(name: String): TerminalExecutable? = when 
     "uname" -> TerminalExecutable.UNAME
     "id" -> TerminalExecutable.ID
     "whoami" -> TerminalExecutable.WHOAMI
+    "env" -> TerminalExecutable.ENV
+    "printenv" -> TerminalExecutable.PRINTENV
+    "which" -> TerminalExecutable.WHICH
+    "true" -> TerminalExecutable.TRUE
+    "false" -> TerminalExecutable.FALSE
+    "sleep" -> TerminalExecutable.SLEEP
+    "getprop" -> TerminalExecutable.GETPROP
     "ps" -> TerminalExecutable.PS
     "sha256sum" -> TerminalExecutable.SHA256SUM
     "cmp" -> TerminalExecutable.CMP
