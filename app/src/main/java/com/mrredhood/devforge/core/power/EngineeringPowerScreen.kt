@@ -33,9 +33,10 @@ import com.mrredhood.devforge.core.terminal.TerminalViewModel
 
 @Composable
 fun EngineeringPowerScreen(
-    workflow: com.mrredhood.devforge.core.ai.workflow.AiWorkflowSnapshot?,
     terminal: TerminalViewModel = viewModel(),
+    aiViewModel: AIChatViewModel = viewModel(),
 ) {
+    val workflow = aiViewModel.aiWorkflow
     val context = LocalContext.current
     val taskStore = remember { EngineeringTaskStore(context) }
     val profileStore = remember { DevelopmentProfileStore(context) }
@@ -230,7 +231,7 @@ private fun IntegrationRow(title: String, detail: String) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(title, style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
-            TextButton(onClick = {}) { Text("Configured") }
+            TextButton(onClick = {}) { Text("Available") }
         }
         Text(detail, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
         HorizontalDivider()
