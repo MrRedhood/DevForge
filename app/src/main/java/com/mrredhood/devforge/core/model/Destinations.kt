@@ -25,7 +25,7 @@ enum class DevForgeDestination(
     Build("Build", Icons.Default.Build),
     LiveActions("Live Actions", Icons.Default.Refresh),
     Connections("AI & GitHub", Icons.Default.Source),
-    Extensions("Extensions", Icons.Default.Extension),
+    Extensions("Extensions", Icons.Default.Source),
     Terminal("Terminal", Icons.Default.Terminal),
     Approvals("Approvals", Icons.Default.Security),
     Settings("Settings", Icons.Default.Settings),
