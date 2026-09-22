@@ -1,18 +1,18 @@
-name: DevForge source bootstrap
+name: DevForge archive import
 
-on: [push]
+on: push
 
 permissions:
   contents: write
 
 jobs:
-  bootstrap:
+  import:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Import archive when present
+      - name: Restore DevForge source
         shell: bash
         run: |
           set -euo pipefail
@@ -124,19 +124,12 @@ Imported the validated DevForge source archive into the new main-only repository
 The repository README was refreshed with DevForge-specific positioning and product messaging.
 EOF
 
-      - name: Finalize bootstrap
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "Repository already contains the imported baseline."
-            exit 0
-          fi
-
           chmod +x gradlew 2>/dev/null || true
           chmod +x tools/check-build-budget.sh 2>/dev/null || true
-          rm -f .github/workflows/import-devforge.yml .github/workflows/bootstrap-import.yml
+
+          rm -f .github/workflows/import-devforge.yml
+          rm -f .github/workflows/bootstrap-import.yml
+          rm -f .github/workflows/devforge-import.yml
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
