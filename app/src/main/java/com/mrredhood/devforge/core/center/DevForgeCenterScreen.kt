@@ -54,7 +54,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mrredhood.devforge.core.agent.AgentActivityViewModel
 import com.mrredhood.devforge.core.build.BuildFailureDiagnosis
 import com.mrredhood.devforge.core.build.BuildViewModel
 import com.mrredhood.devforge.core.editor.EditorViewModel
@@ -77,7 +76,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private enum class CenterPage {
-    HOME, HEALTH, QUALITY, AI_RUNS, TESTING, DEPENDENCIES, DIAGNOSIS, OFFLINE, BACKUP, RELEASE, GITHUB, AUTOMATION, CODE, EXTENSIONS
+    HOME, HEALTH, QUALITY, TESTING, DEPENDENCIES, DIAGNOSIS, OFFLINE, BACKUP, RELEASE, GITHUB, AUTOMATION, CODE, EXTENSIONS
 }
 
 private data class CenterCard(
@@ -96,8 +95,6 @@ fun DevForgeCenterScreen(
     editor: EditorViewModel,
 ) {
     var page by rememberSaveable { mutableStateOf(CenterPage.HOME.name) }
-    var selectedTaskId by rememberSaveable { mutableStateOf<String?>(null) }
-    val agent: AgentActivityViewModel = viewModel()
     val build: BuildViewModel = viewModel()
     val repos: GitHubRepositoryViewModel = viewModel()
     val queue = remember { OfflineActionQueue(editor.getApplication<Application>()) }
@@ -434,7 +431,6 @@ private fun ProjectHealthPage(
     padding: PaddingValues,
     workspace: WorkspaceViewModel,
     editor: EditorViewModel,
-    agent: AgentActivityViewModel,
     build: BuildViewModel,
 ) {
     val db = DevForgeDatabase.get(editor.getApplication<Application>())
@@ -449,7 +445,6 @@ private fun ProjectHealthPage(
         item { MetricRow("Files in current folder", workspace.entries.size.toString(), Icons.Default.List) }
         item { MetricRow("Open tabs", editor.tabs.size.toString(), Icons.Default.Code) }
         item { MetricRow("Dirty tabs", editor.tabs.count { it.isDirty }.toString(), Icons.Default.Warning) }
-        item { MetricRow("Agent tasks", agent.tasks.size.toString(), Icons.Default.Science) }
         item { MetricRow("Pending approvals", pending.size.toString(), Icons.Default.Security) }
         item { MetricRow("Recent builds", builds.size.toString(), Icons.Default.Build) }
         item {
@@ -479,73 +474,6 @@ private fun MetricRow(
             Column(Modifier.weight(1f)) {
                 Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun AIRunsPage(
-    padding: PaddingValues,
-    agent: AgentActivityViewModel,
-    selectedTaskId: String?,
-    onSelect: (String) -> Unit,
-) {
-    val selected = agent.tasks.firstOrNull { it.taskId == selectedTaskId }
-    LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        if (selected == null) {
-            item {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                    Text(
-                        "Select an agent run to inspect its lifecycle, model, current step, approval binding and result.",
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            items(agent.tasks, key = { it.taskId }) { task ->
-                Card(
-                    onClick = { onSelect(task.taskId) },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(task.title, fontWeight = FontWeight.SemiBold)
-                        val end = task.completedAtEpochMs ?: System.currentTimeMillis()
-                        val elapsedSeconds = ((end - (task.startedAtEpochMs ?: task.createdAtEpochMs)).coerceAtLeast(0L) / 1000L)
-                        Text(task.status + " · step " + task.currentStep + "/" + task.stepCount, style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            (task.modelName ?: task.modelId ?: "Unknown model") + " · " + (task.modelProviderId ?: "Unknown provider") +
-                                " · " + elapsedSeconds + "s",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        } else {
-            item { OutlinedButton(onClick = { onSelect("") }) { Text("← All runs") } }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DetailField("Title", selected.title)
-                    DetailField("Status", selected.status)
-                    DetailField("Instruction", selected.instruction)
-                    DetailField("Provider", selected.modelProviderId ?: "Unknown")
-                    DetailField("Model", selected.modelName ?: selected.modelId ?: "Unknown")
-                    DetailField("Step", selected.currentStep.toString() + "/" + selected.stepCount)
-                    DetailField(
-                        "Elapsed",
-                        (((selected.completedAtEpochMs ?: System.currentTimeMillis()) - (selected.startedAtEpochMs ?: selected.createdAtEpochMs))
-                            .coerceAtLeast(0L) / 1000L).toString() + "s",
-                    )
-                    DetailField("Last tool", selected.lastToolId ?: "None")
-                    DetailField("Approval", selected.approvalId ?: "None")
-                    selected.errorMessage?.let { DetailField("Error", it) }
-                    selected.result?.let { DetailField("Result", it) }
-                }
             }
         }
     }
@@ -801,7 +729,7 @@ private fun GitHubHubPage(
 @Composable
 private fun AutomationExpansionPage(padding: PaddingValues) {
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { DetailField("Automation flow", "Trigger → condition → agent → approval → patch → build → test → notify.") }
+        item { DetailField("Automation flow", "Trigger → condition → AI action → approval → patch → build → test → notify.") }
         item { DetailField("Recovery", "Automation state is durable and overlap-protected; use the existing Automation screen to edit triggers, schedules and actions.") }
     }
 }
