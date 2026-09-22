@@ -1,3 +1,8 @@
+### 2026-09-22 — CI repair: AI & GitHub state restoration import
+- [x] Fixed `AiGitHubHubScreen.kt` to import `rememberSaveable` from `androidx.compose.runtime.saveable`, matching the Compose API package used by the project and removing the remaining Android CI/UI-test compilation failure.
+- [x] No architecture or runtime behavior was changed by this repair; the shared AI & GitHub hub still uses the existing saved section state.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this repair commit.
+
 ### 2026-09-22 — CI follow-up repair for Connections screen
 - [x] Fixed the Connections settings callback to use the existing destination-navigation callback instead of a local `navigateTo` function that is out of scope inside `DestinationScreen`.
 - [x] Preserved `rememberSaveable` in the AI & GitHub hub and explicitly opted its Material 3 top-app-bar surfaces into the experimental API required by the project's warning-as-error compilation settings.
