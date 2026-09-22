@@ -2,12 +2,4 @@
 
 ## 2026-09-22 — Clean repository bootstrap
 
-Prepared the main-only clean repository bootstrap for the DevForge source archive.
-
-## 2026-09-22 — Bootstrap workflow validation
-
-Reduced the temporary bootstrap workflow to a minimal valid GitHub Actions definition to verify workflow execution before restoring the import logic.
-
-## 2026-09-22 — Workflow smoke-test trigger
-
-Triggered a non-workflow main-branch change to execute the validated bootstrap workflow definition.
+Prepared the main-only repository bootstrap for the DevForge source archive. The importer accepts the supplied archive under its uploaded filename, restores the source tree and project tooling, refreshes repository documentation, and finalizes the fresh repository history.

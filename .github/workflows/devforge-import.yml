@@ -1,9 +1,112 @@
-name: DevForge bootstrap test
+name: DevForge source import
 
 on: push
 
+permissions:
+  contents: write
+
 jobs:
-  test:
+  import:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "DevForge bootstrap workflow is active"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Import source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARCHIVE="$(find . -maxdepth 1 -type f -name '*.zip' -print -quit || true)"
+          if [ -z "$ARCHIVE" ]; then
+            echo "No source archive is present. Nothing to import."
+            exit 0
+          fi
+
+          rm -rf /tmp/devforge
+          mkdir -p /tmp/devforge
+          unzip -q "$ARCHIVE" -d /tmp/devforge
+
+          SRC="$(find /tmp/devforge -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          test -n "$SRC"
+
+          rm -rf app docs gradle tools
+          rm -f .github/workflows/android.yml .github/workflows/release-validation.yml .github/workflows/ui.yml
+          cp -a "$SRC/." .
+
+          rm -rf docs/screenshots
+          rm -f "$ARCHIVE"
+
+          printf '%s\n' \
+            '# DevForge' \
+            '' \
+            '## Code on Android. Build from anywhere. Ship without a desktop.' \
+            '' \
+            '**DevForge turns an Android phone into a real development workshop — code, AI, agents, Git, GitHub, terminal, automation, and cloud Android builds in one workflow.**' \
+            '' \
+            '> **Write code. Ask AI. Let agents work. Commit. Build. Ship.**' \
+            '' \
+            'DevForge is an Android-first coding environment built around project navigation, controlled AI actions, GitHub-native workflows, a bounded terminal, and cloud-powered APK/AAB builds.' \
+            '' \
+            '### The development loop' \
+            '' \
+            '**Open → Understand → Edit → Ask → Agent → Review → Commit → Build → Ship**' \
+            '' \
+            '### Built for real project work' \
+            '' \
+            '- Local and GitHub-backed workspaces' \
+            '- Code editing and workspace navigation' \
+            '- AI chat with project-aware context' \
+            '- AI coding agents with capability and approval controls' \
+            '- Controlled AI terminal execution' \
+            '- Git status, diffs, history, commit inspection, and reversible operations' \
+            '- GitHub repositories, files, issues, pull requests, and repository creation' \
+            '- Build Center with debug APK, release APK, and release AAB workflows' \
+            '- Build artifacts plus lint, unit-test, and dependency reports' \
+            '- Diagnostics, recovery, offline actions, and workspace backup' \
+            '- Security-first handling of AI actions and credentials' \
+            '' \
+            '### AI with boundaries' \
+            '' \
+            'DevForge treats AI output as untrusted input. Tool access is capability-scoped, terminal execution is constrained, and mutating agent actions require the appropriate approval path.' \
+            '' \
+            '### Android-first by design' \
+            '' \
+            'DevForge is not a desktop IDE squeezed into a phone. Its navigation, workspace model, agent controls, terminal, GitHub integration, and cloud build flow are designed around development from Android.' \
+            '' \
+            '### Cloud builds without breaking the loop' \
+            '' \
+            'Build → monitor → inspect logs → download the artifact.' \
+            '' \
+            '### Project documentation' \
+            '' \
+            '- [IMPLEMENTATION.md](IMPLEMENTATION.md)' \
+            '- [Architecture](docs/ARCHITECTURE.md)' \
+            '- [Roadmap](docs/ROADMAP.md)' \
+            '' \
+            '### The idea behind DevForge' \
+            '' \
+            '**Your phone is already a computer. DevForge turns it into a workshop.**' \
+            > README.md
+
+          cat >> IMPLEMENTATION.md <<'EOF'
+
+## 2026-09-22 — Clean repository bootstrap
+
+Imported the validated DevForge source archive into the new main-only repository from the supplied source snapshot. The bootstrap restores the application source, tests, Gradle configuration, GitHub Actions workflows, tools, and project documentation while starting a fresh repository history.
+
+The repository README was refreshed with DevForge-specific positioning and product messaging.
+EOF
+
+          chmod +x gradlew 2>/dev/null || true
+          chmod +x tools/check-build-budget.sh 2>/dev/null || true
+
+          rm -f .github/workflows/import-devforge.yml
+          rm -f .github/workflows/bootstrap-import.yml
+          rm -f .github/workflows/devforge-import.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Import DevForge source baseline"
+          git push origin HEAD:main
