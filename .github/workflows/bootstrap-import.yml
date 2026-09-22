@@ -1,32 +1,32 @@
-name: Import DevForge archive
+name: DevForge source bootstrap
 
 on:
   push:
-    paths:
-      - "*.zip"
-      - ".github/workflows/import-devforge.yml"
 
 permissions:
   contents: write
 
 jobs:
-  import:
-    if: github.event.head_commit.message != 'Import DevForge source baseline'
+  bootstrap:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Import source
+      - name: Import archive when present
         shell: bash
         run: |
           set -euo pipefail
+
+          ARCHIVE="$(find . -maxdepth 1 -type f -name '*.zip' -print -quit || true)"
+          if [ -z "$ARCHIVE" ]; then
+            echo "No source archive is present. Nothing to import."
+            exit 0
+          fi
+
           rm -rf /tmp/devforge
           mkdir -p /tmp/devforge
-
-          ZIP="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
-          test -n "$ZIP"
-          unzip -q "$ZIP" -d /tmp/devforge
+          unzip -q "$ARCHIVE" -d /tmp/devforge
 
           SRC="$(find /tmp/devforge -mindepth 1 -maxdepth 1 -type d | head -n 1)"
           test -n "$SRC"
@@ -35,7 +35,7 @@ jobs:
           cp -a "$SRC/." .
 
           rm -rf docs/screenshots
-          rm -f "$ZIP"
+          rm -f "$ARCHIVE"
 
           cat > README.md <<'EOF'
 # DevForge
@@ -125,13 +125,20 @@ Imported the validated DevForge source archive into the new main-only repository
 The repository README was refreshed with DevForge-specific positioning and product messaging.
 EOF
 
-      - name: Finalize
+      - name: Finalize bootstrap
         shell: bash
         run: |
           set -euo pipefail
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Repository already contains the imported baseline."
+            exit 0
+          fi
+
           chmod +x gradlew 2>/dev/null || true
           chmod +x tools/check-build-budget.sh 2>/dev/null || true
-          rm -f .github/workflows/import-devforge.yml
+          rm -f .github/workflows/import-devforge.yml .github/workflows/bootstrap-import.yml
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
