@@ -1,4 +1,5 @@
 ### 2026-09-22 — UI workflow repair: navigation synchronization and AI Tools policy assertion
+- [x] Triggered a fresh push-based Android UI Tests run for the repaired `main` head.
 - [x] Inspected Android UI Tests #200 and extracted the retained instrumentation report; exactly three UI assertions failed.
 - [x] Updated the AI & GitHub navigation tests to wait for the asynchronously rendered More-screen and child-surface nodes before performing clicks, preventing race-dependent "node not found" failures.
 - [x] Updated the AI Tools UI regression test to assert the current single-AI delete-path policy text: enabled by default, with deletion still approval-gated.
