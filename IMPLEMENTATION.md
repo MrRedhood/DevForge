@@ -1686,3 +1686,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 
 ### 2026-09-22 — Attachment retry retention correction
 - Cancellation during AI generation now restores submitted attachments before their URI permissions are released, matching failed-request retry behavior.
+
+
+### 2026-09-22 — Approval lifetime compile correction
+- Corrected the remaining Build Center approval expiry reference to the centralized `ApprovalRepository.APPROVAL_WINDOW_MS` constant after CI exposed the stale local reference.

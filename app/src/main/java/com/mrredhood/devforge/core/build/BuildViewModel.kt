@@ -649,7 +649,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                         parametersHash = action.parametersHash,
                         preconditionHash = action.preconditionHash,
                         payload = encodeConfiguration(request),
-                        expiresAtEpochMs = System.currentTimeMillis() + APPROVAL_WINDOW_MS,
+                        expiresAtEpochMs = System.currentTimeMillis() + com.mrredhood.devforge.core.storage.ApprovalRepository.APPROVAL_WINDOW_MS,
                     )
                 }.onSuccess {
                     withContext(Dispatchers.Main.immediate) {
