@@ -1881,3 +1881,18 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Registered `env`, `printenv`, `which`, `true`, `false`, `sleep`, and `getprop` in the actual `TerminalCommandParser` implementation.
 - [x] Preserved the existing bounded AI-command policy and the separate interactive real-shell path; this repair only completes the missing parser registration.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the repair commit.
+
+
+### 2026-09-22 — Real Acode and VS Code extension platform
+- [x] Replaced the previous registry-only extension placeholder with a package-aware install/analyze/store pipeline for Acode ZIP and VS Code VSIX packages.
+- [x] Added bounded package extraction with file-count, file-size, total-size and path-traversal protections before an extension reaches the installed registry.
+- [x] Added compatibility classification for native DevForge languages, declarative contributions, Acode runtime packages and compatible VS Code Web bundles.
+- [x] Added a hard rejection path for executable packages that need unsupported runtimes/APIs and for programming-language packages that DevForge cannot actually support.
+- [x] Added a persistent extension manager under More → AI Tools → Integrations → Manage Extensions.
+- [x] Added real icon-theme indexing for VS Code iconThemes and Acode file_icons/folder_icons metadata; active packs now change file and folder icons in the workspace browser.
+- [x] Added AndroidSVG rendering for packaged SVG icon assets and kept custom icon decoding off the UI thread.
+- [x] Added a restricted WebView runtime for compatible bundled Acode plugins and VS Code Web extensions, with network/file access blocked by default and command registration surfaced for verification.
+- [x] Added native-language detection so existing Kotlin/Java/JavaScript/TypeScript/Python/Go/Rust/C/C++ and the expanded supported language catalog are reported as native rather than falsely treated as newly installed runtimes.
+- [x] Added regression tests for native-language recognition, unsupported-language rejection and Acode command-plugin compatibility.
+- [x] Updated More → ⓘ Help & guide and README with the real extension behavior and rejection rules.
+- [ ] Fresh Android CI and Android UI Tests validation is still required for the current main head.
