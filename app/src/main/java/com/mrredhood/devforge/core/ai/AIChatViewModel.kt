@@ -528,6 +528,18 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
             } catch (cancelled: CancellationException) {
                 retainAttachmentsForRetry = true
+                withContext(Dispatchers.Main.immediate) {
+                    val merged = attachments.toMutableList()
+                    submittedAttachments.forEach { attachment ->
+                        if (merged.none { it.uri == attachment.uri } &&
+                            merged.size < MAX_ATTACHMENTS &&
+                            merged.sumOf { it.sizeBytes } + attachment.sizeBytes <= MAX_TOTAL_ATTACHMENT_BYTES
+                        ) {
+                            merged += attachment
+                        }
+                    }
+                    attachments = merged
+                }
                 withContext(NonCancellable) {
                     if (partialResponse.isNotBlank()) {
                         chatRepository.addMessage(

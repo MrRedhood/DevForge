@@ -1682,3 +1682,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - Remote repository deletion now also clears matching terminal sessions, pending GitHub change batches, and per-repository build-output settings in addition to deleting GitHub-backed workspace records.
 - Editor ViewModel observes the active workspace lifecycle and invalidates stale remote editor tabs when the active workspace disappears.
 - Help & guide now documents the complete deletion cleanup behavior.
+
+
+### 2026-09-22 — Attachment retry retention correction
+- Cancellation during AI generation now restores submitted attachments before their URI permissions are released, matching failed-request retry behavior.
