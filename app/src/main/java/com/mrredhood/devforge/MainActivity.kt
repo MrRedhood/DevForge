@@ -515,7 +515,6 @@ private fun DevForgeApp(
                 !showDevForgeCenter &&
                 !showRepositoryCreator &&
                 !showFeatureGuide &&
-                !showAgentPanel &&
                 !showProjectActivity
             ) {
                 FloatingActionButton(
