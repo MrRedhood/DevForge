@@ -1,9 +1,0 @@
-name: Bootstrap test
-
-on: push
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "DevForge Actions works"
