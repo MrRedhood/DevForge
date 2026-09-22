@@ -35,6 +35,7 @@ class ExtensionPackageInstaller(
             )
             store.put(installed)
             ExtensionIconThemeStore(context).index(installed)
+            if (manifest.kind == ExtensionPackageKind.ICON_THEME) store.setActiveIconTheme(manifest.id)
             ExtensionInstallResult(
                 installed,
                 buildString {
