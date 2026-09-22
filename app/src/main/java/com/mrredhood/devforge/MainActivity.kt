@@ -335,6 +335,7 @@ private fun DevForgeApp(
     }
 
     fun navigateTo(next: DevForgeDestination) {
+        showChat = false
         if (next.name == destinationName && !showEditor) return
         if (!showEditor) destinationHistory = (destinationHistory + destinationName).takeLast(MAX_DESTINATION_HISTORY)
         destinationName = next.name
