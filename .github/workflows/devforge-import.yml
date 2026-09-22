@@ -1,4 +1,4 @@
-name: DevForge bootstrap test
+name: DevForge source import
 
 on: push
 
@@ -6,7 +6,10 @@ permissions:
   contents: write
 
 jobs:
-  test:
+  import:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "DevForge bootstrap workflow is active"
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Import source archive
+        run: bash .github/devforge-import.sh
