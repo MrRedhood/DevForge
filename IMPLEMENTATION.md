@@ -1,3 +1,11 @@
+### 2026-09-22 — Android UI Test #202 navigation-race repair
+- [x] Inspected Android UI Tests #202 (run `35747528445`) and extracted the two remaining failures from the instrumentation report.
+- [x] Confirmed the application and tool-settings assertions were passing; the failures were confined to AI & GitHub navigation timing/input.
+- [x] Added a text-node wait helper to `MainActivityNavigationTest` so the test waits for the More surface's `AI & GitHub` tile rather than only waiting for the persistent bottom-navigation icon.
+- [x] Removed the redundant second More-navigation click from the standalone AI Tools test; it could race with destination rendering and toggle the same navigation destination.
+- [x] Applied the same explicit `AI & GitHub` readiness wait before clicking the hub in the shared More-navigation test.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
+
 ### 2026-09-22 — UI workflow repair: navigation synchronization and AI Tools policy assertion
 - [x] Triggered a fresh push-based Android UI Tests run for the repaired `main` head.
 - [x] Inspected Android UI Tests #200 and extracted the retained instrumentation report; exactly three UI assertions failed.
