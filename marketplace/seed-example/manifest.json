@@ -1,0 +1,37 @@
+{
+  "manifestVersion": 1,
+  "id": "com.devforge.example.hello",
+  "name": "DevForge Hello",
+  "version": "1.0.0",
+  "publisher": {
+    "id": "devforge",
+    "name": "DevForge"
+  },
+  "description": "Minimal example package for validating the first-party Marketplace pipeline.",
+  "type": "extension",
+  "devforge": {
+    "api": "1.0",
+    "minimumVersion": "0.1.0"
+  },
+  "entry": {
+    "runtime": "javascript",
+    "main": "dist/main.js"
+  },
+  "permissions": [
+    "ui.contribute",
+    "commands.register"
+  ],
+  "activation": {
+    "events": [
+      "app.started"
+    ]
+  },
+  "contributes": {
+    "commands": [
+      {
+        "id": "hello",
+        "title": "Hello DevForge"
+      }
+    ]
+  }
+}
