@@ -49,33 +49,15 @@ data class AiWorkflowSnapshot(
     val status: Status,
     val currentStep: String?,
     val activities: List<AiActivity>,
+    val generatedPlan: List<AiPlanStep> = emptyList(),
     val verification: AiVerificationReceipt?,
     val summary: String?,
     val startedAtEpochMs: Long,
     val updatedAtEpochMs: Long,
 ) {
+    /** Only contains a plan when the model explicitly created one for the current task. */
     val planSteps: List<AiPlanStep>
-        get() {
-            val definitions = listOf(
-                "understand" to ("Understand request" to "Clarify the goal, constraints, workspace and expected result."),
-                "plan" to ("Create plan" to "Turn the request into an ordered set of implementation steps."),
-                "inspect" to ("Inspect workspace" to "Search and read the relevant files before making changes."),
-                "execute" to ("Execute plan" to "Apply approved file, folder, terminal, Git and other required actions."),
-                "verify" to ("Verify result" to "Run the checks, tests, lint or build evidence required for the task."),
-                "review" to ("Review result" to "Summarize what changed, what was verified and any remaining issues."),
-            )
-            val currentIndex = phase.ordinal.coerceIn(0, definitions.lastIndex)
-            return definitions.mapIndexed { index, (id, copy) ->
-                val status = when {
-                    this.status == Status.COMPLETED -> AiPlanStepStatus.COMPLETED
-                    index < currentIndex -> AiPlanStepStatus.COMPLETED
-                    index > currentIndex -> AiPlanStepStatus.PENDING
-                    this.status == Status.FAILED || this.status == Status.CANCELLED -> AiPlanStepStatus.FAILED
-                    else -> AiPlanStepStatus.RUNNING
-                }
-                AiPlanStep(id, copy.first, copy.second, status)
-            }
-        }
+        get() = generatedPlan.take(MAX_PLAN_STEPS)
 
     val completedPlanSteps: Int
         get() = planSteps.count { it.status == AiPlanStepStatus.COMPLETED }
@@ -103,3 +85,6 @@ data class AiWorkflowSnapshot(
         }
     enum class Status { RUNNING, WAITING, COMPLETED, FAILED, CANCELLED }
 }
+
+
+private const val MAX_PLAN_STEPS = 8
