@@ -7,20 +7,26 @@ import java.net.URLEncoder
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import org.json.JSONArray
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 class ExtensionMarketplaceService {
 
     suspend fun searchAll(query: String, limit: Int = 20): Result<List<MarketplaceExtension>> =
-        runCatching {
-            val (acode, vscode) = kotlinx.coroutines.coroutineScope {
-                val a = kotlinx.coroutines.async { searchAcode(query, limit) }
-                val v = kotlinx.coroutines.async { searchVsCode(query, limit) }
-                a.await() to v.await()
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val (acode, vscode) = coroutineScope {
+                    val a = async { searchAcode(query, limit) }
+                    val v = async { searchVsCode(query, limit) }
+                    a.await() to v.await()
+                }
+                (acode + vscode)
+                    .sortedByDescending { it.downloads ?: 0L }
+                    .take(limit * 2)
             }
-            (acode + vscode)
-                .sortedByDescending { it.downloads ?: 0L }
-                .take(limit * 2)
         }
 
     private fun searchAcode(query: String, limit: Int): List<MarketplaceExtension> {
@@ -41,7 +47,7 @@ class ExtensionMarketplaceService {
                 val price = row.optString("price").ifBlank {
                     row.optDouble("price", 0.0).takeIf { !it.isNaN() }?.toString() ?: ""
                 }
-                val priceNumber = price.toDoubleOrNull() ?: 0.0
+                val priceNumber = price.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0
                 val version = row.optString("version").trim().ifBlank { "unknown" }
                 add(
                     MarketplaceExtension(
