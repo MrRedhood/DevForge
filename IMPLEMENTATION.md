@@ -1,3 +1,8 @@
+### 2026-09-23 — Extension marketplace UI regression coverage
+- [x] Expanded Android UI coverage for the live Extensions surface to verify the search field, Acode/VS Code source filters, and local ZIP/VSIX install fallback.
+- [x] Expanded Settings regression coverage to ensure the removed GitHub/AI-provider copy does not return to More → Settings.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
 ### 2026-09-23 — Live Acode/VS Code extension discovery and Settings copy cleanup
 - [x] Removed the stale GitHub wording from More → Settings so the Settings entry only describes Build, Terminal, Privacy, Appearance, and Editor preferences.
 - [x] Removed the obsolete internal GitHub settings title mapping; GitHub management remains under More → AI & GitHub.
