@@ -172,6 +172,7 @@ class AiWorkflowEngine(context: Context) {
         )
         store.save(updated)
         store.prune()
+        store.clearActive()
         return updated
     }
 
@@ -183,6 +184,7 @@ class AiWorkflowEngine(context: Context) {
             updatedAtEpochMs = System.currentTimeMillis(),
         )
         store.save(updated)
+        store.clearActive()
         return updated
     }
 
