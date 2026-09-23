@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DevForge Package Manifest v1",
+  "type": "object",
+  "required": ["manifestVersion","id","name","version","publisher","type","devforge","entry","permissions"],
+  "properties": {
+    "manifestVersion": {"const": 1},
+    "id": {"type":"string","pattern":"^[a-z][a-z0-9._-]{1,79}$"},
+    "name": {"type":"string","minLength":1,"maxLength":120},
+    "version": {"type":"string","pattern":"^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"},
+    "publisher": {
+      "type":"object","required":["id","name"],
+      "properties":{
+        "id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{1,79}$"},
+        "name":{"type":"string","minLength":1,"maxLength":120}
+      }
+    },
+    "description":{"type":"string","maxLength":4000},
+    "type":{"enum":["extension","theme","iconPack","language","aiAgent","aiTool","workflow","automation","template","toolPack","project"]},
+    "devforge":{
+      "type":"object","required":["api","minimumVersion"],
+      "properties":{"api":{"type":"string","pattern":"^\\d+\\.\\d+$"},"minimumVersion":{"type":"string"}}
+    },
+    "entry":{
+      "type":"object","required":["runtime","main"],
+      "properties":{"runtime":{"const":"javascript"},"main":{"type":"string","minLength":1,"maxLength":240}}
+    },
+    "permissions":{"type":"array","maxItems":32,"items":{"type":"string"}},
+    "activation":{"type":"object","properties":{"events":{"type":"array","maxItems":64,"items":{"type":"string"}}}},
+    "contributes":{"type":"object"}
+  },
+  "additionalProperties": true
+}
