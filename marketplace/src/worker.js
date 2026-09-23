@@ -170,6 +170,17 @@ async function publishPackage(request, env) {
     }, 400);
   }
 
+  const existingRelease = await env.DB.prepare(
+    "SELECT version FROM releases WHERE package_id = ? AND version = ?"
+  ).bind(validation.id, validation.version).first();
+
+  if (existingRelease) {
+    return json({
+      error: "VERSION_EXISTS",
+      message: "Published package versions are immutable."
+    }, 409);
+  }
+
   const objectKey = "packages/" + validation.id + "/" + validation.version + "/package.devforge";
   const now = new Date().toISOString();
 
