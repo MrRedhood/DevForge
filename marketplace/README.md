@@ -21,7 +21,7 @@ You also need:
 - The Cloudflare account ID
 - A strong Marketplace publisher token for the bootstrap publish endpoint
 
-A custom domain is optional. A `workers.dev` URL is enough for the first production deployment; the Android app can be pointed at that HTTPS URL from More → Marketplace → settings.
+A custom domain is optional. A `workers.dev` URL is enough for the first production deployment; the Android app can be pointed at that HTTPS URL from More → Marketplace → settings. You can add a custom domain later without changing the package model.
 
 ## First deployment
 
