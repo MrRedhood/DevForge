@@ -25,7 +25,14 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
@@ -41,6 +48,8 @@ class WorkspaceAgentToolProvider(
     private val gitSyncMutex = kotlinx.coroutines.sync.Mutex()
     private val githubStore = GitHubWorkspaceStore(context)
     private val githubGateway = GitHubRepositoryGateway(CredentialSecurityStore(context))
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val pendingGitSyncs = java.util.concurrent.ConcurrentHashMap<String, Job>()
     fun registerAll(registry: AgentToolRegistry): AgentToolRegistry = registry
         .register(ReadFileTool())
         .register(ListFilesTool())
@@ -116,26 +125,33 @@ class WorkspaceAgentToolProvider(
             }
             val workspace = workspaceDao.findById(context.workspaceId) ?: return null
             val rootUri = Uri.parse(workspace.treeUri)
-            return when (val detected = gitRepositoryService.detect(rootUri)) {
-                is GitDetectionState.Detected -> {
+
+            // Keep local mutations fast. GitHub synchronization is coalesced across rapid
+            // AI file/folder operations and runs once after the burst instead of blocking
+            // every create/write call on a network push.
+            currentCoroutineContext().ensureActive()
+            if (summary.startsWith("create folder ")) {
+                val folderPath = summary.removePrefix("create folder ").trim()
+                access.ensureGitKeepIfEmpty(rootUri, folderPath)
+            }
+
+            pendingGitSyncs[workspace.id]?.cancel()
+            pendingGitSyncs[workspace.id] = syncScope.launch {
+                delay(GIT_SYNC_DEBOUNCE_MS)
+                runCatching {
+                    val detected = gitRepositoryService.detect(rootUri)
+                    if (detected !is GitDetectionState.Detected) return@runCatching
                     val validation = gitRemoteService.validateConfigured(detected.repository.remoteUrl)
-                    if (validation.owner == null || validation.repository == null) null
-                    else when (val result = gitSyncMutex.withLock {
-                        if (summary.startsWith("create folder ")) {
-                            val folderPath = summary.removePrefix("create folder ").trim()
-                            access.ensureGitKeepIfEmpty(rootUri, folderPath)
-                        }
+                    if (validation.owner == null || validation.repository == null) return@runCatching
+                    gitSyncMutex.withLock {
                         gitRemoteService.autoSyncChanges(
                             detected.repository,
                             "DevForge agent: " + summary.take(160),
                         )
-                    }) {
-                        is GitRemoteResult.Success -> result.message
-                        is GitRemoteResult.Failure -> "Local change saved. GitHub synchronization failed: " + result.message
                     }
                 }
-                else -> null
             }
+            return "GitHub synchronization queued."
         }
 
         protected suspend fun remoteWorkspace(context: AgentToolContext): GitHubWorkspaceRemote? {
@@ -877,6 +893,7 @@ class WorkspaceAgentToolProvider(
     }
 
     companion object {
+        private const val GIT_SYNC_DEBOUNCE_MS = 750L
         private const val MAX_LIST_ENTRIES = 100
         private const val MAX_SEARCH_RESULTS = 50
         private const val MAX_TREE_DEPTH = 8
