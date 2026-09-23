@@ -89,4 +89,8 @@ data class MarketplaceExtension(
     val rating: Double? = null,
     val priceText: String? = null,
     val installable: Boolean = true,
+    val packageType: String = "extension",
+    val apiVersion: String = "1.0",
+    val minimumDevForgeVersion: String = "1.0.0",
+    val requestedPermissions: List<String> = emptyList(),
 )
