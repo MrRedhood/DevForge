@@ -206,6 +206,7 @@ class AgentToolGateway(
             }
             if (tool.definition.sideEffecting) {
                 WorkspaceContextVersion.invalidate(context.workspaceId)
+                WorkspaceChangeBus.emit(context.workspaceId, result.affectedPaths)
             }
         }
         val metadata = JSONObjectLike.metadata(
