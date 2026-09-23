@@ -44,7 +44,6 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
@@ -122,7 +121,6 @@ import com.mrredhood.devforge.core.editor.EditorTab
 import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.editor.FoldingVisualTransformation
 import com.mrredhood.devforge.core.editor.VisibleWhitespaceVisualTransformation
-import com.mrredhood.devforge.core.extension.ExtensionCenterScreen
 import com.mrredhood.devforge.core.git.GitDashboardScreen
 import com.mrredhood.devforge.core.git.GitDiffScreen
 import com.mrredhood.devforge.core.git.GitDiffViewModel
@@ -405,7 +403,7 @@ private fun DevForgeApp(
                     onSave = editor::saveActive,
                     onRefresh = editor::refreshActive,
                 )
-            } else if (destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Extensions, DevForgeDestination.Connections) && !gitCommitHistoryOpen) {
+            } else if (destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Connections) && !gitCommitHistoryOpen) {
                 DevForgeTopBar(
                     workspace = workspace,
                     screenTitle = screenTitle,
@@ -417,7 +415,7 @@ private fun DevForgeApp(
         },
         bottomBar = {
             if (
-                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions, DevForgeDestination.Connections) &&
+                destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Connections) &&
                 !expanded &&
                 !gitCommitHistoryOpen
             ) {
@@ -1703,7 +1701,6 @@ private fun DestinationScreen(
         )
         DevForgeDestination.LiveActions -> LiveActionsScreen(onBack = onBack)
         DevForgeDestination.Connections -> AiGitHubHubScreen(buildViewModel = build, onBack = onBack)
-        DevForgeDestination.Extensions -> ExtensionCenterScreen(onClose = onBack)
         DevForgeDestination.Terminal -> TerminalScreen(onBack = onBack)
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
         DevForgeDestination.Settings -> SettingsScreen(
@@ -1737,7 +1734,7 @@ private fun MoreScreen(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                "AI & GitHub, approvals, extensions, live actions, and project utilities.",
+                "AI & GitHub, approvals, live actions, and project utilities.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
@@ -1786,13 +1783,6 @@ private fun MoreScreen(
                 title = "Live GitHub Actions",
                 subtitle = "Realtime workflow status, animated running state, jobs, and live logs",
                 onClick = { onSelect(DevForgeDestination.LiveActions) },
-            )
-        }
-        item {
-            SimpleSettingsTile(
-                title = "Marketplace",
-                subtitle = "Discover, install, update, disable, and uninstall DevForge packages",
-                onClick = { onSelect(DevForgeDestination.Extensions) },
             )
         }
         item {
