@@ -2162,3 +2162,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
 - [x] Added the same execution timeout to already-approved Chat tool executions so approval cannot leave the AI task blocked indefinitely.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
+- [x] Fixed the workspace refresh event-bus import used by the AI tool gateway so the automatic refresh path compiles correctly.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
