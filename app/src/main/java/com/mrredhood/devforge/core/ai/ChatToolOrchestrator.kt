@@ -341,6 +341,7 @@ class ChatToolOrchestrator(
         append("\nTool protocol for models without native function calling:")
         append("\nPreferred envelope: <devforge_tool>{\"tool\":\"tool_name\",\"arguments\":{\"key\":\"value\"}}</devforge_tool>")
         append("\nYou may emit multiple tool envelopes in one response; DevForge executes them sequentially.")
+        append("\nFor multi-file or multi-folder requests, emit all deterministic independent create/write/folder operations you can determine in the same response instead of waiting for a separate model turn for each operation.")
         append("\nDo not print tool envelopes as an explanation or code sample. When tools are required, output the envelope(s) directly.")
         append("\nLegacy envelopes are also accepted: <tool_call>...</tool_call>, <toolcall>...</toolcall>, and compact listfiles/createfile/createfolder-style names.")
         append("\nFor legacy <toolcall> blocks, arguments may be represented with repeated <argkey>key</argkey><argvalue>value</argvalue> pairs.")
