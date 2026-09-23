@@ -1,6 +1,9 @@
 package com.mrredhood.devforge.core.extension
 
 import com.mrredhood.devforge.core.editor.EditorLanguage
+import com.mrredhood.devforge.core.extension.api.DevForgeManifestValidation
+import com.mrredhood.devforge.core.extension.api.DevForgeManifestValidator
+import com.mrredhood.devforge.core.extension.api.DevForgePackageType
 import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
@@ -15,22 +18,92 @@ object ExtensionPackageAnalyzer {
 
     fun analyze(root: File): Result<AnalyzedExtension> = runCatching {
         val packageRoot = locatePackageRoot(root)
+        val devforgeManifest = File(packageRoot, "manifest.json")
         val plugin = File(packageRoot, "plugin.json")
         val packageJson = File(packageRoot, "package.json")
         when {
+            devforgeManifest.isFile -> analyzeDevForge(packageRoot, devforgeManifest.readText())
             plugin.isFile -> analyzeAcode(packageRoot, JSONObject(plugin.readText()))
             packageJson.isFile -> analyzeVsCode(packageRoot, JSONObject(packageJson.readText()))
-            else -> error("Package must contain plugin.json (Acode) or package.json (VS Code).")
+            else -> error("Package must contain manifest.json for DevForge or a supported legacy package manifest.")
         }
     }
 
     private fun locatePackageRoot(root: File): File {
-        if (File(root, "plugin.json").isFile || File(root, "package.json").isFile) return root
+        if (
+            File(root, "manifest.json").isFile ||
+            File(root, "plugin.json").isFile ||
+            File(root, "package.json").isFile
+        ) return root
         val children = root.listFiles()?.filter { it.isDirectory } ?: emptyList()
         val nested = children.firstOrNull { child ->
-            File(child, "plugin.json").isFile || File(child, "package.json").isFile
+            File(child, "manifest.json").isFile ||
+                File(child, "plugin.json").isFile ||
+                File(child, "package.json").isFile
         }
         return nested ?: root
+    }
+
+    private fun analyzeDevForge(root: File, rawManifest: String): AnalyzedExtension {
+        val manifest = when (val validation = DevForgeManifestValidator.parse(rawManifest)) {
+            is DevForgeManifestValidation.Valid -> validation.manifest
+            is DevForgeManifestValidation.Invalid -> error(validation.errors.joinToString("; "))
+        }
+        val entry = File(root, manifest.entryPoint)
+        require(entry.isFile) { "DevForge entry point '\${manifest.entryPoint}' is missing." }
+        require(entry.length() <= MAX_SCRIPT_BYTES) { "DevForge entry script is too large." }
+
+        val kind = when (manifest.type) {
+            DevForgePackageType.LANGUAGE -> ExtensionPackageKind.LANGUAGE
+            DevForgePackageType.ICON_PACK -> ExtensionPackageKind.ICON_THEME
+            DevForgePackageType.THEME -> ExtensionPackageKind.THEME
+            DevForgePackageType.TOOL_PACK,
+            DevForgePackageType.AI_TOOL,
+            DevForgePackageType.AI_AGENT,
+            DevForgePackageType.WORKFLOW,
+            DevForgePackageType.AUTOMATION,
+            DevForgePackageType.TEMPLATE,
+            DevForgePackageType.PROJECT -> ExtensionPackageKind.DECLARATIVE
+            DevForgePackageType.EXTENSION -> ExtensionPackageKind.RUNTIME
+        }
+
+        val languages = manifest.contributions.languages.map {
+            ExtensionLanguageContribution(
+                id = it.id,
+                label = it.label,
+                extensions = it.extensions,
+            )
+        }
+        val commands = manifest.contributions.commands.map { it.id }
+        val capabilityNames = manifest.permissions.map { it.wireName }.toSet()
+        val capabilities = buildSet {
+            if ("workspace.read" in capabilityNames || "files.read" in capabilityNames) add(ExtensionCapability.READ_WORKSPACE)
+            if ("workspace.write" in capabilityNames || "files.write" in capabilityNames || "editor.write" in capabilityNames) {
+                add(ExtensionCapability.EDIT_WORKSPACE)
+            }
+            if ("network.access" in capabilityNames || "network.unrestricted" in capabilityNames) add(ExtensionCapability.NETWORK)
+            if ("git.read" in capabilityNames || "git.write" in capabilityNames || "git.push" in capabilityNames) add(ExtensionCapability.GIT)
+            if ("build.read" in capabilityNames || "build.execute" in capabilityNames) add(ExtensionCapability.BUILD)
+        }
+
+        return AnalyzedExtension(
+            ExtensionManifest(
+                id = manifest.id,
+                name = manifest.name,
+                version = manifest.version,
+                capabilities = capabilities,
+                entryPoint = manifest.entryPoint,
+                source = ExtensionSource.DEVFORGE,
+                kind = kind,
+                compatibility = ExtensionCompatibility.DEVFORGE_RUNTIME_SUPPORTED,
+                description = manifest.description,
+                contributions = ExtensionContributions(
+                    languages = languages,
+                    commands = commands,
+                ),
+            ),
+            root,
+        )
     }
 
     private fun analyzeAcode(root: File, json: JSONObject): AnalyzedExtension {
