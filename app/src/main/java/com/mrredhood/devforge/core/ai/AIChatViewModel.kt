@@ -704,7 +704,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
             } catch (cancelled: CancellationException) {
                 retainAttachmentsForRetry = true
-                workflowSnapshot = aiWorkflowEngine.fail(workflowSnapshot, "AI Mission cancelled.")
+                workflowSnapshot = aiWorkflowEngine.fail(workflowSnapshot, "AI execution cancelled.")
                 withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 withContext(Dispatchers.Main.immediate) {
                     val merged = attachments.toMutableList()
