@@ -3,7 +3,6 @@ package com.mrredhood.devforge
 import android.Manifest
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -139,7 +138,7 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText("Acode", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("VS Code", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Discover", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Install ZIP / VSIX", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onAllNodesWithText("Install ZIP / VSIX", useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test
