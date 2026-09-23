@@ -2130,3 +2130,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Removed the Android SVG dependency that existed only for extension-provided icon themes.
 - [x] Removed the remaining Marketplace/extension navigation reference from the main app surface.
 
+### 2026-09-23 — Marketplace UI test removal
+- [x] Removed the obsolete Marketplace navigation/integration UI test after removing Marketplace from the initial release.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
+
