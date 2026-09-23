@@ -2125,3 +2125,8 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Kept the core IDE, AI, Git/GitHub, terminal, Build Center, automation, approvals, and workspace functionality intact.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this removal commit.
 
+### 2026-09-23 — Extension cleanup follow-up
+- [x] Removed the obsolete extension Platform API, permissions, and versioning documentation after removing the runtime/SDK.
+- [x] Removed the Android SVG dependency that existed only for extension-provided icon themes.
+- [x] Removed the remaining Marketplace/extension navigation reference from the main app surface.
+
