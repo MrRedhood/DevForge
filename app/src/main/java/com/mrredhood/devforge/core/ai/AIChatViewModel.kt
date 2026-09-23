@@ -750,6 +750,23 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         )
                     }
                 }
+            } catch (cancelled: CancellationException) {
+                if (userRequestedPause) {
+                    withContext(NonCancellable + Dispatchers.Main.immediate) {
+                        val merged = attachments.toMutableList()
+                        submittedAttachments.forEach { attachment ->
+                            if (merged.none { it.uri == attachment.uri } &&
+                                merged.size < MAX_ATTACHMENTS &&
+                                merged.sumOf { it.sizeBytes } + attachment.sizeBytes <= MAX_TOTAL_ATTACHMENT_BYTES
+                            ) {
+                                merged += attachment
+                            }
+                        }
+                        attachments = merged
+                        sendError = "AI paused. Press Send to continue from the current workspace state."
+                    }
+                }
+                throw cancelled
             } catch (error: Throwable) {
                 retainAttachmentsForRetry = true
                 if (workflowSnapshot.status == AiWorkflowSnapshot.Status.RUNNING ||
