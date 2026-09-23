@@ -1,49 +1,107 @@
 # DevForge Marketplace backend
 
-This is the first-party Marketplace API backend for DevForge.
+This is the first-party Marketplace API for DevForge native `.devforge` packages.
 
-## Stack
+## Architecture
 
-- Cloudflare Workers — API
-- Cloudflare D1 — package catalog metadata
-- Cloudflare R2 — canonical immutable .devforge package releases
+- Cloudflare Workers — HTTPS catalog/download/publish API
+- Cloudflare D1 — package and release metadata
+- Cloudflare R2 — canonical immutable package bytes
 
-The Android app is not the canonical storage location. Published packages remain in the Marketplace backend after a developer deletes the Android app or source repository.
+The Android app is never the source of truth. Published packages remain available even when a developer deletes the DevForge app or deletes the source repository.
 
-## Deploy
+## What you need
 
-1. Create a Cloudflare account.
-2. Install/authenticate Wrangler.
-3. Create a D1 database named devforge-marketplace.
-4. Create an R2 bucket named devforge-marketplace-packages.
-5. Put the returned D1 database ID into wrangler.toml.
-6. Set a strong PUBLISH_TOKEN secret.
-7. Apply schema.sql.
-8. Deploy the Worker.
-9. Put the deployed HTTPS Worker URL into DevForge → More → Marketplace → settings.
+You need a Cloudflare account for the production Marketplace.
 
-Example commands:
+You also need:
+- One D1 database: `devforge-marketplace`
+- One R2 bucket: `devforge-marketplace-packages`
+- A scoped Cloudflare API token for CI deployment
+- The Cloudflare account ID
+- A strong Marketplace publisher token for the bootstrap publish endpoint
 
-    wrangler d1 create devforge-marketplace
-    wrangler r2 bucket create devforge-marketplace-packages
-    wrangler d1 execute devforge-marketplace --file=./schema.sql
-    wrangler secret put PUBLISH_TOKEN
-    wrangler deploy
+A custom domain is optional. A `workers.dev` URL is enough for the first production deployment; the Android app can be pointed at that HTTPS URL from More → Marketplace → settings.
 
-The current publish endpoint uses a publisher token as an initial bootstrap mechanism. A developer account/OAuth portal can replace this later without changing the catalog/package model.
+## First deployment
 
-## API
+From this directory:
 
-- GET /v1/health
-- GET /v1/packages?query=&type=&limit=
-- GET /v1/packages/:id
-- GET /v1/packages/:id/releases/:version/download
-- POST /v1/publish (Bearer publisher token)
+```bash
+npm install
+npx wrangler login
 
-The publish endpoint accepts multipart form data:
+npx wrangler d1 create devforge-marketplace
+npx wrangler r2 bucket create devforge-marketplace-packages
+```
 
-- manifest — manifest.json
-- package — the immutable .devforge package
-- releaseNotes — optional text
+Copy the D1 database ID returned by `wrangler d1 create` into `wrangler.toml`:
 
-GitHub remains suitable for source code and SDK development, but it is not the package registry.
+```toml
+database_id = "YOUR_D1_DATABASE_ID"
+```
+
+Create the publisher token:
+
+```bash
+npx wrangler secret put PUBLISH_TOKEN
+```
+
+Apply the schema and deploy:
+
+```bash
+npx wrangler d1 execute devforge-marketplace --remote --file=./schema.sql
+npx wrangler deploy
+```
+
+The resulting HTTPS Worker URL is the Marketplace API base URL.
+
+## GitHub Actions deployment
+
+The repository includes `.github/workflows/deploy-marketplace.yml`.
+
+Add these GitHub repository secrets:
+
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN`
+- `DEVFORGE_MARKETPLACE_D1_DATABASE_ID`
+
+The workflow deploys the Worker whenever `marketplace/**` changes on `main`.
+
+Cloudflare's GitHub Actions documentation recommends an API token and account ID for non-interactive CI authentication. Keep the token only in GitHub Actions secrets, never in the repository.
+
+## Connect the Android app
+
+Open:
+
+`More → Marketplace → Settings`
+
+Enter the deployed HTTPS Worker URL.
+
+The app uses the first-party API only:
+
+- `GET /v1/health`
+- `GET /v1/packages?query=&type=&limit=`
+- `GET /v1/packages/:id`
+- `GET /v1/packages/:id/releases/:version/download`
+- `POST /v1/publish`
+
+There are no Acode or VS Code marketplace requests in the DevForge Marketplace client.
+
+## Publishing
+
+The bootstrap publisher endpoint accepts multipart form data:
+
+- `manifest` — native DevForge `manifest.json`
+- `package` — immutable `.devforge` package
+- `releaseNotes` — optional text
+
+Publish with:
+
+```http
+Authorization: Bearer <PUBLISH_TOKEN>
+```
+
+Published package versions are immutable. The Worker stores the package bytes in R2 and the catalog metadata in D1.
+
+The bootstrap token is intentionally simple for the first deployment. A developer account/OAuth portal, publisher-scoped tokens, package signing, automated security scanning, ratings/reviews, and a public developer portal are the next Marketplace stages.
