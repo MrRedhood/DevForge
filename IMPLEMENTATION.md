@@ -2083,3 +2083,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Full marketplace transport, signing, package hosting, developer publishing, and runtime adapters remain the next implementation stage and will consume this frozen API contract.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
 
+### 2026-09-23 — DevForge API contract follow-up
+- [x] Corrected package-type wire names so manifest values such as iconPack, aiAgent, aiTool, and toolPack map to their stable API enum values.
+- [x] Expanded the public event catalog to cover app lifecycle, workspace/files, editor, terminal, Git, GitHub, Build, AI, agents, workflows, automation, commands, and artifact lifecycle events.
+- [x] Added a permission decision contract that explicitly reports undeclared-access denial and keeps high-risk permissions approval-sensitive.
+- [x] Added regression tests for the permission decision boundary and manifest validation.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
