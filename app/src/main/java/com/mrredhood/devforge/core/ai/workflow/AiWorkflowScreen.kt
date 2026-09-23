@@ -5,103 +5,126 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun AiWorkflowCard(workflow: AiWorkflowSnapshot?) {
-    if (workflow == null) return
+fun AiPlanCard(workflow: AiWorkflowSnapshot?) {
+    if (workflow == null || workflow.phase.ordinal < AiWorkflowPhase.PLAN.ordinal) return
+
     var expanded by remember(workflow.workflowId) { mutableStateOf(false) }
+    val steps = workflow.planSteps
+    val completed = workflow.completedPlanSteps
+    val current = steps.firstOrNull {
+        it.status == AiPlanStepStatus.RUNNING || it.status == AiPlanStepStatus.FAILED
+    }
 
     Card(
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
     ) {
         Column(
-            Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Row(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(Modifier.weight(1f)) {
-                    Text("AI Mission", style = MaterialTheme.typography.titleSmall)
+                    Text("AI plan", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        workflow.phase.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() } +
-                            (workflow.currentStep?.let { " · " + it } ?: ""),
-                        style = MaterialTheme.typography.bodySmall,
+                        if (current != null) {
+                            "$completed/${steps.size} completed · ${current.title}"
+                        } else {
+                            "$completed/${steps.size} completed"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                when (workflow.status) {
-                    AiWorkflowSnapshot.Status.RUNNING -> CircularProgressIndicator()
-                    AiWorkflowSnapshot.Status.WAITING -> Icon(Icons.Default.HourglassTop, null)
-                    AiWorkflowSnapshot.Status.COMPLETED -> Icon(Icons.Default.CheckCircle, null)
-                    AiWorkflowSnapshot.Status.FAILED,
-                    AiWorkflowSnapshot.Status.CANCELLED -> Icon(Icons.Default.Error, null)
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Collapse AI plan" else "Expand AI plan",
+                        modifier = Modifier.graphicsLayer {
+                            rotationZ = if (expanded) 180f else 0f
+                        },
+                    )
                 }
             }
 
-            Text(workflow.changeSummary, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-            if (workflow.changedPaths.isNotEmpty()) {
-                Text(
-                    workflow.changedPaths.take(3).joinToString(" · ") + if (workflow.changedPaths.size > 3) " · …" else "",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
             if (expanded) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                Column(
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(workflow.activities.takeLast(16), key = { it.id }) { activity ->
-                        Row(Modifier.fillMaxWidth()) {
-                            Text(
-                                "• " + activity.title,
-                                Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Text(
-                                activity.status.name.lowercase().replace('_', ' '),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                    steps.forEach { step ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            when (step.status) {
+                                AiPlanStepStatus.COMPLETED -> Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = "Completed",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                                AiPlanStepStatus.RUNNING -> Icon(
+                                    Icons.Default.HourglassTop,
+                                    contentDescription = "In progress",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                                AiPlanStepStatus.FAILED -> Icon(
+                                    Icons.Default.Error,
+                                    contentDescription = "Failed",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                                AiPlanStepStatus.PENDING -> Icon(
+                                    Icons.Default.RadioButtonUnchecked,
+                                    contentDescription = "Pending",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                            Column(
+                                Modifier.weight(1f).padding(start = 8.dp),
+                            ) {
+                                Text(step.title, style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    step.detail,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
-            }
-
-            workflow.verification?.let { verification ->
-                Text(
-                    "Verification · " +
-                        verification.passedCount + " passed · " +
-                        verification.failedCount + " failed · " +
-                        verification.checks.count { it.status == AiVerificationCheck.Status.SKIPPED } + " skipped",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(if (expanded) "Hide activity" else "Show activity")
             }
         }
     }
