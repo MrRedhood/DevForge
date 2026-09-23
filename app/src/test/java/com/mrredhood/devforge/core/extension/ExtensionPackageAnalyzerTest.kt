@@ -6,6 +6,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExtensionPackageAnalyzerTest {
+
+    @Test
+    fun recognizesDevForgeNativePackageManifest() {
+        val root = createTempDir()
+        File(root, "manifest.json").writeText(
+            """
+            {
+              "manifestVersion": 1,
+              "id": "com.example.hello",
+              "name": "Hello DevForge",
+              "version": "1.0.0",
+              "publisher": {"id": "example", "name": "Example"},
+              "description": "Test package",
+              "type": "extension",
+              "devforge": {"api": "1.0", "minimumVersion": "0.1.0"},
+              "entry": {"runtime": "javascript", "main": "main.js"},
+              "permissions": ["workspace.read", "commands.register"]
+            }
+            """.trimIndent(),
+        )
+        File(root, "main.js").writeText("export function activate() {}")
+        val result = ExtensionPackageAnalyzer.analyze(root).getOrThrow()
+        assertEquals(ExtensionSource.DEVFORGE, result.manifest.source)
+        assertEquals(ExtensionPackageKind.RUNTIME, result.manifest.kind)
+        assertEquals(ExtensionCompatibility.DEVFORGE_RUNTIME_SUPPORTED, result.manifest.compatibility)
+        assertEquals("com.example.hello", result.manifest.id)
+        root.deleteRecursively()
+    }
+
     @Test
     fun recognizesNativeKotlinLanguageExtension() {
         val root = createTempDir()
