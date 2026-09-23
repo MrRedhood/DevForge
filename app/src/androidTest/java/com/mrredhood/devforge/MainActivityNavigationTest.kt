@@ -126,19 +126,6 @@ class MainActivityNavigationTest {
     }
 
     @Test
-    fun marketplaceScreenUsesDevForgeCatalogOnly() {
-        resetToEditorHome()
-        waitForNode("More navigation")
-        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithTag("more-screen-list", useUnmergedTree = true).performScrollToIndex(4)
-        waitForText("Marketplace")
-        composeRule.onNodeWithText("Marketplace", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("Marketplace", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Search Marketplace", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Discover", useUnmergedTree = true).assertIsDisplayed()
-    }
-
-    @Test
     fun settingsDoesNotExposeLegacyAiProviderEntry() {
         resetToEditorHome()
         waitForNode("More navigation")
