@@ -71,7 +71,6 @@ Editor, Activity and Diagnostics are contextual surfaces in the mobile MVP.
 - Capability-based tool gateway
 - Optional Nexus gateway later
 - Selective KMP for platform-neutral domain/protocol/state code
-- Sandboxed MCP/extensions behind the same policy gateway
 - GitHub Actions as the default remote build path
 
 ## UI direction
