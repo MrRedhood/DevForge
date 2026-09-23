@@ -66,6 +66,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private val aiWorkflowEngine = AiWorkflowEngine(application)
     private var messageJob: Job? = null
     private var sendJob: Job? = null
+    private var activePrompt: String? = null
+    private var userRequestedPause = false
     private var workspaceJob: Job? = null
     private var selectionJob: Job? = null
     private var selectionGeneration = 0L
@@ -470,6 +472,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         isSending = true
         streamingText = ""
         sendError = null
+        activePrompt = raw
+        userRequestedPause = false
         val requestGeneration = ++generationId
         sendJob = viewModelScope.launch(Dispatchers.IO) {
             var partialResponse = ""
@@ -598,6 +602,18 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                                 aiWorkflow = workflowSnapshot
                             }
                         },
+                        onPlanProgress = { progress ->
+                            withContext(Dispatchers.Main.immediate) {
+                                if (requestGeneration != generationId) return@withContext
+                                workflowSnapshot = aiWorkflowEngine.updatePlanStep(
+                                    workflowSnapshot,
+                                    index = progress.index,
+                                    status = progress.status,
+                                    detail = progress.detail,
+                                )
+                                aiWorkflow = workflowSnapshot
+                            }
+                        },
                         onActivity = { activity ->
                             withContext(Dispatchers.Main.immediate) {
                                 if (requestGeneration != generationId) return@withContext
@@ -628,14 +644,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                                         detail = activity.detail,
                                         createdAtEpochMs = System.currentTimeMillis(),
                                     ),
-                                )
-                                workflowSnapshot = aiWorkflowEngine.advancePlan(
-                                    workflowSnapshot,
-                                    when (activity.status) {
-                                        ChatToolActivity.Status.RUNNING -> com.mrredhood.devforge.core.ai.workflow.AiActivityStatus.RUNNING
-                                        ChatToolActivity.Status.COMPLETED -> com.mrredhood.devforge.core.ai.workflow.AiActivityStatus.COMPLETED
-                                        ChatToolActivity.Status.FAILED -> com.mrredhood.devforge.core.ai.workflow.AiActivityStatus.FAILED
-                                    },
                                 )
                                 aiWorkflow = workflowSnapshot
                                 val current = toolActivities.toMutableList()
@@ -777,7 +785,13 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     if (requestGeneration == generationId) {
                         streamingText = ""
                         isSending = false
+                        if (userRequestedPause) {
+                            input = activePrompt.orEmpty()
+                            sendError = "AI paused. Press Send to continue from the current workspace state."
+                        }
                         aiWorkflow = null
+                        activePrompt = null
+                        userRequestedPause = false
                         if (sendJob === currentCoroutineContext()[Job]) sendJob = null
                     }
                 }
@@ -786,9 +800,10 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun stopGenerationLocally() {
-        val runningJob = sendJob
+        val runningJob = sendJob ?: return
+        userRequestedPause = true
         sendJob = null
-        runningJob?.cancel()
+        runningJob.cancel(CancellationException("AI paused by user"))
     }
 
     fun stopGeneration() {
