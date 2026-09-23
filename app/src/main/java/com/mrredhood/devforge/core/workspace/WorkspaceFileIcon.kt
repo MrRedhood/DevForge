@@ -120,20 +120,13 @@ fun WorkspaceLanguageIcon(
     name: String,
     modifier: Modifier = Modifier,
 ) {
-    ExtensionThemeIcon(
-        name = name,
-        isFolder = false,
-        expanded = false,
+    val spec = remember(name) { LanguageIconPack.forName(name) }
+    Icon(
+        imageVector = spec.icon,
+        contentDescription = spec.description,
         modifier = modifier.size(26.dp),
-    ) {
-        val spec = remember(name) { LanguageIconPack.forName(name) }
-        Icon(
-            imageVector = spec.icon,
-            contentDescription = spec.description,
-            modifier = modifier.size(26.dp),
-            tint = spec.tint.copy(alpha = 0.96f),
-        )
-    }
+        tint = spec.tint.copy(alpha = 0.96f),
+    )
 }
 
 @Composable
@@ -142,16 +135,9 @@ fun WorkspaceFolderIcon(
     expanded: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    ExtensionThemeIcon(
-        name = name,
-        isFolder = true,
-        expanded = expanded,
+    Icon(
+        imageVector = if (expanded) Icons.Filled.FolderOpen else Icons.Filled.Folder,
+        contentDescription = if (expanded) "Open folder" else "Folder",
         modifier = modifier.size(26.dp),
-    ) {
-        Icon(
-            imageVector = if (expanded) Icons.Filled.FolderOpen else Icons.Filled.Folder,
-            contentDescription = if (expanded) "Open folder" else "Folder",
-            modifier = modifier.size(26.dp),
-        )
-    }
+    )
 }
