@@ -19,10 +19,10 @@ The answer is an Android-first coding environment designed around fast project n
 - Local-first and GitHub-backed workspaces, including device-local repository saves and direct local-project publishing
 - Code editing and workspace navigation
 - AI chat with project-aware context
-- AI Mission workflow with plan → inspect → execute → verify → review, normalized activity timeline and durable recovery
+- AI plan and execution workflow with plan → inspect → execute → verify → review, compact activity timeline and durable recovery
 - Mobile power-editing commands inspired by Vim, plus a searchable VS Code-style Command Palette
 - AI project rules and reusable skill profiles for Android, UI, testing, security, performance, and Git/GitHub work
-- Mission change summaries with observed paths, write/delete/command counts, and Build Center-backed build verification
+- AI execution summaries with observed paths, write/delete/command counts, and Build Center-backed build verification
 - One main AI that plans, inspects the workspace, uses bounded tools to create/modify/delete files and folders, and verifies results
 - Controlled AI terminal execution
 - Git status, diffs, history, commit inspection, and reversible operations
