@@ -423,12 +423,23 @@ class ChatToolOrchestrator(
                 if (open < 0) break
                 val openEnd = response.indexOf(">", open + tag.length + 1)
                 if (openEnd < 0) break
-                val closeToken = "</$tag>"
-                val close = response.indexOf(closeToken, openEnd + 1, ignoreCase = true)
-                if (close < 0) break
-                val payload = response.substring(openEnd + 1, close).trim()
+
+                val closeTokens = when (tag) {
+                    "toolcall" -> listOf("</toolcall>", "</tool_call>")
+                    "devforge_tool" -> listOf("</devforge_tool>", "</devforge-tool>")
+                    else -> listOf("</tool_call>")
+                }
+                val closePair = closeTokens
+                    .mapNotNull { token ->
+                        val index = response.indexOf(token, openEnd + 1, ignoreCase = true)
+                        if (index >= 0) index to token.length else null
+                    }
+                    .minByOrNull { it.first }
+                    ?: break
+
+                val payload = response.substring(openEnd + 1, closePair.first).trim()
                 parseToolEnvelope(payload)?.let(calls::add)
-                cursor = close + closeToken.length
+                cursor = closePair.first + closePair.second
             }
         }
 
