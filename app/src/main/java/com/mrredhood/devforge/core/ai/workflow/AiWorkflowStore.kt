@@ -48,6 +48,20 @@ class AiWorkflowStore(context: Context) {
         .put("status", snapshot.status.name)
         .put("currentStep", snapshot.currentStep)
         .put(
+            "generatedPlan",
+            JSONArray().apply {
+                snapshot.generatedPlan.take(MAX_PLAN_STEPS).forEach { step ->
+                    put(
+                        JSONObject()
+                            .put("id", step.id)
+                            .put("title", step.title.take(180))
+                            .put("detail", step.detail.take(500))
+                            .put("status", step.status.name),
+                    )
+                }
+            },
+        )
+        .put(
             "activities",
             JSONArray().apply {
                 snapshot.activities.takeLast(MAX_ACTIVITIES).forEach { activity ->
@@ -92,6 +106,21 @@ class AiWorkflowStore(context: Context) {
 
     private fun decode(raw: String): AiWorkflowSnapshot? = runCatching {
         val json = JSONObject(raw)
+        val planJson = json.optJSONArray("generatedPlan") ?: JSONArray()
+        val generatedPlan = buildList {
+            for (i in 0 until minOf(planJson.length(), MAX_PLAN_STEPS)) {
+                val item = planJson.optJSONObject(i) ?: continue
+                add(
+                    AiPlanStep(
+                        id = item.optString("id"),
+                        title = item.optString("title").take(180),
+                        detail = item.optString("detail").take(500),
+                        status = runCatching { AiPlanStepStatus.valueOf(item.optString("status")) }
+                            .getOrDefault(AiPlanStepStatus.PENDING),
+                    ),
+                )
+            }
+        }
         val activitiesJson = json.optJSONArray("activities") ?: JSONArray()
         val activities = buildList {
             for (i in 0 until minOf(activitiesJson.length(), MAX_ACTIVITIES)) {
@@ -151,6 +180,7 @@ class AiWorkflowStore(context: Context) {
                 .getOrDefault(AiWorkflowSnapshot.Status.RUNNING),
             currentStep = json.optString("currentStep").takeIf(String::isNotBlank),
             activities = activities,
+            generatedPlan = generatedPlan,
             verification = verification,
             summary = json.optString("summary").takeIf(String::isNotBlank),
             startedAtEpochMs = json.optLong("startedAtEpochMs"),
@@ -162,6 +192,7 @@ class AiWorkflowStore(context: Context) {
         private const val KEY_ACTIVE = "active"
         private const val KEY_PREFIX = "workflow::"
         private const val MAX_ACTIVITIES = 180
+        private const val MAX_PLAN_STEPS = 8
         private const val MAX_PATHS = 20
         private const val MAX_CHECKS = 20
     }
