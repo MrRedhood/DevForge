@@ -377,15 +377,61 @@ object DevForgeEvents {
     data object AiToolCall : DevForgeEventType<DevForgeAiEvent> { override val name = "ai.toolCall"; override val version = 1 }
     data object AgentStepCompleted : DevForgeEventType<DevForgeAgentEvent> { override val name = "agent.stepCompleted"; override val version = 1 }
     data object ArtifactCreated : DevForgeEventType<DevForgeArtifactEvent> { override val name = "artifact.created"; override val version = 1 }
+    data object AppForeground : DevForgeEventType<DevForgeLifecycleEvent> { override val name = "app.foreground"; override val version = 1 }
+    data object AppBackground : DevForgeEventType<DevForgeLifecycleEvent> { override val name = "app.background"; override val version = 1 }
+    data object WorkspaceActivated : DevForgeEventType<DevForgeWorkspaceEvent> { override val name = "workspace.activated"; override val version = 1 }
+    data object FileMoved : DevForgeEventType<DevForgeFileEvent> { override val name = "file.moved"; override val version = 1 }
+    data object EditorOpened : DevForgeEventType<DevForgeEditorEvent> { override val name = "editor.opened"; override val version = 1 }
+    data object EditorClosed : DevForgeEventType<DevForgeEditorEvent> { override val name = "editor.closed"; override val version = 1 }
+    data object EditorSelectionChanged : DevForgeEventType<DevForgeEditorEvent> { override val name = "editor.selectionChanged"; override val version = 1 }
+    data object EditorActiveChanged : DevForgeEventType<DevForgeEditorEvent> { override val name = "editor.activeChanged"; override val version = 1 }
+    data object TerminalCreated : DevForgeEventType<DevForgeTerminalEvent> { override val name = "terminal.created"; override val version = 1 }
+    data object TerminalOutput : DevForgeEventType<DevForgeTerminalEvent> { override val name = "terminal.output"; override val version = 1 }
+    data object TerminalExited : DevForgeEventType<DevForgeTerminalEvent> { override val name = "terminal.exited"; override val version = 1 }
+    data object GitCommit : DevForgeEventType<DevForgeGitEvent> { override val name = "git.commit"; override val version = 1 }
+    data object GitCheckout : DevForgeEventType<DevForgeGitEvent> { override val name = "git.checkout"; override val version = 1 }
+    data object GitFetch : DevForgeEventType<DevForgeGitEvent> { override val name = "git.fetch"; override val version = 1 }
+    data object GitPull : DevForgeEventType<DevForgeGitEvent> { override val name = "git.pull"; override val version = 1 }
+    data object GitPush : DevForgeEventType<DevForgeGitEvent> { override val name = "git.push"; override val version = 1 }
+    data object GitHubIssue : DevForgeEventType<DevForgeGitHubEvent> { override val name = "github.issue"; override val version = 1 }
+    data object GitHubPullRequest : DevForgeEventType<DevForgeGitHubEvent> { override val name = "github.pullRequest"; override val version = 1 }
+    data object GitHubWorkflow : DevForgeEventType<DevForgeGitHubEvent> { override val name = "github.workflow"; override val version = 1 }
+    data object BuildStarted : DevForgeEventType<DevForgeBuildEvent> { override val name = "build.started"; override val version = 1 }
+    data object BuildLog : DevForgeEventType<DevForgeBuildEvent> { override val name = "build.log"; override val version = 1 }
+    data object BuildCancelled : DevForgeEventType<DevForgeBuildEvent> { override val name = "build.cancelled"; override val version = 1 }
+    data object AiStarted : DevForgeEventType<DevForgeAiEvent> { override val name = "ai.started"; override val version = 1 }
+    data object AiCompleted : DevForgeEventType<DevForgeAiEvent> { override val name = "ai.completed"; override val version = 1 }
+    data object AiFailed : DevForgeEventType<DevForgeAiEvent> { override val name = "ai.failed"; override val version = 1 }
+    data object AgentStarted : DevForgeEventType<DevForgeAgentEvent> { override val name = "agent.started"; override val version = 1 }
+    data object AgentPlanCreated : DevForgeEventType<DevForgeAgentEvent> { override val name = "agent.planCreated"; override val version = 1 }
+    data object AgentStepStarted : DevForgeEventType<DevForgeAgentEvent> { override val name = "agent.stepStarted"; override val version = 1 }
+    data object AgentApprovalRequired : DevForgeEventType<DevForgeAgentEvent> { override val name = "agent.approvalRequired"; override val version = 1 }
+    data object AgentCompleted : DevForgeEventType<DevForgeAgentEvent> { override val name = "agent.completed"; override val version = 1 }
+    data object AgentFailed : DevForgeEventType<DevForgeAgentEvent> { override val name = "agent.failed"; override val version = 1 }
+    data object WorkflowStarted : DevForgeEventType<DevForgeWorkflowEvent> { override val name = "workflow.started"; override val version = 1 }
+    data object WorkflowStepStarted : DevForgeEventType<DevForgeWorkflowEvent> { override val name = "workflow.stepStarted"; override val version = 1 }
+    data object WorkflowStepCompleted : DevForgeEventType<DevForgeWorkflowEvent> { override val name = "workflow.stepCompleted"; override val version = 1 }
+    data object WorkflowApprovalRequired : DevForgeEventType<DevForgeWorkflowEvent> { override val name = "workflow.approvalRequired"; override val version = 1 }
+    data object WorkflowCompleted : DevForgeEventType<DevForgeWorkflowEvent> { override val name = "workflow.completed"; override val version = 1 }
+    data object WorkflowFailed : DevForgeEventType<DevForgeWorkflowEvent> { override val name = "workflow.failed"; override val version = 1 }
+    data object AutomationTriggered : DevForgeEventType<DevForgeAutomationEvent> { override val name = "automation.triggered"; override val version = 1 }
+    data object CommandExecuted : DevForgeEventType<DevForgeCommandEvent> { override val name = "command.executed"; override val version = 1 }
+    data object ArtifactAttached : DevForgeEventType<DevForgeArtifactEvent> { override val name = "artifact.attached"; override val version = 1 }
+    data object ArtifactExpired : DevForgeEventType<DevForgeArtifactEvent> { override val name = "artifact.expired"; override val version = 1 }
 }
 data class DevForgeLifecycleEvent(val timestampEpochMs: Long)
 data class DevForgeWorkspaceEvent(val workspace: DevForgeWorkspaceRef)
 data class DevForgeFileEvent(val path: String)
 data class DevForgeEditorEvent(val editorId: String, val path: String)
+data class DevForgeTerminalEvent(val terminalId: String, val status: String, val output: String? = null)
 data class DevForgeGitEvent(val branch: String?, val changedPaths: List<String>)
+data class DevForgeGitHubEvent(val owner: String, val repository: String, val number: Int? = null, val status: String? = null)
 data class DevForgeBuildEvent(val buildId: String, val status: String, val conclusion: String?)
 data class DevForgeAiEvent(val toolId: String, val status: String)
 data class DevForgeAgentEvent(val runId: String, val stepIndex: Int, val status: String)
+data class DevForgeWorkflowEvent(val runId: String, val stepIndex: Int, val status: String)
+data class DevForgeAutomationEvent(val automationId: String, val status: String)
+data class DevForgeCommandEvent(val commandId: String, val status: String)
 data class DevForgeArtifactEvent(val artifact: DevForgeArtifactInfo)
 
 interface DevForgeCapabilityApi {
