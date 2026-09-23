@@ -75,13 +75,13 @@ The terminal runs a sandboxed Android `/system/bin/sh` for local workspaces and 
 
 Files above 64 KiB automatically enter fast rendering mode with reduced syntax and folding work. Fold calculation is debounced off the UI thread, diagnostics are bounded and debounced, and undo bookkeeping avoids rescanning the entire history on every keystroke so continuous typing and scrolling stay responsive on lower-end Android devices.
 
-### Real Acode / VS Code extension support
+### DevForge Marketplace
 
-DevForge now has a dedicated real package-aware extension manager under More → Extensions. It accepts Acode ZIP plugins and VS Code VSIX packages, inspects their manifests and executable entry points, rejects unsupported runtimes instead of installing placeholders, persists compatible packages, and applies supported contributions through DevForge adapters.
+DevForge has a first-party Marketplace for native `.devforge` packages. The catalog is independent of Acode and VS Code marketplaces and supports extensions, AI agents, AI tools, workflows, automations, themes, languages, templates, tool packs, and projects.
 
-Icon themes are real: VS Code/Acode icon metadata is indexed and the active pack changes the workspace's file and folder icons. Programming-language packages are checked against DevForge's existing editor language catalog first; when the language is already supported, DevForge explicitly reports native support rather than claiming the package installed a compiler/runtime. Unsupported language engines are rejected until DevForge has a real language adapter.
+Every package declares its DevForge API compatibility and requested permissions. DevForge validates the manifest and package before installation, keeps published versions immutable, and applies the existing approval policy to high-risk capabilities.
 
-Bundled Acode plugins and compatible VS Code Web packages can run through a restricted Android WebView extension host. Runtime JavaScript has file/network access blocked by default and only the supported API subset is exposed.
+The Marketplace client connects to the configured HTTPS DevForge Marketplace API. Canonical published releases live outside the Android app so they remain available independently of a user's local installation.
 
 ## DevForge Platform API
 
