@@ -2,7 +2,6 @@ package com.mrredhood.devforge.core.model
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Security
@@ -26,7 +25,6 @@ enum class DevForgeDestination(
     Build("Build", Icons.Default.Build),
     LiveActions("Live Actions", Icons.Default.Refresh),
     Connections("AI & GitHub", Icons.Default.Source),
-    Extensions("Marketplace", Icons.Default.Source),
     Terminal("Terminal", Icons.Default.Terminal),
     Approvals("Approvals", Icons.Default.Security),
     Settings("Settings", Icons.Default.Settings),
