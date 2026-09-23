@@ -2107,3 +2107,12 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Installed-state Marketplace copy now points users back to the first-party Marketplace and no longer implies a separate local-package flow is already exposed in the UI.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
 
+### 2026-09-23 — First-party Marketplace deployment hardening
+- [x] Confirmed the app's Marketplace client no longer queries Acode or VS Code marketplace endpoints; the Marketplace surface uses the DevForge-native catalog API and .devforge packages only.
+- [x] Hardened the Cloudflare Marketplace Worker download response and package publishing path, including corrected package filename handling, SHA-256 release hashing, package-type validation, minimum-version validation, permission validation, and immutable release storage.
+- [x] Added the Marketplace package.json for local Wrangler development.
+- [x] Added a GitHub Actions deployment workflow for the Marketplace Worker, gated until Cloudflare credentials/resources are configured.
+- [x] Updated Marketplace deployment documentation with Cloudflare account, D1, R2, publisher secret, GitHub Actions secrets, and Android connection steps.
+- [ ] Cloudflare production resources have not been provisioned yet; the deployed HTTPS Marketplace URL must be entered in the Android app after provisioning.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
