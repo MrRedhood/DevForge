@@ -800,10 +800,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun stopGenerationLocally() {
-        val runningJob = sendJob ?: return
+        if (!isSending) return
         userRequestedPause = true
-        sendJob = null
-        runningJob.cancel(CancellationException("AI paused by user"))
+        sendJob?.cancel(CancellationException("AI paused by user"))
     }
 
     fun stopGeneration() {
