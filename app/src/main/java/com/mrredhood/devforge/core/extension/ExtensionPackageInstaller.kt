@@ -105,7 +105,8 @@ class ExtensionPackageInstaller(
                             .append(" natively; the package did not replace native language support.")
                         ExtensionCompatibility.DECLARATIVE_SUPPORTED -> append("Its supported declarative features are active now.")
                         ExtensionCompatibility.ACODE_RUNTIME_SUPPORTED -> append("The Acode runtime contract passed static safety checks and can be activated.")
-                        ExtensionCompatibility.VSCODE_WEB_RUNTIME_SUPPORTED -> append("The VS Code Web runtime contract passed static safety checks and can be activated.")
+                        ExtensionCompatibility.VSCODE_WEB_RUNTIME_SUPPORTED -> append("The legacy VS Code Web runtime contract passed static safety checks.")
+                        ExtensionCompatibility.DEVFORGE_RUNTIME_SUPPORTED -> append("The DevForge native package contract passed manifest and permission validation.")
                         ExtensionCompatibility.UNSUPPORTED -> append("Unsupported.")
                     }
                 },
