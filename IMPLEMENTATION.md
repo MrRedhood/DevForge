@@ -1,3 +1,8 @@
+### 2026-09-23 — Delete Path UI policy alignment
+- [x] Updated More → AI & GitHub → AI Tools copy to match the new opt-in Delete Path default while retaining approval protection.
+- [x] Updated the Android UI regression assertion for the opt-in delete policy.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
 ### 2026-09-23 — Extension catalog networking coroutine repair
 - [x] Kept live Acode/VS Code catalog requests on `Dispatchers.IO`.
 - [x] Repaired the suspend/result boundary in the catalog loader so concurrent registry requests do not block the UI thread or violate coroutine compilation rules.
