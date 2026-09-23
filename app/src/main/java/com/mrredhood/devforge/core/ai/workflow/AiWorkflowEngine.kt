@@ -48,6 +48,57 @@ class AiWorkflowEngine(context: Context) {
         return snapshot
     }
 
+    fun setPlan(
+        snapshot: AiWorkflowSnapshot,
+        steps: List<AiPlanStep>,
+    ): AiWorkflowSnapshot {
+        val bounded = steps.take(8).mapIndexed { index, step ->
+            step.copy(
+                id = step.id.ifBlank { "plan-" + index },
+                title = step.title.trim().take(180).ifBlank { "Implementation step " + (index + 1) },
+                detail = step.detail.trim().take(500),
+                status = if (index == 0) AiPlanStepStatus.RUNNING else AiPlanStepStatus.PENDING,
+            )
+        }
+        val updated = snapshot.copy(
+            phase = if (bounded.isNotEmpty()) AiWorkflowPhase.PLAN else snapshot.phase,
+            currentStep = bounded.firstOrNull()?.title ?: snapshot.currentStep,
+            generatedPlan = bounded,
+            updatedAtEpochMs = System.currentTimeMillis(),
+        )
+        store.save(updated)
+        return updated
+    }
+
+    fun advancePlan(
+        snapshot: AiWorkflowSnapshot,
+        activityStatus: AiActivityStatus,
+    ): AiWorkflowSnapshot {
+        if (snapshot.generatedPlan.isEmpty()) return snapshot
+        val currentIndex = snapshot.generatedPlan.indexOfFirst {
+            it.status == AiPlanStepStatus.RUNNING || it.status == AiPlanStepStatus.FAILED
+        }.let { if (it < 0) snapshot.generatedPlan.indexOfFirst { step -> step.status == AiPlanStepStatus.PENDING } else it }
+        if (currentIndex < 0) return snapshot
+        val updatedSteps = snapshot.generatedPlan.toMutableList()
+        when (activityStatus) {
+            AiActivityStatus.RUNNING -> updatedSteps[currentIndex] = updatedSteps[currentIndex].copy(status = AiPlanStepStatus.RUNNING)
+            AiActivityStatus.COMPLETED -> {
+                updatedSteps[currentIndex] = updatedSteps[currentIndex].copy(status = AiPlanStepStatus.COMPLETED)
+                if (currentIndex + 1 < updatedSteps.size) {
+                    updatedSteps[currentIndex + 1] = updatedSteps[currentIndex + 1].copy(status = AiPlanStepStatus.RUNNING)
+                }
+            }
+            AiActivityStatus.FAILED -> updatedSteps[currentIndex] = updatedSteps[currentIndex].copy(status = AiPlanStepStatus.FAILED)
+            AiActivityStatus.WAITING -> Unit
+        }
+        val updated = snapshot.copy(
+            generatedPlan = updatedSteps,
+            updatedAtEpochMs = System.currentTimeMillis(),
+        )
+        store.save(updated)
+        return updated
+    }
+
     fun phase(
         snapshot: AiWorkflowSnapshot,
         phase: AiWorkflowPhase,
@@ -72,6 +123,7 @@ class AiWorkflowEngine(context: Context) {
                 .filterNot { it.id == activity.id }
                 .plus(activity)
                 .takeLast(MAX_ACTIVITIES),
+            currentStep = activity.detail.takeIf { it.isNotBlank() }?.take(240) ?: snapshot.currentStep,
             status = if (activity.status == AiActivityStatus.WAITING) {
                 AiWorkflowSnapshot.Status.WAITING
             } else {
