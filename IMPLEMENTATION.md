@@ -2069,3 +2069,6 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added explicit check/progress/error states for plan steps so completed stages remain ticked while the active stage is running.
 - [x] Updated More → ⓘ Help & guide and README to describe the new compact plan/execution presentation.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+### 2026-09-23 — AI plan import cleanup
+- [x] Removed duplicate/unused Compose imports introduced during the Chat plan/execution UI refactor.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
