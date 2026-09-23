@@ -4,6 +4,15 @@ enum class AiWorkflowPhase { UNDERSTAND, PLAN, INSPECT, EXECUTE, VERIFY, REVIEW 
 enum class AiActivityKind { PLAN, SEARCH, READ, WRITE, DELETE, COMMAND, TEST, BUILD, AGENT, APPROVAL, VERIFICATION, ERROR, INFO }
 enum class AiActivityStatus { RUNNING, COMPLETED, FAILED, WAITING }
 
+enum class AiPlanStepStatus { PENDING, RUNNING, COMPLETED, FAILED }
+
+data class AiPlanStep(
+    val id: String,
+    val title: String,
+    val detail: String,
+    val status: AiPlanStepStatus,
+)
+
 data class AiActivity(
     val id: String,
     val kind: AiActivityKind,
@@ -45,6 +54,32 @@ data class AiWorkflowSnapshot(
     val startedAtEpochMs: Long,
     val updatedAtEpochMs: Long,
 ) {
+    val planSteps: List<AiPlanStep>
+        get() {
+            val definitions = listOf(
+                "understand" to ("Understand request" to "Clarify the goal, constraints, workspace and expected result."),
+                "plan" to ("Create plan" to "Turn the request into an ordered set of implementation steps."),
+                "inspect" to ("Inspect workspace" to "Search and read the relevant files before making changes."),
+                "execute" to ("Execute plan" to "Apply approved file, folder, terminal, Git and other required actions."),
+                "verify" to ("Verify result" to "Run the checks, tests, lint or build evidence required for the task."),
+                "review" to ("Review result" to "Summarize what changed, what was verified and any remaining issues."),
+            )
+            val currentIndex = phase.ordinal.coerceIn(0, definitions.lastIndex)
+            return definitions.mapIndexed { index, (id, copy) ->
+                val status = when {
+                    this.status == Status.COMPLETED -> AiPlanStepStatus.COMPLETED
+                    index < currentIndex -> AiPlanStepStatus.COMPLETED
+                    index > currentIndex -> AiPlanStepStatus.PENDING
+                    this.status == Status.FAILED || this.status == Status.CANCELLED -> AiPlanStepStatus.FAILED
+                    else -> AiPlanStepStatus.RUNNING
+                }
+                AiPlanStep(id, copy.first, copy.second, status)
+            }
+        }
+
+    val completedPlanSteps: Int
+        get() = planSteps.count { it.status == AiPlanStepStatus.COMPLETED }
+
     val changedPaths: List<String>
         get() = activities.flatMap { it.paths }.distinct().take(40)
 
