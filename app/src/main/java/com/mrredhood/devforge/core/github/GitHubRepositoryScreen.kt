@@ -182,16 +182,32 @@ fun GitHubRepositoryScreen(
                                 Text("Default branch: ${repository.defaultBranch}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Row(
                                     Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Start,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    FilterChip(
+                                        selected = true,
+                                        onClick = {},
+                                        enabled = false,
+                                        label = { Text(if (repository.isPrivate) "Private" else "Public") },
+                                    )
+                                }
+                                Row(
+                                    Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    FilterChip(selected = true, onClick = {}, enabled = false, label = { Text(if (repository.isPrivate) "Private" else "Public") })
-                                    Spacer(Modifier.weight(1f))
                                     OutlinedButton(
                                         onClick = { editingRepository = repository },
                                         enabled = viewModel.deletingRepositoryId == null,
+                                        modifier = Modifier.weight(1f),
                                     ) {
-                                        Text("Edit repository")
+                                        Text(
+                                            "Edit repository",
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
                                     }
                                     Button(
                                         onClick = {
@@ -199,10 +215,16 @@ fun GitHubRepositoryScreen(
                                             deleteTarget = repository
                                         },
                                         enabled = viewModel.deletingRepositoryId == null,
+                                        modifier = Modifier.weight(1f),
                                     ) {
                                         Icon(Icons.Default.Delete, contentDescription = null)
                                         Spacer(Modifier.width(6.dp))
-                                        Text("Delete repository")
+                                        Text(
+                                            "Delete repository",
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
                                     }
                                 }
                             }
