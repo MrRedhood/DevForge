@@ -8,6 +8,8 @@ import com.mrredhood.devforge.core.agent.AgentToolId
 import com.mrredhood.devforge.core.agent.AgentToolRequest
 import com.mrredhood.devforge.core.agent.AgentToolResult
 import com.mrredhood.devforge.core.agent.ToolSettingsStore
+import com.mrredhood.devforge.core.ai.workflow.AiPlanStep
+import com.mrredhood.devforge.core.ai.workflow.AiPlanStepStatus
 import com.mrredhood.devforge.core.policy.PermissionMode
 import com.mrredhood.devforge.core.storage.ApprovalRepository
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
@@ -58,6 +60,7 @@ class ChatToolOrchestrator(
         customBaseUrl: String?,
         workspaceId: String?,
         onActivity: suspend (ChatToolActivity) -> Unit,
+        onPlan: suspend (List<AiPlanStep>) -> Unit = {},
     ): ChatToolRunResult {
         val enabled = (settings.enabledToolIds() + AgentToolId.GET_WORKSPACE_CONTEXT + AgentToolId.RETRIEVE_RELEVANT_CONTEXT).distinct()
         if (enabled.isEmpty()) {
@@ -81,6 +84,8 @@ class ChatToolOrchestrator(
         var calls = 0
         var step = 0
         var firstTurn = true
+        var planEmitted = false
+        val completedCallResults = mutableMapOf<String, AgentToolResult.Success>()
 
         while (step < MAX_TOOL_STEPS && calls < MAX_TOOL_CALLS) {
             val prompt = buildInstruction(
@@ -101,6 +106,14 @@ class ChatToolOrchestrator(
                 throw cancelled
             }
             firstTurn = false
+
+            if (!planEmitted) {
+                val generatedPlan = parsePlan(response)
+                if (generatedPlan.isNotEmpty()) {
+                    planEmitted = true
+                    onPlan(generatedPlan)
+                }
+            }
 
             val call = try {
                 parseToolCall(response)
@@ -133,6 +146,15 @@ class ChatToolOrchestrator(
                         "'. Enable it in More → AI Tools before retrying.",
                     activities = activities.toList(),
                     usedTools = calls > 0,
+                )
+            }
+
+            val callSignature = call.toolId.wireName + "|" + call.arguments.toString()
+            completedCallResults[callSignature]?.let { previous ->
+                return ChatToolRunResult(
+                    response = "The requested " + toolTitle(call.toolId) + " operation was already completed successfully: " + previous.summary,
+                    activities = activities.toList(),
+                    usedTools = true,
                 )
             }
 
@@ -200,6 +222,10 @@ class ChatToolOrchestrator(
                     "Tool failed: " + result.message
             }.take(MAX_TOOL_RESULT_CHARS)
 
+            if (result is AgentToolResult.Success) {
+                completedCallResults[callSignature] = result
+            }
+
             transcript.append("\nTool request ")
                 .append(call.toolId.wireName)
                 .append(" arguments: ")
@@ -240,6 +266,9 @@ class ChatToolOrchestrator(
                         activities = activities.toList(),
                         usedTools = true,
                     )
+                }
+                if (approvedResult is AgentToolResult.Success) {
+                    completedCallResults[callSignature] = approvedResult
                 }
                 step++
                 continue
@@ -286,7 +315,11 @@ class ChatToolOrchestrator(
         append("\n\nDevForge tool protocol:")
         append("\nFor coding or project-change requests, first form a concise plan, then inspect the active workspace before editing, execute the required changes with the enabled tools, and verify the resulting state. Do not stop after planning or describing the change.")
         append("\nThis protocol works even when your model does not have native function-calling support.")
-        append("\nFor a tool call, output ONLY this exact envelope for that turn:")
+        append("\nFor multi-step coding or project-change requests only, decide whether a concise plan is actually useful. If it is, output one model-generated plan before the tool call in this exact format:")
+        append("\n<devforge_plan>[{\"title\":\"Short action\",\"detail\":\"What you will do.\"}]</devforge_plan>")
+        append("\nUse at most 8 steps. Each step must describe a real action for this request. For simple one-step requests, omit the plan entirely.")
+        append("\nNever output private chain-of-thought or hidden reasoning. The plan is a concise action summary only.")
+        append("\nFor a tool turn, output the optional plan block followed by ONLY this exact tool envelope:")
         append("\n<devforge_tool>{\"tool\":\"tool_name\",\"arguments\":{\"key\":\"value\"}}</devforge_tool>")
         append("\nThe arguments value must be a JSON object.")
         append("\nEnabled tools:")
@@ -309,6 +342,33 @@ class ChatToolOrchestrator(
         if (transcript.isNotBlank()) {
             append("\n\nTool transcript from earlier turns:")
             append(transcript.takeLast(MAX_TRANSCRIPT_CHARS))
+        }
+    }
+
+    private fun parsePlan(response: String): List<AiPlanStep> {
+        val open = response.indexOf("<devforge_plan>")
+        val close = response.indexOf("</devforge_plan>", open + 1)
+        if (open < 0 || close <= open) return emptyList()
+        val payload = response.substring(open + "<devforge_plan>".length, close).trim()
+        val array = runCatching { org.json.JSONArray(payload) }
+            .getOrElse {
+                runCatching { org.json.JSONObject(payload).optJSONArray("steps") }.getOrNull()
+            } ?: return emptyList()
+        return buildList {
+            for (index in 0 until minOf(array.length(), 8)) {
+                val item = array.optJSONObject(index) ?: continue
+                val title = item.optString("title").trim().take(180)
+                val detail = item.optString("detail").trim().take(500)
+                if (title.isBlank()) continue
+                add(
+                    AiPlanStep(
+                        id = "model-plan-" + index,
+                        title = title,
+                        detail = detail,
+                        status = if (index == 0) AiPlanStepStatus.RUNNING else AiPlanStepStatus.PENDING,
+                    ),
+                )
+            }
         }
     }
 
