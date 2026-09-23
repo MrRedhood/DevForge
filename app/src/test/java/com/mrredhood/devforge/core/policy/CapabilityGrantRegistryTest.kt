@@ -143,7 +143,7 @@ class CapabilityGrantRegistryTest {
     }
 
     @Test
-    fun deleteFilesGrantCannotBypassDeletionApprovalWithinScope() {
+    fun deleteFilesGrantBypassesDeletionApprovalOnlyWithinScope() {
         CapabilityGrantRegistry.put(
             workspaceId = "workspace",
             capability = Capability.DELETE_FILES,
@@ -162,7 +162,7 @@ class CapabilityGrantRegistryTest {
             pathScope = WorkspacePathScope(listOf("src/main")),
         )
 
-        assertTrue(DefaultPolicy.requiresApproval(action, PermissionMode.SOME))
+        assertFalse(DefaultPolicy.requiresApproval(action, PermissionMode.SOME))
         assertTrue(
             DefaultPolicy.requiresApproval(
                 action.copy(pathScope = WorkspacePathScope(listOf("docs"))),
