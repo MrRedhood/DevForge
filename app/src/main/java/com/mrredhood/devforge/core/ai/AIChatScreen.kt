@@ -72,7 +72,8 @@ import com.mrredhood.devforge.core.ai.MarkdownText
 import com.mrredhood.devforge.core.agent.DevForgeToolCatalog
 import com.mrredhood.devforge.core.picker.PickerBridge
 import com.mrredhood.devforge.core.picker.SystemPickerActivity
-import com.mrredhood.devforge.core.ai.workflow.AiWorkflowCard
+import com.mrredhood.devforge.core.ai.workflow.AiPlanCard
+import com.mrredhood.devforge.core.ai.workflow.AiWorkflowSnapshot
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -90,7 +91,6 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ModelSelector(viewModel)
-        AiWorkflowCard(viewModel.aiWorkflow)
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (viewModel.messages.isEmpty()) {
@@ -110,12 +110,14 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
                             isEditing = viewModel.editingMessageId == message.messageId,
                         )
                     }
-                    if (viewModel.isSending) {
+                    if (viewModel.isSending || viewModel.toolActivities.isNotEmpty()) {
                         item {
                             StreamingBubble(
-                                viewModel.streamingText,
-                                viewModel.streamingAnimationKind,
-                                viewModel.toolActivities,
+                                content = viewModel.streamingText,
+                                animationKind = viewModel.streamingAnimationKind,
+                                toolActivities = viewModel.toolActivities,
+                                workflow = viewModel.aiWorkflow,
+                                isSending = viewModel.isSending,
                             )
                         }
                     }
@@ -136,6 +138,7 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
             }
         }
 
+        AiPlanCard(viewModel.aiWorkflow)
         ChatComposer(viewModel)
     }
 }
@@ -320,6 +323,8 @@ private fun StreamingBubble(
     content: String,
     animationKind: StreamingAnimationKind,
     toolActivities: List<ChatToolActivity>,
+    workflow: AiWorkflowSnapshot?,
+    isSending: Boolean,
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         Card(
@@ -328,20 +333,59 @@ private fun StreamingBubble(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         ) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (toolActivities.isEmpty()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        StreamingAnimation(animationKind)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Generating", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(8.dp))
-                        CircularProgressIndicator(Modifier.width(14.dp).height(14.dp), strokeWidth = 2.dp)
-                    }
-                } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("AI execution", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
+                    workflow?.let {
+                        Text(
+                            it.currentStep ?: when (it.status) {
+                                AiWorkflowSnapshot.Status.COMPLETED -> "Completed"
+                                AiWorkflowSnapshot.Status.FAILED -> "Failed"
+                                AiWorkflowSnapshot.Status.CANCELLED -> "Cancelled"
+                                AiWorkflowSnapshot.Status.WAITING -> "Waiting"
+                                AiWorkflowSnapshot.Status.RUNNING -> "Working"
+                            },
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    } ?: Spacer(Modifier.weight(1f))
+                    if (isSending) {
+                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            workflow?.let { it.completedPlanSteps.toString() + "/" + it.planSteps.size } ?: "Done",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                if (toolActivities.isNotEmpty()) {
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         toolActivities.forEach { activity -> ToolActivityChip(activity) }
                     }
+                } else if (isSending) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StreamingAnimation(animationKind)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Working", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
                 }
+
+                workflow?.verification?.let { verification ->
+                    Text(
+                        "Verification · " +
+                            verification.passedCount + " passed · " +
+                            verification.failedCount + " failed · " +
+                            verification.checks.count { it.status == com.mrredhood.devforge.core.ai.workflow.AiVerificationCheck.Status.SKIPPED } + " skipped",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
                 if (content.isNotBlank()) MarkdownText(content)
             }
         }
@@ -364,7 +408,7 @@ private fun ToolActivityChip(
         ChatToolActivity.Status.FAILED -> MaterialTheme.colorScheme.onErrorContainer
     }
     var expanded by remember(activity.callId) {
-        mutableStateOf(activity.status == ChatToolActivity.Status.RUNNING)
+        mutableStateOf(false)
     }
     Card(
         modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
