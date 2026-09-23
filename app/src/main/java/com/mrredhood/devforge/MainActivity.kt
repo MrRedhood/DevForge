@@ -1790,8 +1790,8 @@ private fun MoreScreen(
         }
         item {
             SimpleSettingsTile(
-                title = "Extensions",
-                subtitle = "Install, activate, search, disable, switch icon themes, verify, and uninstall Acode / VS Code packages",
+                title = "Marketplace",
+                subtitle = "Discover, install, update, disable, and uninstall DevForge packages",
                 onClick = { onSelect(DevForgeDestination.Extensions) },
             )
         }
