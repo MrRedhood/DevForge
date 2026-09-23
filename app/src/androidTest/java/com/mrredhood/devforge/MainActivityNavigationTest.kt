@@ -144,7 +144,7 @@ class MainActivityNavigationTest {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Settings", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithText("AI providers", useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithText("AI Providers", useUnmergedTree = true).assertDoesNotExist()
     }
