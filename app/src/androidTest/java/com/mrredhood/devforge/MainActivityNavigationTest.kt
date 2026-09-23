@@ -137,7 +137,7 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText("Search extensions", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Acode", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("VS Code", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Install ZIP / VSIX", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Install", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
