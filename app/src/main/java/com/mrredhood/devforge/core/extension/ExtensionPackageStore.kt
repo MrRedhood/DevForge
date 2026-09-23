@@ -75,7 +75,9 @@ class ExtensionPackageStore(context: Context) {
             .put("entryPoint", entryPoint).put("source", source.name).put("kind", kind.name)
             .put("compatibility", compatibility.name).put("description", description)
             .put("rootPath", rootPath).put("nativeLanguages", JSONArray(nativeLanguages))
-            .put("unsupportedReason", unsupportedReason).put("contributions", c)
+.put("unsupportedReason", unsupportedReason)
+            .put("downloadUrl", downloadUrl).put("sourcePageUrl", sourcePageUrl)
+            .put("contributions", c)
     }
 
     private fun JSONObject.toManifest(): ExtensionManifest {
@@ -112,6 +114,8 @@ class ExtensionPackageStore(context: Context) {
             description = optString("description"), rootPath = optString("rootPath"),
             nativeLanguages = optJSONArray("nativeLanguages").strings(),
             unsupportedReason = optString("unsupportedReason").ifBlank { null },
+            downloadUrl = optString("downloadUrl").ifBlank { null },
+            sourcePageUrl = optString("sourcePageUrl").ifBlank { null },
             contributions = ExtensionContributions(
                 languages = languages, iconThemes = icons,
                 commands = c.optJSONArray("commands").strings(),
