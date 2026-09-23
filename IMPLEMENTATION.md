@@ -2175,3 +2175,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Fresh Android CI and Android UI Tests validation is required for this change set.
 
 - [x] Extended legacy tool parsing to tolerate mixed `<toolcall>` / `</tool_call>` markup emitted by some models, matching the protocol shape observed in OpenRouter/Nemotron responses instead of treating the tool request as plain assistant text.
+
+### 2026-09-24 — AI cancellation reliability and faster workspace mutations
+- [x] Propagated `CancellationException` from the main AI execution coroutine instead of swallowing Pause AI as a generic failure. The active Chat job now reaches the non-cancellable UI cleanup path immediately and stops requesting additional tool/model work.
+- [x] Kept the active Chat job handle until cancellation is issued, so Pause AI always targets the currently running request.
+- [x] Coalesced automatic local-workspace GitHub synchronization for rapid AI file/folder mutations. Each mutation now returns without waiting for a network push; a short debounce performs one synchronization after the burst.
+- [x] Updated the AI execution instructions to encourage emitting deterministic multi-file/multi-folder operations in one model response so DevForge can execute them sequentially without unnecessary model round trips.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
