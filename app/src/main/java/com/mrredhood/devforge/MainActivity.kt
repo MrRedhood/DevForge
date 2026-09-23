@@ -318,7 +318,6 @@ private fun DevForgeApp(
         settingsSection == "security" -> "Security"
         settingsSection != "app" -> "Settings"
         appSettingsSection == "routing" -> "AI routing"
-        appSettingsSection == "github" -> "GitHub"
         appSettingsSection == "build" -> "Build & automation"
         appSettingsSection == "terminal" -> "Terminal"
         appSettingsSection == "privacy" -> "Privacy & retention"
@@ -1778,7 +1777,7 @@ private fun MoreScreen(
         item {
             SimpleSettingsTile(
                 title = "Settings",
-                subtitle = "GitHub, build, terminal, privacy, appearance and editor preferences",
+                subtitle = "Build, terminal, privacy, appearance and editor preferences",
                 onClick = { onSelect(DevForgeDestination.Settings) },
             )
         }
