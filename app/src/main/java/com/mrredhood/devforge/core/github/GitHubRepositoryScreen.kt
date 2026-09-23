@@ -193,22 +193,16 @@ fun GitHubRepositoryScreen(
                                         label = { Text(if (repository.isPrivate) "Private" else "Public") },
                                     )
                                 }
-                                Row(
+                                Column(
                                     Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
                                     OutlinedButton(
                                         onClick = { editingRepository = repository },
                                         enabled = viewModel.deletingRepositoryId == null,
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.fillMaxWidth(),
                                     ) {
-                                        Text(
-                                            "Edit repository",
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
+                                        Text("Edit repository")
                                     }
                                     Button(
                                         onClick = {
@@ -216,16 +210,11 @@ fun GitHubRepositoryScreen(
                                             deleteTarget = repository
                                         },
                                         enabled = viewModel.deletingRepositoryId == null,
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.fillMaxWidth(),
                                     ) {
                                         Icon(Icons.Default.Delete, contentDescription = null)
                                         Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            "Delete repository",
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
+                                        Text("Delete repository")
                                     }
                                 }
                             }
