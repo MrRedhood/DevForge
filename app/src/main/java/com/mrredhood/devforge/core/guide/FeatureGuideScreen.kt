@@ -67,7 +67,7 @@ private val guideCategories = listOf(
         "Your main coding surface: the project drawer, file tree, tabs, editing, refresh, code navigation, diagnostics, and recovery.",
         listOf(
             t("Editor project drawer","The Editor hamburger opens a left-side, file-tree-first drawer inspired by the useful project-tree interaction in Acode.",
-                listOf("Tap the hamburger in the Editor.","Browse the current folder, open folders, and open files.","Use + to create a file or folder.","Use Refresh to reload the visible tree after direct, remote, or AI changes.","Use the GitHub section to load and open repositories after GitHub is connected.","The drawer contains the project tree/workspace flow only; Terminal, plugins, notifications and unrelated tools are not placed inside it."),
+                listOf("Tap the hamburger in the Editor.","Browse the current folder, open folders, and open files.","Use + to create a file or folder.","Use Refresh to reload the visible tree after direct, remote, or AI changes.","Use the GitHub section to load and open repositories after GitHub is connected.","The drawer contains the project tree/workspace flow only; Terminal, notifications and unrelated tools are not placed inside it."),
                 "Editor → hamburger project drawer.",
                 listOf("☰ = project drawer","↻ = refresh","+ = create","cloud = GitHub repository")),
             t("Tabs","Keep multiple files open.",
@@ -708,7 +708,7 @@ private val guideCategories = listOf(
                 listOf("Tap ☰ at the top-left.","Browse the current folder and open folders/files.","Use + to create a file or folder.","Use ↻ to refresh the visible tree.","After GitHub is connected, use the GitHub section to load and open repositories."),
                 "Top-left of Editor.",
                 listOf("☰ = project drawer","↻ = refresh","✓ = active workspace","+ = create"),
-                tips = listOf("This drawer contains only the project-tree/workspace flow; Terminal, Git, Build, IDE tools, notifications and plugins are outside it.")),
+                tips = listOf("This drawer contains only the project-tree/workspace flow; Terminal, Git, Build, IDE tools and notifications are outside it.")),
             t("Back arrow","Return to the previous screen/menu.",
                 listOf("Tap ← at top-left.","Nested workspace menus return to their parent."),
                 "Secondary screen top-left.",
