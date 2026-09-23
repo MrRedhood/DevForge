@@ -82,3 +82,10 @@ DevForge now has a dedicated real package-aware extension manager under More →
 Icon themes are real: VS Code/Acode icon metadata is indexed and the active pack changes the workspace's file and folder icons. Programming-language packages are checked against DevForge's existing editor language catalog first; when the language is already supported, DevForge explicitly reports native support rather than claiming the package installed a compiler/runtime. Unsupported language engines are rejected until DevForge has a real language adapter.
 
 Bundled Acode plugins and compatible VS Code Web packages can run through a restricted Android WebView extension host. Runtime JavaScript has file/network access blocked by default and only the supported API subset is exposed.
+
+## DevForge Platform API
+
+DevForge exposes a stable Platform API v1 for its native package ecosystem. Packages can target app/UI surfaces, workspaces and files, editor/language tooling, terminal, Git/GitHub, Build Center, temporary chat artifacts, cloud AI, agents, tools, workflows, automation, commands, settings, storage, networking, notifications, and versioned events.
+
+The public contract lives in `app/src/main/java/com/mrredhood/devforge/core/extension/api` and the TypeScript SDK contract lives in `sdk/devforge`. Packages declare their API compatibility and permissions in a versioned `.devforge` manifest. High-risk capabilities remain approval-sensitive.
+
