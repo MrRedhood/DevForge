@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: ${{ vars.DEVFORGE_MARKETPLACE_DEPLOY_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
