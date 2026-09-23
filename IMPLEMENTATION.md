@@ -2145,3 +2145,8 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Updated More → ⓘ Help & guide with the dynamic plan behavior, approval/grant semantics, live scrolling, and refresh behavior.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this change set.
 
+### 2026-09-23 — GitHub repository delete button layout fix
+- [x] Reworked the validated repository action controls so Edit repository and Delete repository have equal responsive width instead of competing with the status chip in the same row.
+- [x] Prevented repository action labels from wrapping character-by-character on narrow Android screens.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
+
