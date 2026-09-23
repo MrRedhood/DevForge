@@ -432,7 +432,7 @@ private fun DevForgeApp(
             Row(Modifier.fillMaxSize()) {
                 if (
                     expanded &&
-                    destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Extensions) &&
+                    destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More) &&
                     !gitCommitHistoryOpen
                 ) {
                     NavigationSide(
