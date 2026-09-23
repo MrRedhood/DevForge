@@ -2072,3 +2072,14 @@ Restored the three project GitHub Actions workflows through the repository Git i
 ### 2026-09-23 — AI plan import cleanup
 - [x] Removed duplicate/unused Compose imports introduced during the Chat plan/execution UI refactor.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
+### 2026-09-23 — DevForge Platform API v1 contract
+- [x] Added the stable DevForge Platform API v1 Kotlin contract covering app, UI, workspaces, files, editor, languages, terminal, Git, GitHub, Build Center, temporary artifacts, AI, agents, tools, workflows, automation, commands, settings, storage, network, notifications, events, and capability discovery.
+- [x] Added the v1 permission catalog with low/medium/high risk levels, dependency validation, and an access-decision contract that keeps high-risk operations approval-sensitive.
+- [x] Added the native DevForge package manifest model and validator with manifestVersion 1, package types, publisher identity, SemVer validation, API compatibility, activation events, contributions, and permission-to-contribution checks.
+- [x] Added the complete stable event catalog with versioned event names for app, workspace/files, editor, terminal, Git, GitHub, Build, AI, agents, workflows, automation, commands, and artifacts.
+- [x] Added the TypeScript SDK contract under sdk/devforge, including devforge.d.ts, manifest.schema.json, package metadata, documentation, and a minimal manifest example.
+- [x] Added platform API, permission, and versioning documentation under docs/ and added the same guidance to More → ⓘ Help & guide.
+- [ ] Full marketplace transport, signing, package hosting, developer publishing, and runtime adapters remain the next implementation stage and will consume this frozen API contract.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
