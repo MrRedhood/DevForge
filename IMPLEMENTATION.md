@@ -2116,3 +2116,12 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Cloudflare production resources have not been provisioned yet; the deployed HTTPS Marketplace URL must be entered in the Android app after provisioning.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
 
+### 2026-09-23 — Removed Marketplace and extension platform from the initial release
+- [x] Removed the Marketplace destination and user-facing Marketplace tile from More/navigation.
+- [x] Removed the first-party extension runtime, package installer/store/analyzer, extension API/manifest/permission system, and extension tests.
+- [x] Removed extension-driven workspace icon themes while preserving the built-in file/folder icon system.
+- [x] Removed the Cloudflare Marketplace Worker, deployment workflow, Marketplace schema/package seed files, and DevForge extension SDK.
+- [x] Removed Marketplace content from the in-app Help & guide and public README/architecture/roadmap documentation.
+- [x] Kept the core IDE, AI, Git/GitHub, terminal, Build Center, automation, approvals, and workspace functionality intact.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this removal commit.
+
