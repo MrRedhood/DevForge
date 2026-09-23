@@ -2102,3 +2102,8 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Full developer authentication/portal, package signing, automated security scanning, ratings/reviews, and production runtime adapters remain follow-up Marketplace stages.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
 
+### 2026-09-23 — Marketplace backend hardening and UI guidance
+- [x] Marketplace release publishing now rejects an existing package/version before writing the R2 object, preserving immutable release semantics.
+- [x] Installed-state Marketplace copy now points users back to the first-party Marketplace and no longer implies a separate local-package flow is already exposed in the UI.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
