@@ -2060,3 +2060,12 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added a real search icon to the Extensions top bar with live filtering across extension name, ID/publisher text, source, package type, version and contributed/native language names.
 - [x] Search is UI-backed filtering of the actual installed extension registry; it does not create fake marketplace results.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the repair/search commit.
+
+### 2026-09-23 — Compact AI plan and execution presentation
+- [x] Removed the large top-level AI Mission card from Chat.
+- [x] Moved workflow progress into a compact AI execution panel that stays with the execution/tool activity timeline instead of consuming a permanent top-of-chat block.
+- [x] Changed execution detail cards to start collapsed; users can expand individual tool activity rows only when they want the tool name and result detail.
+- [x] Added a Codex-style AI plan strip immediately above the composer. The compact state shows completion progress and the active plan step; the arrow expands the full six-stage plan upward from the composer and collapses it back down.
+- [x] Added explicit check/progress/error states for plan steps so completed stages remain ticked while the active stage is running.
+- [x] Updated More → ⓘ Help & guide and README to describe the new compact plan/execution presentation.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
