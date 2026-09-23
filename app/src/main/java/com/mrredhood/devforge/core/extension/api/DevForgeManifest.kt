@@ -18,8 +18,25 @@ data class DevForgeManifest(
     val contributions: DevForgeContributions = DevForgeContributions(),
 )
 
-enum class DevForgePackageType {
-    EXTENSION, THEME, ICON_PACK, LANGUAGE, AI_AGENT, AI_TOOL, WORKFLOW, AUTOMATION, TEMPLATE, TOOL_PACK, PROJECT,
+enum class DevForgePackageType(val wireName: String) {
+    EXTENSION("extension"),
+    THEME("theme"),
+    ICON_PACK("iconPack"),
+    LANGUAGE("language"),
+    AI_AGENT("aiAgent"),
+    AI_TOOL("aiTool"),
+    WORKFLOW("workflow"),
+    AUTOMATION("automation"),
+    TEMPLATE("template"),
+    TOOL_PACK("toolPack"),
+    PROJECT("project");
+
+    companion object {
+        private val byWireName = entries.associateBy { it.wireName }
+
+        fun fromWireName(value: String): DevForgePackageType? =
+            byWireName[value.trim()]
+    }
 }
 enum class DevForgeRuntimeType { JAVASCRIPT }
 
