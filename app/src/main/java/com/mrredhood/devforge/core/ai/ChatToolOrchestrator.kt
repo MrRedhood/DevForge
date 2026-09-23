@@ -100,39 +100,39 @@ class ChatToolOrchestrator(
 
         while (step < MAX_TOOL_STEPS && calls < MAX_TOOL_CALLS) {
             currentCoroutineContext().ensureActive()
-            val prompt = buildInstruction(
-                instruction = instruction,
-                enabled = enabled,
-                transcript = transcript.toString(),
-            )
-            val response = try {
-                withTimeout(MODEL_TURN_TIMEOUT_MS) {
-                    gateway.send(
-                        model = model,
-                        apiKey = apiKey,
-                        history = history,
-                        userInstruction = prompt,
-                        attachments = if (firstTurn) attachments else emptyList(),
-                        customBaseUrl = customBaseUrl,
-                    )
-                }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            }
-            firstTurn = false
-
-            if (!planEmitted) {
-                val generatedPlan = parsePlan(response)
-                if (generatedPlan.isNotEmpty()) {
-                    planEmitted = true
-                    onPlan(generatedPlan)
-                }
-            }
-            parsePlanProgress(response)?.let { onPlanProgress(it) }
-
             val call = if (pendingCalls.isNotEmpty()) {
                 pendingCalls.removeFirst()
             } else {
+                val prompt = buildInstruction(
+                    instruction = instruction,
+                    enabled = enabled,
+                    transcript = transcript.toString(),
+                )
+                val response = try {
+                    withTimeout(MODEL_TURN_TIMEOUT_MS) {
+                        gateway.send(
+                            model = model,
+                            apiKey = apiKey,
+                            history = history,
+                            userInstruction = prompt,
+                            attachments = if (firstTurn) attachments else emptyList(),
+                            customBaseUrl = customBaseUrl,
+                        )
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                }
+                firstTurn = false
+
+                if (!planEmitted) {
+                    val generatedPlan = parsePlan(response)
+                    if (generatedPlan.isNotEmpty()) {
+                        planEmitted = true
+                        onPlan(generatedPlan)
+                    }
+                }
+                parsePlanProgress(response)?.let { onPlanProgress(it) }
+
                 val parsedCalls = parseToolCalls(response)
                 if (parsedCalls.isEmpty()) {
                     if (calls == 0 && truthService.requiresAuthoritativeEvidence(instruction)) {
@@ -143,7 +143,9 @@ class ChatToolOrchestrator(
                         )
                     }
                     return ChatToolRunResult(
-                        response = stripProtocolMarkup(response).ifBlank { response.trim().ifBlank { "The model returned an empty response." } },
+                        response = stripProtocolMarkup(response).ifBlank {
+                            response.trim().ifBlank { "The model returned an empty response." }
+                        },
                         activities = activities.toList(),
                         usedTools = calls > 0,
                     )
@@ -544,7 +546,7 @@ class ChatToolOrchestrator(
             val openEnd = response.indexOf(">", open + tag.length + 1)
             if (openEnd < 0) continue
             val raw = response.substring(open + tag.length + 1, openEnd)
-            val regex = Regex("([A-Za-z_][A-Za-z0-9_-]*)\\s*=\\s*[\\"'](.*?)[\\"']")
+            val regex = Regex("""([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*["'](.*?)["']""")
             return regex.findAll(raw).associate { it.groupValues[1].lowercase() to it.groupValues[2] }
         }
         return null
