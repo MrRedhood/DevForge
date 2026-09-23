@@ -88,6 +88,17 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
         if (viewModel.messages.isNotEmpty()) listState.animateScrollToItem(viewModel.messages.lastIndex)
     }
 
+    LaunchedEffect(
+        viewModel.streamingText,
+        viewModel.toolActivities,
+        viewModel.aiWorkflow?.updatedAtEpochMs,
+    ) {
+        if (viewModel.isSending || viewModel.toolActivities.isNotEmpty()) {
+            val target = viewModel.messages.size
+            if (target >= 0) listState.scrollToItem(target)
+        }
+    }
+
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ModelSelector(viewModel)
 
@@ -333,7 +344,7 @@ private fun StreamingBubble(
         ) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("AI execution", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Text("AI is working", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
                     workflow?.let {
                         Text(
@@ -370,7 +381,7 @@ private fun StreamingBubble(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         StreamingAnimation(animationKind)
                         Spacer(Modifier.width(6.dp))
-                        Text("Working", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text("Thinking · working", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
 
