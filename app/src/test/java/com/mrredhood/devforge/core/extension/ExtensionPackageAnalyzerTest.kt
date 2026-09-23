@@ -111,6 +111,34 @@ class ExtensionPackageAnalyzerTest {
         root.deleteRecursively()
     }
 
+    @Test
+    fun extractsVsCodeConfigurationSettings() {
+        val root = createTempDir()
+        File(root, "package.json").writeText(
+            """{"publisher":"test","name":"settings","displayName":"Settings","version":"1.0.0","contributes":{"configuration":{"properties":{"test.enabled":{"type":"boolean","title":"Enabled","default":true,"description":"Enable it"}}}}}""",
+        )
+        val settings = ExtensionPackageAnalyzer.analyze(root).getOrThrow().manifest.settings
+        assertEquals(1, settings.size)
+        assertEquals("test.enabled", settings.single().key)
+        assertEquals(ExtensionSettingType.BOOLEAN, settings.single().type)
+        assertEquals("true", settings.single().defaultValue)
+        root.deleteRecursively()
+    }
+
+    @Test
+    fun extractsAcodeSettings() {
+        val root = createTempDir()
+        File(root, "plugin.json").writeText(
+            """{"id":"test.settings","name":"Settings","version":"1.0.0","main":"main.js","settings":{"enabled":{"type":"boolean","label":"Enabled","default":false}}}""",
+        )
+        File(root, "main.js").writeText("acode.setPluginInit(\"test.settings\", () => {});")
+        val settings = ExtensionPackageAnalyzer.analyze(root).getOrThrow().manifest.settings
+        assertEquals(1, settings.size)
+        assertEquals(ExtensionSettingType.BOOLEAN, settings.single().type)
+        assertEquals("false", settings.single().defaultValue)
+        root.deleteRecursively()
+    }
+
     private fun createTempDir(): File =
         kotlin.io.path.createTempDirectory("devforge-extension-test").toFile()
 }

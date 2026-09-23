@@ -1,7 +1,6 @@
 package com.mrredhood.devforge.core.extension
 
 import android.content.Context
-import android.net.Uri
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -19,16 +18,6 @@ class ExtensionPackageInstaller(
     private val context: Context,
     private val store: ExtensionPackageStore = ExtensionPackageStore(context),
 ) {
-    suspend fun install(uri: Uri): Result<ExtensionInstallResult> = withContext(Dispatchers.IO) {
-        runCatching {
-            val resolver = context.contentResolver
-            installStream(
-                open = { resolver.openInputStream(uri) },
-                remote = null,
-            )
-        }
-    }
-
     suspend fun installRemote(extension: MarketplaceExtension): Result<ExtensionInstallResult> = withContext(Dispatchers.IO) {
         runCatching {
             require(extension.installable) { extension.priceText?.let { "This extension is paid ($it) and cannot be installed without a marketplace purchase." } ?: "This extension cannot be installed from the live catalog." }

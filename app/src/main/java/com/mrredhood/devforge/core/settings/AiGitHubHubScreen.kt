@@ -86,14 +86,14 @@ fun AiGitHubHubScreen(
                     HubTile(
                         icon = Icons.Default.Source,
                         title = "GitHub",
-                        subtitle = "Connection, repositories, workflows, repository settings, and Build Center integration.",
+                        subtitle = "Save a GitHub access token and check its connection status.",
                     ) { sectionName = AiGitHubSection.GITHUB.name }
                 }
                 item {
                     HubTile(
                         icon = Icons.Default.AutoAwesome,
                         title = "AI Models",
-                        subtitle = "Cloud providers, API keys, model catalog, routing, and model selection.",
+                        subtitle = "Save an AI provider API key and test the connection.",
                     ) { sectionName = AiGitHubSection.MODELS.name }
                 }
                 item {

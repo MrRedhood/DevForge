@@ -1,8 +1,6 @@
 package com.mrredhood.devforge.core.extension
 
 import android.webkit.WebView
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -84,21 +82,6 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
         )
     }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                status = "Analyzing extension package…"
-                installer.install(uri).onSuccess {
-                    installed = store.list()
-                    status = it.message
-                    mode = ExtensionCenterMode.INSTALLED.name
-                }.onFailure {
-                    status = it.message ?: "Extension installation failed."
-                }
-            }
-        }
-    }
-
     fun refreshCatalog() {
         scope.launch {
             loadingOnline = true
@@ -137,9 +120,6 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                         }
                     },
                     actions = {
-                        TextButton(onClick = { launcher.launch(arrayOf("*/*")) }) {
-                            Text("Install")
-                        }
                         IconButton(onClick = ::refreshCatalog) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh extension catalog")
                         }
@@ -276,10 +256,6 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                         }
                     }
 
-                    Button(onClick = { launcher.launch(arrayOf("*/*")) }) {
-                        Text("Install ZIP / VSIX")
-                    }
-
                     val filteredInstalled = installed.filter { extension ->
                         val query = searchQuery.trim()
                         query.isBlank() || listOf(
@@ -306,7 +282,7 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                                     ) {
                                         Text("No extensions installed", style = MaterialTheme.typography.titleMedium)
                                         Text(
-                                            "Choose an extension from Discover, or install an Acode ZIP / VSIX package directly.",
+                                            "Choose an extension from Discover to download it from the live catalog.",
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
@@ -330,6 +306,10 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                                     activeRuntime = extension
                                     commands.removeAll { it.extensionId == extension.manifest.id }
                                     runtime.activate(extension)
+                                },
+                                onSettingChange = { key, value ->
+                                    store.setSetting(extension.manifest.id, key, value)
+                                    installed = store.list()
                                 },
                                 onRunCommand = { runtime.runCommand(extension.manifest.id, it) },
                                 onUseIcons = {
@@ -419,6 +399,7 @@ private fun ExtensionCard(
     commands: List<RuntimeCommand>,
     onEnabled: (Boolean) -> Unit,
     onActivate: () -> Unit,
+    onSettingChange: (String, String) -> Unit,
     onRunCommand: (String) -> Unit,
     onUseIcons: () -> Unit,
     onUninstall: () -> Unit,
@@ -440,6 +421,37 @@ private fun ExtensionCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (extension.manifest.settings.isNotEmpty()) {
+                Text("Settings", style = MaterialTheme.typography.titleSmall)
+                extension.manifest.settings.forEach { setting ->
+                    val value = extension.settingValues[setting.key] ?: setting.defaultValue
+                    when (setting.type) {
+                        ExtensionSettingType.BOOLEAN -> Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(setting.label)
+                                if (setting.description.isNotBlank()) {
+                                    Text(setting.description, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            Switch(
+                                checked = value.equals("true", ignoreCase = true),
+                                onCheckedChange = { onSettingChange(setting.key, it.toString()) },
+                            )
+                        }
+                        ExtensionSettingType.STRING, ExtensionSettingType.NUMBER -> OutlinedTextField(
+                            value = value,
+                            onValueChange = { onSettingChange(setting.key, it) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(setting.label) },
+                            supportingText = setting.description.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+                            singleLine = true,
+                        )
+                    }
+                }
+            }
             if (extension.manifest.sourcePageUrl != null) {
                 Text(
                     "Live catalog source linked",

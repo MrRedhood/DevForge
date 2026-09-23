@@ -31,6 +31,16 @@ data class ExtensionIconThemeContribution(
     val path: String,
 )
 
+enum class ExtensionSettingType { BOOLEAN, STRING, NUMBER }
+
+data class ExtensionSetting(
+    val key: String,
+    val label: String,
+    val description: String = "",
+    val type: ExtensionSettingType = ExtensionSettingType.STRING,
+    val defaultValue: String = "",
+)
+
 data class ExtensionContributions(
     val languages: List<ExtensionLanguageContribution> = emptyList(),
     val iconThemes: List<ExtensionIconThemeContribution> = emptyList(),
@@ -54,6 +64,7 @@ data class ExtensionManifest(
     val contributions: ExtensionContributions = ExtensionContributions(),
     val nativeLanguages: List<String> = emptyList(),
     val unsupportedReason: String? = null,
+    val settings: List<ExtensionSetting> = emptyList(),
     /** Source package URL used for optional future update checks. */
     val downloadUrl: String? = null,
     /** Human-facing catalog page for the installed package. */

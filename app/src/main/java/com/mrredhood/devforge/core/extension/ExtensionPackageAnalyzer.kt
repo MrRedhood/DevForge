@@ -69,6 +69,7 @@ object ExtensionPackageAnalyzer {
                 entryPoint = main, source = ExtensionSource.ACODE, kind = kind,
                 compatibility = compatibility, description = json.optString("description"),
                 unsupportedReason = reason,
+                settings = parseAcodeSettings(json.opt("settings")),
             ),
             root,
         )
@@ -89,6 +90,7 @@ object ExtensionPackageAnalyzer {
         val grammars = names(c.optJSONArray("grammars"), "path")
         val snippets = names(c.optJSONArray("snippets"), "path")
         val themes = names(c.optJSONArray("themes"), "path")
+        val settings = parseVsCodeSettings(c.opt("configuration"))
         val native = languages.mapNotNull { nativeLanguageFor(it)?.name?.replace('_', ' ') }.distinct()
         val browser = json.optString("browser").trim()
         val main = json.optString("main").trim()
@@ -135,6 +137,7 @@ object ExtensionPackageAnalyzer {
                     languages = languages, iconThemes = icons, commands = commands,
                     grammars = grammars, snippets = snippets, themes = themes,
                 ),
+                settings = settings,
             ),
             root,
         )
@@ -186,6 +189,63 @@ object ExtensionPackageAnalyzer {
                 item.optString(key).takeIf { it.isNotBlank() }?.let(::add)
             }
         }
+
+    private fun parseAcodeSettings(value: Any?): List<ExtensionSetting> {
+        val objectValue = value as? JSONObject ?: return emptyList()
+        return buildList {
+            val keys = objectValue.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val raw = objectValue.opt(key)
+                val item = raw as? JSONObject
+                val defaultValue = if (item != null) item.opt("default") ?: item.opt("value") ?: "" else raw
+                add(ExtensionSetting(
+                    key = key,
+                    label = item?.optString("label")?.ifBlank { key } ?: key,
+                    description = item?.optString("description").orEmpty(),
+                    type = settingType(item?.optString("type"), defaultValue),
+                    defaultValue = jsonValueString(defaultValue),
+                ))
+            }
+        }
+    }
+
+    private fun parseVsCodeSettings(value: Any?): List<ExtensionSetting> {
+        val groups = when (value) {
+            is JSONObject -> listOf(value)
+            is JSONArray -> buildList { for (i in 0 until value.length()) value.optJSONObject(i)?.let(::add) }
+            else -> emptyList()
+        }
+        return buildList {
+            groups.forEach { group ->
+                val properties = group.optJSONObject("properties") ?: return@forEach
+                val keys = properties.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val item = properties.optJSONObject(key) ?: continue
+                    val defaultValue = item.opt("default") ?: ""
+                    add(ExtensionSetting(
+                        key = key,
+                        label = item.optString("title").ifBlank { key },
+                        description = item.optString("description"),
+                        type = settingType(item.optString("type"), defaultValue),
+                        defaultValue = jsonValueString(defaultValue),
+                    ))
+                }
+            }
+        }.distinctBy { it.key }
+    }
+
+    private fun settingType(type: String?, defaultValue: Any?): ExtensionSettingType = when {
+        type.equals("boolean", ignoreCase = true) || defaultValue is Boolean -> ExtensionSettingType.BOOLEAN
+        type.equals("number", ignoreCase = true) || type.equals("integer", ignoreCase = true) || defaultValue is Number -> ExtensionSettingType.NUMBER
+        else -> ExtensionSettingType.STRING
+    }
+
+    private fun jsonValueString(value: Any?): String = when (value) {
+        null, JSONObject.NULL -> ""
+        else -> value.toString()
+    }
 
     private fun nativeLanguageFor(language: ExtensionLanguageContribution): EditorLanguage? {
         val probes = language.extensions.map { "sample.$it" } + language.id + language.aliases

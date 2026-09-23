@@ -3,6 +3,7 @@ package com.mrredhood.devforge
 import android.Manifest
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -126,7 +127,7 @@ class MainActivityNavigationTest {
     }
 
     @Test
-    fun extensionsScreenProvidesVisibleSearchAndInstallActions() {
+    fun extensionsScreenProvidesLiveCatalogAndNoLocalInstallAction() {
         resetToEditorHome()
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
@@ -137,7 +138,8 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText("Search extensions", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Acode", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("VS Code", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Install", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Discover", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Install ZIP / VSIX", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

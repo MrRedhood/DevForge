@@ -7,6 +7,7 @@ import org.json.JSONObject
 data class InstalledExtension(
     val manifest: ExtensionManifest,
     val enabled: Boolean = true,
+    val settingValues: Map<String, String> = emptyMap(),
     val installedAtEpochMs: Long = System.currentTimeMillis(),
 )
 
@@ -37,6 +38,12 @@ class ExtensionPackageStore(context: Context) {
         save(list().map { if (it.manifest.id == id) it.copy(enabled = enabled) else it })
     }
 
+    @Synchronized fun setSetting(id: String, key: String, value: String) {
+        save(list().map {
+            if (it.manifest.id == id) it.copy(settingValues = it.settingValues + (key to value)) else it
+        })
+    }
+
     fun activeIconThemeId(): String? = preferences.getString(KEY_ACTIVE_ICON_THEME, null)
 
     fun setActiveIconTheme(id: String?) {
@@ -54,6 +61,7 @@ class ExtensionPackageStore(context: Context) {
     private fun InstalledExtension.toJson() = JSONObject()
         .put("manifest", manifest.toJson())
         .put("enabled", enabled)
+        .put("settingValues", JSONObject(settingValues))
         .put("installedAt", installedAtEpochMs)
 
     private fun ExtensionManifest.toJson(): JSONObject {
@@ -76,6 +84,11 @@ class ExtensionPackageStore(context: Context) {
             .put("compatibility", compatibility.name).put("description", description)
             .put("rootPath", rootPath).put("nativeLanguages", JSONArray(nativeLanguages))
 .put("unsupportedReason", unsupportedReason)
+            .put("settings", JSONArray(settings.map {
+                JSONObject().put("key", it.key).put("label", it.label)
+                    .put("description", it.description).put("type", it.type.name)
+                    .put("defaultValue", it.defaultValue)
+            }))
             .put("downloadUrl", downloadUrl).put("sourcePageUrl", sourcePageUrl)
             .put("contributions", c)
     }
@@ -105,6 +118,22 @@ class ExtensionPackageStore(context: Context) {
                 add(ExtensionIconThemeContribution(item.optString("id"), item.optString("label"), item.optString("path")))
             }
         }
+        val settings = buildList {
+            val array = optJSONArray("settings") ?: JSONArray()
+            for (i in 0 until array.length()) {
+                val item = array.optJSONObject(i) ?: continue
+                val key = item.optString("key").trim()
+                if (key.isBlank()) continue
+                add(ExtensionSetting(
+                    key = key,
+                    label = item.optString("label").ifBlank { key },
+                    description = item.optString("description"),
+                    type = runCatching { ExtensionSettingType.valueOf(item.optString("type")) }
+                        .getOrDefault(ExtensionSettingType.STRING),
+                    defaultValue = item.optString("defaultValue"),
+                ))
+            }
+        }
         return ExtensionManifest(
             id = optString("id"), name = optString("name"), version = optString("version"),
             capabilities = caps, entryPoint = optString("entryPoint"),
@@ -114,6 +143,7 @@ class ExtensionPackageStore(context: Context) {
             description = optString("description"), rootPath = optString("rootPath"),
             nativeLanguages = optJSONArray("nativeLanguages").strings(),
             unsupportedReason = optString("unsupportedReason").ifBlank { null },
+            settings = settings,
             downloadUrl = optString("downloadUrl").ifBlank { null },
             sourcePageUrl = optString("sourcePageUrl").ifBlank { null },
             contributions = ExtensionContributions(
@@ -127,7 +157,14 @@ class ExtensionPackageStore(context: Context) {
     }
 
     private fun JSONObject.toInstalledExtension(): InstalledExtension =
-        InstalledExtension(getJSONObject("manifest").toManifest(), optBoolean("enabled", true), optLong("installedAt"))
+        InstalledExtension(
+            manifest = getJSONObject("manifest").toManifest(),
+            enabled = optBoolean("enabled", true),
+            settingValues = optJSONObject("settingValues")?.let { values ->
+                buildMap { values.keys().forEach { key -> put(key, values.optString(key)) } }
+            } ?: emptyMap(),
+            installedAtEpochMs = optLong("installedAt"),
+        )
 
     private fun JSONArray?.strings(): List<String> =
         if (this == null) emptyList() else buildList {

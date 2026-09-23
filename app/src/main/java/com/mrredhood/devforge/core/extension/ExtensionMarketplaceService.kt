@@ -19,12 +19,17 @@ class ExtensionMarketplaceService {
         withContext(Dispatchers.IO) {
             try {
                 val (acode, vscode) = coroutineScope {
-                    val a = async { searchAcode(query, limit) }
-                    val v = async { searchVsCode(query, limit) }
+                    val a = async { runCatching { searchAcode(query, limit) } }
+                    val v = async { runCatching { searchVsCode(query, limit) } }
                     a.await() to v.await()
                 }
+                val available = acode.getOrDefault(emptyList()) + vscode.getOrDefault(emptyList())
+                if (available.isEmpty()) {
+                    throw acode.exceptionOrNull() ?: vscode.exceptionOrNull()
+                        ?: IllegalStateException("Both extension catalogs returned no extensions.")
+                }
                 Result.success(
-                    (acode + vscode)
+                    available
                         .sortedByDescending { it.downloads ?: 0L }
                         .take(limit * 2),
                 )

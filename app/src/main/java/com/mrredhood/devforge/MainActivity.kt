@@ -3150,7 +3150,7 @@ private fun SettingsScreen(
             item {
                 SimpleSettingsTile(
                     title = "App settings",
-                    subtitle = "GitHub, build, terminal, privacy, appearance and editor",
+                    subtitle = "Build, terminal, privacy, appearance and editor preferences",
                     onClick = { onSectionChange("app") },
                 )
             }
