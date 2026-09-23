@@ -21,7 +21,9 @@ import com.mrredhood.devforge.core.github.GitHubPendingChanges
 import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -44,6 +46,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     private val localGitHubLinkStore = LocalGitHubRepositoryLinkStore(application)
     private val githubGateway = GitHubRepositoryGateway(CredentialSecurityStore(application))
     private var refreshJob: kotlinx.coroutines.Job? = null
+    private var workspaceChangeJob: kotlinx.coroutines.Job? = null
     private var searchJob: kotlinx.coroutines.Job? = null
     private var indexJob: kotlinx.coroutines.Job? = null
 
@@ -104,6 +107,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
                     )
                 } ?: emptyList()
                 refreshJob?.cancel()
+                workspaceChangeJob?.cancel()
                 searchJob?.cancel()
                 indexJob?.cancel()
                 isLoading = false
@@ -117,6 +121,14 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
                 } else {
                     indexedSymbolCount = symbolIndex.list(active.id).size
                     knowledge = knowledgeRepository.list(active.id)
+                    workspaceChangeJob = launch {
+                        WorkspaceChangeBus.events
+                            .filter { it.workspaceId == active.id }
+                            .collectLatest {
+                                delay(120)
+                                if (workspace?.id == active.id) refresh()
+                            }
+                    }
                     refresh()
                 }
             }
@@ -859,6 +871,7 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
 
     override fun onCleared() {
         refreshJob?.cancel()
+        workspaceChangeJob?.cancel()
         searchJob?.cancel()
         indexJob?.cancel()
         super.onCleared()
