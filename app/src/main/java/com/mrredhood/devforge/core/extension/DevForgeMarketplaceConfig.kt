@@ -33,6 +33,13 @@ class DevForgeMarketplaceConfig(context: Context) {
         return base + "/" + pathOrUrl.trimStart('/')
     }
 
+    fun isSameHost(url: String): Boolean {
+        val baseUri = runCatching { URI(getBaseUrl()) }.getOrNull() ?: return false
+        val targetUri = runCatching { URI(url) }.getOrNull() ?: return false
+        return !baseUri.host.isNullOrBlank() &&
+            baseUri.host.equals(targetUri.host, ignoreCase = true)
+    }
+
     companion object {
         private const val PREFS = "devforge_marketplace"
         private const val KEY_BASE_URL = "base_url"
