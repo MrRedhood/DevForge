@@ -9,6 +9,7 @@ import com.mrredhood.devforge.core.storage.AuditEventEntity
 import com.mrredhood.devforge.core.storage.DurableStateRepository
 import com.mrredhood.devforge.core.workspace.WorkspaceContextVersion
 import com.mrredhood.devforge.core.workspace.WorkspaceContextLedgerRepository
+import com.mrredhood.devforge.core.workspace.WorkspaceChangeBus
 import java.security.MessageDigest
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
