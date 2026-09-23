@@ -175,6 +175,8 @@ private val guideCategories = listOf(
                     "For multi-step work, the model writes its own concise action plan; DevForge does not fill in a fixed six-step plan.",
                     "Watch the current action and tool activity update while the mission runs.",
                     "The model explicitly marks a plan step running, completed, or failed; tool completion alone does not complete a plan step.",
+                    "DevForge accepts both its current structured tool envelope and common legacy tool-call formats from models that emit different markup.",
+                    "When a model returns several independent tool calls together, DevForge executes them sequentially instead of silently dropping the later calls.",
                     "Use Pause AI to stop the active request safely; the request returns to the composer for a later retry.",
                     "The plan disappears after the active mission finishes.",
                 ),
