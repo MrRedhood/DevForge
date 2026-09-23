@@ -70,7 +70,6 @@
 - Bounded specialist agents
 - Semantic retrieval
 - Optional LSP integration
-- Sandboxed MCP/extensions
 - Selective KMP extraction
 
 ### Non-goals for early releases
