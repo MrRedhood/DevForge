@@ -99,7 +99,7 @@ fun ToolSettingsScreen(onClose: () -> Unit = {}) {
                             )
                             if (entry.id == AgentToolId.DELETE_PATH) {
                                 Text(
-                                    "Enabled by default for the main AI, but deletion still requires approval.",
+                                    "Disabled by default for the main AI. Enable it when needed; deletion still requires approval.",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.error,
                                 )
