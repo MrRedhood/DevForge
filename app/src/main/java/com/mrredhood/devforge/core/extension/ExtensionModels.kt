@@ -54,9 +54,28 @@ data class ExtensionManifest(
     val contributions: ExtensionContributions = ExtensionContributions(),
     val nativeLanguages: List<String> = emptyList(),
     val unsupportedReason: String? = null,
+    /** Source package URL used for optional future update checks. */
+    val downloadUrl: String? = null,
+    /** Human-facing catalog page for the installed package. */
+    val sourcePageUrl: String? = null,
 )
 
 sealed interface ExtensionValidation {
     data class Valid(val manifest: ExtensionManifest) : ExtensionValidation
     data class Invalid(val message: String) : ExtensionValidation
 }
+
+data class MarketplaceExtension(
+    val id: String,
+    val name: String,
+    val version: String,
+    val description: String,
+    val publisher: String,
+    val source: ExtensionSource,
+    val downloadUrl: String,
+    val sourcePageUrl: String,
+    val downloads: Long? = null,
+    val rating: Double? = null,
+    val priceText: String? = null,
+    val installable: Boolean = true,
+)
