@@ -23,7 +23,7 @@ class ToolSettingsScreenTest {
         toolList.performScrollToIndex(15)
         composeRule.onNodeWithText("Delete path", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText(
-            "Enabled by default for the main AI, but deletion still requires approval.",
+            "Disabled by default for the main AI. Enable it when needed; deletion still requires approval.",
             useUnmergedTree = true,
         ).assertIsDisplayed()
     }
