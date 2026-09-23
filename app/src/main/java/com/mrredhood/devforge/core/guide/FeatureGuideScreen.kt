@@ -340,48 +340,6 @@ private val guideCategories = listOf(
         ),
     ),
     GuideCategory(
-        "Marketplace",
-        "The first-party DevForge Marketplace distributes native .devforge packages built on the public Platform API.",
-        listOf(
-            t("Discover packages","Search and filter native DevForge packages without depending on Acode or VS Code catalogs.",
-                listOf(
-                    "Open More → Marketplace.",
-                    "Search by package name, capability, publisher or feature.",
-                    "Filter by Extensions, AI Agents, AI Tools, Workflows, Automations, Themes, Languages, Templates, Tool Packs or Projects.",
-                    "Open a package card to review its API compatibility and requested permissions before installation.",
-                ),
-                "More → Marketplace.",
-                listOf("Discover = catalog","category = package type")),
-            t("Connect the Marketplace server","DevForge connects to the first-party Marketplace API over HTTPS.",
-                listOf(
-                    "Open More → Marketplace.",
-                    "Tap the settings icon.",
-                    "Enter the HTTPS base URL of the deployed DevForge Marketplace API.",
-                    "Save and refresh the catalog.",
-                ),
-                "Marketplace → settings.",
-                listOf("HTTPS = required","server URL = Marketplace API")),
-            t("Install and update packages","Marketplace packages are immutable versioned .devforge releases.",
-                listOf(
-                    "Choose Install for a package that is compatible with the current DevForge API.",
-                    "DevForge downloads the package from its Marketplace server.",
-                    "The manifest, permissions, package structure and compatibility are validated before installation.",
-                    "When a newer version is available, the same card provides Update.",
-                    "Installed packages can be disabled or uninstalled from Installed.",
-                ),
-                "Marketplace → Discover / Installed.",
-                listOf("Install = download + validate","Update = newer immutable version")),
-            t("DevForge package API and permissions","Packages target DevForge Platform API v1 and explicitly declare capabilities.",
-                listOf(
-                    "The public API includes app/UI, workspace/files, editor/languages, terminal, Git/GitHub, Build Center, artifacts, AI, agents, tools, workflows, automation, commands, settings, storage, network, notifications and events.",
-                    "Review requested permissions before installing.",
-                    "High-risk permissions remain subject to DevForge approval policy.",
-                ),
-                "Developer SDK → docs/DEVFORGE_PLATFORM_API.md and docs/DEVFORGE_PERMISSIONS.md.",
-                listOf("API 1.0 = stable","permission = declared capability")),
-        ),
-    ),
-    GuideCategory(
         "Workspaces",
         "Manage many local folders and GitHub repositories and control the current project context.",
         listOf(
