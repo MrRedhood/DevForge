@@ -2164,3 +2164,12 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
 - [x] Fixed the workspace refresh event-bus import used by the AI tool gateway so the automatic refresh path compiles correctly.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
+
+
+### 2026-09-24 — Resilient AI tool protocol and multi-call execution
+- [x] Hardened Chat tool-call parsing so OpenRouter/provider models that emit legacy `<tool_call>` / `<toolcall>` envelopes, compact tool names such as `listfiles`, or `<argkey>/<argvalue>` arguments can still execute registered DevForge tools instead of leaking raw protocol markup into Chat.
+- [x] Added compatibility parsing for compact model-generated plan/progress tags, including `<devforgeplan>` and `<devforgeplanprogress>` with `in_progress` status.
+- [x] Added sequential handling for multiple tool envelopes returned in one model response, preventing later file/folder operations from being silently dropped.
+- [x] Tightened the model instruction contract so the user's request remains authoritative, simple requests do not receive unnecessary plans, and models are told to execute the task rather than merely describe or echo the protocol.
+- [x] Made Pause AI cancellation rely on the active Chat execution job without clearing its handle before cancellation, improving cancellation reliability during long model/tool turns.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this change set.
