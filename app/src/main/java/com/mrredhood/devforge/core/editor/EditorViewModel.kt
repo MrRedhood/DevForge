@@ -521,11 +521,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun refreshActive() {
         val tab = activeTab ?: return
+        error = null
         if (tab.isDirty) {
             refreshConfirmationRequired = true
-        } else {
-            reloadActiveTab(tab)
+            return
         }
+        reloadActiveTab(tab)
     }
 
     fun confirmRefresh() {
@@ -557,9 +558,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 undoStacks.remove(tab.uri)
                 redoStacks.remove(tab.uri)
                 withContext(Dispatchers.IO) {
+                    repository.clearRecoveryDraft(tab.uri)
                     durable.saveEditorTab(refreshed, active = true)
                     ensureBaselineSnapshot(tab.uri, tab.name, freshContent)
                 }
+                recoveryJobs.remove(tab.uri)?.cancel()
+                refreshConfirmationRequired = false
                 isLoading = false
             }.onFailure { throwable ->
                 if (generation == openGeneration) {
