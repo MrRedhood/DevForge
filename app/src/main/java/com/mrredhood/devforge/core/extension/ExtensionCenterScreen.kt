@@ -292,7 +292,7 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Text("No packages installed", style = MaterialTheme.typography.titleMedium)
                                         Text(
-                                            "Discover DevForge packages from the Marketplace or install a trusted .devforge package through the package flow.",
+                                            "Discover and install DevForge packages from the first-party Marketplace.",
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
