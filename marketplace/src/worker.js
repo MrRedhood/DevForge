@@ -118,15 +118,11 @@ async function downloadRelease(id, version, env) {
     return json({ error: "NOT_FOUND", message: "Package object not found." }, 404);
   }
 
-  await env.DB.prepare(
-    "UPDATE packages SET downloads = downloads + 1, updated_at = ? WHERE id = ?"
-  ).bind(new Date().toISOString(), id).run();
-
   const headers = new Headers();
   headers.set("content-type", "application/octet-stream");
   headers.set(
     "content-disposition",
-    "attachment; filename="" + safeFilename(id) + "-" + safeFilename(version) + ".devforge""
+    'attachment; filename="' + safeFilename(id) + "-" + safeFilename(version) + '.devforge"'
   );
   headers.set("cache-control", "public, max-age=31536000, immutable");
   headers.set("content-length", String(row.size_bytes));
@@ -183,8 +179,13 @@ async function publishPackage(request, env) {
 
   const objectKey = "packages/" + validation.id + "/" + validation.version + "/package.devforge";
   const now = new Date().toISOString();
+  const packageBytes = await packageFile.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", packageBytes);
+  const sha256 = Array.from(new Uint8Array(digest))
+    .map(function(byte) { return byte.toString(16).padStart(2, "0"); })
+    .join("");
 
-  await env.PACKAGES.put(objectKey, await packageFile.arrayBuffer(), {
+  await env.PACKAGES.put(objectKey, packageBytes, {
     httpMetadata: { contentType: "application/octet-stream" }
   });
 
@@ -221,7 +222,7 @@ async function publishPackage(request, env) {
     validation.version,
     objectKey,
     packageFile.size,
-    "",
+    sha256,
     JSON.stringify(validation.permissions),
     releaseNotes,
     now
@@ -287,9 +288,28 @@ function validateManifest(raw) {
     return { ok: false, message: "Invalid JavaScript entry point." };
   }
 
+  const allowedTypes = new Set([
+    "extension", "theme", "iconPack", "language", "aiAgent", "aiTool",
+    "workflow", "automation", "template", "toolPack", "project"
+  ]);
+  if (!allowedTypes.has(value.type)) {
+    return { ok: false, message: "Unsupported package type." };
+  }
+
+  const minimumVersion = String(value.devforge.minimumVersion || "");
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(minimumVersion)) {
+    return { ok: false, message: "Invalid minimum DevForge version." };
+  }
+
+  if (String(value.entry.main).startsWith("/") || String(value.entry.main).split("/").includes("..")) {
+    return { ok: false, message: "Entry point must remain inside the package." };
+  }
+
   const permissions = Array.isArray(value.permissions) ? value.permissions : [];
-  if (permissions.length > 32) {
-    return { ok: false, message: "Too many permissions." };
+  if (permissions.length > 32 || permissions.some(function(permission) {
+    return typeof permission !== "string" || permission.length > 80;
+  })) {
+    return { ok: false, message: "Invalid package permissions." };
   }
 
   return {
