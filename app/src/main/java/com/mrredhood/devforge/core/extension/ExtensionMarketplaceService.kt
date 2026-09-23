@@ -17,15 +17,19 @@ class ExtensionMarketplaceService {
 
     suspend fun searchAll(query: String, limit: Int = 20): Result<List<MarketplaceExtension>> =
         withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 val (acode, vscode) = coroutineScope {
                     val a = async { searchAcode(query, limit) }
                     val v = async { searchVsCode(query, limit) }
                     a.await() to v.await()
                 }
-                (acode + vscode)
-                    .sortedByDescending { it.downloads ?: 0L }
-                    .take(limit * 2)
+                Result.success(
+                    (acode + vscode)
+                        .sortedByDescending { it.downloads ?: 0L }
+                        .take(limit * 2),
+                )
+            } catch (throwable: Throwable) {
+                Result.failure(throwable)
             }
         }
 
