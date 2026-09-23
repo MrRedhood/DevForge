@@ -64,7 +64,7 @@ class ExtensionPackageInstaller(
         val root = context.noBackupFilesDir.resolve("extensions")
         root.mkdirs()
         val staging = root.resolve(".staging-" + UUID.randomUUID()).apply { mkdirs() }
-        try {
+        return try {
             open()?.use { input ->
                 extract(input, staging)
             } ?: error("Unable to read the selected extension package.")
