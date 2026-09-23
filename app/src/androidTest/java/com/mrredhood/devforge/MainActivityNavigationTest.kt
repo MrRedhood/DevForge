@@ -126,7 +126,7 @@ class MainActivityNavigationTest {
     }
 
     @Test
-    fun extensionsScreenProvidesLiveCatalogAndNoLocalInstallAction() {
+    fun marketplaceScreenUsesDevForgeCatalogOnly() {
         resetToEditorHome()
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
@@ -135,10 +135,7 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText("Marketplace", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Marketplace", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Search Marketplace", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Acode", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("VS Code", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Discover", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onAllNodesWithText("Install ZIP / VSIX", useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test
