@@ -1,3 +1,14 @@
+### 2026-09-23 — Live Acode/VS Code extension discovery and Settings copy cleanup
+- [x] Removed the stale GitHub wording from More → Settings so the Settings entry only describes Build, Terminal, Privacy, Appearance, and Editor preferences.
+- [x] Removed the obsolete internal GitHub settings title mapping; GitHub management remains under More → AI & GitHub.
+- [x] Added live extension discovery from the official Acode plugin registry and the VS Code Marketplace, with All/Acode/VS Code filtering and debounced search.
+- [x] Added direct catalog installation for free Acode plugins and VS Code VSIX packages; remote packages are downloaded over HTTPS from approved marketplace hosts and pass the existing package analyzer before activation.
+- [x] Kept local ZIP/VSIX installation as a fallback.
+- [x] Added Installed extension management with enable/disable switches, activation/verification, icon-theme handling, and uninstall.
+- [x] Persisted marketplace source/download URLs with installed extension metadata for future package lifecycle work.
+- [x] Updated More → ⓘ Help & guide to document live extension discovery and management, plus the new GitHub management location.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this change set.
+
 ### 2026-09-23 — Extensions, AI settings, delete defaults, and editor refresh repair
 - [x] Reworked More → Extensions so an empty install registry is not presented as a blank screen: the manager now keeps search visible, exposes a persistent Install action, and shows an actionable empty-state card with ZIP/VSIX installation guidance.
 - [x] Kept extension discovery honest: search filters the installed compatible extension registry; DevForge does not fabricate marketplace results or claim unsupported runtimes.
