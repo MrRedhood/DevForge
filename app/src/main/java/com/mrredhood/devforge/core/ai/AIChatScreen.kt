@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
@@ -666,10 +667,7 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                     },
                 ) {
                     if (viewModel.isSending) {
-                        Text(
-                            "■",
-                            fontWeight = FontWeight.Black,
-                        )
+                        Icon(Icons.Default.Pause, contentDescription = "Pause AI")
                     } else {
                         Icon(Icons.Default.Send, "Send")
                     }
