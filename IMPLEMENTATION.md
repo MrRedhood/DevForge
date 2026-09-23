@@ -2134,3 +2134,14 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Removed the obsolete Marketplace navigation/integration UI test after removing Marketplace from the initial release.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
 
+### 2026-09-23 — AI plan, approval, chat scrolling, and editor refresh fixes
+- [x] Replaced the fixed six-step AI plan UI with an optional model-generated concise action plan. Simple one-step requests can run without a plan card, while multi-step tasks can emit a bounded `<devforge_plan>` action list.
+- [x] Added live plan persistence/progress tracking and removed completed/failed workflows from the active plan surface so old plans do not remain visible in Chat.
+- [x] Added concise live AI execution status from actual tool activity without exposing private chain-of-thought.
+- [x] Added duplicate successful tool-call protection so an already-completed mutation is not executed or approved again within the same AI task.
+- [x] Made Delete files a supported persistent capability grant, bounded by workspace-relative path scope and the existing R3 ceiling, so a matching grant suppresses repeat deletion approvals.
+- [x] Hardened the Editor Refresh action to reload the active file from the current workspace and clear stale recovery drafts after a successful refresh.
+- [x] Added continuous Chat auto-scroll while AI streaming, planning, and tool activity update so the newest generated content remains visible.
+- [x] Updated More → ⓘ Help & guide with the dynamic plan behavior, approval/grant semantics, live scrolling, and refresh behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this change set.
+
