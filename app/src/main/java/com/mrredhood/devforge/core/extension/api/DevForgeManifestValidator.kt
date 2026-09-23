@@ -30,8 +30,8 @@ object DevForgeManifestValidator {
             publisherId = publisher.optString("id").trim(),
             publisherName = publisher.optString("name").trim(),
             description = json.optString("description").trim(),
-            type = runCatching { DevForgePackageType.valueOf(json.optString("type").trim().uppercase()) }
-                .getOrElse { error("Unknown package type.") },
+            type = DevForgePackageType.fromWireName(json.optString("type").trim())
+                ?: error("Unknown package type."),
             apiVersion = devforge.optString("api").trim(),
             minimumDevForgeVersion = devforge.optString("minimumVersion").trim(),
             entryRuntime = runCatching { DevForgeRuntimeType.valueOf(entry.optString("runtime").trim().uppercase()) }
