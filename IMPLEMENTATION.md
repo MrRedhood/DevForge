@@ -2173,3 +2173,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Tightened the model instruction contract so the user's request remains authoritative, simple requests do not receive unnecessary plans, and models are told to execute the task rather than merely describe or echo the protocol.
 - [x] Made Pause AI cancellation rely on the active Chat execution job without clearing its handle before cancellation, improving cancellation reliability during long model/tool turns.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this change set.
+
+- [x] Extended legacy tool parsing to tolerate mixed `<toolcall>` / `</tool_call>` markup emitted by some models, matching the protocol shape observed in OpenRouter/Nemotron responses instead of treating the tool request as plain assistant text.
