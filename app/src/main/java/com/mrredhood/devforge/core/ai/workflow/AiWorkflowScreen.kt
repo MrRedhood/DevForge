@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.ExpandMore
@@ -29,10 +30,14 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun AiPlanCard(workflow: AiWorkflowSnapshot?) {
-    if (workflow == null || workflow.phase.ordinal < AiWorkflowPhase.PLAN.ordinal) return
+    if (
+        workflow == null ||
+        workflow.generatedPlan.isEmpty() ||
+        workflow.status !in setOf(AiWorkflowSnapshot.Status.RUNNING, AiWorkflowSnapshot.Status.WAITING)
+    ) return
 
-    var expanded by remember(workflow.workflowId) { mutableStateOf(false) }
-    val steps = workflow.planSteps
+    var expanded by remember(workflow.workflowId) { mutableStateOf(true) }
+    val steps = workflow.generatedPlan
     val completed = workflow.completedPlanSteps
     val current = steps.firstOrNull {
         it.status == AiPlanStepStatus.RUNNING || it.status == AiPlanStepStatus.FAILED
@@ -40,30 +45,41 @@ fun AiPlanCard(workflow: AiWorkflowSnapshot?) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
     ) {
         Column(
-            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text("AI plan", style = MaterialTheme.typography.labelLarge)
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Column(
+                    Modifier.weight(1f).padding(start = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text("AI's plan", style = MaterialTheme.typography.titleSmall)
                     Text(
-                        if (current != null) {
-                            "$completed/${steps.size} completed · ${current.title}"
-                        } else {
-                            "$completed/${steps.size} completed"
-                        },
+                        current?.title ?: workflow.currentStep ?: "Working",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
                     )
                 }
+                Text(
+                    completed.toString() + "/" + steps.size,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
                 IconButton(onClick = { expanded = !expanded }) {
                     Icon(
                         Icons.Default.ExpandMore,
@@ -78,7 +94,7 @@ fun AiPlanCard(workflow: AiWorkflowSnapshot?) {
             if (expanded) {
                 Column(
                     Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
                 ) {
                     steps.forEach { step ->
                         Row(
@@ -112,14 +128,17 @@ fun AiPlanCard(workflow: AiWorkflowSnapshot?) {
                                 )
                             }
                             Column(
-                                Modifier.weight(1f).padding(start = 8.dp),
+                                Modifier.weight(1f).padding(start = 9.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
-                                Text(step.title, style = MaterialTheme.typography.bodySmall)
-                                Text(
-                                    step.detail,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Text(step.title, style = MaterialTheme.typography.bodyMedium)
+                                if (step.detail.isNotBlank()) {
+                                    Text(
+                                        step.detail,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
                     }
