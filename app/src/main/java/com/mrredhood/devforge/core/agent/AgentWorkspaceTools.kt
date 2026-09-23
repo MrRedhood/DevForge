@@ -137,7 +137,7 @@ class WorkspaceAgentToolProvider(
 
             pendingGitSyncs[workspace.id]?.cancel()
             pendingGitSyncs[workspace.id] = syncScope.launch {
-                delay(GIT_SYNC_DEBOUNCE_MS)
+                delay(750L)
                 runCatching {
                     val detected = gitRepositoryService.detect(rootUri)
                     if (detected !is GitDetectionState.Detected) return@runCatching
