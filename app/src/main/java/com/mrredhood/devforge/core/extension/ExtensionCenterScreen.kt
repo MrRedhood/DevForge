@@ -1,6 +1,5 @@
 package com.mrredhood.devforge.core.extension
 
-import android.webkit.WebView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,15 +9,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,175 +31,180 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
-private enum class ExtensionCenterMode { DISCOVER, INSTALLED }
-private enum class ExtensionCatalogSource { ALL, ACODE, VSCODE }
+private enum class MarketplaceMode { DISCOVER, INSTALLED }
+
+private val marketplaceCategories = listOf(
+    "all" to "All",
+    "extension" to "Extensions",
+    "aiAgent" to "AI Agents",
+    "aiTool" to "AI Tools",
+    "workflow" to "Workflows",
+    "automation" to "Automations",
+    "theme" to "Themes",
+    "iconPack" to "Icon packs",
+    "language" to "Languages",
+    "template" to "Templates",
+    "toolPack" to "Tool packs",
+    "project" to "Projects",
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
     val context = LocalContext.current
+    val config = remember { DevForgeMarketplaceConfig(context) }
     val store = remember { ExtensionPackageStore(context) }
     val installer = remember { ExtensionPackageInstaller(context, store) }
-    val catalogService = remember { ExtensionMarketplaceService() }
-    val iconStore = remember { ExtensionIconThemeStore(context) }
+    val service = remember(config) { ExtensionMarketplaceService(config) }
 
-    var installed by remember { mutableStateOf(store.list()) }
+    var mode by rememberSaveable { mutableStateOf(MarketplaceMode.DISCOVER.name) }
+    var category by rememberSaveable { mutableStateOf("all") }
+    var query by rememberSaveable { mutableStateOf("") }
     var online by remember { mutableStateOf<List<MarketplaceExtension>>(emptyList()) }
-    var mode by rememberSaveable { mutableStateOf(ExtensionCenterMode.DISCOVER.name) }
-    var source by rememberSaveable { mutableStateOf(ExtensionCatalogSource.ALL.name) }
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var loadingOnline by remember { mutableStateOf(false) }
-    var catalogError by remember { mutableStateOf<String?>(null) }
+    var installed by remember { mutableStateOf(store.list()) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
-    var activeRuntime by remember { mutableStateOf<InstalledExtension?>(null) }
+    var configureOpen by remember { mutableStateOf(false) }
+    val installing = remember { mutableStateOf(emptySet<String>()) }
     val scope = rememberCoroutineScope()
-    val commands = remember { mutableStateListOf<RuntimeCommand>() }
-    val installingIds = remember { mutableStateListOf<String>() }
-    val runtime = remember {
-        ExtensionRuntimeHost(
-            onCommand = { command ->
-                if (!commands.any { it.extensionId == command.extensionId && it.name == command.name }) {
-                    commands += command
-                }
-            },
-            onStatus = { status = it },
-        )
-    }
 
-    fun refreshCatalog() {
+    fun refresh() {
         scope.launch {
-            loadingOnline = true
-            catalogError = null
-            catalogService.searchAll(searchQuery.trim()).onSuccess {
-                online = filterMarketplace(it, source)
+            loading = true
+            error = null
+            service.searchAll(query.trim(), type = category).onSuccess {
+                online = it
             }.onFailure {
-                catalogError = it.message ?: "Unable to load live extension catalogs."
                 online = emptyList()
+                error = it.message ?: "Unable to load DevForge Marketplace."
             }
-            loadingOnline = false
+            loading = false
         }
     }
 
-    LaunchedEffect(searchQuery) {
-        delay(350)
-        refreshCatalog()
-    }
-
-    LaunchedEffect(source) {
-        online = filterMarketplace(online, source)
-    }
-
-    DisposableEffect(Unit) {
-        onDispose { runtime.dispose() }
+    LaunchedEffect(query, category, config.getBaseUrl()) {
+        delay(300)
+        if (config.isConfigured()) refresh()
     }
 
     Surface(Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text("Extensions") },
+                androidx.compose.material3.TopAppBar(
+                    title = { Text("Marketplace") },
                     navigationIcon = {
                         IconButton(onClick = onClose) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                         }
                     },
                     actions = {
-                        IconButton(onClick = ::refreshCatalog) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh extension catalog")
+                        if (mode == MarketplaceMode.DISCOVER.name && config.isConfigured()) {
+                            IconButton(onClick = ::refresh) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Refresh marketplace")
+                            }
+                        }
+                        IconButton(onClick = { configureOpen = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Marketplace settings")
                         }
                     },
                 )
             },
         ) { padding ->
             Column(
-                Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp),
+                Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
-                        selected = mode == ExtensionCenterMode.DISCOVER.name,
-                        onClick = { mode = ExtensionCenterMode.DISCOVER.name },
+                        selected = mode == MarketplaceMode.DISCOVER.name,
+                        onClick = { mode = MarketplaceMode.DISCOVER.name },
                         label = { Text("Discover") },
                     )
                     FilterChip(
-                        selected = mode == ExtensionCenterMode.INSTALLED.name,
+                        selected = mode == MarketplaceMode.INSTALLED.name,
                         onClick = {
                             installed = store.list()
-                            mode = ExtensionCenterMode.INSTALLED.name
+                            mode = MarketplaceMode.INSTALLED.name
                         },
                         label = { Text("Installed (" + installed.size + ")") },
                     )
                 }
 
                 OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it.take(120) },
+                    value = query,
+                    onValueChange = { query = it.take(120) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("Search extensions") },
-                    placeholder = { Text("Name, publisher, language, or feature") },
+                    label = { Text("Search Marketplace") },
+                    placeholder = { Text("Extension, AI agent, workflow, theme, tool…") },
                 )
 
-                if (mode == ExtensionCenterMode.DISCOVER.name) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = source == ExtensionCatalogSource.ALL.name,
-                            onClick = { source = ExtensionCatalogSource.ALL.name },
-                            label = { Text("All") },
-                        )
-                        FilterChip(
-                            selected = source == ExtensionCatalogSource.ACODE.name,
-                            onClick = { source = ExtensionCatalogSource.ACODE.name },
-                            label = { Text("Acode") },
-                        )
-                        FilterChip(
-                            selected = source == ExtensionCatalogSource.VSCODE.name,
-                            onClick = { source = ExtensionCatalogSource.VSCODE.name },
-                            label = { Text("VS Code") },
-                        )
-                    }
-
-                    Text(
-                        "Live catalogs are queried from the official Acode plugin registry and the VS Code Marketplace. DevForge still validates every package before installation.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    status?.let {
-                        Card(Modifier.fillMaxWidth()) {
-                            Text(it, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+                if (mode == MarketplaceMode.DISCOVER.name) {
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        marketplaceCategories.forEach { (value, label) ->
+                            FilterChip(
+                                selected = category == value,
+                                onClick = { category = value },
+                                label = { Text(label) },
+                            )
                         }
                     }
 
-                    catalogError?.let {
+                    if (!config.isConfigured()) {
                         Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Live catalog unavailable", style = MaterialTheme.typography.titleMedium)
-                                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                OutlinedButton(onClick = ::refreshCatalog) { Text("Retry") }
+                            Column(
+                                Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text("DevForge Marketplace is not connected", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Connect the first-party Marketplace API to discover and install DevForge packages.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Button(onClick = { configureOpen = true }) { Text("Connect Marketplace") }
                             }
                         }
                     }
 
-                    if (loadingOnline) {
+                    status?.let { message ->
+                        Card(Modifier.fillMaxWidth()) { Text(message, Modifier.padding(12.dp)) }
+                    }
+
+                    error?.let { message ->
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(
+                                Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text("Marketplace unavailable", style = MaterialTheme.typography.titleMedium)
+                                Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (config.isConfigured()) {
+                                    OutlinedButton(onClick = ::refresh) { Text("Retry") }
+                                }
+                            }
+                        }
+                    }
+
+                    if (loading) {
                         Row(
                             Modifier.fillMaxWidth().padding(vertical = 18.dp),
                             horizontalArrangement = Arrangement.Center,
@@ -210,38 +217,35 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(online, key = { it.source.name + ":" + it.id }) { extension ->
-                            MarketplaceExtensionCard(
-                                extension = extension,
-                                installed = installed.any { it.manifest.id == extension.id },
-                                installing = extension.id in installingIds,
+                        items(online, key = { it.id }) { packageInfo ->
+                            MarketplacePackageCard(
+                                packageInfo = packageInfo,
+                                installed = installed.firstOrNull { it.manifest.id == packageInfo.id },
+                                installing = packageInfo.id in installing.value,
                                 onInstall = {
-                                    if (extension.id !in installingIds) {
-                                        installingIds += extension.id
-                                        scope.launch {
-                                            status = "Downloading and validating " + extension.name + "…"
-                                            installer.installRemote(extension).onSuccess {
+                                    installing.value = installing.value + packageInfo.id
+                                    scope.launch {
+                                        status = "Downloading and validating " + packageInfo.name + "…"
+                                        installer.installRemote(packageInfo)
+                                            .onSuccess {
                                                 installed = store.list()
                                                 status = it.message
-                                            }.onFailure {
-                                                status = it.message ?: "Extension installation failed."
                                             }
-                                            installingIds.remove(extension.id)
-                                        }
+                                            .onFailure {
+                                                status = it.message ?: "Installation failed."
+                                            }
+                                        installing.value = installing.value - packageInfo.id
                                     }
                                 },
                             )
                         }
-                        if (!loadingOnline && online.isEmpty() && catalogError == null) {
+                        if (!loading && config.isConfigured() && online.isEmpty() && error == null) {
                             item {
                                 Card(Modifier.fillMaxWidth()) {
-                                    Column(
-                                        Modifier.padding(18.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        Text("No matching extensions", style = MaterialTheme.typography.titleMedium)
+                                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("No matching packages", style = MaterialTheme.typography.titleMedium)
                                         Text(
-                                            "Try another search or switch between Acode and VS Code.",
+                                            "Try another search or category.",
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
@@ -250,277 +254,195 @@ fun ExtensionCenterScreen(onClose: () -> Unit = {}) {
                         }
                     }
                 } else {
-                    status?.let {
-                        Card(Modifier.fillMaxWidth()) {
-                            Text(it, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
-                        }
+                    status?.let { message ->
+                        Card(Modifier.fillMaxWidth()) { Text(message, Modifier.padding(12.dp)) }
                     }
 
-                    val filteredInstalled = installed.filter { extension ->
-                        val query = searchQuery.trim()
+                    val filtered = installed.filter { packageInfo ->
                         query.isBlank() || listOf(
-                            extension.manifest.name,
-                            extension.manifest.id,
-                            extension.manifest.source.name,
-                            extension.manifest.kind.name,
-                            extension.manifest.version,
-                            extension.manifest.nativeLanguages.joinToString(" "),
-                            extension.manifest.contributions.languages.joinToString(" ") { it.label + " " + it.id },
-                        ).any { it.contains(query, ignoreCase = true) }
+                            packageInfo.manifest.id,
+                            packageInfo.manifest.name,
+                            packageInfo.manifest.version,
+                            packageInfo.manifest.kind.name,
+                            packageInfo.manifest.source.name,
+                        ).any { it.contains(query.trim(), ignoreCase = true) }
                     }
 
                     LazyColumn(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (filteredInstalled.isEmpty()) {
+                        items(filtered, key = { it.manifest.id }) { installedPackage ->
+                            InstalledPackageCard(
+                                installed = installedPackage,
+                                onEnabled = {
+                                    store.setEnabled(installedPackage.manifest.id, it)
+                                    installed = store.list()
+                                },
+                                onUninstall = {
+                                    installer.uninstall(installedPackage.manifest.id)
+                                    installed = store.list()
+                                    status = installedPackage.manifest.name + " uninstalled."
+                                },
+                            )
+                        }
+                        if (filtered.isEmpty()) {
                             item {
                                 Card(Modifier.fillMaxWidth()) {
-                                    Column(
-                                        Modifier.padding(18.dp),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                                    ) {
-                                        Text("No extensions installed", style = MaterialTheme.typography.titleMedium)
+                                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("No packages installed", style = MaterialTheme.typography.titleMedium)
                                         Text(
-                                            "Choose an extension from Discover to download it from the live catalog.",
+                                            "Discover DevForge packages from the Marketplace or install a trusted .devforge package through the package flow.",
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
                                 }
                             }
                         }
-                        items(filteredInstalled, key = { it.manifest.id }) { extension ->
-                            ExtensionCard(
-                                extension = extension,
-                                isActiveIconTheme = store.activeIconThemeId() == extension.manifest.id,
-                                commands = commands.filter { it.extensionId == extension.manifest.id },
-                                onEnabled = {
-                                    store.setEnabled(extension.manifest.id, it)
-                                    installed = store.list()
-                                    if (!it && activeRuntime?.manifest?.id == extension.manifest.id) {
-                                        runtime.dispose()
-                                        activeRuntime = null
-                                    }
-                                },
-                                onActivate = {
-                                    activeRuntime = extension
-                                    commands.removeAll { it.extensionId == extension.manifest.id }
-                                    runtime.activate(extension)
-                                },
-                                onSettingChange = { key, value ->
-                                    store.setSetting(extension.manifest.id, key, value)
-                                    installed = store.list()
-                                },
-                                onRunCommand = { runtime.runCommand(extension.manifest.id, it) },
-                                onUseIcons = {
-                                    store.setActiveIconTheme(extension.manifest.id)
-                                    iconStore.index(extension)
-                                    status = "Active icon theme: " + extension.manifest.name
-                                },
-                                onUninstall = {
-                                    installer.uninstall(extension.manifest.id)
-                                    installed = store.list()
-                                    commands.removeAll { it.extensionId == extension.manifest.id }
-                                    if (activeRuntime?.manifest?.id == extension.manifest.id) {
-                                        runtime.dispose()
-                                        activeRuntime = null
-                                    }
-                                    status = extension.manifest.name + " uninstalled."
-                                },
-                            )
-                        }
                     }
                 }
-
-                AndroidView(
-                    factory = { viewContext -> WebView(viewContext).also(runtime::attach) },
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
-                )
             }
         }
+    }
+
+    if (configureOpen) {
+        MarketplaceSettingsDialog(
+            currentUrl = config.getBaseUrl(),
+            onDismiss = { configureOpen = false },
+            onSave = { value ->
+                config.setBaseUrl(value).onSuccess {
+                    configureOpen = false
+                    error = null
+                    status = if (it.isBlank()) "Marketplace server cleared." else "Marketplace server connected."
+                    if (it.isNotBlank() && mode == MarketplaceMode.DISCOVER.name) refresh()
+                }.onFailure {
+                    error = it.message ?: "Invalid marketplace URL."
+                }
+            },
+        )
     }
 }
 
 @Composable
-private fun MarketplaceExtensionCard(
-    extension: MarketplaceExtension,
-    installed: Boolean,
+private fun MarketplacePackageCard(
+    packageInfo: MarketplaceExtension,
+    installed: InstalledExtension?,
     installing: Boolean,
     onInstall: () -> Unit,
 ) {
     Card(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {
-                    Text(extension.name, style = MaterialTheme.typography.titleMedium)
+                    Text(packageInfo.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
-                        extension.publisher + " • " + extension.source.name + " • " + extension.version,
+                        packageInfo.publisher + " • " + packageInfo.packageType + " • v" + packageInfo.version,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 when {
-                    installed -> Text("Installed", color = MaterialTheme.colorScheme.primary)
                     installing -> CircularProgressIndicator(Modifier.height(22.dp))
-                    !extension.installable -> Text("Paid", color = MaterialTheme.colorScheme.tertiary)
-                    else -> Button(onClick = onInstall) { Text("Install") }
+                    installed?.manifest?.version == packageInfo.version -> Text("Installed", color = MaterialTheme.colorScheme.primary)
+                    packageInfo.installable -> Button(onClick = onInstall) {
+                        Text(if (installed == null) "Install" else "Update")
+                    }
+                    else -> Text("Unavailable", color = MaterialTheme.colorScheme.tertiary)
                 }
             }
-            if (extension.description.isNotBlank()) {
+
+            if (packageInfo.description.isNotBlank()) {
+                Text(packageInfo.description, style = MaterialTheme.typography.bodySmall, maxLines = 3)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("DevForge API " + packageInfo.apiVersion, style = MaterialTheme.typography.labelSmall)
+                Text("Requires " + packageInfo.minimumDevForgeVersion + "+", style = MaterialTheme.typography.labelSmall)
+                packageInfo.downloads?.let { Text(formatMarketplaceCount(it) + " downloads", style = MaterialTheme.typography.labelSmall) }
+            }
+
+            if (packageInfo.requestedPermissions.isNotEmpty()) {
                 Text(
-                    extension.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 3,
+                    "Permissions: " + packageInfo.requestedPermissions.joinToString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
                 )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                extension.downloads?.let {
-                    Text(formatCompactCount(it) + " downloads", style = MaterialTheme.typography.labelSmall)
-                }
-                extension.rating?.let {
-                    Text(
-                        "★ " + String.format(java.util.Locale.US, "%.1f", it),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-                extension.priceText?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
             }
         }
     }
 }
 
 @Composable
-private fun ExtensionCard(
-    extension: InstalledExtension,
-    isActiveIconTheme: Boolean,
-    commands: List<RuntimeCommand>,
+private fun InstalledPackageCard(
+    installed: InstalledExtension,
     onEnabled: (Boolean) -> Unit,
-    onActivate: () -> Unit,
-    onSettingChange: (String, String) -> Unit,
-    onRunCommand: (String) -> Unit,
-    onUseIcons: () -> Unit,
     onUninstall: () -> Unit,
 ) {
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {
-                    Text(extension.manifest.name, style = MaterialTheme.typography.titleMedium)
+                    Text(installed.manifest.name, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        extension.manifest.source.name + " • " + extension.manifest.version,
+                        installed.manifest.kind.name.lowercase().replace('_', ' ') +
+                            " • " + installed.manifest.version,
                         style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Switch(checked = extension.enabled, onCheckedChange = onEnabled)
+                Switch(checked = installed.enabled, onCheckedChange = onEnabled)
             }
-            Text(
-                compatibilityText(extension.manifest),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (extension.manifest.settings.isNotEmpty()) {
-                Text("Settings", style = MaterialTheme.typography.titleSmall)
-                extension.manifest.settings.forEach { setting ->
-                    val value = extension.settingValues[setting.key] ?: setting.defaultValue
-                    when (setting.type) {
-                        ExtensionSettingType.BOOLEAN -> Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(setting.label)
-                                if (setting.description.isNotBlank()) {
-                                    Text(setting.description, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                            Switch(
-                                checked = value.equals("true", ignoreCase = true),
-                                onCheckedChange = { onSettingChange(setting.key, it.toString()) },
-                            )
-                        }
-                        ExtensionSettingType.STRING, ExtensionSettingType.NUMBER -> OutlinedTextField(
-                            value = value,
-                            onValueChange = { onSettingChange(setting.key, it) },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text(setting.label) },
-                            supportingText = setting.description.takeIf { it.isNotBlank() }?.let { { Text(it) } },
-                            singleLine = true,
-                        )
-                    }
-                }
+
+            if (installed.manifest.description.isNotBlank()) {
+                Text(installed.manifest.description, style = MaterialTheme.typography.bodySmall, maxLines = 3)
             }
-            if (extension.manifest.sourcePageUrl != null) {
-                Text(
-                    "Live catalog source linked",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onUninstall) { Text("Uninstall") }
             }
-            if (extension.manifest.nativeLanguages.isNotEmpty()) {
-                Text(
-                    "Native language support already present: " + extension.manifest.nativeLanguages.joinToString(),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            if (extension.manifest.contributions.languages.isNotEmpty()) {
-                Text(
-                    "Languages: " + extension.manifest.contributions.languages.joinToString { it.label },
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            if (extension.manifest.contributions.iconThemes.isNotEmpty() || extension.manifest.kind == ExtensionPackageKind.ICON_THEME) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(onClick = onUseIcons) {
-                        Text(if (isActiveIconTheme) "Icon theme active" else "Use icon theme")
-                    }
-                }
-            }
-            if (
-                extension.manifest.compatibility == ExtensionCompatibility.ACODE_RUNTIME_SUPPORTED ||
-                extension.manifest.compatibility == ExtensionCompatibility.VSCODE_WEB_RUNTIME_SUPPORTED
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Button(onClick = onActivate, enabled = extension.enabled) { Text("Activate / verify") }
-                }
-                commands.forEach { command ->
-                    OutlinedButton(onClick = { onRunCommand(command.name) }) { Text("Run " + command.name) }
-                }
-            }
-            HorizontalDivider()
-            TextButton(onClick = onUninstall) { Text("Uninstall") }
         }
     }
 }
 
-private fun compatibilityText(manifest: ExtensionManifest): String = when (manifest.compatibility) {
-    ExtensionCompatibility.NATIVE_LANGUAGE ->
-        "Supported natively by DevForge. Installation is retained only for compatible declarative extras."
-    ExtensionCompatibility.DECLARATIVE_SUPPORTED ->
-        "Supported declarative package. Its language/icon/theme/grammar contributions are applied by DevForge."
-    ExtensionCompatibility.ACODE_RUNTIME_SUPPORTED ->
-        "Acode JavaScript runtime is available for the package's verified API subset."
-    ExtensionCompatibility.VSCODE_WEB_RUNTIME_SUPPORTED ->
-        "VS Code Web runtime bridge is available for this bundled browser extension."
-    ExtensionCompatibility.UNSUPPORTED ->
-        "Not installed because the required runtime cannot be safely supported."
-}
-
-private fun filterMarketplace(
-    values: List<MarketplaceExtension>,
-    sourceName: String,
-): List<MarketplaceExtension> = when (
-    runCatching { ExtensionCatalogSource.valueOf(sourceName) }.getOrDefault(ExtensionCatalogSource.ALL)
+@Composable
+private fun MarketplaceSettingsDialog(
+    currentUrl: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
 ) {
-    ExtensionCatalogSource.ALL -> values
-    ExtensionCatalogSource.ACODE -> values.filter { it.source == ExtensionSource.ACODE }
-    ExtensionCatalogSource.VSCODE -> values.filter { it.source == ExtensionSource.VSCODE }
+    var value by remember(currentUrl) { mutableStateOf(currentUrl) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Marketplace server") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Use the HTTPS base URL of the first-party DevForge Marketplace API.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it.take(300) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Marketplace API URL") },
+                    placeholder = { Text("https://your-worker.workers.dev") },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(value) }) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
-private fun formatCompactCount(value: Long): String = when {
+private fun formatMarketplaceCount(value: Long): String = when {
     value >= 1_000_000L -> String.format(java.util.Locale.US, "%.1fM", value / 1_000_000.0)
-    value >= 1_000L -> String.format(java.util.Locale.US, "%.1fk", value / 1_000.0)
+    value >= 1_000L -> String.format(java.util.Locale.US, "%.1fK", value / 1_000.0)
     else -> value.toString()
 }
