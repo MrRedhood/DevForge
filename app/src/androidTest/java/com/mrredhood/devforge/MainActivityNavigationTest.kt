@@ -134,7 +134,9 @@ class MainActivityNavigationTest {
         waitForText("Extensions")
         composeRule.onNodeWithText("Extensions", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Extensions", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Search installed extensions", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Search extensions", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Acode", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("VS Code", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Install ZIP / VSIX", useUnmergedTree = true).assertIsDisplayed()
     }
 
