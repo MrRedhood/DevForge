@@ -74,18 +74,3 @@ The terminal runs a sandboxed Android `/system/bin/sh` for local workspaces and 
 ### Mobile editor performance
 
 Files above 64 KiB automatically enter fast rendering mode with reduced syntax and folding work. Fold calculation is debounced off the UI thread, diagnostics are bounded and debounced, and undo bookkeeping avoids rescanning the entire history on every keystroke so continuous typing and scrolling stay responsive on lower-end Android devices.
-
-### DevForge Marketplace
-
-DevForge has a first-party Marketplace for native `.devforge` packages. The catalog is independent of Acode and VS Code marketplaces and supports extensions, AI agents, AI tools, workflows, automations, themes, languages, templates, tool packs, and projects.
-
-Every package declares its DevForge API compatibility and requested permissions. DevForge validates the manifest and package before installation, keeps published versions immutable, and applies the existing approval policy to high-risk capabilities.
-
-The Marketplace client connects to the configured HTTPS DevForge Marketplace API. Canonical published releases live outside the Android app so they remain available independently of a user's local installation.
-
-## DevForge Platform API
-
-DevForge exposes a stable Platform API v1 for its native package ecosystem. Packages can target app/UI surfaces, workspaces and files, editor/language tooling, terminal, Git/GitHub, Build Center, temporary chat artifacts, cloud AI, agents, tools, workflows, automation, commands, settings, storage, networking, notifications, and versioned events.
-
-The public contract lives in `app/src/main/java/com/mrredhood/devforge/core/extension/api` and the TypeScript SDK contract lives in `sdk/devforge`. Packages declare their API compatibility and permissions in a versioned `.devforge` manifest. High-risk capabilities remain approval-sensitive.
-
