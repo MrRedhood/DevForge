@@ -1,0 +1,8 @@
+{
+  "name": "@devforge/sdk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Official DevForge Platform SDK v1 contract.",
+  "types": "./devforge.d.ts",
+  "files": ["devforge.d.ts","manifest.schema.json","README.md"]
+}
