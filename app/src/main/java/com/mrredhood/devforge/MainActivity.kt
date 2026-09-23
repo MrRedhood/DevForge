@@ -401,7 +401,6 @@ private fun DevForgeApp(
                     dirty = editor.activeTab?.isDirty == true,
                     onMenu = { showEditorMenu = true },
                     onSave = editor::saveActive,
-                    onRefresh = editor::refreshActive,
                 )
             } else if (destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Connections) && !gitCommitHistoryOpen) {
                 DevForgeTopBar(
@@ -999,7 +998,6 @@ private fun EditorWorkspaceTopBar(
     dirty: Boolean,
     onMenu: () -> Unit,
     onSave: () -> Unit,
-    onRefresh: () -> Unit,
 ) {
     androidx.compose.material3.TopAppBar(
         title = {
@@ -1019,9 +1017,6 @@ private fun EditorWorkspaceTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onRefresh) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh file")
-            }
             if (fileName != null && dirty) {
                 IconButton(onClick = onSave) { Icon(Icons.Default.Save, contentDescription = "Save") }
             }
