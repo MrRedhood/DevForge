@@ -16,7 +16,10 @@ import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.security.WorkspacePathScope
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 
 data class ChatToolActivity(
@@ -36,6 +39,12 @@ data class ChatToolRunResult(
     val response: String,
     val activities: List<ChatToolActivity>,
     val usedTools: Boolean,
+)
+
+data class ChatPlanProgress(
+    val index: Int,
+    val status: AiPlanStepStatus,
+    val detail: String? = null,
 )
 
 class ChatToolOrchestrator(
@@ -61,6 +70,7 @@ class ChatToolOrchestrator(
         workspaceId: String?,
         onActivity: suspend (ChatToolActivity) -> Unit,
         onPlan: suspend (List<AiPlanStep>) -> Unit = {},
+        onPlanProgress: suspend (ChatPlanProgress) -> Unit = {},
     ): ChatToolRunResult {
         val enabled = (settings.enabledToolIds() + AgentToolId.GET_WORKSPACE_CONTEXT + AgentToolId.RETRIEVE_RELEVANT_CONTEXT).distinct()
         if (enabled.isEmpty()) {
@@ -88,20 +98,23 @@ class ChatToolOrchestrator(
         val completedCallResults = mutableMapOf<String, AgentToolResult.Success>()
 
         while (step < MAX_TOOL_STEPS && calls < MAX_TOOL_CALLS) {
+            currentCoroutineContext().ensureActive()
             val prompt = buildInstruction(
                 instruction = instruction,
                 enabled = enabled,
                 transcript = transcript.toString(),
             )
             val response = try {
-                gateway.send(
-                    model = model,
-                    apiKey = apiKey,
-                    history = history,
-                    userInstruction = prompt,
-                    attachments = if (firstTurn) attachments else emptyList(),
-                    customBaseUrl = customBaseUrl,
-                )
+                withTimeout(MODEL_TURN_TIMEOUT_MS) {
+                    gateway.send(
+                        model = model,
+                        apiKey = apiKey,
+                        history = history,
+                        userInstruction = prompt,
+                        attachments = if (firstTurn) attachments else emptyList(),
+                        customBaseUrl = customBaseUrl,
+                    )
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             }
@@ -114,6 +127,7 @@ class ChatToolOrchestrator(
                     onPlan(generatedPlan)
                 }
             }
+            parsePlanProgress(response)?.let { onPlanProgress(it) }
 
             val call = try {
                 parseToolCall(response)
@@ -185,7 +199,9 @@ class ChatToolOrchestrator(
             )
 
             val result = try {
-                runtime.gateway.execute(context, request)
+                withTimeout(TOOL_EXECUTION_TIMEOUT_MS) {
+                    runtime.gateway.execute(context, request)
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             }
@@ -235,6 +251,7 @@ class ChatToolOrchestrator(
                 .append("\n")
 
             if (result is AgentToolResult.ApprovalRequired) {
+                currentCoroutineContext().ensureActive()
                 val approvedResult = awaitChatApproval(context, request, result.approvalId)
                 if (approvedResult is AgentToolResult.Failure && approvedResult.message == CHAT_APPROVAL_REJECTED) {
                     return ChatToolRunResult(
@@ -270,9 +287,11 @@ class ChatToolOrchestrator(
                 if (approvedResult is AgentToolResult.Success) {
                     completedCallResults[callSignature] = approvedResult
                 }
+                currentCoroutineContext().ensureActive()
                 step++
                 continue
             }
+            currentCoroutineContext().ensureActive()
             step++
         }
 
@@ -319,7 +338,9 @@ class ChatToolOrchestrator(
         append("\n<devforge_plan>[{\"title\":\"Short action\",\"detail\":\"What you will do.\"}]</devforge_plan>")
         append("\nUse at most 8 steps. Each step must describe a real action for this request. For simple one-step requests, omit the plan entirely.")
         append("\nNever output private chain-of-thought or hidden reasoning. The plan is a concise action summary only.")
-        append("\nFor a tool turn, output the optional plan block followed by ONLY this exact tool envelope:")
+        append("\nFor a tool turn, output the optional plan block, any optional progress block, then ONLY this exact tool envelope:")
+        append("\n<devforge_plan_progress>{\"index\":0,\"status\":\"completed\",\"detail\":\"Concise evidence that this plan step is actually finished.\"}</devforge_plan_progress>")
+        append("\nProgress status may be started, completed, or failed. Only mark a step completed after the whole step is actually finished; a single successful tool call does not automatically complete the step.")
         append("\n<devforge_tool>{\"tool\":\"tool_name\",\"arguments\":{\"key\":\"value\"}}</devforge_tool>")
         append("\nThe arguments value must be a JSON object.")
         append("\nEnabled tools:")
@@ -372,6 +393,23 @@ class ChatToolOrchestrator(
         }
     }
 
+    private fun parsePlanProgress(response: String): ChatPlanProgress? {
+        val open = response.indexOf("<devforge_plan_progress>")
+        val close = response.indexOf("</devforge_plan_progress>", open + 1)
+        if (open < 0 || close <= open) return null
+        val payload = response.substring(open + "<devforge_plan_progress>".length, close).trim()
+        val json = runCatching { JSONObject(payload) }.getOrNull() ?: return null
+        val index = json.optInt("index", -1)
+        val status = when (json.optString("status").trim().lowercase()) {
+            "started", "running" -> AiPlanStepStatus.RUNNING
+            "completed", "done" -> AiPlanStepStatus.COMPLETED
+            "failed", "error" -> AiPlanStepStatus.FAILED
+            else -> return null
+        }
+        if (index < 0 || index >= 8) return null
+        return ChatPlanProgress(index, status, json.optString("detail").takeIf { it.isNotBlank() })
+    }
+
     private fun parseToolCall(response: String): ParsedToolCall? {
         val open = response.indexOf("<devforge_tool>")
         val close = response.indexOf("</devforge_tool>", open + 1)
@@ -401,8 +439,10 @@ class ChatToolOrchestrator(
     )
 
     companion object {
-        private const val MAX_TOOL_STEPS = 24
-        private const val MAX_TOOL_CALLS = 24
+        private const val MAX_TOOL_STEPS = 48
+        private const val MAX_TOOL_CALLS = 48
+        private const val MODEL_TURN_TIMEOUT_MS = 90_000L
+        private const val TOOL_EXECUTION_TIMEOUT_MS = 120_000L
         private const val MAX_TRANSCRIPT_CHARS = 18_000
         private const val MAX_TOOL_RESULT_CHARS = 12_000
         private const val CHAT_APPROVAL_REJECTED = "CHAT_APPROVAL_REJECTED"
