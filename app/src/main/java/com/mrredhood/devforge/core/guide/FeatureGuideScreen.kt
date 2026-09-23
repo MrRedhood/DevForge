@@ -343,16 +343,17 @@ private val guideCategories = listOf(
         "Extensions",
         "Install compatible Acode ZIP and VS Code VSIX packages without pretending to provide unsupported runtimes.",
         listOf(
-            t("Extension manager","Manage installed compatible extensions and icon themes.",
+            t("Extension manager","Discover live Acode and VS Code extensions and manage the packages installed in DevForge.",
                 listOf(
                     "Open More → Extensions.",
-                    "Use the search field to filter installed extensions by name, ID, language, version, or package type.",
-                    "Tap Install or Install ZIP / VSIX to choose a package from the Android document picker.",
-                    "DevForge analyzes the package before installation and rejects packages that require unsupported runtimes or APIs.",
-                    "Use the extension card to enable, activate/verify, apply icon themes, run exposed commands, or uninstall.",
+                    "Use Discover to search the live Acode plugin registry and VS Code Marketplace.",
+                    "Filter by All, Acode, or VS Code.",
+                    "Install supported free catalog packages directly; DevForge downloads the package and validates its manifest/runtime before installation.",
+                    "Open Installed to disable, activate/verify, apply icon themes, and uninstall packages.",
+                    "You can also install a local ZIP / VSIX package directly when needed.",
                 ),
                 "More → Extensions.",
-                listOf("Search = filter installed extensions","Install = ZIP/VSIX package picker","off = disabled extension")),
+                listOf("Discover = live catalogs","Installed = local management","off = disabled extension")),
         ),
     ),
     GuideCategory(
