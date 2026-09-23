@@ -591,6 +591,13 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         attachments = submittedAttachments,
                         customBaseUrl = settings.customBaseUrl(requestProvider),
                         workspaceId = workspaceId,
+                        onPlan = { plan ->
+                            withContext(Dispatchers.Main.immediate) {
+                                if (requestGeneration != generationId) return@withContext
+                                workflowSnapshot = aiWorkflowEngine.setPlan(workflowSnapshot, plan)
+                                aiWorkflow = workflowSnapshot
+                            }
+                        },
                         onActivity = { activity ->
                             withContext(Dispatchers.Main.immediate) {
                                 if (requestGeneration != generationId) return@withContext
@@ -621,6 +628,14 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                                         detail = activity.detail,
                                         createdAtEpochMs = System.currentTimeMillis(),
                                     ),
+                                )
+                                workflowSnapshot = aiWorkflowEngine.advancePlan(
+                                    workflowSnapshot,
+                                    when (activity.status) {
+                                        ChatToolActivity.Status.RUNNING -> com.mrredhood.devforge.core.ai.workflow.AiActivityStatus.RUNNING
+                                        ChatToolActivity.Status.COMPLETED -> com.mrredhood.devforge.core.ai.workflow.AiActivityStatus.COMPLETED
+                                        ChatToolActivity.Status.FAILED -> com.mrredhood.devforge.core.ai.workflow.AiActivityStatus.FAILED
+                                    },
                                 )
                                 aiWorkflow = workflowSnapshot
                                 val current = toolActivities.toMutableList()
@@ -762,6 +777,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     if (requestGeneration == generationId) {
                         streamingText = ""
                         isSending = false
+                        aiWorkflow = null
                         if (sendJob === currentCoroutineContext()[Job]) sendJob = null
                     }
                 }
