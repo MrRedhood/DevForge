@@ -20,17 +20,15 @@ class ExtensionPackageInstaller(
 ) {
     suspend fun installRemote(extension: MarketplaceExtension): Result<ExtensionInstallResult> = withContext(Dispatchers.IO) {
         runCatching {
-            require(extension.installable) { extension.priceText?.let { "This extension is paid ($it) and cannot be installed without a marketplace purchase." } ?: "This extension cannot be installed from the live catalog." }
-            require(extension.source == ExtensionSource.ACODE || extension.source == ExtensionSource.VSCODE) {
-                "Unsupported marketplace source."
+            require(extension.installable) { "This marketplace package is not installable." }
+            require(extension.source == ExtensionSource.DEVFORGE) {
+                "Only DevForge Marketplace packages can be installed from the marketplace."
             }
             val downloadUrl = extension.downloadUrl.trim()
-            require(downloadUrl.startsWith("https://")) { "Extension download URL must use HTTPS." }
-            val host = URL(downloadUrl).host.lowercase()
-            require(
-                host == "acode.app" ||
-                    host == "marketplace.visualstudio.com",
-            ) { "Extension download host is not an approved marketplace host." }
+            require(downloadUrl.startsWith("https://")) { "Marketplace package URL must use HTTPS." }
+            require(DevForgeMarketplaceConfig(context).isSameHost(downloadUrl)) {
+                "Marketplace package URL does not match the configured DevForge Marketplace server."
+            }
 
             val tempRoot = context.noBackupFilesDir.resolve("extensions").apply { mkdirs() }
             val tempZip = tempRoot.resolve(".download-" + UUID.randomUUID() + ".zip")
