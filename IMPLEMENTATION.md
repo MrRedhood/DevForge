@@ -1,3 +1,8 @@
+### 2026-09-23 — Extension catalog networking coroutine repair
+- [x] Kept live Acode/VS Code catalog requests on `Dispatchers.IO`.
+- [x] Repaired the suspend/result boundary in the catalog loader so concurrent registry requests do not block the UI thread or violate coroutine compilation rules.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the current main head.
+
 ### 2026-09-23 — Extension marketplace UI regression coverage
 - [x] Expanded Android UI coverage for the live Extensions surface to verify the search field, Acode/VS Code source filters, and local ZIP/VSIX install fallback.
 - [x] Expanded Settings regression coverage to ensure the removed GitHub/AI-provider copy does not return to More → Settings.
