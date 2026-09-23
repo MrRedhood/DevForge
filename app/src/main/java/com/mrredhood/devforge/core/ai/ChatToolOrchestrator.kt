@@ -312,7 +312,9 @@ class ChatToolOrchestrator(
             when {
                 approval == null -> AgentToolResult.Failure("The approval no longer exists.")
                 approval.status == ApprovalRepository.STATUS_APPROVED ->
-                    runtime.gateway.executeApproved(context, request, approvalId)
+                    withTimeout(TOOL_EXECUTION_TIMEOUT_MS) {
+                        runtime.gateway.executeApproved(context, request, approvalId)
+                    }
                 approval.status == ApprovalRepository.STATUS_REJECTED ||
                     approval.status == ApprovalRepository.STATUS_EXPIRED ->
                     AgentToolResult.Failure(CHAT_APPROVAL_REJECTED)
