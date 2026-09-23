@@ -94,7 +94,6 @@ object DefaultPolicy {
     }
 
     fun isGrantable(capability: Capability): Boolean = capability !in setOf(
-        Capability.DELETE_FILES,
         Capability.DELETE_BRANCH,
         Capability.PUSH_REMOTE,
         Capability.MANAGE_RELEASE,
