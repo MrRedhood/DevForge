@@ -212,6 +212,78 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+
+    val rootUri: Uri?
+        get() = workspace?.let { if (remoteWorkspace != null) GitHubWorkspaceUris.root(it.id) else it.treeUri }
+
+    suspend fun listDirectory(pathUri: Uri): List<WorkspaceEntry> = withContext(Dispatchers.IO) {
+        val active = workspace ?: return@withContext emptyList()
+        if (remoteWorkspace != null) {
+            when (val response = githubGateway.listContents(
+                remoteWorkspace!!.owner,
+                remoteWorkspace!!.repository,
+                GitHubWorkspaceUris.remotePath(pathUri),
+                remoteWorkspace!!.branch,
+            )) {
+                is com.mrredhood.devforge.core.github.GitHubContentsResult.Success ->
+                    applyPendingRemoteEntries(
+                        currentPath = GitHubWorkspaceUris.remotePath(pathUri),
+                        baseEntries = response.entries.map {
+                            WorkspaceEntry(
+                                GitHubWorkspaceUris.path(active.id, it.path),
+                                it.name,
+                                it.type == "dir",
+                                it.sizeBytes,
+                            )
+                        },
+                    )
+                is com.mrredhood.devforge.core.github.GitHubContentsResult.Failure ->
+                    throw IllegalStateException(response.message)
+            }
+        } else {
+            tree.list(pathUri)
+        }
+    }
+
+    fun moveEntry(entry: WorkspaceEntry, destinationDirectory: Uri) {
+        if (entry.name == ".git") return
+        val sourceParent = currentUri ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                gitSyncMutex.withLock {
+                    if (remoteWorkspace != null) {
+                        val oldPath = GitHubWorkspaceUris.remotePath(entry.uri)
+                        val destinationPath = GitHubWorkspaceUris.remotePath(destinationDirectory)
+                        moveRemoteEntry(oldPath, destinationPath, entry.isDirectory)
+                    } else {
+                        require(sourceParent.toString() != destinationDirectory.toString()) {
+                            "The item is already in this folder."
+                        }
+                        fileOperations.move(
+                            uri = entry.uri,
+                            sourceParent = sourceParent,
+                            destinationParent = destinationDirectory,
+                            name = entry.name,
+                        )
+                        syncGitHubAfterMutation("move " + entry.name)
+                    }
+                }
+            }
+                .onSuccess { message ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = message ?: "Moved " + entry.name + "."
+                        refresh()
+                    }
+                }
+                .onFailure { error ->
+                    launch(Dispatchers.Main.immediate) {
+                        knowledgeMessage = error.message ?: "Unable to move " + entry.name + "."
+                        refresh()
+                    }
+                }
+        }
+    }
+
     fun openWorkspace(
         uri: Uri,
         workspaceName: String? = null,
@@ -704,6 +776,35 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
             changes += GitHubTreeChange(joinRemotePath(newPath, ".gitkeep"), content = "")
         }
         return queueRemote("rename " + oldPath + " to " + newPath, changes, parent)
+    }
+
+    private suspend fun moveRemoteEntry(oldPath: String, destinationDirectory: String, directory: Boolean): String {
+        val remote = remoteWorkspace ?: error("No GitHub-backed workspace is active.")
+        val normalizedOld = oldPath.trim('/')
+        val destination = destinationDirectory.trim('/')
+        require(destination != normalizedOld && !destination.startsWith(normalizedOld + "/")) {
+            "A folder cannot be moved into itself or one of its children."
+        }
+        val name = normalizedOld.substringAfterLast('/')
+        val newPath = joinRemotePath(destination, name)
+        require(newPath != normalizedOld) { "The item is already in this folder." }
+
+        val files = if (directory) collectRemoteFiles(normalizedOld) else listOf(normalizedOld)
+        val changes = mutableListOf<GitHubTreeChange>()
+        files.forEach { oldFile ->
+            val content = when (val result = githubGateway.readFile(remote.owner, remote.repository, oldFile, remote.branch)) {
+                is GitHubFileResult.Success -> result.content
+                is GitHubFileResult.Failure -> error(result.message)
+            }
+            val suffix = oldFile.removePrefix(normalizedOld).trimStart('/')
+            val target = if (directory) joinRemotePath(newPath, suffix) else newPath
+            changes += GitHubTreeChange(target, content = content)
+            changes += GitHubTreeChange(oldFile, delete = true)
+        }
+        if (changes.isEmpty() && directory) {
+            changes += GitHubTreeChange(joinRemotePath(newPath, ".gitkeep"), content = "")
+        }
+        return queueRemote("move " + normalizedOld + " to " + newPath, changes, destination)
     }
 
     private suspend fun searchRemote(query: String): List<WorkspaceSearchResult> {
