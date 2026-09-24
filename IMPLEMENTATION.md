@@ -2245,3 +2245,6 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added the More-screen footer: `DevForge 1.0` / `Created by MrRedhood`.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the final main head.
 - [x] Fixed the first Android CI compilation failure for the move/rename tools by adding the shared remote path join helper used by the new GitHub-backed operations.
+
+- [x] Fixed the latest Android CI unit-test failure by updating `DevForgeToolCatalogTest` from the previous 22-tool expectation to the current 26-tool catalog after adding move_file/move_folders/rename_file/rename_folder.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final head.
