@@ -178,7 +178,7 @@ private val guideCategories = listOf(
                     "DevForge accepts both its current structured tool envelope and common legacy tool-call formats from models that emit different markup.",
                     "When a model returns several independent tool calls together, DevForge executes them sequentially instead of silently dropping the later calls.",
                     "Use Pause AI to stop the active request safely; cancellation is propagated through the active Chat job instead of being treated as a normal AI error.",
-                    "AI batches local workspace mutations first. GitHub synchronization runs once after the AI task completes, so a multi-file/multi-folder operation does not push each individual file or folder.",
+                    "AI batches local workspace mutations first. For a local Git repository, GitHub synchronization runs once after the AI task completes, so a multi-file/multi-folder operation does not push each individual file or folder.",
                     "The plan disappears after the active mission finishes.",
                 ),
                 "Floating AI Chat → live AI plan and execution card.",
