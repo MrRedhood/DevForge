@@ -11,6 +11,7 @@ import com.mrredhood.devforge.core.storage.ApprovalRepository
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -107,6 +108,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrredhood.devforge.core.ai.AIChatScreen
 import com.mrredhood.devforge.core.ai.AIChatViewModel
@@ -1815,6 +1818,7 @@ private fun FilesScreen(
     var renameTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
     var renameName by rememberSaveable { mutableStateOf("") }
     var deleteTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
+    var moveTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
 
     val context = LocalContext.current
 
@@ -1949,6 +1953,7 @@ private fun FilesScreen(
                             renameName = entry.name
                         },
                         onDelete = { deleteTarget = entry },
+                        onChangePath = { moveTarget = entry },
                     )
                 }
             }
@@ -2052,6 +2057,18 @@ private fun FilesScreen(
         )
     }
 
+    moveTarget?.let { entry ->
+        ChangePathDialog(
+            entry = entry,
+            workspace = workspace,
+            onDismiss = { moveTarget = null },
+            onChoose = { destination ->
+                workspace.moveEntry(entry, destination)
+                moveTarget = null
+            },
+        )
+    }
+
     deleteTarget?.let { entry ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
@@ -2152,38 +2169,248 @@ private fun Breadcrumbs(workspace: WorkspaceViewModel) {
     }
 }
 
+private data class PathPickerLevel(
+    val uri: android.net.Uri,
+    val name: String,
+)
+
+@Composable
+private fun ChangePathDialog(
+    entry: WorkspaceEntry,
+    workspace: WorkspaceViewModel,
+    onDismiss: () -> Unit,
+    onChoose: (android.net.Uri) -> Unit,
+) {
+    val root = workspace.rootUri
+    if (root == null) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Change file path") },
+            text = { Text("No active workspace is available.") },
+            confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        )
+        return
+    }
+
+    val rootName = workspace.workspace?.name ?: "Root"
+    var stack by remember(root, entry.uri) {
+        mutableStateOf(listOf(PathPickerLevel(root, rootName)))
+    }
+    var children by remember(root, entry.uri) { mutableStateOf<List<WorkspaceEntry>>(emptyList()) }
+    var loading by remember(root, entry.uri) { mutableStateOf(true) }
+    var error by remember(root, entry.uri) { mutableStateOf<String?>(null) }
+
+    val current = stack.last()
+
+    LaunchedEffect(current.uri) {
+        loading = true
+        error = null
+        runCatching { workspace.listDirectory(current.uri) }
+            .onSuccess { children = it }
+            .onFailure {
+                children = emptyList()
+                error = it.message ?: "Unable to read this folder."
+            }
+        loading = false
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.82f),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            tonalElevation = 8.dp,
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = {
+                            if (stack.size > 1) stack = stack.dropLast(1) else onDismiss()
+                        },
+                    ) {
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = if (stack.size > 1) "Go to parent folder" else "Close",
+                        )
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text("Change file path", fontWeight = FontWeight.Bold)
+                        Text(
+                            stack.joinToString(" / ") { it.name },
+                            maxLines = 1,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+                Divider()
+
+                if (loading) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (error != null) {
+                    Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
+                    }
+                } else {
+                    LazyColumn(
+                        Modifier.weight(1f).fillMaxWidth(),
+                        contentPadding = PaddingValues(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        item {
+                            Text(
+                                "Destination folder",
+                                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (children.isEmpty()) {
+                            item {
+                                Text(
+                                    "This folder is empty.",
+                                    Modifier.fillMaxWidth().padding(16.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            items(children, key = { it.uri.toString() }) { child ->
+                                TextButton(
+                                    onClick = {
+                                        if (child.isDirectory) {
+                                            stack = stack + PathPickerLevel(child.uri, child.name)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = child.isDirectory,
+                                ) {
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            if (child.isDirectory) Icons.Default.Folder else Icons.Default.Code,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(child.name, Modifier.weight(1f), maxLines = 1)
+                                        if (child.isDirectory) {
+                                            Icon(
+                                                Icons.Default.ChevronRight,
+                                                contentDescription = "Open folder",
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+                Row(
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    OutlinedButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = { onChoose(current.uri) },
+                        enabled = !loading && error == null,
+                    ) {
+                        Text("Choose this path")
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun FileRow(
     entry: WorkspaceEntry,
     onOpen: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onChangePath: (() -> Unit)? = null,
 ) {
-    Card(
-        onClick = onOpen,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (entry.isDirectory) {
-                WorkspaceFolderIcon(entry.name, modifier = Modifier.size(22.dp))
-            } else {
-                WorkspaceLanguageIcon(entry.name)
+    var menuExpanded by remember(entry.uri) { mutableStateOf(false) }
+
+    Box(Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onOpen,
+                    onLongClick = { menuExpanded = true },
+                ),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        ) {
+            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (entry.isDirectory) {
+                    WorkspaceFolderIcon(entry.name, modifier = Modifier.size(22.dp))
+                } else {
+                    WorkspaceLanguageIcon(entry.name)
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(entry.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text(
+                        if (entry.isDirectory) "Folder" else formatBytes(entry.sizeBytes),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onRename, enabled = entry.name != ".git") {
+                    Icon(Icons.Default.Edit, "Rename")
+                }
+                IconButton(onClick = onDelete, enabled = entry.name != ".git") {
+                    Icon(Icons.Default.Delete, "Delete")
+                }
             }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(entry.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text(
-                    if (entry.isDirectory) "Folder" else formatBytes(entry.sizeBytes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        }
+
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("Rename") },
+                enabled = entry.name != ".git",
+                onClick = {
+                    menuExpanded = false
+                    onRename()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Delete") },
+                enabled = entry.name != ".git",
+                onClick = {
+                    menuExpanded = false
+                    onDelete()
+                },
+            )
+            if (onChangePath != null) {
+                DropdownMenuItem(
+                    text = { Text("Change file path") },
+                    enabled = entry.name != ".git",
+                    onClick = {
+                        menuExpanded = false
+                        onChangePath()
+                    },
                 )
-            }
-            IconButton(onClick = onRename, enabled = entry.name != ".git") {
-                Icon(Icons.Default.Edit, "Rename")
-            }
-            IconButton(onClick = onDelete, enabled = entry.name != ".git") {
-                Icon(Icons.Default.Delete, "Delete")
             }
         }
     }
