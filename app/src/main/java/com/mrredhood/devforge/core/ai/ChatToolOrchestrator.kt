@@ -60,6 +60,14 @@ class ChatToolOrchestrator(
     private val settings = ToolSettingsStore(appContext)
     private val truthService = AiTruthService(appContext)
 
+    @Volatile private var activeTaskId: String? = null
+
+    /** Immediately cancels the provider connection and the currently running agent tool task. */
+    fun cancelActiveExecution() {
+        gateway.cancelActiveRequests()
+        activeTaskId?.let(runtime.gateway::cancelTask)
+    }
+
     suspend fun run(
         model: AIModelInfo,
         apiKey: String,
@@ -89,6 +97,7 @@ class ChatToolOrchestrator(
         }
 
         val taskId = "chat-" + UUID.randomUUID().toString()
+        activeTaskId = taskId
         val transcript = StringBuilder()
         val activities = mutableListOf<ChatToolActivity>()
         var calls = 0
@@ -315,6 +324,8 @@ class ChatToolOrchestrator(
             step++
         }
 
+        runtime.gateway.clearTaskCancellation(taskId)
+        activeTaskId = null
         return ChatToolRunResult(
             response = "The tool-use loop reached its safety limit. I completed the available tool calls and stopped.",
             activities = activities.toList(),
