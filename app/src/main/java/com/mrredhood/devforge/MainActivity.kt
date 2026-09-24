@@ -1823,6 +1823,7 @@ private fun MoreScreen(
     onSelect: (DevForgeDestination) -> Unit,
     onOpenFeatureGuide: () -> Unit,
 ) {
+    val context = LocalContext.current
     LazyColumn(
         Modifier.fillMaxSize().testTag("more-screen-list"),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp),
@@ -1902,6 +1903,40 @@ private fun MoreScreen(
                 subtitle = "Review actions waiting for permission",
                 onClick = { onSelect(DevForgeDestination.Approvals) },
             )
+        }
+        item {
+            SimpleSettingsTile(
+                title = "Report a bug",
+                subtitle = "Open a GitHub issue and tell us what went wrong",
+                onClick = {
+                    runCatching {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://github.com/MrRedhood/DevForge/issues/new"),
+                        )
+                        context.startActivity(intent)
+                    }
+                },
+            )
+        }
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, bottom = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    "DevForge 1.0",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Created by MrRedhood",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
