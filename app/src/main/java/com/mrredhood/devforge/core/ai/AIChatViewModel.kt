@@ -761,7 +761,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
                 throw cancelled
-            }
             } catch (error: Throwable) {
                 retainAttachmentsForRetry = true
                 if (workflowSnapshot.status == AiWorkflowSnapshot.Status.RUNNING ||
