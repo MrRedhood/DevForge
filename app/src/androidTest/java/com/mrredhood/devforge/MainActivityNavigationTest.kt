@@ -82,6 +82,15 @@ class MainActivityNavigationTest {
     }
 
     @Test
+    fun editorPreviewMenuOffersAllPreviewModes() {
+        waitForNode("Preview")
+        composeRule.onNodeWithContentDescription("Preview", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Show live preview", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Show Preview (Build APK)", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Web view preview", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
     fun chatProviderCanBeChangedWithoutOpeningSettings() {
         waitForNode("AI Chat")
         composeRule.onNodeWithContentDescription("AI Chat", useUnmergedTree = true).performClick()

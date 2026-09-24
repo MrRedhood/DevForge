@@ -2166,6 +2166,16 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
 
 
+### 2026-09-24 — Editor Live Preview modes
+- [x] Added a ▶ Preview action to the upper-right Editor toolbar with three options: Show live preview, Show Preview (Build APK), and Web view preview.
+- [x] Added a universal no-install preview renderer. HTML/JS/TS/CSS/Markdown render interactively where possible; Kotlin, Java, XML, JSON, Python and other text-based source files receive an in-app source preview so the mode remains useful across languages.
+- [x] Added automatic live-preview refresh after editor content changes with a short debounce.
+- [x] Added APK Preview integration with the existing Debug APK GitHub Actions build flow, build-state/build-log display, artifact APK extraction, Android package installation, launch, and runtime Logcat diagnostics.
+- [x] Added a WebView preview mode with JavaScript and DOM storage support.
+- [x] Added FileProvider configuration for safe preview APK installation and the required unknown-app installation permission declaration.
+- [x] Added Android UI regression coverage for the new Editor preview menu.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this change on the final main commit.
+
 ### 2026-09-24 — GitHub workspace terminal and live AI Actions diagnostics
 - [x] Removed the unconditional AI shell rejection for GitHub-backed workspaces. AI terminal calls now use the existing API-backed GitHub virtual terminal instead of failing before execution.
 - [x] Expanded the GitHub virtual terminal with quote-aware command parsing, common Linux read/diagnostic commands, pipelines, && / || / ; composition, and bounded stdin processing for grep/head/tail/wc/sort/uniq/cut/tr/sed.
