@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.rule.GrantPermissionRule
@@ -108,8 +109,9 @@ class MainActivityNavigationTest {
         waitForText("AI Tools")
         composeRule.onNodeWithText("AI Tools", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Main AI execution controls", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithTag("tool-settings-list", useUnmergedTree = true).performScrollToIndex(28)
-        composeRule.onNodeWithText("Enable coding tools", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Enable coding tools", useUnmergedTree = true)
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
