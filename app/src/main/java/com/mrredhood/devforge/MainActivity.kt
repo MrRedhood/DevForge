@@ -150,7 +150,6 @@ import com.mrredhood.devforge.core.github.GitHubRepositoryViewModel
 import com.mrredhood.devforge.core.github.GitHubRepository
 import com.mrredhood.devforge.core.model.DevForgeDestination
 import com.mrredhood.devforge.core.policy.ApprovalCenterScreen
-import com.mrredhood.devforge.core.preview.PreviewMode
 import com.mrredhood.devforge.core.preview.PreviewScreen
 import com.mrredhood.devforge.core.policy.ApprovalCenterViewModel
 import com.mrredhood.devforge.core.storage.ApprovalEntity
@@ -286,7 +285,7 @@ private fun DevForgeApp(
     var buildWithAiBusy by rememberSaveable { mutableStateOf(false) }
     var buildWithAiError by rememberSaveable { mutableStateOf<String?>(null) }
     var showPublishLocalProject by rememberSaveable { mutableStateOf(false) }
-    var previewMode by rememberSaveable { mutableStateOf<PreviewMode?>(null) }
+    var showLivePreview by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(openApprovalId) {
         if (!openApprovalId.isNullOrBlank()) {
@@ -410,7 +409,7 @@ private fun DevForgeApp(
                     dirty = editor.activeTab?.isDirty == true,
                     onMenu = { showEditorMenu = true },
                     onSave = editor::saveActive,
-                    onPreview = { previewMode = it },
+                    onPreview = { showLivePreview = true },
                 )
             } else if (destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Connections) && !gitCommitHistoryOpen) {
                 DevForgeTopBar(
@@ -626,18 +625,16 @@ private fun DevForgeApp(
         }
     }
 
-    if (previewMode != null) {
-        BackHandler(enabled = true) { previewMode = null }
+    if (showLivePreview) {
+        BackHandler(enabled = true) { showLivePreview = false }
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,
         ) {
             PreviewScreen(
-                mode = previewMode!!,
                 editor = editor,
                 workspace = workspace,
-                build = build,
-                onClose = { previewMode = null },
+                onClose = { showLivePreview = false },
             )
         }
     }
@@ -1024,7 +1021,7 @@ private fun EditorWorkspaceTopBar(
     dirty: Boolean,
     onMenu: () -> Unit,
     onSave: () -> Unit,
-    onPreview: (PreviewMode) -> Unit,
+    onPreview: () -> Unit,
 ) {
     androidx.compose.material3.TopAppBar(
         title = {
@@ -1044,37 +1041,8 @@ private fun EditorWorkspaceTopBar(
             }
         },
         actions = {
-            var previewMenuExpanded by remember { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { previewMenuExpanded = true }) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = "Preview")
-                }
-                DropdownMenu(
-                    expanded = previewMenuExpanded,
-                    onDismissRequest = { previewMenuExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Show live preview") },
-                        onClick = {
-                            previewMenuExpanded = false
-                            onPreview(PreviewMode.LIVE)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Show Preview (Build APK)") },
-                        onClick = {
-                            previewMenuExpanded = false
-                            onPreview(PreviewMode.APK)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Web view preview") },
-                        onClick = {
-                            previewMenuExpanded = false
-                            onPreview(PreviewMode.WEB)
-                        },
-                    )
-                }
+            IconButton(onClick = onPreview) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Preview")
             }
             if (fileName != null && dirty) {
                 IconButton(onClick = onSave) { Icon(Icons.Default.Save, contentDescription = "Save") }
