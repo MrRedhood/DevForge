@@ -69,7 +69,7 @@ class AgentToolGateway(
         cancelledTasks.remove(taskId)
     }
 
-    private fun ensureTaskActive(taskId: String) {
+    private suspend fun ensureTaskActive(taskId: String) {
         if (cancelledTasks.contains(taskId)) {
             throw CancellationException("AI task paused by user")
         }
