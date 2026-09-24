@@ -563,7 +563,8 @@ class WorkspaceAgentToolProvider(
             val sync = if (remoteWorkspace(context) != null) {
                 val remote = remoteWorkspace(context) ?: error("GitHub workspace is unavailable.")
                 val keep = if (path.endsWith("/")) path + ".gitkeep" else path + "/.gitkeep"
-                commitRemoteChanges(
+                queueRemoteChanges(
+                    context,
                     remote,
                     listOf(GitHubTreeChange(keep, content = "")),
                     "create folder " + path,
@@ -611,7 +612,8 @@ class WorkspaceAgentToolProvider(
                 require(changes.isNotEmpty()) {
                     "The GitHub folder is already empty or is not tracked by Git: " + path
                 }
-                commitRemoteChanges(
+                queueRemoteChanges(
+                    context,
                     remote,
                     changes,
                     "delete " + path,
@@ -648,7 +650,8 @@ class WorkspaceAgentToolProvider(
             val content = args.optString("content", "")
             val sync = if (remoteWorkspace(context) != null) {
                 val remote = remoteWorkspace(context) ?: error("GitHub workspace is unavailable.")
-                commitRemoteChanges(
+                queueRemoteChanges(
+                    context,
                     remote,
                     listOf(GitHubTreeChange(path, content = content)),
                     "write " + path,
