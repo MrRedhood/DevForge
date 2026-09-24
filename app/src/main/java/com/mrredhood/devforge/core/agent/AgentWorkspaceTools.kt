@@ -23,6 +23,8 @@ import com.mrredhood.devforge.core.github.GitHubTreeChange
 import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.util.LinkedHashMap
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
@@ -42,6 +44,7 @@ class WorkspaceAgentToolProvider(
     private val gitSyncMutex = kotlinx.coroutines.sync.Mutex()
     private val githubStore = GitHubWorkspaceStore(context)
     private val githubGateway = GitHubRepositoryGateway(CredentialSecurityStore(context))
+    private val pendingRemoteBatches = ConcurrentHashMap<String, PendingRemoteBatch>()
     fun registerAll(registry: AgentToolRegistry): AgentToolRegistry = registry
         .register(ReadFileTool())
         .register(ListFilesTool())
@@ -57,6 +60,13 @@ class WorkspaceAgentToolProvider(
         .register(CreateFileTool())
         .register(CreateFolderTool())
         .register(DeletePathTool())
+
+    private data class PendingRemoteBatch(
+        val remote: GitHubWorkspaceRemote,
+        val changes: LinkedHashMap<String, GitHubTreeChange> = LinkedHashMap(),
+        var summary: String = "",
+    )
+
 
     private abstract inner class WorkspaceTool : AgentTool {
         protected suspend fun root(context: AgentToolContext): Uri {
@@ -128,11 +138,25 @@ class WorkspaceAgentToolProvider(
             return "GitHub synchronization deferred until the AI task finishes."
         }
 
-        suspend fun syncWorkspaceAfterTask(workspaceId: String): String? {
+        suspend fun syncWorkspaceAfterTask(workspaceId: String, taskId: String): String? {
             val workspace = workspaceDao.findById(workspaceId) ?: return null
-            if (githubStore.get(workspace.id) != null) {
-                // GitHub-backed workspaces use direct tree commits from each mutation tool.
-                return "GitHub-backed workspace already synchronizes each remote mutation."
+            val remote = githubStore.get(workspace.id)
+            if (remote != null) {
+                val key = remoteBatchKey(workspaceId, taskId)
+                val batch = pendingRemoteBatches.remove(key) ?: return null
+                if (batch.changes.isEmpty()) return null
+                return when (val result = githubGateway.commitChanges(
+                    owner = batch.remote.owner,
+                    repository = batch.remote.repository,
+                    branch = batch.remote.branch,
+                    message = "DevForge AI task: " + batch.summary.take(160),
+                    changes = batch.changes.values.toList(),
+                )) {
+                    is com.mrredhood.devforge.core.github.GitHubCommitResult.Success ->
+                        "GitHub commit " + result.commitSha.take(10) + " pushed to " + batch.remote.branch + "."
+                    is com.mrredhood.devforge.core.github.GitHubCommitResult.Failure ->
+                        throw IllegalStateException("GitHub synchronization failed: " + result.message)
+                }
             }
 
             val rootUri = Uri.parse(workspace.treeUri)
@@ -163,25 +187,27 @@ class WorkspaceAgentToolProvider(
             return githubStore.get(workspace.id)
         }
 
-        protected suspend fun commitRemoteChanges(
+        protected fun queueRemoteChanges(
+            context: AgentToolContext,
             remote: GitHubWorkspaceRemote,
             changes: List<GitHubTreeChange>,
             summary: String,
         ): String {
-            val result = githubGateway.commitChanges(
-                owner = remote.owner,
-                repository = remote.repository,
-                branch = remote.branch,
-                message = "DevForge agent: " + summary.take(160),
-                changes = changes,
-            )
-            return when (result) {
-                is com.mrredhood.devforge.core.github.GitHubCommitResult.Success ->
-                    "GitHub commit " + result.commitSha.take(10) + " pushed to " + remote.branch + "."
-                is com.mrredhood.devforge.core.github.GitHubCommitResult.Failure ->
-                    throw IllegalStateException("GitHub synchronization failed: " + result.message)
+            val key = remoteBatchKey(context.workspaceId, context.taskId)
+            val batch = pendingRemoteBatches.computeIfAbsent(key) {
+                PendingRemoteBatch(remote = remote)
             }
+            synchronized(batch) {
+                changes.forEach { change ->
+                    batch.changes[change.path] = change
+                }
+                if (summary.isNotBlank()) batch.summary = summary
+            }
+            return "GitHub synchronization deferred until the AI task finishes."
         }
+
+        private fun remoteBatchKey(workspaceId: String, taskId: String): String =
+            workspaceId + "|" + taskId
 
         protected suspend fun remoteRead(context: AgentToolContext, path: String): String {
             val remote = remoteWorkspace(context) ?: error("No GitHub-backed workspace is active.")
@@ -431,7 +457,8 @@ class WorkspaceAgentToolProvider(
             require(before != patch.content) { "Patch produces no content change for $path." }
             val sync = if (remote != null) {
                 val github = remote ?: error("GitHub workspace is unavailable.")
-                commitRemoteChanges(
+                queueRemoteChanges(
+                    context,
                     github,
                     listOf(GitHubTreeChange(path, content = patch.content)),
                     patch.summary.ifBlank { "update " + path },
@@ -499,7 +526,8 @@ class WorkspaceAgentToolProvider(
             val content = args.optString("content", "")
             val sync = if (remoteWorkspace(context) != null) {
                 val remote = remoteWorkspace(context) ?: error("GitHub workspace is unavailable.")
-                commitRemoteChanges(
+                queueRemoteChanges(
+                    context,
                     remote,
                     listOf(GitHubTreeChange(path, content = content)),
                     "create " + path,
