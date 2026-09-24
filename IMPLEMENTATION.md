@@ -2244,3 +2244,4 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added a More → Report a bug entry that opens the DevForge GitHub issue page.
 - [x] Added the More-screen footer: `DevForge 1.0` / `Created by MrRedhood`.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the final main head.
+- [x] Fixed the first Android CI compilation failure for the move/rename tools by adding the shared remote path join helper used by the new GitHub-backed operations.
