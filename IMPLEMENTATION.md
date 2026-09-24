@@ -2220,3 +2220,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Editor hamburger drawer scrim now closes the drawer when the user taps unused space outside the drawer.
 
 - [x] Fixed the workspace move implementation import so GitHub-backed move operations compile with the existing `GitHubFileResult` result type.
+
+### 2026-09-24 — Reliable AI pause and workspace long-press actions
+- [x] Pause AI now immediately clears visible streaming text and tool activity state, cancels the provider HTTP connection, cancels the active agent task/tool, and prevents new tool execution for the cancelled task.
+- [x] Streaming chunks arriving during the cancellation race are ignored, so the UI cannot keep animating or repopulating after Pause AI is tapped.
+- [x] The active AI task identifier is cleared as part of cancellation so a later request cannot accidentally target an older task.
+- [x] Long-press actions are available in both the Files screen and the Editor hamburger workspace drawer.
+- [x] Editor-drawer long press now opens Rename, Delete, and Change file path actions, while a normal tap still opens files in the Editor or enters folders.
