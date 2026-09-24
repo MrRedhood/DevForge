@@ -2233,3 +2233,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Fixed the AI cancellation helper compile error found by Android CI by making task-activity validation suspend-aware before calling `currentCoroutineContext()`.
 
 - [x] Added the required `ExperimentalFoundationApi` opt-in to the Editor drawer so its long-press gesture API compiles cleanly.
+
+- [x] Pausing now clears `isSending` immediately so the AI working card and live stream disappear at once while cancellation drains; a dedicated pausing spinner prevents accidental resend during that short drain.
