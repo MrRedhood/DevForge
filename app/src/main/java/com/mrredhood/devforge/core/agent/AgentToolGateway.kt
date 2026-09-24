@@ -15,6 +15,7 @@ import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
@@ -62,6 +63,10 @@ class AgentToolGateway(
         if (taskId.isBlank()) return
         cancelledTasks += taskId
         activeTaskJobs[taskId]?.cancel(CancellationException("AI task paused by user"))
+    }
+
+    fun clearTaskCancellation(taskId: String) {
+        cancelledTasks.remove(taskId)
     }
 
     private fun ensureTaskActive(taskId: String) {
