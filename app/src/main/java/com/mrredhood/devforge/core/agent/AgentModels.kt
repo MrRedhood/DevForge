@@ -36,6 +36,8 @@ enum class AgentToolId(val wireName: String) {
     WRITE_FILE("write_file"),
     CREATE_FILE("create_file"),
     CREATE_FOLDER("create_folder"),
+    MOVE_FILE("move_file"),
+    MOVE_FOLDER("move_folder"),
     DELETE_PATH("delete_path"),
     WEB_SEARCH("web_search"),
     SCRAPE_URL("scrape_url"),
