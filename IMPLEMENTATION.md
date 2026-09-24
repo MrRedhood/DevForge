@@ -2184,3 +2184,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
 
 - [x] Made core SAF file creation/write operations interruptible with `runInterruptible(Dispatchers.IO)`, so Pause AI can interrupt a blocking document-provider call instead of waiting for the operation to finish.
+
+- [x] Removed the duplicate Chat cancellation catch that could intercept `CancellationException` before the pause-specific handler. Pause now rethrows cancellation after preserving retry attachments and updating the UI through `NonCancellable`, so the active job terminates instead of continuing silently.
