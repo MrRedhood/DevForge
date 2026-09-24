@@ -727,30 +727,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 }
             } catch (cancelled: CancellationException) {
                 retainAttachmentsForRetry = true
-                workflowSnapshot = aiWorkflowEngine.fail(workflowSnapshot, "AI execution cancelled.")
-                withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
-                withContext(Dispatchers.Main.immediate) {
-                    val merged = attachments.toMutableList()
-                    submittedAttachments.forEach { attachment ->
-                        if (merged.none { it.uri == attachment.uri } &&
-                            merged.size < MAX_ATTACHMENTS &&
-                            merged.sumOf { it.sizeBytes } + attachment.sizeBytes <= MAX_TOTAL_ATTACHMENT_BYTES
-                        ) {
-                            merged += attachment
-                        }
-                    }
-                    attachments = merged
-                }
-                withContext(NonCancellable) {
-                    if (partialResponse.isNotBlank()) {
-                        chatRepository.addMessage(
-                            sessionId,
-                            "assistant",
-                            partialResponse + "\n\n[Generation stopped]",
-                        )
-                    }
-                }
-            } catch (cancelled: CancellationException) {
                 if (userRequestedPause) {
                     withContext(NonCancellable + Dispatchers.Main.immediate) {
                         val merged = attachments.toMutableList()
@@ -765,8 +741,27 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         attachments = merged
                         sendError = "AI paused. Press Send to continue from the current workspace state."
                     }
+                } else {
+                    workflowSnapshot = aiWorkflowEngine.fail(workflowSnapshot, "AI execution cancelled.")
+                    withContext(NonCancellable + Dispatchers.Main.immediate) {
+                        if (workflowSnapshot.status == AiWorkflowSnapshot.Status.RUNNING ||
+                            workflowSnapshot.status == AiWorkflowSnapshot.Status.WAITING
+                        ) {
+                            aiWorkflow = workflowSnapshot
+                        }
+                    }
+                    withContext(NonCancellable) {
+                        if (partialResponse.isNotBlank()) {
+                            chatRepository.addMessage(
+                                sessionId,
+                                "assistant",
+                                partialResponse + "\n\n[Generation stopped]",
+                            )
+                        }
+                    }
                 }
                 throw cancelled
+            }
             } catch (error: Throwable) {
                 retainAttachmentsForRetry = true
                 if (workflowSnapshot.status == AiWorkflowSnapshot.Status.RUNNING ||
