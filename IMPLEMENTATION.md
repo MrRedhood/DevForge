@@ -2255,3 +2255,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added access-policy routing and catalog entries for the expanded tools while keeping destructive/high-impact operations approval-gated.
 - [x] Updated the tool catalog unit test to validate the expanded registry instead of a fixed historical tool count.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this head.
+
+- [x] Repaired the first expanded-tool compilation pass: removed duplicate clean-project declaration, fixed build workflow helper naming, moved blocking SAF I/O outside runInterruptible lambdas, corrected dependency string syntax, aligned Git diff fields with the actual models, fixed checkpoint-root naming, and repaired GitHub branch/issue/comment/PR gateway Result handling.
