@@ -2174,6 +2174,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added creation-path recovery for create_file/create_folder using optional name/fileName/folderName plus directory/parent/folder fields, with explicit rejection of empty/root-only targets.
 - [x] Updated More → ⓘ Help & guide and AI tool settings descriptions for Linux shell behavior.
 - [x] Revalidated the Help & guide Kotlin list syntax after the Linux-shell documentation update.
+- [x] Escaped quoted path examples in the AI planning prompt so the Linux-shell/path guidance remains valid Kotlin source.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this change on the final main commit.
 
 ### 2026-09-24 — Resilient AI tool protocol and multi-call execution
