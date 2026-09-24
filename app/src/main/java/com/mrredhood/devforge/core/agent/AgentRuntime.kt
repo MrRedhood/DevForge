@@ -37,6 +37,7 @@ object AgentRuntime {
         WorkspaceSemanticRetrievalToolProvider(appContext).registerAll(registry)
         AgentGitToolProvider(appContext).registerAll(registry)
         AgentTerminalToolProvider(appContext).registerAll(registry)
+        AgentExtendedToolProvider(appContext).registerAll(registry)
         AgentCoordinationToolProvider(coordination).registerAll(registry)
         val approvals = ApprovalRepository(database.approvalDao())
         val gateway = AgentToolGateway(
