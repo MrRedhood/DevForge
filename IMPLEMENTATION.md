@@ -2203,3 +2203,8 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Fresh Android CI and Android UI Tests results for the final main head still require verification.
 
 - [x] Exposed the completed-task GitHub sync operation from the outer workspace tool provider so Chat orchestration can invoke it after all AI mutations without changing the existing direct-sync semantics of GitHub-backed workspaces.
+
+### 2026-09-24 — Fix failed CI/UI compilation
+- [x] Removed the extra closing brace introduced in the AIChatViewModel cancellation handler; it was causing the compiler to interpret the remainder of the ViewModel as top-level code and generated the cascade of unresolved references seen in Android CI and Android UI Tests.
+- [x] The reported primary failure was at the cancellation `catch` boundary; fixing that syntax restores the ViewModel's companion constants, attachment methods, `stopGeneration`, and lifecycle scope to the class.
+- [ ] Fresh Android CI and Android UI Tests must complete successfully for this head before validation is considered complete.
