@@ -211,6 +211,11 @@ class WorkspaceAgentToolProvider(
             }
         }
 
+        private fun joinRemotePath(parent: String, child: String): String =
+            listOf(parent.trim('/'), child.trim('/'))
+                .filter { it.isNotBlank() }
+                .joinToString("/")
+
         protected suspend fun remoteRename(
             context: AgentToolContext,
             oldPath: String,
