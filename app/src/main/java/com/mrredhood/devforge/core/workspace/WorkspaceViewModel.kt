@@ -17,6 +17,7 @@ import com.mrredhood.devforge.core.git.GitDetectionState
 import com.mrredhood.devforge.core.github.GitHubRepositoryGateway
 import com.mrredhood.devforge.core.github.GitHubTreeChange
 import com.mrredhood.devforge.core.github.GitHubCommitResult
+import com.mrredhood.devforge.core.github.GitHubFileResult
 import com.mrredhood.devforge.core.github.GitHubPendingChanges
 import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import kotlinx.coroutines.CancellationException
