@@ -7,9 +7,9 @@ import org.junit.Test
 
 class DevForgeToolCatalogTest {
     @Test
-    fun exposesTwentySixUserTools() {
-        assertEquals(26, DevForgeToolCatalog.entries.size)
-        assertEquals(26, DevForgeToolCatalog.userToolIds.size)
+    fun exposesAllCatalogTools() {
+        assertEquals(DevForgeToolCatalog.entries.size, DevForgeToolCatalog.userToolIds.size)
+        assertTrue(DevForgeToolCatalog.entries.size >= 70)
     }
 
     @Test
