@@ -170,6 +170,40 @@ class WorkspaceAgentToolProvider(
             return githubStore.get(workspace.id)
         }
 
+        protected suspend fun requiredCreationPath(
+            context: AgentToolContext,
+            args: JSONObject,
+            kind: String,
+            nameKeys: List<String>,
+        ): String {
+            val rawPath = args.optString("path").trim()
+            val fallbackName = nameKeys
+                .asSequence()
+                .map { args.optString(it).trim() }
+                .firstOrNull { it.isNotBlank() }
+                .orEmpty()
+            val parent = listOf("directory", "parent", "folder")
+                .asSequence()
+                .map { args.optString(it).trim().trim('/') }
+                .firstOrNull { it.isNotBlank() }
+                .orEmpty()
+            val candidate = when {
+                rawPath.isNotBlank() && rawPath !in setOf(".", "./", "/") -> rawPath
+                fallbackName.isNotBlank() -> listOf(parent, fallbackName.trim('/'))
+                    .filter(String::isNotBlank)
+                    .joinToString("/")
+                else -> rawPath
+            }
+            require(candidate.isNotBlank() && candidate !in setOf(".", "./", "/")) {
+                "$kind path is required. Provide the complete workspace-relative path; for a workspace-root item use its filename or folder name, not '.'."
+            }
+            val normalized = scopedPath(context, candidate)
+            require(normalized.isNotBlank()) {
+                "$kind path must name a file or folder; the workspace root is not a valid creation target."
+            }
+            return normalized
+        }
+
         protected suspend fun commitRemoteChanges(
             remote: GitHubWorkspaceRemote,
             changes: List<GitHubTreeChange>,
@@ -584,11 +618,11 @@ class WorkspaceAgentToolProvider(
         )
 
         override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
-            listOf(scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim()))
+            listOf(requiredCreationPath(context, JSONObject(request.argumentsJson), "Create file", listOf("fileName", "filename", "name")))
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
             val args = JSONObject(request.argumentsJson)
-            val path = scopedPath(context, args.optString("path").trim())
+            val path = requiredCreationPath(context, args, "Create file", listOf("fileName", "filename", "name"))
             val content = args.optString("content", "")
             val sync = if (remoteWorkspace(context) != null) {
                 val remote = remoteWorkspace(context) ?: error("GitHub workspace is unavailable.")
@@ -620,10 +654,10 @@ class WorkspaceAgentToolProvider(
         )
 
         override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
-            listOf(scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim()))
+            listOf(requiredCreationPath(context, JSONObject(request.argumentsJson), "Create folder", listOf("folderName", "name")))
 
         override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
-            val path = scopedPath(context, JSONObject(request.argumentsJson).optString("path").trim())
+            val path = requiredCreationPath(context, JSONObject(request.argumentsJson), "Create folder", listOf("folderName", "name"))
             val sync = if (remoteWorkspace(context) != null) {
                 val remote = remoteWorkspace(context) ?: error("GitHub workspace is unavailable.")
                 val keep = if (path.endsWith("/")) path + ".gitkeep" else path + "/.gitkeep"
@@ -1194,11 +1228,11 @@ internal object AgentWorkspacePath {
         val first = normalized.substringBefore('/')
         val stripped = when {
             directPathExists -> normalized
-            displayPath.isNotEmpty() && (
-                normalized.equals(displayPath, ignoreCase = true) ||
-                    normalized.startsWith("$displayPath/", ignoreCase = true)
-            ) -> normalized.substring(displayPath.length).trimStart('/')
-            displayName.isNotEmpty() && first.equals(displayName, ignoreCase = true) ->
+            displayPath.isNotEmpty() && normalized.startsWith("$displayPath/", ignoreCase = true) ->
+                normalized.substring(displayPath.length).trimStart('/')
+            displayPath.isNotEmpty() && normalized.equals(displayPath, ignoreCase = true) && allowEmpty ->
+                ""
+            displayName.isNotEmpty() && normalized.contains('/') && first.equals(displayName, ignoreCase = true) ->
                 normalized.substringAfter('/', missingDelimiterValue = "")
             else -> normalized
         }

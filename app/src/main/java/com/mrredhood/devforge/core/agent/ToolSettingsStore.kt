@@ -39,7 +39,7 @@ object DevForgeToolCatalog {
         DevForgeToolCatalogEntry(
             AgentToolId.RUN_COMMAND,
             "Run terminal command",
-            "Run a bounded allowlisted terminal command in the active workspace and return its output. AI execution is approval-gated.",
+            "Run a bounded Linux shell command in the active workspace and return its output. Normal shell operators are supported for local workspaces. AI execution is approval-gated.",
             "Terminal",
         ),
         DevForgeToolCatalogEntry(

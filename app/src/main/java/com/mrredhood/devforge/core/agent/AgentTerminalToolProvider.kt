@@ -33,7 +33,7 @@ class AgentTerminalToolProvider(context: Context) {
     private inner class RunCommandTool : AgentTool {
         override val definition = AgentToolDefinition(
             id = AgentToolId.RUN_COMMAND,
-            description = "Run one bounded allowlisted terminal command in the selected workspace and return bounded output, exit code, status and duration. Shell operators are not accepted by this AI tool; direct user terminal input remains a real shell.",
+            description = "Run a bounded Linux shell command in the selected workspace and return bounded output, exit code, status and duration. Shell operators, pipes, redirection, chaining and normal shell syntax are supported for local workspaces.",
             capability = Capability.RUN_TERMINAL,
             risk = RiskLevel.R2,
             sideEffecting = true,

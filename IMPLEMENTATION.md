@@ -2166,6 +2166,15 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
 
 
+### 2026-09-24 — AI Linux shell and workspace creation reliability
+- [x] Replaced the AI terminal executable allowlist with the same Linux shell execution path used by the local Terminal, so AI can run commands available on the Android shell without requiring a new hard-coded command entry.
+- [x] AI terminal commands now support normal shell syntax such as pipes, redirection, chaining and arbitrary shell command payloads for local workspaces, while retaining command-size, output-size, timeout and execution-policy limits.
+- [x] Background AI processes reuse the shell-capable terminal parser.
+- [x] Hardened workspace mutation path canonicalization so a real file or folder named the same as the workspace is not collapsed into the workspace root.
+- [x] Added creation-path recovery for create_file/create_folder using optional name/fileName/folderName plus directory/parent/folder fields, with explicit rejection of empty/root-only targets.
+- [x] Updated More → ⓘ Help & guide and AI tool settings descriptions for Linux shell behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this change on the final main commit.
+
 ### 2026-09-24 — Resilient AI tool protocol and multi-call execution
 - [x] Hardened Chat tool-call parsing so OpenRouter/provider models that emit legacy `<tool_call>` / `<toolcall>` envelopes, compact tool names such as `listfiles`, or `<argkey>/<argvalue>` arguments can still execute registered DevForge tools instead of leaking raw protocol markup into Chat.
 - [x] Added compatibility parsing for compact model-generated plan/progress tags, including `<devforgeplan>` and `<devforgeplanprogress>` with `in_progress` status.

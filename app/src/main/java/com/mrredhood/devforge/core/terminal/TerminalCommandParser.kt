@@ -37,15 +37,12 @@ object TerminalCommandParser {
     ): TerminalCommand {
         val normalized = line.trim()
         require(normalized.isNotBlank()) { "Enter a command." }
-        val tokens = tokenize(normalized)
-        require(tokens.isNotEmpty()) { "Enter a command." }
-        val executable = terminalExecutableForName(tokens.first().lowercase())
-            ?: throw IllegalArgumentException(
-                "Unsupported AI terminal command '${tokens.first()}'. Use a bounded command from the DevForge terminal tool.",
-            )
+        require('\u0000' !in normalized && '\r' !in normalized && '\n' !in normalized) {
+            "Control characters are not allowed."
+        }
         return TerminalCommand(
-            executable = executable,
-            args = tokens.drop(1),
+            executable = TerminalExecutable.SHELL,
+            args = listOf("-c", normalized),
             workingDirectory = workingDirectory.trim().removePrefix("./").trim('/'),
             timeoutMs = timeoutMs,
             sessionId = sessionId,
@@ -85,50 +82,3 @@ object TerminalCommandParser {
     }
 }
 
-private fun terminalExecutableForName(name: String): TerminalExecutable? = when (name) {
-    "pwd" -> TerminalExecutable.PWD
-    "echo" -> TerminalExecutable.ECHO
-    "printf" -> TerminalExecutable.PRINTF
-    "ls" -> TerminalExecutable.LS
-    "cat" -> TerminalExecutable.CAT
-    "head" -> TerminalExecutable.HEAD
-    "tail" -> TerminalExecutable.TAIL
-    "wc" -> TerminalExecutable.WC
-    "grep" -> TerminalExecutable.GREP
-    "find" -> TerminalExecutable.FIND
-    "sort" -> TerminalExecutable.SORT
-    "uniq" -> TerminalExecutable.UNIQ
-    "cut" -> TerminalExecutable.CUT
-    "tr" -> TerminalExecutable.TR
-    "date" -> TerminalExecutable.DATE
-    "df" -> TerminalExecutable.DF
-    "du" -> TerminalExecutable.DU
-    "stat" -> TerminalExecutable.STAT
-    "readlink" -> TerminalExecutable.READLINK
-    "realpath" -> TerminalExecutable.REALPATH
-    "basename" -> TerminalExecutable.BASENAME
-    "dirname" -> TerminalExecutable.DIRNAME
-    "uname" -> TerminalExecutable.UNAME
-    "id" -> TerminalExecutable.ID
-    "whoami" -> TerminalExecutable.WHOAMI
-    "env" -> TerminalExecutable.ENV
-    "printenv" -> TerminalExecutable.PRINTENV
-    "which" -> TerminalExecutable.WHICH
-    "true" -> TerminalExecutable.TRUE
-    "false" -> TerminalExecutable.FALSE
-    "sleep" -> TerminalExecutable.SLEEP
-    "getprop" -> TerminalExecutable.GETPROP
-    "ps" -> TerminalExecutable.PS
-    "sha256sum" -> TerminalExecutable.SHA256SUM
-    "cmp" -> TerminalExecutable.CMP
-    "diff" -> TerminalExecutable.DIFF
-    "sed" -> TerminalExecutable.SED
-    "mkdir" -> TerminalExecutable.MKDIR
-    "rmdir" -> TerminalExecutable.RMDIR
-    "touch" -> TerminalExecutable.TOUCH
-    "rm" -> TerminalExecutable.RM
-    "cp" -> TerminalExecutable.CP
-    "mv" -> TerminalExecutable.MV
-    "chmod" -> TerminalExecutable.CHMOD
-    else -> null
-}

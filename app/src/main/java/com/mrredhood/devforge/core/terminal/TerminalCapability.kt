@@ -34,6 +34,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 enum class TerminalExecutable(val binaryPath: String, val risk: RiskLevel) {
+    SHELL("/system/bin/sh", RiskLevel.R2),
     PWD("/system/bin/pwd", RiskLevel.R1),
     ECHO("/system/bin/echo", RiskLevel.R1),
     PRINTF("/system/bin/printf", RiskLevel.R1),
@@ -112,12 +113,27 @@ object TerminalCommandPolicy {
         require(command.workingDirectory.isEmpty() || isRelative(command.workingDirectory)) {
             "Terminal working directory must remain inside the workspace sandbox."
         }
-        command.args.forEach { arg ->
-            require(arg.isNotEmpty() && arg.length <= MAX_ARG_LENGTH) { "Terminal argument is invalid." }
-            require('\u0000' !in arg && '\n' !in arg && '\r' !in arg) { "Control characters are not allowed." }
-            require(!arg.startsWith("/") && !arg.startsWith("~/")) { "Absolute paths are not allowed." }
-            require("=/" !in arg && "=~/" !in arg) { "Absolute option values are not allowed." }
-            require(!arg.split('/').contains("..")) { "Path traversal is not allowed." }
+
+        if (command.executable == TerminalExecutable.SHELL) {
+            require(command.args.size == 2 && command.args.firstOrNull() == "-c") {
+                "Shell commands must use a single -c command payload."
+            }
+            val shellCommand = command.args[1]
+            require(shellCommand.isNotBlank()) { "Shell command cannot be empty." }
+            require('\u0000' !in shellCommand && '\n' !in shellCommand && '\r' !in shellCommand) {
+                "Control characters are not allowed."
+            }
+            require(shellCommand.toByteArray(Charsets.UTF_8).size <= MAX_COMMAND_BYTES) {
+                "Command exceeds the 8 KiB limit."
+            }
+        } else {
+            command.args.forEach { arg ->
+                require(arg.isNotEmpty() && arg.length <= MAX_ARG_LENGTH) { "Terminal argument is invalid." }
+                require('\u0000' !in arg && '\n' !in arg && '\r' !in arg) { "Control characters are not allowed." }
+                require(!arg.startsWith("/") && !arg.startsWith("~/")) { "Absolute paths are not allowed." }
+                require("=/" !in arg && "=~/" !in arg) { "Absolute option values are not allowed." }
+                require(!arg.split('/').contains("..")) { "Path traversal is not allowed." }
+            }
         }
         require(command.canonicalForm().toByteArray(Charsets.UTF_8).size <= MAX_COMMAND_BYTES) {
             "Command exceeds the 8 KiB limit."
@@ -319,6 +335,11 @@ class TerminalCapability(
 
         val execution = try {
             val remote = githubStore.get(workspaceId)
+            if (remote != null && command.executable == TerminalExecutable.SHELL) {
+                throw IllegalStateException(
+                    "Full Linux shell execution is available for local workspaces. GitHub-backed workspaces use the API-backed terminal instead.",
+                )
+            }
             if (remote != null && command.executable.risk <= RiskLevel.R1) {
                 val startedAt = System.nanoTime()
                 val shellLike = buildString {
@@ -362,7 +383,11 @@ class TerminalCapability(
         capability = Capability.RUN_TERMINAL,
         risk = command.executable.risk,
         workspaceId = workspaceId,
-        summary = (command.executable.name.lowercase() + " " + command.args.joinToString(" ")).take(500),
+        summary = if (command.executable == TerminalExecutable.SHELL) {
+            "shell: " + command.args.getOrNull(1).orEmpty()
+        } else {
+            (command.executable.name.lowercase() + " " + command.args.joinToString(" ")).take(500)
+        }.take(500),
         parametersHash = MessageDigest.getInstance("SHA-256")
             .digest((workspaceId + "\n" + command.canonicalForm()).toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) },
@@ -528,7 +553,11 @@ private class SandboxedTerminal(context: Context) {
         val process = try {
             ProcessBuilder(buildList {
                 add(command.executable.binaryPath)
-                addAll(command.args.map(::normalizeArgument))
+                if (command.executable == TerminalExecutable.SHELL) {
+                    addAll(command.args)
+                } else {
+                    addAll(command.args.map(::normalizeArgument))
+                }
             })
                 .directory(workingDirectory)
                 .redirectErrorStream(true)

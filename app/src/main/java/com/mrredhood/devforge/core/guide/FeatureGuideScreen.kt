@@ -594,11 +594,11 @@ private val guideCategories = listOf(
         "Run commands inside the selected development workspace.",
         listOf(
             t("Terminal","Run shell commands against the current workspace environment.",
-                listOf("Select a workspace first.","Open Terminal.","Enter a command.","Review output.","Direct user terminal input supports normal shell composition where the Android shell permits it.","AI terminal execution uses a separate bounded command allowlist."),
+                listOf("Select a workspace first.","Open Terminal.","Enter a command.","Review output.","Direct user terminal input and AI terminal execution use the Linux shell for local workspaces, including normal pipes, redirection, chaining and other shell composition.","AI terminal execution remains bounded by command size, output size, timeout and execution policy; GitHub-backed virtual workspaces stay API-backed."),
                 "More → Terminal.",
                 listOf("> = command","output = command result","AI command = policy-gated terminal tool")),
             t("AI terminal commands","Allow AI to execute a bounded workspace command and return its result to Chat.",
-                listOf("Open More → AI Tools.","Enable Run terminal command.","AI uses run_command with a bounded command, optional workingDirectory and timeoutMs.","Review the approval request before execution when policy requires it."),
+                listOf("Open More → AI Tools.","Enable Run terminal command.","AI uses run_command with a Linux shell command plus optional workingDirectory and timeoutMs.","Normal shell operators are supported for local workspaces.","Review the approval request before execution when policy requires it.),
                 "More → AI Tools; AI Chat and AI.",
                 listOf("R2 = terminal actions are approval-gated by default","run_command = command + bounded result")),
             t("AI Git log","Let AI inspect recent repository commits without dumping the repository into context.",

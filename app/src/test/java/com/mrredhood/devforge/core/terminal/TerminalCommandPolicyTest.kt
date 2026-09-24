@@ -82,22 +82,29 @@ class TerminalCommandPolicyTest {
         TerminalCommand(TerminalExecutable.LS, listOf("-A", "src")).also(TerminalCommandPolicy::validate)
     }
     @Test
-    fun parsesExpandedAiTerminalCommand() {
+    fun parsesAnyLinuxCommandThroughTheAiShell() {
         val command = TerminalCommandParser.parseToolCommand(
-            "sha256sum app/src/main/AndroidManifest.xml",
+            "python3 -m compileall app && find . -name '*.kt' | grep -v build",
             "",
             1_000L,
             "ai-step",
         )
-        assertEquals(TerminalExecutable.SHA256SUM, command.executable)
-        assertEquals(listOf("app/src/main/AndroidManifest.xml"), command.args)
+        assertEquals(TerminalExecutable.SHELL, command.executable)
+        assertEquals(
+            listOf(
+                "-c",
+                "python3 -m compileall app && find . -name '*.kt' | grep -v build",
+            ),
+            command.args,
+        )
     }
 
     @Test
-    fun rejectsUnsupportedAiShellOperators() {
-        assertThrows(IllegalArgumentException::class.java) {
-            TerminalCommandParser.parseToolCommand("ls | grep kt", "", 1_000L, "ai-step")
-        }
+    fun shellCommandPolicyAllowsNormalShellSyntax() {
+        TerminalCommand(
+            executable = TerminalExecutable.SHELL,
+            args = listOf("-c", "echo ok > out.txt && printf 'done' | tr o O"),
+        ).also(TerminalCommandPolicy::validate)
     }
 
 }

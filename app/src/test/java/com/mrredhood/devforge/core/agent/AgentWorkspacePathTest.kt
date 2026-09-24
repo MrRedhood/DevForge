@@ -72,6 +72,15 @@ class AgentWorkspacePathTest {
     }
 
     @Test
+    fun keepsWorkspaceNameWhenARealMutationPathIsRequired() {
+        val scope = WorkspacePathScope()
+        assertEquals(
+            "Nexus",
+            AgentWorkspacePath.canonicalize("Nexus", "Nexus", scope, allowEmpty = false),
+        )
+    }
+
+    @Test
     fun allowsWorkspaceRootPath() {
         val scope = WorkspacePathScope()
         assertEquals(
