@@ -2235,3 +2235,12 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added the required `ExperimentalFoundationApi` opt-in to the Editor drawer so its long-press gesture API compiles cleanly.
 
 - [x] Pausing now clears `isSending` immediately so the AI working card and live stream disappear at once while cancellation drains; a dedicated pausing spinner prevents accidental resend during that short drain.
+
+### 2026-09-24 — AI move/rename tools, bug reporting, and v1 identity
+- [x] Added AI `move_file` and `move_folders` tools for moving workspace files/folders into another existing workspace folder.
+- [x] Added AI `rename_file` and `rename_folder` tools. File renaming accepts a new extension, allowing AI to rename formats such as `note.txt` → `note.py` when requested.
+- [x] Added the four tools to AgentAccess authorization, the user-configurable AI Tools catalog, and workspace tool registration.
+- [x] Added protected local workspace operations and GitHub-backed implementations for moving and renaming items.
+- [x] Added a More → Report a bug entry that opens the DevForge GitHub issue page.
+- [x] Added the More-screen footer: `DevForge 1.0` / `Created by MrRedhood`.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the final main head.
