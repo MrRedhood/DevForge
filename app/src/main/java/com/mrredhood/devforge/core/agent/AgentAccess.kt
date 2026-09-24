@@ -90,6 +90,67 @@ object AgentAccessRules {
         AgentToolId.GET_GIT_LOG -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.GIT_ACCESS)
 
         AgentToolId.RUN_COMMAND -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.TERMINAL_ACCESS)
+
+        AgentToolId.COPY_FILE,
+        AgentToolId.COPY_FOLDER,
+        AgentToolId.REPLACE_TEXT,
+        AgentToolId.INSERT_TEXT,
+        AgentToolId.DELETE_TEXT,
+        AgentToolId.REPLACE_RANGE,
+        AgentToolId.FORMAT_FILE,
+        AgentToolId.ORGANIZE_IMPORTS,
+        AgentToolId.FIND_SYMBOL,
+        AgentToolId.FIND_REFERENCES,
+        AgentToolId.ANALYZE_WORKSPACE,
+        AgentToolId.GET_PROJECT_INFO,
+        AgentToolId.GET_PROJECT_STRUCTURE,
+        AgentToolId.FIND_ENTRY_POINTS,
+        AgentToolId.FIND_CONFIG_FILES,
+        AgentToolId.GET_DEPENDENCIES,
+        AgentToolId.GET_BUILD_TARGETS,
+        AgentToolId.BUILD_PROJECT,
+        AgentToolId.CLEAN_PROJECT,
+        AgentToolId.RUN_TESTS,
+        AgentToolId.RUN_TEST,
+        AgentToolId.RUN_LINT,
+        AgentToolId.INSPECT_BUILD_ERROR,
+        AgentToolId.GET_BUILD_OUTPUT,
+        AgentToolId.GIT_STATUS,
+        AgentToolId.GIT_DIFF,
+        AgentToolId.GIT_DIFF_FILE,
+        AgentToolId.GIT_ADD,
+        AgentToolId.GIT_RESTORE,
+        AgentToolId.GIT_COMMIT,
+        AgentToolId.GIT_SHOW_COMMIT,
+        AgentToolId.GIT_CREATE_TAG,
+        AgentToolId.GIT_STASH,
+        AgentToolId.GIT_RESET,
+        AgentToolId.GITHUB_CREATE_BRANCH,
+        AgentToolId.GITHUB_CREATE_PR,
+        AgentToolId.GITHUB_CREATE_ISSUE,
+        AgentToolId.GITHUB_COMMENT_ISSUE,
+        AgentToolId.GITHUB_LIST_ISSUES,
+        AgentToolId.GITHUB_GET_ACTIONS,
+        AgentToolId.GITHUB_GET_WORKFLOW_LOGS,
+        AgentToolId.GITHUB_DISPATCH_WORKFLOW,
+        AgentToolId.GITHUB_GET_ARTIFACT,
+        AgentToolId.CREATE_CHECKPOINT,
+        AgentToolId.RESTORE_CHECKPOINT,
+        AgentToolId.UNDO_AI_CHANGE,
+        AgentToolId.COMPARE_WORKSPACE -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS, AgentAccess.GIT_ACCESS)
+
+        AgentToolId.RUN_BACKGROUND_COMMAND,
+        AgentToolId.GET_PROCESS_STATUS,
+        AgentToolId.STOP_PROCESS,
+        AgentToolId.LIST_PROCESSES,
+        AgentToolId.READ_PROCESS_OUTPUT,
+        AgentToolId.ANDROID_LOGCAT,
+        AgentToolId.ANDROID_INSTALL_APK,
+        AgentToolId.ANDROID_LAUNCH_APP,
+        AgentToolId.ANDROID_GET_DEVICE_INFO -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.TERMINAL_ACCESS)
+
+        AgentToolId.ANDROID_BUILD_APK,
+        AgentToolId.ANDROID_BUILD_AAB -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.GIT_ACCESS)
     }
 
     fun canUse(toolId: AgentToolId, access: Set<AgentAccess>): Boolean =
