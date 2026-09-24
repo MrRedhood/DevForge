@@ -2186,3 +2186,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Made core SAF file creation/write operations interruptible with `runInterruptible(Dispatchers.IO)`, so Pause AI can interrupt a blocking document-provider call instead of waiting for the operation to finish.
 
 - [x] Removed the duplicate Chat cancellation catch that could intercept `CancellationException` before the pause-specific handler. Pause now rethrows cancellation after preserving retry attachments and updating the UI through `NonCancellable`, so the active job terminates instead of continuing silently.
+
+### 2026-09-24 — End-of-task GitHub synchronization for AI mutations
+- [x] Removed per-file/per-folder GitHub synchronization from AI workspace mutation execution.
+- [x] AI-created local files and folders are now completed first; the Chat orchestrator performs one GitHub synchronization after the AI task reaches a normal completion response.
+- [x] Paused, rejected, failed, disabled-tool, and safety-limit exits do not trigger the completion sync, preventing incomplete AI work from being pushed as though the task finished.
+- [x] Existing workspace refresh events remain immediate, so the Editor can show each local mutation while GitHub sync waits until task completion.
+- [ ] Latest Android CI and Android UI Tests must be verified on the final main commit before this change set is considered validated.
