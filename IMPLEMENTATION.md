@@ -2201,3 +2201,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] GitHub-backed workspaces retain their existing direct remote-commit semantics so the AI can immediately read newly committed remote state during the same task.
 - [x] Added task-aware end-of-run synchronization wiring while preserving immediate workspace refresh events.
 - [ ] Fresh Android CI and Android UI Tests results for the final main head still require verification.
+
+- [x] Exposed the completed-task GitHub sync operation from the outer workspace tool provider so Chat orchestration can invoke it after all AI mutations without changing the existing direct-sync semantics of GitHub-backed workspaces.
