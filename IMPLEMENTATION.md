@@ -2207,4 +2207,4 @@ Restored the three project GitHub Actions workflows through the repository Git i
 ### 2026-09-24 — Fix failed CI/UI compilation
 - [x] Removed the extra closing brace introduced in the AIChatViewModel cancellation handler; it was causing the compiler to interpret the remainder of the ViewModel as top-level code and generated the cascade of unresolved references seen in Android CI and Android UI Tests.
 - [x] The reported primary failure was at the cancellation `catch` boundary; fixing that syntax restores the ViewModel's companion constants, attachment methods, `stopGeneration`, and lifecycle scope to the class.
-- [ ] Fresh Android CI and Android UI Tests must complete successfully for this head before validation is considered complete.
+- [x] Fresh Android CI and Android UI Tests completed successfully for this head.
