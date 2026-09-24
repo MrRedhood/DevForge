@@ -2259,3 +2259,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Repaired the first expanded-tool compilation pass: removed duplicate clean-project declaration, fixed build workflow helper naming, moved blocking SAF I/O outside runInterruptible lambdas, corrected dependency string syntax, aligned Git diff fields with the actual models, fixed checkpoint-root naming, and repaired GitHub branch/issue/comment/PR gateway Result handling.
 
 - [x] Rebased the extended AI provider repair onto its complete implementation and fixed the GitHub Actions dispatch result contract (`Started`), explicit Git diff model fields, checkpoint snapshot/restore routines, and provider helper return types.
+
+- [x] Fixed the latest Android CI nullable Git-status compilation failure by using a safe fallback for the nullable GitWorkspaceStatus message.
+- [x] Android CI run 458 passed on the expanded-tool implementation head.
+- [ ] Android UI Tests final validation remains pending; the earlier UI attempt failed during emulator/ADB startup rather than reporting a project test assertion.
