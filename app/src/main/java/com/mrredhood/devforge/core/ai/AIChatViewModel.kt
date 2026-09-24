@@ -94,6 +94,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private set
     var isSending by mutableStateOf(false)
         private set
+    var isPausing by mutableStateOf(false)
+        private set
     var streamingText by mutableStateOf("")
         private set
     var streamingAnimationKind by mutableStateOf(StreamingAnimationKind.HAMMER)
@@ -380,7 +382,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun submit() {
-        if (isSending) return
+        if (isSending || isPausing) return
         val raw = input.trim()
         val pendingAttachments = attachments
         if (raw.isBlank() && pendingAttachments.isEmpty()) return
@@ -399,6 +401,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             attachments = emptyList()
             toolActivities = emptyList()
             isSending = true
+            isPausing = false
             streamingAnimationKind = StreamingAnimationKind.HAMMER
             streamingText = authoritativeAnswer.take(MAX_STREAM_VISIBLE_CHARS)
             sendError = null
@@ -440,6 +443,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         if (requestGeneration == generationId) {
                             streamingText = ""
                             isSending = false
+                            isPausing = false
                             if (sendJob === currentCoroutineContext()[Job]) sendJob = null
                         }
                     }
@@ -470,6 +474,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         streamingAnimationKind = StreamingAnimationKind.random()
         toolActivities = emptyList()
         isSending = true
+        isPausing = false
         streamingText = ""
         sendError = null
         activePrompt = raw
@@ -712,7 +717,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         partialResponse = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
                         val visible = partialResponse
                         launch(Dispatchers.Main.immediate) {
-                            if (requestGeneration == generationId) streamingText = visible
+                            if (requestGeneration == generationId && !isPausing) streamingText = visible
                         }
                     }
                     val finalText = partialResponse.ifBlank { "The model returned an empty response." }
@@ -796,6 +801,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     if (requestGeneration == generationId) {
                         streamingText = ""
                         isSending = false
+                        isPausing = false
                         if (userRequestedPause) {
                             input = activePrompt.orEmpty()
                             sendError = "AI paused. Press Send to continue from the current workspace state."
@@ -811,8 +817,19 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun stopGenerationLocally() {
-        if (!isSending) return
+        if (!isSending || isPausing) return
         userRequestedPause = true
+        isPausing = true
+
+        // Stop visible streaming and tool activity immediately. The underlying HTTP
+        // connection and active tool are cancelled in the same operation.
+        input = activePrompt.orEmpty()
+        streamingText = ""
+        toolActivities = emptyList()
+        aiWorkflow = null
+        sendError = "Pausing AI…"
+
+        toolOrchestrator.cancelActiveExecution()
         sendJob?.cancel(CancellationException("AI paused by user"))
     }
 
