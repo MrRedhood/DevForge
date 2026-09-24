@@ -2166,6 +2166,14 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
 
 
+### 2026-09-24 — GitHub workspace terminal and live AI Actions diagnostics
+- [x] Removed the unconditional AI shell rejection for GitHub-backed workspaces. AI terminal calls now use the existing API-backed GitHub virtual terminal instead of failing before execution.
+- [x] Expanded the GitHub virtual terminal with quote-aware command parsing, common Linux read/diagnostic commands, pipelines, && / || / ; composition, and bounded stdin processing for grep/head/tail/wc/sort/uniq/cut/tr/sed.
+- [x] Made GitHub Actions owner/repository/run selection infer from the active GitHub-backed workspace when AI does not provide those arguments, eliminating the generic 'Failed requirement.' failures shown in Chat.
+- [x] Made workflow-log retrieval automatically select the latest relevant run when runId is omitted and return run/job status metadata together with current job logs, allowing AI to inspect live output and decide subsequent actions.
+- [x] Updated AI tool descriptions and More → ⓘ Help & guide to document automatic repository/run inference and live-log diagnostics.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this change on the final main commit.
+
 ### 2026-09-24 — AI Linux shell and workspace creation reliability
 - [x] Replaced the AI terminal executable allowlist with the same Linux shell execution path used by the local Terminal, so AI can run commands available on the Android shell without requiring a new hard-coded command entry.
 - [x] AI terminal commands now support normal shell syntax such as pipes, redirection, chaining and arbitrary shell command payloads for local workspaces, while retaining command-size, output-size, timeout and execution-policy limits.

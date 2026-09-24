@@ -71,7 +71,7 @@ object DevForgeToolCatalog {
         DevForgeToolCatalogEntry(AgentToolId.RUN_TEST, "Run test", "Run a specific test through the configured build workflow.", "Build"),
         DevForgeToolCatalogEntry(AgentToolId.RUN_LINT, "Run lint", "Run the configured lint workflow.", "Build"),
         DevForgeToolCatalogEntry(AgentToolId.INSPECT_BUILD_ERROR, "Inspect build error", "Extract structured causes from the latest build logs.", "Build"),
-        DevForgeToolCatalogEntry(AgentToolId.GET_BUILD_OUTPUT, "Get build output", "Read bounded output/logs from a build run.", "Build"),
+        DevForgeToolCatalogEntry(AgentToolId.GET_BUILD_OUTPUT, "Get build output", "Read current/live output and logs from the active or latest GitHub Actions build run; repository and run ID are inferred when omitted.", "Build"),
         DevForgeToolCatalogEntry(AgentToolId.RUN_BACKGROUND_COMMAND, "Run background command", "Start a bounded terminal command without blocking the AI turn.", "Terminal"),
         DevForgeToolCatalogEntry(AgentToolId.GET_PROCESS_STATUS, "Get process status", "Inspect a background AI terminal process.", "Terminal"),
         DevForgeToolCatalogEntry(AgentToolId.STOP_PROCESS, "Stop process", "Stop a background AI terminal process.", "Terminal", defaultEnabled = false),

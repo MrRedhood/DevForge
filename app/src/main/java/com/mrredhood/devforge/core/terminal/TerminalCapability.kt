@@ -335,20 +335,25 @@ class TerminalCapability(
 
         val execution = try {
             val remote = githubStore.get(workspaceId)
-            if (remote != null && command.executable == TerminalExecutable.SHELL) {
-                throw IllegalStateException(
-                    "Full Linux shell execution is available for local workspaces. GitHub-backed workspaces use the API-backed terminal instead.",
-                )
-            }
-            if (remote != null && command.executable.risk <= RiskLevel.R1) {
+            if (remote != null) {
                 val startedAt = System.nanoTime()
-                val shellLike = buildString {
-                    append(command.executable.name.lowercase())
-                    command.args.forEach { append(' ').append(it) }
+                val shellCommand = if (command.executable == TerminalExecutable.SHELL) {
+                    command.args.getOrNull(1).orEmpty()
+                } else {
+                    buildString {
+                        append(command.executable.name.lowercase())
+                        command.args.forEach { append(' ').append(it) }
+                    }
                 }
-                val text = githubTerminal.execute(remote, command.workingDirectory, shellLike)
+                val text = githubTerminal.execute(remote, command.workingDirectory, shellCommand)
                 onOutput(text)
-                TerminalExecution(command, TerminalRunStatus.EXITED, 0, text, (System.nanoTime() - startedAt) / 1_000_000L)
+                TerminalExecution(
+                    command,
+                    TerminalRunStatus.EXITED,
+                    0,
+                    text,
+                    (System.nanoTime() - startedAt) / 1_000_000L,
+                )
             } else {
                 terminal.execute(workspaceId, command, onOutput)
             }

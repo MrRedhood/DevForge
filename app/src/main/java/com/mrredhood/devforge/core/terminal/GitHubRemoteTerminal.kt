@@ -13,32 +13,102 @@ class GitHubRemoteTerminal(
         workingDirectory: String,
         commandLine: String,
     ): String {
+        require(commandLine.isNotBlank()) { "Terminal command is empty." }
+        require(commandLine.length <= MAX_COMMAND_CHARS) { "Terminal command exceeds the 8 KiB limit." }
+        require('\u0000' !in commandLine && '\r' !in commandLine && '\n' !in commandLine) {
+            "Control characters are not allowed."
+        }
+        return executeShell(remote, workingDirectory, commandLine.trim())
+    }
+
+    private suspend fun executeShell(
+        remote: GitHubWorkspaceRemote,
+        cwd: String,
+        commandLine: String,
+    ): String {
+        val segments = splitShell(commandLine)
+        var previousExit = 0
+        var previousOutput = ""
+        val output = StringBuilder()
+
+        for (index in segments.indices) {
+            val segment = segments[index]
+            val shouldRun = when (segment.operator) {
+                null, ";" -> true
+                "&&" -> previousExit == 0
+                "||" -> previousExit != 0
+                "|" -> true
+                else -> true
+            }
+            if (!shouldRun) continue
+
+            val input = if (segment.operator == "|") previousOutput else ""
+            val result = executeSimple(remote, cwd, segment.command, input)
+            previousOutput = result
+            previousExit = 0
+
+            if (segment.operator != "|" || index == segments.lastIndex) {
+                if (output.isNotEmpty() && result.isNotBlank()) output.append('\n')
+                if (result.isNotBlank()) output.append(result)
+            }
+        }
+
+        return if (output.isNotEmpty()) output.toString().trimEnd() else previousOutput
+    }
+
+    private suspend fun executeSimple(
+        remote: GitHubWorkspaceRemote,
+        cwd: String,
+        commandLine: String,
+        stdin: String,
+    ): String {
         val tokens = tokenize(commandLine)
-        if (tokens.isEmpty()) return ""
-        return when (tokens.first()) {
-            "pwd" -> "/workspace" + if (workingDirectory.isBlank()) "" else "/" + workingDirectory
-            "ls" -> list(remote, workingDirectory, tokens.drop(1))
-            "cat" -> cat(remote, workingDirectory, tokens.drop(1))
-            "head" -> headTail(remote, workingDirectory, tokens.drop(1), true)
-            "tail" -> headTail(remote, workingDirectory, tokens.drop(1), false)
-            "wc" -> wordCount(remote, workingDirectory, tokens.drop(1))
-            "grep" -> grep(remote, workingDirectory, tokens.drop(1))
-            "find" -> find(remote, workingDirectory, tokens.drop(1))
-            "echo" -> tokens.drop(1).joinToString(" ")
-            "basename" -> basename(resolvePath(workingDirectory, tokens.lastOrNull() ?: throw IllegalArgumentException("basename: missing operand")))
-            "dirname" -> dirname(resolvePath(workingDirectory, tokens.lastOrNull() ?: throw IllegalArgumentException("dirname: missing operand")))
-            "realpath" -> "/workspace/" + resolvePath(workingDirectory, tokens.lastOrNull() ?: ".")
+        if (tokens.isEmpty()) return stdin
+        val command = tokens.first().lowercase()
+        val args = tokens.drop(1)
+        val input = stdin.takeIf { it.isNotBlank() }
+
+        return when (command) {
+            "pwd" -> "/workspace" + if (cwd.isBlank()) "" else "/" + cwd
+            "ls" -> list(remote, cwd, args)
+            "cat" -> if (args.none { !it.startsWith("-") } && input != null) input else cat(remote, cwd, args)
+            "head" -> headTail(remote, cwd, args, true, input)
+            "tail" -> headTail(remote, cwd, args, false, input)
+            "wc" -> wordCount(remote, cwd, args, input)
+            "grep" -> grep(remote, cwd, args, input)
+            "find" -> find(remote, cwd, args)
+            "echo" -> args.joinToString(" ")
+            "printf" -> printf(args)
+            "sort" -> sortText(remote, cwd, args, input)
+            "uniq" -> uniqText(remote, cwd, args, input)
+            "cut" -> cutText(args, input ?: cat(remote, cwd, args))
+            "tr" -> trText(args, input ?: cat(remote, cwd, args))
+            "sed" -> sedText(args, input ?: cat(remote, cwd, args))
+            "env", "printenv" -> environment(remote, cwd, args)
+            "which" -> which(args)
+            "true" -> ""
+            "false" -> "false"
+            "sleep" -> {
+                kotlinx.coroutines.delay((args.firstOrNull()?.toLongOrNull()?.coerceIn(0L, 10L) ?: 0L) * 1000L)
+                ""
+            }
+            "ps" -> "PID CMD\n1 devforge-github-virtual-terminal"
+            "basename" -> basename(resolvePath(cwd, args.lastOrNull() ?: throw IllegalArgumentException("basename: missing operand")))
+            "dirname" -> dirname(resolvePath(cwd, args.lastOrNull() ?: throw IllegalArgumentException("dirname: missing operand")))
+            "realpath" -> "/workspace/" + resolvePath(cwd, args.lastOrNull() ?: ".")
             "readlink" -> throw IllegalArgumentException("readlink: symbolic links are not available in a GitHub-backed workspace.")
-            "sha256sum" -> sha256(remote, workingDirectory, tokens.drop(1))
-            "stat" -> stat(remote, workingDirectory, tokens.drop(1))
-            "cmp" -> compare(remote, workingDirectory, tokens.drop(1), false)
-            "diff" -> compare(remote, workingDirectory, tokens.drop(1), true)
+            "sha256sum" -> sha256(remote, cwd, args)
+            "stat" -> stat(remote, cwd, args)
+            "cmp" -> compare(remote, cwd, args, false)
+            "diff" -> compare(remote, cwd, args, true)
             "date" -> java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US).format(java.util.Date())
-            "uname" -> "DevForge virtual GitHub workspace"
-            "whoami" -> "github:" + remote.owner
-            "id" -> "github:" + remote.owner
-            "git" -> git(remote, tokens.drop(1))
-            else -> throw IllegalArgumentException("GitHub workspace terminal supports: pwd, ls, cat, head, tail, wc, grep, find, echo, basename, dirname, realpath, sha256sum, stat, cmp, diff, date, uname, whoami, id and git log/status/branch/show.")
+            "uname" -> "Linux DevForge GitHub virtual workspace"
+            "whoami", "id" -> "github:" + remote.owner
+            "git" -> git(remote, args)
+            else -> throw IllegalArgumentException(
+                "Command '$command' is not available in the GitHub virtual terminal. " +
+                    "Use the DevForge file/folder tools for workspace mutations.",
+            )
         }
     }
 
@@ -63,7 +133,13 @@ class GitHubRemoteTerminal(
         }
     }
 
-    private suspend fun headTail(remote: GitHubWorkspaceRemote, cwd: String, args: List<String>, head: Boolean): String {
+    private suspend fun headTail(
+        remote: GitHubWorkspaceRemote,
+        cwd: String,
+        args: List<String>,
+        head: Boolean,
+        stdin: String? = null,
+    ): String {
         var count = 10
         val positional = mutableListOf<String>()
         var index = 0
@@ -76,25 +152,36 @@ class GitHubRemoteTerminal(
                 else -> index++
             }
         }
-        val path = positional.lastOrNull() ?: throw IllegalArgumentException("missing file operand")
-        val lines = cat(remote, cwd, listOf(path)).lineSequence().toList()
+        val path = positional.lastOrNull()
+        val source = if (path == null && stdin != null) stdin else cat(remote, cwd, listOf(path ?: throw IllegalArgumentException("missing file operand")))
+        val lines = source.lineSequence().toList()
         return if (head) lines.take(count).joinToString("\n") else lines.takeLast(count).joinToString("\n")
     }
 
-    private suspend fun wordCount(remote: GitHubWorkspaceRemote, cwd: String, args: List<String>): String {
-        val path = args.lastOrNull { !it.startsWith("-") } ?: throw IllegalArgumentException("wc: missing file operand")
-        val text = cat(remote, cwd, listOf(path))
+    private suspend fun wordCount(
+        remote: GitHubWorkspaceRemote,
+        cwd: String,
+        args: List<String>,
+        stdin: String? = null,
+    ): String {
+        val path = args.lastOrNull { !it.startsWith("-") }
+        val text = if (path == null && stdin != null) stdin else cat(remote, cwd, listOf(path ?: throw IllegalArgumentException("wc: missing file operand")))
         val lines = text.count { it == '\n' }
         val words = text.split(Regex("\\s+")).count { it.isNotBlank() }
         val bytes = text.toByteArray(Charsets.UTF_8).size
         return lines.toString() + " " + words + " " + bytes + " " + resolvePath(cwd, path)
     }
 
-    private suspend fun grep(remote: GitHubWorkspaceRemote, cwd: String, args: List<String>): String {
+    private suspend fun grep(
+        remote: GitHubWorkspaceRemote,
+        cwd: String,
+        args: List<String>,
+        stdin: String? = null,
+    ): String {
         val values = args.filterNot { it == "-n" || it == "-i" }
         val pattern = values.firstOrNull() ?: throw IllegalArgumentException("grep: missing pattern")
-        val path = values.drop(1).lastOrNull() ?: throw IllegalArgumentException("grep: missing file operand")
-        val text = cat(remote, cwd, listOf(path))
+        val path = values.drop(1).lastOrNull()
+        val text = if (path == null && stdin != null) stdin else cat(remote, cwd, listOf(path ?: throw IllegalArgumentException("grep: missing file operand")))
         val ignoreCase = "-i" in args
         val regex = runCatching { Regex(pattern, if (ignoreCase) setOf(RegexOption.IGNORE_CASE) else emptySet()) }
             .getOrElse { Regex(Regex.escape(pattern), if (ignoreCase) setOf(RegexOption.IGNORE_CASE) else emptySet()) }
@@ -103,6 +190,106 @@ class GitHubRemoteTerminal(
                 if ("-n" in args) (lineIndex + 1).toString() + ":" + line else line
             } else null
         }.take(MAX_LINES).joinToString("\n")
+    }
+
+    private fun printf(args: List<String>): String {
+        if (args.isEmpty()) return ""
+        val format = args.first()
+        val values = args.drop(1)
+        var valueIndex = 0
+        return buildString {
+            var index = 0
+            while (index < format.length) {
+                if (format[index] == '%' && index + 1 < format.length) {
+                    when (format[index + 1]) {
+                        's' -> {
+                            append(values.getOrNull(valueIndex).orEmpty())
+                            valueIndex++
+                            index += 2
+                        }
+                        '%' -> {
+                            append('%')
+                            index += 2
+                        }
+                        else -> {
+                            append(format[index])
+                            index++
+                        }
+                    }
+                } else {
+                    append(format[index])
+                    index++
+                }
+            }
+        }
+    }
+
+    private suspend fun sortText(remote: GitHubWorkspaceRemote, cwd: String, args: List<String>, stdin: String?): String {
+        val path = args.lastOrNull { !it.startsWith("-") }
+        val source = if (path == null && stdin != null) stdin else cat(remote, cwd, listOf(path ?: throw IllegalArgumentException("sort: missing file operand")))
+        return source.lineSequence()
+            .sortedWith(if ("-r" in args) compareByDescending<String> { it } else compareBy<String> { it })
+            .joinToString("\n")
+    }
+
+    private suspend fun uniqText(remote: GitHubWorkspaceRemote, cwd: String, args: List<String>, stdin: String?): String {
+        val path = args.lastOrNull { !it.startsWith("-") }
+        val source = if (path == null && stdin != null) stdin else cat(remote, cwd, listOf(path ?: throw IllegalArgumentException("uniq: missing file operand")))
+        val output = mutableListOf<String>()
+        source.lineSequence().forEach { line ->
+            if (output.lastOrNull() != line) output += line
+        }
+        return output.joinToString("\n")
+    }
+
+    private fun cutText(args: List<String>, input: String): String {
+        val delimiter = args.windowed(2).firstOrNull { it[0] == "-d" }?.getOrNull(1)?.firstOrNull() ?: '\t'
+        val fieldSpec = args.windowed(2).firstOrNull { it[0] == "-f" }?.getOrNull(1) ?: "1"
+        val fields = fieldSpec.split(',').mapNotNull { it.toIntOrNull() }.map { it - 1 }
+        return input.lineSequence().map { line ->
+            fields.mapNotNull { line.split(delimiter).getOrNull(it) }.joinToString(delimiter.toString())
+        }.joinToString("\n")
+    }
+
+    private fun trText(args: List<String>, input: String): String {
+        val from = args.firstOrNull().orEmpty()
+        val to = args.getOrNull(1).orEmpty()
+        if (from.isEmpty()) return input
+        val map = from.mapIndexed { index, char ->
+            char to (to.getOrNull(index) ?: to.lastOrNull() ?: char)
+        }.toMap()
+        return input.map { map[it] ?: it }.joinToString("")
+    }
+
+    private fun sedText(args: List<String>, input: String): String {
+        val expression = args.firstOrNull { it.startsWith("s/") && it.count { char -> char == '/' } >= 3 }
+            ?: throw IllegalArgumentException("sed: only simple s/from/to/[g] expressions are supported in the GitHub virtual terminal.")
+        val parts = expression.removePrefix("s/").split('/')
+        val from = parts.getOrNull(0).orEmpty()
+        val to = parts.getOrNull(1).orEmpty()
+        val global = parts.getOrNull(2).orEmpty().contains('g')
+        require(from.isNotEmpty()) { "sed: empty search pattern." }
+        return if (global) input.replace(from, to) else input.replaceFirst(from, to)
+    }
+
+    private fun environment(remote: GitHubWorkspaceRemote, cwd: String, args: List<String>): String {
+        val values = linkedMapOf(
+            "PWD" to "/workspace" + if (cwd.isBlank()) "" else "/" + cwd,
+            "GITHUB_REPOSITORY" to remote.owner + "/" + remote.repository,
+            "GITHUB_REF_NAME" to remote.branch,
+        )
+        val key = args.firstOrNull { !it.startsWith("-") }
+        return if (key != null) values[key].orEmpty() else values.entries.joinToString("\n") { it.key + "=" + it.value }
+    }
+
+    private fun which(args: List<String>): String {
+        val command = args.firstOrNull() ?: throw IllegalArgumentException("which: missing command")
+        val supported = setOf(
+            "pwd","ls","cat","head","tail","wc","grep","find","echo","printf","sort","uniq","cut","tr","sed",
+            "env","printenv","which","true","false","sleep","ps","basename","dirname","realpath","readlink",
+            "sha256sum","stat","cmp","diff","date","uname","whoami","id","git",
+        )
+        return if (command in supported) "/usr/bin/$command" else ""
     }
 
     private suspend fun find(remote: GitHubWorkspaceRemote, cwd: String, args: List<String>): String {
@@ -266,9 +453,122 @@ class GitHubRemoteTerminal(
         return result.joinToString("/").take(MAX_PATH_CHARS)
     }
 
-    private fun tokenize(commandLine: String): List<String> = commandLine.trim().split(Regex("\\s+")).filter(String::isNotBlank)
+    private fun tokenize(commandLine: String): List<String> {
+        val result = mutableListOf<String>()
+        val current = StringBuilder()
+        var single = false
+        var double = false
+        var escaped = false
+        commandLine.forEach { ch ->
+            when {
+                escaped -> {
+                    current.append(ch)
+                    escaped = false
+                }
+                ch == '\\' && !single -> escaped = true
+                ch == '\'' && !double -> single = !single
+                ch == '"' && !single -> double = !double
+                ch.isWhitespace() && !single && !double -> {
+                    if (current.isNotEmpty()) {
+                        result += current.toString()
+                        current.clear()
+                    }
+                }
+                else -> current.append(ch)
+            }
+        }
+        require(!single && !double && !escaped) { "Unterminated shell quote or escape." }
+        if (current.isNotEmpty()) result += current.toString()
+        return result
+    }
+
+    private data class ShellSegment(
+        val command: String,
+        val operator: String?,
+    )
+
+    private fun splitShell(commandLine: String): List<ShellSegment> {
+        val result = mutableListOf<ShellSegment>()
+        val current = StringBuilder()
+        var single = false
+        var double = false
+        var escaped = false
+        var pendingOperator: String? = null
+        var index = 0
+
+        fun flush() {
+            if (current.isNotEmpty()) {
+                result += ShellSegment(current.toString().trim(), pendingOperator)
+                current.clear()
+                pendingOperator = null
+            }
+        }
+
+        while (index < commandLine.length) {
+            val ch = commandLine[index]
+            when {
+                escaped -> {
+                    current.append(ch)
+                    escaped = false
+                    index++
+                }
+                ch == '\\' && !single -> {
+                    current.append(ch)
+                    escaped = true
+                    index++
+                }
+                ch == '\'' && !double -> {
+                    current.append(ch)
+                    single = !single
+                    index++
+                }
+                ch == '"' && !single -> {
+                    current.append(ch)
+                    double = !double
+                    index++
+                }
+                !single && !double && ch == '>' -> {
+                    throw IllegalArgumentException("Output redirection is not available in a GitHub-backed workspace. Use create_file or write_file for file writes.")
+                }
+                !single && !double && ch == '<' -> {
+                    throw IllegalArgumentException("Input redirection is not available in a GitHub-backed workspace.")
+                }
+                !single && !double && ch == '|' -> {
+                    flush()
+                    if (index + 1 < commandLine.length && commandLine[index + 1] == '|') {
+                        pendingOperator = "||"
+                        index += 2
+                    } else {
+                        pendingOperator = "|"
+                        index++
+                    }
+                }
+                !single && !double && ch == '&' && index + 1 < commandLine.length && commandLine[index + 1] == '&' -> {
+                    flush()
+                    pendingOperator = "&&"
+                    index += 2
+                }
+                !single && !double && ch == ';' -> {
+                    flush()
+                    pendingOperator = ";"
+                    index++
+                }
+                else -> {
+                    current.append(ch)
+                    index++
+                }
+            }
+        }
+
+        require(!single && !double && !escaped) { "Unterminated shell quote or escape." }
+        flush()
+        return result
+    }
+
+
 
     companion object {
+        private const val MAX_COMMAND_CHARS = 8 * 1024
         private const val MAX_FILE_CHARS = 256 * 1024
         private const val MAX_LINES = 200
         private const val MAX_FIND_DEPTH = 12
