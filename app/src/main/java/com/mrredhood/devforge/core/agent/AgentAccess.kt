@@ -63,6 +63,10 @@ object AgentAccessRules {
         AgentToolId.WRITE_FILE,
         AgentToolId.CREATE_FILE,
         AgentToolId.CREATE_FOLDER,
+        AgentToolId.MOVE_FILE,
+        AgentToolId.MOVE_FOLDER,
+        AgentToolId.RENAME_FILE,
+        AgentToolId.RENAME_FOLDER,
         AgentToolId.DELETE_PATH -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS)
 
         AgentToolId.READ_SHARED_MEMORY,
