@@ -2310,4 +2310,4 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Corrected the malformed quote escape in `PreviewScreen.kt`'s HTML escaping helper that caused Kotlin compilation to report `escapeScript` as unresolved.
 - [x] The fix is limited to the live preview renderer and preserves the single ▶-launched Live preview design.
 - [x] Recorded the Android CI and Android UI Tests failure cause before applying the fix.
-- [ ] Fresh Android CI and Android UI Tests validation is required for this corrected main head.
+- [x] Fresh Android CI run 478 and Android UI Tests run 482 (retry attempt 2 after a transient Android emulator SDK-image download failure) completed successfully for this corrected head.
