@@ -2229,3 +2229,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Editor-drawer long press now opens Rename, Delete, and Change file path actions, while a normal tap still opens files in the Editor or enters folders.
 
 - [x] Added an explicit pausing spinner/disabled send control in AI Chat so the composer cannot accept another send while the cancellation is draining.
+
+- [x] Fixed the AI cancellation helper compile error found by Android CI by making task-activity validation suspend-aware before calling `currentCoroutineContext()`.
