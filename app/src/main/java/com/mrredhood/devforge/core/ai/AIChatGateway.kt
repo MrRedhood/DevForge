@@ -9,6 +9,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -16,6 +17,15 @@ import org.json.JSONObject
 class AIChatGateway(
     private val attachmentAdapters: Map<AIProvider, ProviderAttachmentAdapter> = emptyMap(),
 ) {
+    private val activeConnections = java.util.concurrent.ConcurrentHashMap.newKeySet<HttpURLConnection>()
+
+    /** Immediately tears down any in-flight provider HTTP request for the active AI run. */
+    fun cancelActiveRequests() {
+        activeConnections.toList().forEach { connection ->
+            runCatching { connection.disconnect() }
+        }
+    }
+
     suspend fun send(
         model: AIModelInfo,
         apiKey: String,
@@ -94,6 +104,7 @@ class AIChatGateway(
         connection.readTimeout = 120_000
         connection.setRequestProperty("x-goog-api-key", apiKey)
         connection.setRequestProperty("Content-Type", "application/json")
+        activeConnections += connection
         val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
         try {
             connection.outputStream.use {
@@ -169,6 +180,7 @@ class AIChatGateway(
         connection.connectTimeout = 15_000
         connection.readTimeout = 120_000
         anthropicHeaders(apiKey).forEach { (name, value) -> connection.setRequestProperty(name, value) }
+        activeConnections += connection
         val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
         try {
             connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
@@ -183,6 +195,7 @@ class AIChatGateway(
             }
         } finally {
             cancellationHandle?.dispose()
+            activeConnections.remove(connection)
             connection.disconnect()
         }
     }
@@ -233,6 +246,7 @@ class AIChatGateway(
                 }
             } finally {
                 cancellationHandle?.dispose()
+                activeConnections.remove(connection)
                 connection.disconnect()
             }
         }
@@ -529,7 +543,7 @@ class AIChatGateway(
         }.trim()
     }.getOrDefault("")
 
-    private suspend fun request(url: String, body: JSONObject, headers: Map<String, String>): JSONObject = withContext(Dispatchers.IO) {
+    private suspend fun request(url: String, body: JSONObject, headers: Map<String, String>): JSONObject {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
         connection.instanceFollowRedirects = false
@@ -537,19 +551,24 @@ class AIChatGateway(
         connection.connectTimeout = 15_000
         connection.readTimeout = 120_000
         headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
+        activeConnections += connection
         val cancellationHandle = currentCoroutineContext()[Job]?.invokeOnCompletion { connection.disconnect() }
-        return@withContext try {
-            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-            val status = connection.responseCode
-            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val response = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
-            if (status !in 200..299) error(parseErrorMessage(response).ifBlank { "AI request failed (HTTP $status)." })
-            JSONObject(response)
+        return try {
+            runInterruptible(Dispatchers.IO) {
+                connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                val status = connection.responseCode
+                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                val response = stream?.use { it.readBounded(MAX_RESPONSE_BYTES) }?.toString(Charsets.UTF_8).orEmpty()
+                if (status !in 200..299) error(parseErrorMessage(response).ifBlank { "AI request failed (HTTP $status)." })
+                JSONObject(response)
+            }
         } finally {
             cancellationHandle?.dispose()
+            activeConnections.remove(connection)
             connection.disconnect()
         }
     }
+
 
     private companion object {
         const val ANTHROPIC_VERSION = "2023-06-01"
