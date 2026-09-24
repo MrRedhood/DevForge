@@ -2182,3 +2182,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Coalesced automatic local-workspace GitHub synchronization for rapid AI file/folder mutations. Each mutation now returns without waiting for a network push; a short debounce performs one synchronization after the burst.
 - [x] Updated the AI execution instructions to encourage emitting deterministic multi-file/multi-folder operations in one model response so DevForge can execute them sequentially without unnecessary model round trips.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
+
+- [x] Made core SAF file creation/write operations interruptible with `runInterruptible(Dispatchers.IO)`, so Pause AI can interrupt a blocking document-provider call instead of waiting for the operation to finish.
