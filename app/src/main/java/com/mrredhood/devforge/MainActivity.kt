@@ -1156,6 +1156,11 @@ private fun EditorWorkspaceMenu(
     var createName by rememberSaveable { mutableStateOf("") }
     var openingRepository by remember { mutableStateOf<String?>(null) }
 
+    var drawerRenameTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
+    var drawerRenameName by rememberSaveable { mutableStateOf("") }
+    var drawerDeleteTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
+    var drawerMoveTarget by remember { mutableStateOf<WorkspaceEntry?>(null) }
+
     LaunchedEffect(Unit) {
         if (github.state.accountName == null && !github.state.isLoading) {
             github.refreshRepositories()
@@ -1253,19 +1258,27 @@ private fun EditorWorkspaceMenu(
                         }
                         if (workspace.breadcrumbs.size > 1) item { Breadcrumbs(workspace) }
                         items(workspace.entries, key = { it.uri.toString() }) { entry ->
-                            TextButton(
-                                onClick = {
-                                    if (entry.isDirectory) {
-                                        workspace.openDirectory(entry)
-                                    } else {
-                                        editor.open(entry)
-                                        onClose()
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 7.dp),
-                            ) {
-                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            var menuExpanded by remember(entry.uri) { mutableStateOf(false) }
+                            Box(Modifier.fillMaxWidth()) {
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .combinedClickable(
+                                            onClick = {
+                                                if (entry.isDirectory) {
+                                                    workspace.openDirectory(entry)
+                                                } else {
+                                                    editor.open(entry)
+                                                    onClose()
+                                                }
+                                            },
+                                            onLongClick = {
+                                                if (entry.name != ".git") menuExpanded = true
+                                            },
+                                        )
+                                        .padding(horizontal = 7.dp, vertical = 9.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
                                     Spacer(Modifier.width(8.dp))
                                     if (entry.isDirectory) {
                                         Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(21.dp))
@@ -1277,6 +1290,36 @@ private fun EditorWorkspaceMenu(
                                     if (entry.isDirectory) {
                                         Icon(Icons.Default.ChevronRight, contentDescription = "Open folder", modifier = Modifier.size(18.dp))
                                     }
+                                }
+                                DropdownMenu(
+                                    expanded = menuExpanded,
+                                    onDismissRequest = { menuExpanded = false },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Rename") },
+                                        enabled = entry.name != ".git",
+                                        onClick = {
+                                            menuExpanded = false
+                                            drawerRenameTarget = entry
+                                            drawerRenameName = entry.name
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Delete") },
+                                        enabled = entry.name != ".git",
+                                        onClick = {
+                                            menuExpanded = false
+                                            drawerDeleteTarget = entry
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Change file path") },
+                                        enabled = entry.name != ".git",
+                                        onClick = {
+                                            menuExpanded = false
+                                            drawerMoveTarget = entry
+                                        },
+                                    )
                                 }
                             }
                         }
@@ -1464,6 +1507,61 @@ private fun EditorWorkspaceMenu(
                 }
             }
         }
+    }
+
+    drawerMoveTarget?.let { entry ->
+        ChangePathDialog(
+            entry = entry,
+            workspace = workspace,
+            onDismiss = { drawerMoveTarget = null },
+            onChoose = { destination ->
+                workspace.moveEntry(entry, destination)
+                drawerMoveTarget = null
+            },
+        )
+    }
+
+    drawerRenameTarget?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { drawerRenameTarget = null },
+            title = { Text("Rename") },
+            text = {
+                OutlinedTextField(
+                    value = drawerRenameName,
+                    onValueChange = { drawerRenameName = it.take(255) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("New name") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        workspace.renameEntry(entry, drawerRenameName)
+                        drawerRenameTarget = null
+                    },
+                    enabled = drawerRenameName.isNotBlank(),
+                ) { Text("Rename") }
+            },
+            dismissButton = { TextButton(onClick = { drawerRenameTarget = null }) { Text("Cancel") } },
+        )
+    }
+
+    drawerDeleteTarget?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { drawerDeleteTarget = null },
+            title = { Text("Delete " + entry.name + "?") },
+            text = { Text("This removes the item from the workspace.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        workspace.deleteEntry(entry)
+                        drawerDeleteTarget = null
+                    },
+                ) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { drawerDeleteTarget = null }) { Text("Cancel") } },
+        )
     }
 
     if (createKind == "choose") {
