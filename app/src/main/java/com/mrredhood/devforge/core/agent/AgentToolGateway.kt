@@ -13,6 +13,8 @@ import com.mrredhood.devforge.core.workspace.WorkspaceChangeBus
 import java.security.MessageDigest
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
@@ -52,7 +54,34 @@ class AgentToolGateway(
     private val permissionMode: PermissionMode = PermissionMode.SOME,
     private val contextLedger: WorkspaceContextLedgerRepository,
 ) {
+    private val cancelledTasks = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val activeTaskJobs = java.util.concurrent.ConcurrentHashMap<String, Job>()
+
+    /** Cancels the active execution job for a task and prevents any later tool from starting. */
+    fun cancelTask(taskId: String) {
+        if (taskId.isBlank()) return
+        cancelledTasks += taskId
+        activeTaskJobs[taskId]?.cancel(CancellationException("AI task paused by user"))
+    }
+
+    private fun ensureTaskActive(taskId: String) {
+        if (cancelledTasks.contains(taskId)) {
+            throw CancellationException("AI task paused by user")
+        }
+        currentCoroutineContext().ensureActive()
+    }
+
     suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult {
+        ensureTaskActive(request.taskId)
+        activeTaskJobs[request.taskId] = currentCoroutineContext()[Job] ?: return AgentToolResult.Failure("AI tool execution is not attached to a cancellable task.")
+        try {
+            return executeInternal(context, request)
+        } finally {
+            activeTaskJobs.remove(request.taskId, currentCoroutineContext()[Job])
+        }
+    }
+
+    private suspend fun executeInternal(context: AgentToolContext, request: AgentToolRequest): AgentToolResult {
         val tool = registry.get(request.toolId) ?: return AgentToolResult.Failure("Tool '" + request.toolId.wireName + "' is not registered.")
         if (DevForgeToolCatalog.isUserTool(request.toolId) && !toolSettings.isEnabled(request.toolId)) {
             return AgentToolResult.Failure("Tool '" + request.toolId.wireName + "' is disabled. Enable it in More → AI Tools.")
@@ -105,6 +134,20 @@ class AgentToolGateway(
     }
 
     suspend fun executeApproved(
+        context: AgentToolContext,
+        request: AgentToolRequest,
+        approvalId: String,
+    ): AgentToolResult {
+        ensureTaskActive(request.taskId)
+        activeTaskJobs[request.taskId] = currentCoroutineContext()[Job] ?: return AgentToolResult.Failure("AI tool execution is not attached to a cancellable task.")
+        try {
+            return executeApprovedInternal(context, request, approvalId)
+        } finally {
+            activeTaskJobs.remove(request.taskId, currentCoroutineContext()[Job])
+        }
+    }
+
+    private suspend fun executeApprovedInternal(
         context: AgentToolContext,
         request: AgentToolRequest,
         approvalId: String,
@@ -178,6 +221,7 @@ class AgentToolGateway(
                 return AgentToolResult.Failure("The file changed while the action was waiting for its mutation lease. The patch must be regenerated.")
             }
         }
+        ensureTaskActive(context.taskId)
         val result = try {
             try {
                 tool.execute(context, request)
@@ -192,6 +236,7 @@ class AgentToolGateway(
         } finally {
             acquired.forEach { runCatching { coordination.releaseFileLease(context.workspaceId, context.taskId, it) } }
         }
+        ensureTaskActive(context.taskId)
         val receipt = buildReceipt(context, request, tool.definition, result, approvalId)
         val finalResult = when (result) {
             is AgentToolResult.Success -> result.copy(receiptJson = receipt)
