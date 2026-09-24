@@ -2193,3 +2193,11 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Paused, rejected, failed, disabled-tool, and safety-limit exits do not trigger the completion sync, preventing incomplete AI work from being pushed as though the task finished.
 - [x] Existing workspace refresh events remain immediate, so the Editor can show each local mutation while GitHub sync waits until task completion.
 - [ ] Latest Android CI and Android UI Tests must be verified on the final main commit before this change set is considered validated.
+
+### 2026-09-24 — Final AI-to-GitHub batching semantics
+- [x] AI workspace mutations for local Git repositories are no longer synchronized after each individual file/folder operation.
+- [x] The active AI task completes its full sequence of file/folder mutations first, then the orchestrator performs one GitHub synchronization on normal task completion.
+- [x] The 750 ms mutation-sync debounce is no longer the synchronization mechanism; the task boundary is authoritative.
+- [x] GitHub-backed workspaces retain their existing direct remote-commit semantics so the AI can immediately read newly committed remote state during the same task.
+- [x] Added task-aware end-of-run synchronization wiring while preserving immediate workspace refresh events.
+- [ ] Fresh Android CI and Android UI Tests results for the final main head still require verification.
