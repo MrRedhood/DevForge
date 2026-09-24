@@ -10,6 +10,7 @@ import com.mrredhood.devforge.core.workspace.WorkspaceContextLedgerRepository
 data class AgentToolRuntime(
     val registry: AgentToolRegistry,
     val gateway: AgentToolGateway,
+    val workspaceTools: WorkspaceAgentToolProvider,
 )
 
 /** Composition root for the provider-neutral agent runtime. */
@@ -23,12 +24,13 @@ object AgentRuntime {
         val durableState = DurableStateRepository(database)
         val coordination = AgentCoordinationService(database)
         val registry = AgentToolRegistry()
-        WorkspaceAgentToolProvider(
+        val workspaceTools = WorkspaceAgentToolProvider(
             appContext,
             appContext.contentResolver,
             database.workspaceDao(),
             com.mrredhood.devforge.core.git.GitRemoteTransportService(appContext),
-        ).registerAll(registry)
+        )
+        workspaceTools.registerAll(registry)
         AgentWebToolProvider().registerAll(registry)
         AgentUtilityToolProvider().registerAll(registry)
         WorkspaceContextToolProvider(appContext).registerAll(registry)
@@ -46,7 +48,7 @@ object AgentRuntime {
             permissionMode = permissionMode,
             contextLedger = WorkspaceContextLedgerRepository(database),
         )
-        return AgentToolRuntime(registry, gateway)
+        return AgentToolRuntime(registry, gateway, workspaceTools)
     }
 
     fun create(
