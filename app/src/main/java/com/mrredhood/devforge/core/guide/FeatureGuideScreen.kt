@@ -598,7 +598,7 @@ private val guideCategories = listOf(
                 "More → Terminal.",
                 listOf("> = command","output = command result","AI command = policy-gated terminal tool")),
             t("AI terminal commands","Allow AI to execute a bounded workspace command and return its result to Chat.",
-                listOf("Open More → AI Tools.","Enable Run terminal command.","AI uses run_command with a Linux shell command plus optional workingDirectory and timeoutMs.","Normal shell operators are supported for local workspaces.","Review the approval request before execution when policy requires it.),
+                listOf("Open More → AI Tools.","Enable Run terminal command.","AI uses run_command with a Linux shell command plus optional workingDirectory and timeoutMs.","Normal shell operators are supported for local workspaces.","Review the approval request before execution when policy requires it."),
                 "More → AI Tools; AI Chat and AI.",
                 listOf("R2 = terminal actions are approval-gated by default","run_command = command + bounded result")),
             t("AI Git log","Let AI inspect recent repository commits without dumping the repository into context.",

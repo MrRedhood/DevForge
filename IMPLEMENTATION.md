@@ -2173,6 +2173,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Hardened workspace mutation path canonicalization so a real file or folder named the same as the workspace is not collapsed into the workspace root.
 - [x] Added creation-path recovery for create_file/create_folder using optional name/fileName/folderName plus directory/parent/folder fields, with explicit rejection of empty/root-only targets.
 - [x] Updated More → ⓘ Help & guide and AI tool settings descriptions for Linux shell behavior.
+- [x] Revalidated the Help & guide Kotlin list syntax after the Linux-shell documentation update.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this change on the final main commit.
 
 ### 2026-09-24 — Resilient AI tool protocol and multi-call execution
