@@ -56,6 +56,10 @@ class WorkspaceAgentToolProvider(
         .register(WriteFileTool())
         .register(CreateFileTool())
         .register(CreateFolderTool())
+        .register(MoveFileTool())
+        .register(MoveFolderTool())
+        .register(RenameFileTool())
+        .register(RenameFolderTool())
         .register(DeletePathTool())
 
     suspend fun syncWorkspaceAfterTask(workspaceId: String, taskId: String): String? {
@@ -205,6 +209,88 @@ class WorkspaceAgentToolProvider(
                     result.entries.take(limit).map { AgentWorkspaceEntry(it.name, it.type == "dir", it.sizeBytes) }
                 is com.mrredhood.devforge.core.github.GitHubContentsResult.Failure -> error(result.message)
             }
+        }
+
+        protected suspend fun remoteRename(
+            context: AgentToolContext,
+            oldPath: String,
+            newName: String,
+            directory: Boolean,
+        ): String {
+            val remote = remoteWorkspace(context) ?: error("No GitHub-backed workspace is active.")
+            val normalizedOld = oldPath.trim('/')
+            require(normalizedOld.isNotBlank() && normalizedOld != ".git" && !normalizedOld.startsWith(".git/")) {
+                "The .git directory is protected."
+            }
+            val cleanName = newName.trim()
+            require(cleanName.isNotBlank() && cleanName != "." && cleanName != ".." && '/' !in cleanName && '\\' !in cleanName) {
+                "The new name is invalid."
+            }
+            val parent = normalizedOld.substringBeforeLast('/', "")
+            val newPath = joinRemotePath(parent, cleanName)
+            require(newPath != normalizedOld) { "The item already has this name." }
+            require(remoteList(context, parent, 100).none { it.name == cleanName }) {
+                "A workspace item named '" + cleanName + "' already exists."
+            }
+
+            val files = if (directory) remoteRecursiveFiles(remote, normalizedOld) else listOf(normalizedOld)
+            val changes = mutableListOf<GitHubTreeChange>()
+            files.forEach { oldFile ->
+                val content = when (val result = githubGateway.readFile(remote.owner, remote.repository, oldFile, remote.branch)) {
+                    is com.mrredhood.devforge.core.github.GitHubFileResult.Success -> result.content
+                    is com.mrredhood.devforge.core.github.GitHubFileResult.Failure -> error(result.message)
+                }
+                val suffix = oldFile.removePrefix(normalizedOld).trimStart('/')
+                val target = if (directory) joinRemotePath(newPath, suffix) else newPath
+                changes += GitHubTreeChange(target, content = content)
+                changes += GitHubTreeChange(oldFile, delete = true)
+            }
+            if (changes.isEmpty() && directory) {
+                changes += GitHubTreeChange(joinRemotePath(newPath, ".gitkeep"), content = "")
+            }
+            commitRemoteChanges(remote, changes, "rename " + normalizedOld + " to " + newPath)
+            return "Renamed " + normalizedOld + " to " + newPath + " on GitHub."
+        }
+
+        protected suspend fun remoteMove(
+            context: AgentToolContext,
+            oldPath: String,
+            destinationDirectory: String,
+            directory: Boolean,
+        ): String {
+            val remote = remoteWorkspace(context) ?: error("No GitHub-backed workspace is active.")
+            val normalizedOld = oldPath.trim('/')
+            val destination = destinationDirectory.trim('/')
+            require(normalizedOld.isNotBlank() && normalizedOld != ".git" && !normalizedOld.startsWith(".git/")) {
+                "The .git directory is protected."
+            }
+            require(destination != normalizedOld && !destination.startsWith(normalizedOld + "/")) {
+                "A folder cannot be moved into itself or one of its children."
+            }
+            val name = normalizedOld.substringAfterLast('/')
+            val newPath = joinRemotePath(destination, name)
+            require(newPath != normalizedOld) { "The item is already in this folder." }
+            require(remoteList(context, destination, 100).none { it.name == name }) {
+                "A workspace item named '" + name + "' already exists in the destination."
+            }
+
+            val files = if (directory) remoteRecursiveFiles(remote, normalizedOld) else listOf(normalizedOld)
+            val changes = mutableListOf<GitHubTreeChange>()
+            files.forEach { oldFile ->
+                val content = when (val result = githubGateway.readFile(remote.owner, remote.repository, oldFile, remote.branch)) {
+                    is com.mrredhood.devforge.core.github.GitHubFileResult.Success -> result.content
+                    is com.mrredhood.devforge.core.github.GitHubFileResult.Failure -> error(result.message)
+                }
+                val suffix = oldFile.removePrefix(normalizedOld).trimStart('/')
+                val target = if (directory) joinRemotePath(newPath, suffix) else newPath
+                changes += GitHubTreeChange(target, content = content)
+                changes += GitHubTreeChange(oldFile, delete = true)
+            }
+            if (changes.isEmpty() && directory) {
+                changes += GitHubTreeChange(joinRemotePath(newPath, ".gitkeep"), content = "")
+            }
+            commitRemoteChanges(remote, changes, "move " + normalizedOld + " to " + newPath)
+            return "Moved " + normalizedOld + " to " + newPath + " on GitHub."
         }
 
         protected suspend fun remoteRecursiveFiles(remote: GitHubWorkspaceRemote, prefix: String): List<String> {
@@ -551,6 +637,174 @@ class WorkspaceAgentToolProvider(
             )
         } catch (cancelled: CancellationException) { throw cancelled } catch (error: Throwable) {
             AgentToolResult.Failure(error.message ?: "Unable to create folder.")
+        }
+    }
+
+    private abstract inner class MoveRenameTool(
+        private val toolId: AgentToolId,
+        private val descriptionText: String,
+    ) : WorkspaceTool() {
+        override val definition = AgentToolDefinition(
+            id = toolId,
+            description = descriptionText,
+            capability = Capability.EDIT_FILES,
+            risk = RiskLevel.R2,
+            sideEffecting = true,
+        )
+
+        protected fun args(request: AgentToolRequest): JSONObject = JSONObject(request.argumentsJson)
+
+        protected suspend fun existingIsDirectory(context: AgentToolContext, path: String): Boolean =
+            if (remoteWorkspace(context) != null) {
+                val parent = path.substringBeforeLast('/', "")
+                val name = path.substringAfterLast('/')
+                remoteList(context, parent, 100).firstOrNull { it.name == name }?.isDirectory
+                    ?: error("Workspace path does not exist: " + path)
+            } else {
+                access.isDirectory(root(context), path)
+            }
+
+        protected fun validateNewName(name: String): String {
+            val clean = name.trim()
+            require(clean.isNotBlank() && clean != "." && clean != "..") { "A new name is required." }
+            require('/' !in clean && '\\' !in clean && '\u0000' !in clean && clean.length <= 255) {
+                "The new name is invalid."
+            }
+            return clean
+        }
+    }
+
+    private inner class MoveFileTool : MoveRenameTool(
+        AgentToolId.MOVE_FILE,
+        "Move one workspace file to another existing folder. The file name and extension are preserved.",
+    ) {
+        override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> {
+            val a = args(request)
+            return listOf(
+                scopedPath(context, a.optString("path").trim()),
+                scopedPath(context, a.optString("destination").trim(), allowEmpty = true),
+            )
+        }
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val a = args(request)
+            val path = scopedPath(context, a.optString("path").trim())
+            val destination = scopedPath(context, a.optString("destination").trim(), allowEmpty = true)
+            require(!existingIsDirectory(context, path)) { "move_file can only move files." }
+            val summary = if (remoteWorkspace(context) != null) {
+                remoteMove(context, path, destination, directory = false)
+            } else {
+                access.move(root(context), path, destination)
+                syncGitHub(context, "move file " + path + " to " + destination)
+                "Moved " + path + " to " + destination
+            }
+            AgentToolResult.Success(
+                summary = summary.take(500),
+                output = JSONObject().put("path", path).put("destination", destination).toString(),
+                affectedPaths = listOf(path, destination).filter(String::isNotBlank),
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to move file.")
+        }
+    }
+
+    private inner class MoveFolderTool : MoveRenameTool(
+        AgentToolId.MOVE_FOLDER,
+        "Move one workspace folder and all of its contents to another existing folder.",
+    ) {
+        override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> {
+            val a = args(request)
+            return listOf(
+                scopedPath(context, a.optString("path").trim()),
+                scopedPath(context, a.optString("destination").trim(), allowEmpty = true),
+            )
+        }
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val a = args(request)
+            val path = scopedPath(context, a.optString("path").trim())
+            val destination = scopedPath(context, a.optString("destination").trim(), allowEmpty = true)
+            require(existingIsDirectory(context, path)) { "move_folders can only move folders." }
+            val summary = if (remoteWorkspace(context) != null) {
+                remoteMove(context, path, destination, directory = true)
+            } else {
+                access.move(root(context), path, destination)
+                syncGitHub(context, "move folder " + path + " to " + destination)
+                "Moved folder " + path + " to " + destination
+            }
+            AgentToolResult.Success(
+                summary = summary.take(500),
+                output = JSONObject().put("path", path).put("destination", destination).toString(),
+                affectedPaths = listOf(path, destination).filter(String::isNotBlank),
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to move folder.")
+        }
+    }
+
+    private inner class RenameFileTool : MoveRenameTool(
+        AgentToolId.RENAME_FILE,
+        "Rename one workspace file. The new name may change the file extension when requested.",
+    ) {
+        override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
+            listOf(scopedPath(context, args(request).optString("path").trim()))
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val a = args(request)
+            val path = scopedPath(context, a.optString("path").trim())
+            val newName = validateNewName(a.optString("new_name"))
+            require(!existingIsDirectory(context, path)) { "rename_file can only rename files." }
+            val summary = if (remoteWorkspace(context) != null) {
+                remoteRename(context, path, newName, directory = false)
+            } else {
+                access.rename(root(context), path, newName)
+                syncGitHub(context, "rename file " + path + " to " + newName)
+                "Renamed " + path + " to " + newName
+            }
+            AgentToolResult.Success(
+                summary = summary.take(500),
+                output = JSONObject().put("path", path).put("newName", newName).toString(),
+                affectedPaths = listOf(path),
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to rename file.")
+        }
+    }
+
+    private inner class RenameFolderTool : MoveRenameTool(
+        AgentToolId.RENAME_FOLDER,
+        "Rename one workspace folder while preserving its contents.",
+    ) {
+        override suspend fun mutationPaths(context: AgentToolContext, request: AgentToolRequest): List<String> =
+            listOf(scopedPath(context, args(request).optString("path").trim()))
+
+        override suspend fun execute(context: AgentToolContext, request: AgentToolRequest): AgentToolResult = try {
+            val a = args(request)
+            val path = scopedPath(context, a.optString("path").trim())
+            val newName = validateNewName(a.optString("new_name"))
+            require(existingIsDirectory(context, path)) { "rename_folder can only rename folders." }
+            val summary = if (remoteWorkspace(context) != null) {
+                remoteRename(context, path, newName, directory = true)
+            } else {
+                access.rename(root(context), path, newName)
+                syncGitHub(context, "rename folder " + path + " to " + newName)
+                "Renamed folder " + path + " to " + newName
+            }
+            AgentToolResult.Success(
+                summary = summary.take(500),
+                output = JSONObject().put("path", path).put("newName", newName).toString(),
+                affectedPaths = listOf(path),
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            AgentToolResult.Failure(error.message ?: "Unable to rename folder.")
         }
     }
 
@@ -1110,6 +1364,51 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         require(!isDirectory(exactTarget)) { "Cannot overwrite a directory: $normalized" }
         resolver.openOutputStream(exactTarget, "wt")?.use { output -> output.write(bytes) }
             ?: throw IOException("Unable to open $normalized for writing.")
+    }
+
+    suspend fun isDirectory(root: Uri, path: String): Boolean = withContext(Dispatchers.IO) {
+        isDirectory(resolve(root, WorkspacePathScope.normalize(path)))
+    }
+
+    suspend fun rename(root: Uri, path: String, newName: String): Uri = runInterruptible(Dispatchers.IO) {
+        val normalized = WorkspacePathScope.normalize(path)
+        require(normalized != ".git" && !normalized.startsWith(".git/")) {
+            "The .git directory is protected."
+        }
+        val cleanName = newName.trim()
+        require(cleanName.isNotBlank() && cleanName != "." && cleanName != "..") {
+            "A new name is required."
+        }
+        require('/' !in cleanName && '\\' !in cleanName && '\u0000' !in cleanName && cleanName.length <= 255) {
+            "The new name is invalid."
+        }
+        val target = resolve(root, normalized)
+        require(target != root) { "The workspace root cannot be renamed." }
+        DocumentsContract.renameDocument(resolver, target, cleanName)
+            ?: throw IOException("Unable to rename " + normalized + " to " + cleanName)
+    }
+
+    suspend fun move(root: Uri, path: String, destinationDirectory: String): Uri = runInterruptible(Dispatchers.IO) {
+        val normalized = WorkspacePathScope.normalize(path)
+        val destination = WorkspacePathScope.normalize(destinationDirectory, allowEmpty = true)
+        require(normalized != ".git" && !normalized.startsWith(".git/")) {
+            "The .git directory is protected."
+        }
+        require(destination != normalized && !destination.startsWith(normalized + "/")) {
+            "A folder cannot be moved into itself or one of its children."
+        }
+        val target = resolve(root, normalized)
+        require(target != root) { "The workspace root cannot be moved." }
+        val destinationUri = resolve(root, destination)
+        require(isDirectory(destinationUri)) { "Destination path is not a folder: " + destination }
+        val sourceParentPath = normalized.substringBeforeLast('/', "")
+        val sourceParentUri = resolve(root, sourceParentPath)
+        DocumentsContract.moveDocument(
+            resolver,
+            target,
+            documentParentUri(sourceParentUri),
+            documentParentUri(destinationUri),
+        ) ?: throw IOException("Unable to move " + normalized + " to " + destination)
     }
 
     suspend fun resolveDirectory(root: Uri, path: String): Uri = withContext(Dispatchers.IO) {
