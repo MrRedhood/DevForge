@@ -30,6 +30,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -1030,7 +1031,7 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         bytes.toString(Charsets.UTF_8)
     }
 
-    suspend fun createText(root: Uri, path: String, content: String) = withContext(Dispatchers.IO) {
+    suspend fun createText(root: Uri, path: String, content: String) = runInterruptible(Dispatchers.IO) {
         val normalized = WorkspacePathScope.normalize(path)
         val bytes = content.toByteArray(Charsets.UTF_8)
         require(bytes.size <= MAX_WRITE_BYTES) { "Agent file writes are limited to 128 KiB." }
@@ -1050,7 +1051,7 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
             ?: throw IOException("Unable to write $normalized")
     }
 
-    suspend fun createDirectory(root: Uri, path: String) = withContext(Dispatchers.IO) {
+    suspend fun createDirectory(root: Uri, path: String) = runInterruptible(Dispatchers.IO) {
         val normalized = WorkspacePathScope.normalize(path)
         val parts = normalized.split('/')
         val name = parts.last()
@@ -1092,7 +1093,7 @@ private class WorkspaceAgentFileAccess(private val resolver: ContentResolver) {
         }
     }
 
-    suspend fun writeText(root: Uri, path: String, content: String) = withContext(Dispatchers.IO) {
+    suspend fun writeText(root: Uri, path: String, content: String) = runInterruptible(Dispatchers.IO) {
         val normalized = WorkspacePathScope.normalize(path)
         val bytes = content.toByteArray(Charsets.UTF_8)
         require(bytes.size <= MAX_WRITE_BYTES) { "Agent file writes are limited to 128 KiB." }
