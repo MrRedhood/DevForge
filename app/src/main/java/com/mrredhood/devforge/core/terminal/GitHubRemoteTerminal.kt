@@ -169,7 +169,7 @@ class GitHubRemoteTerminal(
         val lines = text.count { it == '\n' }
         val words = text.split(Regex("\\s+")).count { it.isNotBlank() }
         val bytes = text.toByteArray(Charsets.UTF_8).size
-        return lines.toString() + " " + words + " " + bytes + " " + resolvePath(cwd, path)
+        return lines.toString() + " " + words + " " + bytes + " " + resolvePath(cwd, path.orEmpty())
     }
 
     private suspend fun grep(

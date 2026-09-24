@@ -2172,6 +2172,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Made GitHub Actions owner/repository/run selection infer from the active GitHub-backed workspace when AI does not provide those arguments, eliminating the generic 'Failed requirement.' failures shown in Chat.
 - [x] Made workflow-log retrieval automatically select the latest relevant run when runId is omitted and return run/job status metadata together with current job logs, allowing AI to inspect live output and decide subsequent actions.
 - [x] Updated AI tool descriptions and More → ⓘ Help & guide to document automatic repository/run inference and live-log diagnostics.
+- [x] Fixed the GitHub virtual terminal `wc` stdin path formatting nullability caught by Android CI.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this change on the final main commit.
 
 ### 2026-09-24 — AI Linux shell and workspace creation reliability
