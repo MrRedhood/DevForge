@@ -659,17 +659,27 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                 }
                 Spacer(Modifier.weight(1f))
                 IconButton(
-                    onClick = if (viewModel.isSending) viewModel::stopGeneration else viewModel::submit,
-                    enabled = if (viewModel.isSending) {
-                        true
-                    } else {
-                        viewModel.input.isNotBlank() || viewModel.attachments.isNotEmpty()
+                    onClick = when {
+                        viewModel.isSending -> viewModel::stopGeneration
+                        viewModel.isPausing -> ({})
+                        else -> viewModel::submit
+                    },
+                    enabled = when {
+                        viewModel.isSending -> true
+                        viewModel.isPausing -> false
+                        else -> viewModel.input.isNotBlank() || viewModel.attachments.isNotEmpty()
                     },
                 ) {
-                    if (viewModel.isSending) {
-                        Icon(Icons.Default.Pause, contentDescription = "Pause AI")
-                    } else {
-                        Icon(Icons.Default.Send, "Send")
+                    when {
+                        viewModel.isPausing -> {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        }
+                        viewModel.isSending -> {
+                            Icon(Icons.Default.Pause, contentDescription = "Pause AI")
+                        }
+                        else -> {
+                            Icon(Icons.Default.Send, "Send")
+                        }
                     }
                 }
             }
