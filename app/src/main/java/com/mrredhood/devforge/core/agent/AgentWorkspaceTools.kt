@@ -58,6 +58,39 @@ class WorkspaceAgentToolProvider(
         .register(CreateFolderTool())
         .register(DeletePathTool())
 
+    suspend fun syncWorkspaceAfterTask(workspaceId: String, taskId: String): String? {
+        val workspace = workspaceDao.findById(workspaceId) ?: return null
+        val remote = githubStore.get(workspace.id)
+        if (remote != null) {
+            // GitHub-backed workspace mutations retain direct remote-commit semantics
+            // so subsequent AI reads observe the latest committed remote state.
+            return "GitHub-backed workspace already synchronized by the mutation tool."
+        }
+
+        val rootUri = Uri.parse(workspace.treeUri)
+        return when (val detected = gitRepositoryService.detect(rootUri)) {
+            is GitDetectionState.Detected -> {
+                val validation = gitRemoteService.validateConfigured(detected.repository.remoteUrl)
+                if (validation.owner == null || validation.repository == null) {
+                    null
+                } else {
+                    when (val result = gitSyncMutex.withLock {
+                        gitRemoteService.autoSyncChanges(
+                            detected.repository,
+                            "DevForge AI task: synchronize completed workspace changes",
+                        )
+                    }) {
+                        is GitRemoteResult.Success -> result.message
+                        is GitRemoteResult.Failure ->
+                            "Local AI changes remain saved. GitHub synchronization failed: " + result.message
+                    }
+                }
+            }
+            else -> null
+        }
+    }
+
+
     private abstract inner class WorkspaceTool : AgentTool {
         protected suspend fun root(context: AgentToolContext): Uri {
             val workspace = workspaceDao.findById(context.workspaceId)
@@ -126,38 +159,6 @@ class WorkspaceAgentToolProvider(
                 access.ensureGitKeepIfEmpty(rootUri, folderPath)
             }
             return "GitHub synchronization deferred until the AI task finishes."
-        }
-
-        suspend fun syncWorkspaceAfterTask(workspaceId: String, taskId: String): String? {
-            val workspace = workspaceDao.findById(workspaceId) ?: return null
-            val remote = githubStore.get(workspace.id)
-            if (remote != null) {
-                // GitHub-backed workspace mutations retain direct remote-commit semantics
-                // so subsequent AI reads observe the latest committed remote state.
-                return "GitHub-backed workspace already synchronized by the mutation tool."
-            }
-
-            val rootUri = Uri.parse(workspace.treeUri)
-            return when (val detected = gitRepositoryService.detect(rootUri)) {
-                is GitDetectionState.Detected -> {
-                    val validation = gitRemoteService.validateConfigured(detected.repository.remoteUrl)
-                    if (validation.owner == null || validation.repository == null) {
-                        null
-                    } else {
-                        when (val result = gitSyncMutex.withLock {
-                            gitRemoteService.autoSyncChanges(
-                                detected.repository,
-                                "DevForge AI task: synchronize completed workspace changes",
-                            )
-                        }) {
-                            is GitRemoteResult.Success -> result.message
-                            is GitRemoteResult.Failure ->
-                                "Local AI changes remain saved. GitHub synchronization failed: " + result.message
-                        }
-                    }
-                }
-                else -> null
-            }
         }
 
         protected suspend fun remoteWorkspace(context: AgentToolContext): GitHubWorkspaceRemote? {
