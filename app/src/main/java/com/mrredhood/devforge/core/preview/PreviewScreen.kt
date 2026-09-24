@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -73,6 +74,7 @@ enum class PreviewMode {
     WEB,
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PreviewScreen(
     mode: PreviewMode,
@@ -258,7 +260,7 @@ private fun PreviewWebSurface(
                     webChromeClient = object : WebChromeClient() {
                         override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
                             onRuntimeMessage(
-                                consoleMessage.messageLevel().name + ": "
+                                consoleMessage.messageLevel().name + ": " +
                                     consoleMessage.message() +
                                     " @" + consoleMessage.lineNumber(),
                             )
