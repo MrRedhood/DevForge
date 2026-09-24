@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.unit.dp
 import com.mrredhood.devforge.core.build.BuildConfiguration
 import com.mrredhood.devforge.core.build.BuildState
 import com.mrredhood.devforge.core.build.BuildTarget
@@ -257,7 +258,7 @@ private fun PreviewWebSurface(
                     webChromeClient = object : WebChromeClient() {
                         override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
                             onRuntimeMessage(
-                                consoleMessage.messageLevel.name + ": " +
+                                consoleMessage.messageLevel().name + ": "
                                     consoleMessage.message() +
                                     " @" + consoleMessage.lineNumber(),
                             )
@@ -506,8 +507,8 @@ private object PreviewRuntimeLogReader {
                         it.contains("AndroidRuntime") ||
                         it.contains("FATAL EXCEPTION")
                 }
-                .takeLast(160)
                 .toList()
+                .takeLast(160)
         }.getOrDefault(emptyList())
     }
 }
@@ -517,7 +518,8 @@ private object PreviewDocumentRenderer {
         val extension = name.substringAfterLast('.', "").lowercase()
         return when (extension) {
             "html", "htm" -> ensureHtml(source)
-            "js", "mjs", "cjs", "ts", "tsx" -> javaScriptPreview(source)
+            "js", "mjs", "cjs" -> javaScriptPreview(source)
+
             "css", "scss", "sass", "less" -> cssPreview(source)
             "md", "markdown" -> markdown(source)
             else -> sourceDocument(name, source)
@@ -525,9 +527,9 @@ private object PreviewDocumentRenderer {
     }
 
     private fun javaScriptPreview(source: String): String =
-        "<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">" +
+        "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>" +
             "<style>body{margin:0;padding:16px;background:#0b0d12;color:#e5e7eb;font-family:monospace}pre{white-space:pre-wrap}</style>" +
-            "</head><body><h3 style="font-family:sans-serif">JavaScript / TypeScript preview</h3><pre id="out"></pre><script>" +
+            "</head><body><h3 style='font-family:sans-serif'>JavaScript preview</h3><pre id='out'></pre><script>" +
             "const out=document.getElementById('out');" +
             "const oldLog=console.log;console.log=(...a)=>{oldLog(...a);out.textContent+=a.map(String).join(' ')+'\\n';};" +
             "window.onerror=(m,s,l,c)=>{out.textContent+='ERROR: '+m+' @'+l+':'+c+'\\n';};" +
@@ -535,9 +537,9 @@ private object PreviewDocumentRenderer {
             "</script></body></html>"
 
     private fun cssPreview(source: String): String =
-        "<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>" +
+        "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><style>" +
             source +
-            "</style></head><body><main style="padding:20px;font-family:sans-serif">" +
+            "</style></head><body><main style='padding:20px;font-family:sans-serif'>" +
             "<h2>CSS live preview</h2><p>Edit the stylesheet in DevForge and the preview updates automatically.</p><button>Sample button</button></main></body></html>"
 
     private fun ensureHtml(source: String): String =

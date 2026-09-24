@@ -2174,6 +2174,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added a WebView preview mode with JavaScript and DOM storage support.
 - [x] Added FileProvider configuration for safe preview APK installation and the required unknown-app installation permission declaration.
 - [x] Added Android UI regression coverage for the new Editor preview menu.
+- [x] Fixed the initial PreviewScreen CI compile issues in WebView console handling, Compose dp imports, runtime-log sequence handling, and HTML string quoting.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this change on the final main commit.
 
 ### 2026-09-24 — GitHub workspace terminal and live AI Actions diagnostics
