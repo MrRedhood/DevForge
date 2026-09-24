@@ -5,26 +5,19 @@ import org.junit.Test
 
 class TerminalCommandParserTest {
     @Test
-    fun parsesExpandedReadOnlyCommandsForAiTools() {
+    fun parsesAnyAvailableLinuxCommandForAiTools() {
         assertEquals(
-            TerminalExecutable.ENV,
+            TerminalExecutable.SHELL,
             TerminalCommandParser.parseToolCommand("env", "", 10_000L, null).executable,
         )
         assertEquals(
-            TerminalExecutable.WHICH,
-            TerminalCommandParser.parseToolCommand("which sh", "", 10_000L, null).executable,
-        )
-        assertEquals(
-            TerminalExecutable.GETPROP,
-            TerminalCommandParser.parseToolCommand("getprop ro.build.version.release", "", 10_000L, null).executable,
-        )
-        assertEquals(
-            TerminalExecutable.PRINTENV,
-            TerminalCommandParser.parseToolCommand("printenv PATH", "", 10_000L, null).executable,
-        )
-        assertEquals(
-            TerminalExecutable.SLEEP,
-            TerminalCommandParser.parseToolCommand("sleep 1", "", 10_000L, null).executable,
+            listOf("-c", "which sh && getprop ro.build.version.release | head -n 1"),
+            TerminalCommandParser.parseToolCommand(
+                "which sh && getprop ro.build.version.release | head -n 1",
+                "",
+                10_000L,
+                null,
+            ).args,
         )
     }
 
