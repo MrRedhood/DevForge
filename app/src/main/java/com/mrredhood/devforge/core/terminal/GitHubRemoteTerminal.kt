@@ -27,34 +27,52 @@ class GitHubRemoteTerminal(
         commandLine: String,
     ): String {
         val segments = splitShell(commandLine)
-        var previousExit = 0
-        var previousOutput = ""
-        val output = StringBuilder()
+        var previous = ShellResult(0, "")
+        val visible = StringBuilder()
 
         for (index in segments.indices) {
             val segment = segments[index]
             val shouldRun = when (segment.operator) {
                 null, ";" -> true
-                "&&" -> previousExit == 0
-                "||" -> previousExit != 0
+                "&&" -> previous.exitCode == 0
+                "||" -> previous.exitCode != 0
                 "|" -> true
                 else -> true
             }
             if (!shouldRun) continue
 
-            val input = if (segment.operator == "|") previousOutput else ""
-            val result = executeSimple(remote, cwd, segment.command, input)
-            previousOutput = result
-            previousExit = 0
-
-            if (segment.operator != "|" || index == segments.lastIndex) {
-                if (output.isNotEmpty() && result.isNotBlank()) output.append('\n')
-                if (result.isNotBlank()) output.append(result)
+            val input = if (segment.operator == "|") previous.output else ""
+            val result = try {
+                val output = executeSimple(remote, cwd, segment.command, input)
+                val commandName = tokenize(segment.command).firstOrNull()?.lowercase().orEmpty()
+                val exitCode = when {
+                    commandName == "false" -> 1
+                    commandName == "grep" && output.isBlank() -> 1
+                    commandName == "which" && output.isBlank() -> 1
+                    else -> 0
+                }
+                ShellResult(exitCode, output)
+            } catch (error: Throwable) {
+                ShellResult(127, error.message ?: "Command failed.")
             }
+
+            val nextOperator = segments.getOrNull(index + 1)?.operator
+            if (nextOperator != "|") {
+                if (result.output.isNotBlank()) {
+                    if (visible.isNotEmpty()) visible.append('\n')
+                    visible.append(result.output)
+                }
+            }
+            previous = result
         }
 
-        return if (output.isNotEmpty()) output.toString().trimEnd() else previousOutput
+        return visible.toString().trimEnd()
     }
+
+    private data class ShellResult(
+        val exitCode: Int,
+        val output: String,
+    )
 
     private suspend fun executeSimple(
         remote: GitHubWorkspaceRemote,
