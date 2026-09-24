@@ -828,6 +828,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         toolActivities = emptyList()
         aiWorkflow = null
         sendError = "Pausing AI…"
+        isSending = false
 
         toolOrchestrator.cancelActiveExecution()
         sendJob?.cancel(CancellationException("AI paused by user"))
