@@ -2248,3 +2248,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 
 - [x] Fixed the latest Android CI unit-test failure by updating `DevForgeToolCatalogTest` from the previous 22-tool expectation to the current 26-tool catalog after adding move_file/move_folders/rename_file/rename_folder.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this final head.
+
+### 2026-09-24 — Expanded operational AI tool pack
+- [x] Added an extended AI tool registry covering file/folder copy, structured text edits, formatting/import organization, symbol/reference search, workspace/project analysis, dependency/config/entry-point discovery, build/test/lint dispatch, background terminal process management, Git status/diff/synchronization, GitHub issue/PR/branch/actions helpers, Android diagnostics/build dispatch, and checkpoint/recovery entry points.
+- [x] Registered the new operational provider in AgentRuntime so the main AI execution path can access the expanded tool surface.
+- [x] Added access-policy routing and catalog entries for the expanded tools while keeping destructive/high-impact operations approval-gated.
+- [x] Updated the tool catalog unit test to validate the expanded registry instead of a fixed historical tool count.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this head.
