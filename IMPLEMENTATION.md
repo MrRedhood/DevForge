@@ -2208,3 +2208,13 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Removed the extra closing brace introduced in the AIChatViewModel cancellation handler; it was causing the compiler to interpret the remainder of the ViewModel as top-level code and generated the cascade of unresolved references seen in Android CI and Android UI Tests.
 - [x] The reported primary failure was at the cancellation `catch` boundary; fixing that syntax restores the ViewModel's companion constants, attachment methods, `stopGeneration`, and lifecycle scope to the class.
 - [x] Fresh Android CI and Android UI Tests completed successfully for this head.
+
+### 2026-09-24 — Long-press workspace file actions and path moving
+- [x] Added long-press detection to workspace file/folder rows.
+- [x] Long-press popup menu now exposes Rename, Delete, and Change file path.
+- [x] Added a destination folder picker starting from the workspace root, showing both files and folders while allowing navigation through folders.
+- [x] Added a bottom action, `Choose this path`, which moves the selected item into the current destination folder.
+- [x] Added local SAF document moving through `DocumentsContract.moveDocument`.
+- [x] Added GitHub-backed workspace move support using the existing pending-change queue.
+- [x] Clicking a file row continues to open it in the Editor; folders continue to open in the workspace tree.
+- [x] Editor hamburger drawer scrim now closes the drawer when the user taps unused space outside the drawer.
