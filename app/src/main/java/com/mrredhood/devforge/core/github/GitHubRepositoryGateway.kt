@@ -615,6 +615,70 @@ class GitHubRepositoryGateway(
         )
     }
 
+    fun createBranch(owner: String, repository: String, branch: String, fromBranch: String = "main"): Result<String> {
+        val o = validateName(owner) ?: return Result.failure(IllegalArgumentException("The GitHub owner is invalid."))
+        val r = validateName(repository) ?: return Result.failure(IllegalArgumentException("The GitHub repository is invalid."))
+        val b = branch.trim().take(120)
+        require(SAFE_BRANCH.matches(b)) { "The GitHub branch name is invalid." }
+        val source = fromBranch.trim().ifBlank { "main" }
+        return runCatching {
+            val sha = getJson("/repos/\${o}/\${r}/git/ref/heads/\${encodePathSegment(source)}") {
+                it.getJSONObject("object").getString("sha")
+            }.getOrThrow()
+            postJson(
+                "/repos/\${o}/\${r}/git/refs",
+                JSONObject().put("ref", "refs/heads/\${b}").put("sha", sha),
+            )
+            b
+        }
+    }
+
+    fun createIssue(owner: String, repository: String, title: String, body: String = ""): Result<String> {
+        val o = validateName(owner) ?: return Result.failure(IllegalArgumentException("The GitHub owner is invalid."))
+        val r = validateName(repository) ?: return Result.failure(IllegalArgumentException("The GitHub repository is invalid."))
+        val cleanTitle = title.trim().take(300)
+        require(cleanTitle.isNotBlank()) { "Issue title cannot be empty." }
+        return postJson(
+            "/repos/\${o}/\${r}/issues",
+            JSONObject().put("title", cleanTitle).put("body", body.take(65_000)),
+        ).map { it.optString("html_url").ifBlank { it.optString("url") } }
+    }
+
+    fun commentIssue(owner: String, repository: String, issueNumber: Long, body: String): Result<String> {
+        val o = validateName(owner) ?: return Result.failure(IllegalArgumentException("The GitHub owner is invalid."))
+        val r = validateName(repository) ?: return Result.failure(IllegalArgumentException("The GitHub repository is invalid."))
+        require(issueNumber > 0L) { "Issue number must be positive." }
+        return postJson(
+            "/repos/\${o}/\${r}/issues/\${issueNumber}/comments",
+            JSONObject().put("body", body.take(65_000)),
+        ).map { it.optString("html_url").ifBlank { it.optString("url") } }
+    }
+
+    fun createPullRequest(
+        owner: String,
+        repository: String,
+        title: String,
+        head: String,
+        base: String = "main",
+        body: String = "",
+    ): Result<String> {
+        val o = validateName(owner) ?: return Result.failure(IllegalArgumentException("The GitHub owner is invalid."))
+        val r = validateName(repository) ?: return Result.failure(IllegalArgumentException("The GitHub repository is invalid."))
+        val cleanTitle = title.trim().take(300)
+        require(cleanTitle.isNotBlank()) { "Pull request title cannot be empty." }
+        val cleanHead = head.trim().take(250)
+        val cleanBase = base.trim().take(250).ifBlank { "main" }
+        require(cleanHead.isNotBlank() && cleanBase.isNotBlank()) { "Pull request branches are required." }
+        return postJson(
+            "/repos/\${o}/\${r}/pulls",
+            JSONObject()
+                .put("title", cleanTitle)
+                .put("head", cleanHead)
+                .put("base", cleanBase)
+                .put("body", body.take(65_000)),
+        ).map { it.optString("html_url").ifBlank { it.optString("url") } }
+    }
+
     fun listOpenIssues(owner: String, repository: String): GitHubActivityResult =
         listActivity(owner, repository, "/issues")
 
