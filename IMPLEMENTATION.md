@@ -2218,3 +2218,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added GitHub-backed workspace move support using the existing pending-change queue.
 - [x] Clicking a file row continues to open it in the Editor; folders continue to open in the workspace tree.
 - [x] Editor hamburger drawer scrim now closes the drawer when the user taps unused space outside the drawer.
+
+- [x] Fixed the workspace move implementation import so GitHub-backed move operations compile with the existing `GitHubFileResult` result type.
