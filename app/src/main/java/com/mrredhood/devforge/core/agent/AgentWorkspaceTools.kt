@@ -25,15 +25,8 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
@@ -49,8 +42,6 @@ class WorkspaceAgentToolProvider(
     private val gitSyncMutex = kotlinx.coroutines.sync.Mutex()
     private val githubStore = GitHubWorkspaceStore(context)
     private val githubGateway = GitHubRepositoryGateway(CredentialSecurityStore(context))
-    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val pendingGitSyncs = java.util.concurrent.ConcurrentHashMap<String, Job>()
     fun registerAll(registry: AgentToolRegistry): AgentToolRegistry = registry
         .register(ReadFileTool())
         .register(ListFilesTool())
@@ -127,32 +118,44 @@ class WorkspaceAgentToolProvider(
             val workspace = workspaceDao.findById(context.workspaceId) ?: return null
             val rootUri = Uri.parse(workspace.treeUri)
 
-            // Keep local mutations fast. GitHub synchronization is coalesced across rapid
-            // AI file/folder operations and runs once after the burst instead of blocking
-            // every create/write call on a network push.
-            currentCoroutineContext().ensureActive()
+            // Local AI mutations are intentionally not pushed here. The complete AI task
+            // performs all file/folder mutations first, then the orchestrator calls
+            // syncWorkspaceAfterTask() exactly once.
             if (summary.startsWith("create folder ")) {
                 val folderPath = summary.removePrefix("create folder ").trim()
                 access.ensureGitKeepIfEmpty(rootUri, folderPath)
             }
+            return "GitHub synchronization deferred until the AI task finishes."
+        }
 
-            pendingGitSyncs[workspace.id]?.cancel()
-            pendingGitSyncs[workspace.id] = syncScope.launch {
-                delay(750L)
-                runCatching {
-                    val detected = gitRepositoryService.detect(rootUri)
-                    if (detected !is GitDetectionState.Detected) return@runCatching
+        suspend fun syncWorkspaceAfterTask(workspaceId: String): String? {
+            val workspace = workspaceDao.findById(workspaceId) ?: return null
+            if (githubStore.get(workspace.id) != null) {
+                // GitHub-backed workspaces use direct tree commits from each mutation tool.
+                return "GitHub-backed workspace already synchronizes each remote mutation."
+            }
+
+            val rootUri = Uri.parse(workspace.treeUri)
+            return when (val detected = gitRepositoryService.detect(rootUri)) {
+                is GitDetectionState.Detected -> {
                     val validation = gitRemoteService.validateConfigured(detected.repository.remoteUrl)
-                    if (validation.owner == null || validation.repository == null) return@runCatching
-                    gitSyncMutex.withLock {
-                        gitRemoteService.autoSyncChanges(
-                            detected.repository,
-                            "DevForge agent: " + summary.take(160),
-                        )
+                    if (validation.owner == null || validation.repository == null) {
+                        null
+                    } else {
+                        when (val result = gitSyncMutex.withLock {
+                            gitRemoteService.autoSyncChanges(
+                                detected.repository,
+                                "DevForge AI task: synchronize completed workspace changes",
+                            )
+                        }) {
+                            is GitRemoteResult.Success -> result.message
+                            is GitRemoteResult.Failure ->
+                                "Local AI changes remain saved. GitHub synchronization failed: " + result.message
+                        }
                     }
                 }
+                else -> null
             }
-            return "GitHub synchronization queued."
         }
 
         protected suspend fun remoteWorkspace(context: AgentToolContext): GitHubWorkspaceRemote? {
