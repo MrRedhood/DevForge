@@ -64,8 +64,10 @@ class ChatToolOrchestrator(
 
     /** Immediately cancels the provider connection and the currently running agent tool task. */
     fun cancelActiveExecution() {
+        val taskId = activeTaskId
+        activeTaskId = null
         gateway.cancelActiveRequests()
-        activeTaskId?.let(runtime.gateway::cancelTask)
+        taskId?.let(runtime.gateway::cancelTask)
     }
 
     suspend fun run(
