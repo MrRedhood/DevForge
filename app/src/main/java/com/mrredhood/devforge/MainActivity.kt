@@ -1143,6 +1143,7 @@ private fun EditorHomeScreen(
         )
     }
 }
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EditorWorkspaceMenu(
     workspace: WorkspaceViewModel,
