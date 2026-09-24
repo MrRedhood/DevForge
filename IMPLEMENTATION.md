@@ -2227,3 +2227,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] The active AI task identifier is cleared as part of cancellation so a later request cannot accidentally target an older task.
 - [x] Long-press actions are available in both the Files screen and the Editor hamburger workspace drawer.
 - [x] Editor-drawer long press now opens Rename, Delete, and Change file path actions, while a normal tap still opens files in the Editor or enters folders.
+
+- [x] Added an explicit pausing spinner/disabled send control in AI Chat so the composer cannot accept another send while the cancellation is draining.
