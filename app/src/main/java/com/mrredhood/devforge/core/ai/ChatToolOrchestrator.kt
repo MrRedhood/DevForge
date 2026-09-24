@@ -101,7 +101,7 @@ class ChatToolOrchestrator(
 
         suspend fun completeRun(result: ChatToolRunResult): ChatToolRunResult {
             if (workspaceMutationOccurred && workspaceId != null) {
-                runtime.workspaceTools.syncWorkspaceAfterTask(workspaceId)
+                runtime.workspaceTools.syncWorkspaceAfterTask(workspaceId, taskId)
             }
             return result
         }
