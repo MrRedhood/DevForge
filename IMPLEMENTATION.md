@@ -2194,6 +2194,11 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Existing workspace refresh events remain immediate, so the Editor can show each local mutation while GitHub sync waits until task completion.
 - [ ] Latest Android CI and Android UI Tests must be verified on the final main commit before this change set is considered validated.
 
+### 2026-09-24 — Lazy AI tool catalog test scrolling follow-up
+- [x] Updated Android UI tests to scroll the LazyColumn itself with semantic matchers before asserting tool entries, so offscreen catalog items are found even when Compose has not yet composed them.
+- [x] Removed the remaining dependency on fixed catalog indexes and direct offscreen-node scrolling.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the latest main head.
+
 ### 2026-09-24 — Robust Android UI tool-catalog regression coverage
 - [x] Updated UI tests to locate AI tool controls by semantic text and scroll directly to the requested node instead of relying on fixed LazyColumn indexes.
 - [x] This keeps the Android UI suite stable as the configurable AI tool catalog grows beyond the original tool count.
