@@ -58,6 +58,16 @@ class WorkspaceFileOperations(private val resolver: ContentResolver) {
         }
     }
 
+    fun move(uri: Uri, sourceParent: Uri, destinationParent: Uri, name: String) : Uri {
+        require(name != ".git") { "The .git directory is protected." }
+        return DocumentsContract.moveDocument(
+            resolver,
+            uri,
+            documentParentUri(sourceParent),
+            documentParentUri(destinationParent),
+        ) ?: throw IOException("Unable to move: $name")
+    }
+
     fun rename(uri: Uri, oldName: String, newName: String): Uri {
         val clean = safeName(newName, "New name")
         require(oldName != ".git" && clean != ".git") { "The .git directory is protected." }
