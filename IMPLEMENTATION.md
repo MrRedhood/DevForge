@@ -2304,3 +2304,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Fixed the latest Android CI nullable Git-status compilation failure by using a safe fallback for the nullable GitWorkspaceStatus message.
 - [x] Android CI run 458 passed on the expanded-tool implementation head.
 - [ ] Android UI Tests final validation remains pending; the earlier UI attempt failed during emulator/ADB startup rather than reporting a project test assertion.
+
+
+### 2026-09-25 — Fixed live preview CI compilation regression
+- [x] Corrected the malformed quote escape in `PreviewScreen.kt`'s HTML escaping helper that caused Kotlin compilation to report `escapeScript` as unresolved.
+- [x] The fix is limited to the live preview renderer and preserves the single ▶-launched Live preview design.
+- [x] Recorded the Android CI and Android UI Tests failure cause before applying the fix.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this corrected main head.
