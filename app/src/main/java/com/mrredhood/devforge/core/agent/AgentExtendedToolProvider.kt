@@ -51,7 +51,7 @@ class AgentExtendedToolProvider(context: Context) {
     private val tree = WorkspaceFileTree(resolver)
     private val files = WorkspaceFileOperations(resolver)
     private val githubStore = GitHubWorkspaceStore(app)
-    private val actions = GitHubActionsGateway.forBuildStore(CredentialSecurityStore(app))
+    private val actionsGateway = GitHubActionsGateway.forBuildStore(CredentialSecurityStore(app))
     private val github = com.mrredhood.devforge.core.github.GitHubRepositoryGateway(CredentialSecurityStore(app))
     private val gitRepo = GitRepositoryService(resolver)
     private val gitStatus = GitWorkspaceStatusService(resolver)
@@ -111,7 +111,7 @@ class AgentExtendedToolProvider(context: Context) {
                     AgentToolId.ANDROID_BUILD_APK, AgentToolId.ANDROID_BUILD_AAB, AgentToolId.GITHUB_DISPATCH_WORKFLOW -> dispatch(args, id)
                     AgentToolId.CLEAN_PROJECT -> cleanProject(context)
                     AgentToolId.INSPECT_BUILD_ERROR -> inspectError(args)
-                    AgentToolId.GET_BUILD_OUTPUT, AgentToolId.GITHUB_GET_WORKFLOW_LOGS -> logs(args)
+                    AgentToolId.GET_BUILD_OUTPUT, AgentToolId.GITHUB_GET_WORKFLOW_LOGS -> workflowLogs(args)
                     AgentToolId.RUN_BACKGROUND_COMMAND -> startProcess(context, args)
                     AgentToolId.GET_PROCESS_STATUS -> processStatus(args)
                     AgentToolId.STOP_PROCESS -> stopProcess(args)
@@ -121,14 +121,14 @@ class AgentExtendedToolProvider(context: Context) {
                     AgentToolId.GIT_DIFF, AgentToolId.GIT_DIFF_FILE -> gitDiff(context, args)
                     AgentToolId.GIT_ADD, AgentToolId.GIT_COMMIT, AgentToolId.GIT_CREATE_TAG -> gitSync(context, id, args)
                     AgentToolId.GIT_RESTORE, AgentToolId.GIT_RESET, AgentToolId.UNDO_AI_CHANGE, AgentToolId.RESTORE_CHECKPOINT -> restoreCheckpoint(context, args)
-                    AgentToolId.GIT_STASH -> createCheckpoint(context, "stash")
+                    AgentToolId.GIT_STASH -> createCheckpoint(context)
                     AgentToolId.GIT_SHOW_COMMIT -> AgentToolResult.Failure("Use get_git_log for bounded commit history.")
                     AgentToolId.GITHUB_CREATE_BRANCH -> createBranch(context, args)
                     AgentToolId.GITHUB_CREATE_PR -> createPr(context, args)
                     AgentToolId.GITHUB_CREATE_ISSUE -> createIssue(context, args)
                     AgentToolId.GITHUB_COMMENT_ISSUE -> commentIssue(context, args)
                     AgentToolId.GITHUB_LIST_ISSUES -> listIssues(context)
-                    AgentToolId.GITHUB_GET_ACTIONS -> actions(args)
+                    AgentToolId.GITHUB_GET_ACTIONS -> listGitHubActions(args)
                     AgentToolId.GITHUB_GET_ARTIFACT -> artifacts(args)
                     AgentToolId.ANDROID_LOGCAT -> logcat(args)
                     AgentToolId.ANDROID_GET_DEVICE_INFO -> deviceInfo()
@@ -187,13 +187,19 @@ class AgentExtendedToolProvider(context: Context) {
         }
         return current
     }
-    private suspend fun readText(workspaceId: String, path: String): String = runInterruptible(Dispatchers.IO) {
-        resolver.openInputStream(resolveRoot(workspaceId, path))?.use { it.readBytes() }?.toString(Charsets.UTF_8) ?: error("Unable to read " + path)
+    private suspend fun readText(workspaceId: String, path: String): String {
+        val uri = resolveRoot(workspaceId, path)
+        return runInterruptible(Dispatchers.IO) {
+            resolver.openInputStream(uri)?.use { it.readBytes() }?.toString(Charsets.UTF_8)
+                ?: error("Unable to read " + path)
+        }
     }
     private suspend fun writeText(workspaceId: String, path: String, value: String) {
         require(value.toByteArray(Charsets.UTF_8).size <= 512 * 1024)
+        val uri = resolveRoot(workspaceId, path)
         runInterruptible(Dispatchers.IO) {
-            resolver.openOutputStream(resolveRoot(workspaceId, path), "wt")?.use { it.write(value.toByteArray(Charsets.UTF_8)) } ?: error("Unable to write " + path)
+            resolver.openOutputStream(uri, "wt")?.use { it.write(value.toByteArray(Charsets.UTF_8)) }
+                ?: error("Unable to write " + path)
         }
     }
     private suspend fun copyFile(context: AgentToolContext, args: JSONObject): AgentToolResult {
@@ -254,41 +260,17 @@ class AgentExtendedToolProvider(context: Context) {
     }
     private suspend fun dependencies(context:AgentToolContext):AgentToolResult{
         val candidates=listOf("package.json","requirements.txt","pyproject.toml","Cargo.toml","go.mod","pom.xml","build.gradle.kts","app/build.gradle.kts");val output=StringBuilder()
-        candidates.forEach{path->runCatching{readText(context.workspaceId,path)}.onSuccess{t->val lines=t.lines().filter{it.contains("implementation(")||it.contains("api(")||it.contains("testImplementation(")||it.contains(""dependencies"")}.take(80);if(lines.isNotEmpty()){output.append("## ").append(path).append('\n');lines.forEach{output.append(it).append('\n')}}}}
+        candidates.forEach{path->runCatching{readText(context.workspaceId,path)}.onSuccess{t->val lines=t.lines().filter{it.contains("implementation(")||it.contains("api(")||it.contains("testImplementation(")||it.contains("\"dependencies\"")}.take(80);if(lines.isNotEmpty()){output.append("## ").append(path).append('\n');lines.forEach{output.append(it).append('\n')}}}}
         return AgentToolResult.Success("Collected dependency declarations.",output=output.toString().take(40_000))
     }
     private suspend fun dispatch(args:JSONObject,id:AgentToolId):AgentToolResult{
         val owner=args.optString("owner").trim();val repo=args.optString("repository").trim();require(owner.isNotBlank()&&repo.isNotBlank())
         val target=when(id){AgentToolId.ANDROID_BUILD_APK->BuildTarget.DebugApk;AgentToolId.ANDROID_BUILD_AAB->BuildTarget.ReleaseBundle;AgentToolId.RUN_TESTS,AgentToolId.RUN_TEST->BuildTarget.DebugApk;else->when(args.optString("target","debug_apk")){"release_apk"->BuildTarget.ReleaseApk;"release_aab"->BuildTarget.ReleaseBundle;else->BuildTarget.DebugApk}}
         val config=BuildConfiguration(githubOwner=owner,githubRepository=repo,workflowFile=args.optString("workflowFile",".github/workflows/android.yml"),branch=args.optString("branch","main"),buildTask=args.optString("buildTask",target.buildTask),artifactName=target.artifactName,target=target)
-        return when(val r=actions.dispatch(owner,repo,config)){is com.mrredhood.devforge.core.github.GitHubDispatchResult.Success->AgentToolResult.Success("Dispatched "+target.label+" run.",output=JSONObject().put("runId",r.run.id).put("runNumber",r.run.runNumber).put("url",r.run.htmlUrl).toString());is com.mrredhood.devforge.core.github.GitHubDispatchResult.Failure->AgentToolResult.Failure(r.message)}
+        return when(val r=actionsGateway.dispatch(owner,repo,config)){is com.mrredhood.devforge.core.github.GitHubDispatchResult.Success->AgentToolResult.Success("Dispatched "+target.label+" run.",output=JSONObject().put("runId",r.run.id).put("runNumber",r.run.runNumber).put("url",r.run.htmlUrl).toString());is com.mrredhood.devforge.core.github.GitHubDispatchResult.Failure->AgentToolResult.Failure(r.message)}
     }
-    private suspend fun cleanProject(context:AgentToolContext):AgentToolResult{val root=root(context.workspaceId);val builds=mutableListOf<Uri>();suspend fun visit(uri:Uri,depth:Int){if(depth>10||builds.size>=20)return;tree.list(uri,500).forEach{e->if(e.name==".git")return@forEach;if(e.isDirectory&&e.name=="build")builds+=e.uri else if(e.isDirectory)visit(e.uri,depth+1)}};visit(root,0);builds.forEach{deleteRecursive(it)};return AgentToolResult.Success("Removed "+builds.size+" build directory(s).")}
-    private fun inspectError(args:JSONObject):AgentToolResult{val text=args.optString("text");require(text.isNotBlank());val hits=text.lines().filter{Regex("(?i)(error:|failure:|failed|unresolved reference|assertionerror|exception)").containsMatchIn(it)}.take(160);return AgentToolResult.Success("Extracted likely failures.",output=hits.joinToString("\n"))}
-    private fun workflowLogs(args:JSONObject):AgentToolResult{val owner=args.optString("owner");val repo=args.optString("repository");val run=args.optLong("runId",0);require(owner.isNotBlank()&&repo.isNotBlank()&&run>0);return when(val r=actions.fetchLogs(owner,repo,run)){is GitHubLogsResult.Success->AgentToolResult.Success("Fetched workflow logs.",output=r.jobs.joinToString("\n\n"){it.jobName+"\n"+it.text}.take(100_000));is GitHubLogsResult.Failure->AgentToolResult.Failure(r.message)}}
-    private suspend fun startProcess(context:AgentToolContext,args:JSONObject):AgentToolResult{val command=args.optString("command").trim();require(command.isNotBlank());val dir=args.optString("workingDirectory").trim().trim('/');val timeout=args.optLong("timeoutMs",TerminalCommandPolicy.DEFAULT_TIMEOUT_MS).coerceIn(250,TerminalCommandPolicy.MAX_TIMEOUT_MS);val parsed=TerminalCommandParser.parseToolCommand(command,dir,timeout,context.taskId+"-"+UUID.randomUUID());val id="proc-"+UUID.randomUUID().toString().take(10);val out=StringBuilder();val job=processScope.launch{val r=terminal.executeAuthorizedStreaming(context.workspaceId,parsed){chunk->synchronized(out){if(out.length<TerminalCommandPolicy.MAX_OUTPUT_BYTES)out.append(chunk.take(TerminalCommandPolicy.MAX_OUTPUT_BYTES-out.length))}};processes[id]?.state=when(r){is TerminalCapabilityResult.Completed->r.execution.status.name.lowercase();is TerminalCapabilityResult.Failure->"failed";is TerminalCapabilityResult.ApprovalRequired->"approval_required"}};processes[id]=ManagedProcess(job,out,"running",command);return AgentToolResult.Success("Started "+id+".",output=JSONObject().put("processId",id).toString())}
-    private fun processStatus(args:JSONObject):AgentToolResult{val p=processes[args.optString("processId")]?:return AgentToolResult.Failure("Process not found.");return AgentToolResult.Success("Process status.",output=JSONObject().put("state",p.state).put("active",p.job.isActive).put("command",p.command).toString())}
-    private fun stopProcess(args:JSONObject):AgentToolResult{val id=args.optString("processId");val p=processes[id]?:return AgentToolResult.Failure("Process not found.");p.job.cancel(CancellationException("Stopped"));p.state="cancelled";return AgentToolResult.Success("Stopped "+id+".")}
-    private fun listProcesses():AgentToolResult=AgentToolResult.Success("Listed processes.",output=JSONArray(processes.map{(id,p)->JSONObject().put("id",id).put("state",p.state).put("active",p.job.isActive).put("command",p.command)}).toString())
-    private fun processOutput(args:JSONObject):AgentToolResult{val p=processes[args.optString("processId")]?:return AgentToolResult.Failure("Process not found.");return AgentToolResult.Success("Process output.",output=synchronized(p.output){p.output.toString()}.take(60_000))}
-    private suspend fun gitStatus(context:AgentToolContext):AgentToolResult{val root=root(context.workspaceId);val d=gitRepo.detect(root);if(d !is GitDetectionState.Detected)return AgentToolResult.Success("No Git repository detected.");val s=gitStatus.inspect(root,d.repository.gitDirectoryUri,d.repository.headRevision,300);return AgentToolResult.Success(s.message,output=JSONObject().put("mode",s.mode.name).put("truncated",s.truncated).put("files",JSONArray(s.files.map{JSONObject().put("path",it.path).put("status",it.gitStatus.name)})).toString())}
-    private suspend fun gitDiff(context:AgentToolContext,args:JSONObject):AgentToolResult{val root=root(context.workspaceId);val d=gitRepo.detect(root);if(d !is GitDetectionState.Detected)return AgentToolResult.Success("No Git repository detected.");val docs=gitDiff.compute(root,d.repository.gitDirectoryUri,d.repository.headRevision,args.optInt("maxFiles",40).coerceIn(1,80));return AgentToolResult.Success("Computed Git diff.",output=docs.joinToString("\n\n"){doc->"## "+doc.path+" ("+doc.gitStatus+")\n"+doc.sections.joinToString("\n"){it.title+"\n"+it.hunks.joinToString("\n")}}.take(100_000))}
-    private fun filterDiff(result:AgentToolResult,path:String):AgentToolResult{val text=(result as? AgentToolResult.Success)?.output.orEmpty();return AgentToolResult.Success("Filtered Git diff.",output=text.split("\n\n").filter{it.contains("## "+path+" ")}.joinToString("\n\n"))}
-    private suspend fun gitSync(context:AgentToolContext,id:AgentToolId,args:JSONObject):AgentToolResult{val d=gitRepo.detect(root(context.workspaceId));if(d !is GitDetectionState.Detected)return AgentToolResult.Failure("No local Git repository detected.");return when(val r=gitRemote.autoSyncChanges(d.repository,args.optString("message","DevForge AI "+id.wireName).take(160))){is GitRemoteResult.Success->AgentToolResult.Success(r.message);is GitRemoteResult.Failure->AgentToolResult.Failure(r.message)}}
-    private suspend fun remote(context:AgentToolContext)=githubStore.get(context.workspaceId)
-    private suspend fun createBranch(context:AgentToolContext,args:JSONObject):AgentToolResult{val r=remote(context)?:return AgentToolResult.Failure("Workspace is not linked to GitHub.");return github.createBranch(r.owner,r.repository,args.optString("branch"),args.optString("fromBranch",r.branch)).fold({AgentToolResult.Success("Created branch "+it)},{AgentToolResult.Failure(it.message?:"Unable to create branch.")})}
-    private suspend fun createPr(context:AgentToolContext,args:JSONObject):AgentToolResult{val r=remote(context)?:return AgentToolResult.Failure("Workspace is not linked to GitHub.");return github.createPullRequest(r.owner,r.repository,args.optString("title"),args.optString("head",r.branch),args.optString("base","main"),args.optString("body")).fold({AgentToolResult.Success("Created pull request.",output=it)},{AgentToolResult.Failure(it.message?:"Unable to create PR.")})}
-    private suspend fun createIssue(context:AgentToolContext,args:JSONObject):AgentToolResult{val r=remote(context)?:return AgentToolResult.Failure("Workspace is not linked to GitHub.");return github.createIssue(r.owner,r.repository,args.optString("title"),args.optString("body")).fold({AgentToolResult.Success("Created issue.",output=it)},{AgentToolResult.Failure(it.message?:"Unable to create issue.")})}
-    private suspend fun commentIssue(context:AgentToolContext,args:JSONObject):AgentToolResult{val r=remote(context)?:return AgentToolResult.Failure("Workspace is not linked to GitHub.");return github.commentIssue(r.owner,r.repository,args.optLong("issueNumber"),args.optString("body")).fold({AgentToolResult.Success("Commented on issue.",output=it)},{AgentToolResult.Failure(it.message?:"Unable to comment.")})}
-    private suspend fun listIssues(context:AgentToolContext):AgentToolResult{val r=remote(context)?:return AgentToolResult.Failure("Workspace is not linked to GitHub.");return when(val x=github.listOpenIssues(r.owner,r.repository)){is com.mrredhood.devforge.core.github.GitHubActivityResult.Success->AgentToolResult.Success("Listed issues.",output=x.items.toString());is com.mrredhood.devforge.core.github.GitHubActivityResult.Failure->AgentToolResult.Failure(x.message)}}
-    private fun actions(args:JSONObject):AgentToolResult{val o=args.optString("owner");val r=args.optString("repository");require(o.isNotBlank()&&r.isNotBlank());return when(val x=actions.listRecentRuns(o,r,args.optString("workflowFile").takeIf{it.isNotBlank()},args.optInt("perPage",20))){is GitHubWorkflowRunsResult.Success->AgentToolResult.Success("Listed workflow runs.",output=x.runs.joinToString("\n"){"#"+it.runNumber+" "+it.name+" "+it.status+"/"+(it.conclusion?:"pending")});is GitHubWorkflowRunsResult.Failure->AgentToolResult.Failure(x.message)}}
-    private fun artifacts(args:JSONObject):AgentToolResult{val o=args.optString("owner");val r=args.optString("repository");val run=args.optLong("runId");require(o.isNotBlank()&&r.isNotBlank()&&run>0);return when(val x=actions.listArtifacts(o,r,run)){is GitHubArtifactsResult.Success->AgentToolResult.Success("Listed artifacts.",output=x.artifacts.joinToString("\n"){it.name+" "+it.sizeBytes});is GitHubArtifactsResult.Failure->AgentToolResult.Failure(x.message)}}
-    private fun logcat(args:JSONObject):AgentToolResult{val p=ProcessBuilder("logcat","-d","-t",args.optInt("lines",200).coerceIn(1,1000).toString()).redirectErrorStream(true).start();val text=p.inputStream.bufferedReader().use{it.readText().take(100_000)};p.waitFor();return AgentToolResult.Success("Read Android logcat.",output=text)}
-    private fun deviceInfo():AgentToolResult=AgentToolResult.Success("Device information.",output=JSONObject().put("manufacturer",Build.MANUFACTURER).put("model",Build.MODEL).put("device",Build.DEVICE).put("sdkInt",Build.VERSION.SDK_INT).put("release",Build.VERSION.RELEASE).toString())
-    private fun documentName(uri:Uri)=runCatching{resolver.query(uri,arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),null,null,null)?.use{if(it.moveToFirst())it.getString(0)else null}}.getOrNull()
-    private fun deleteRecursive(uri:Uri){tree.list(uri,500).forEach{if(it.isDirectory)deleteRecursive(it.uri)else runCatching{DocumentsContract.deleteDocument(resolver,it.uri)}};runCatching{DocumentsContract.deleteDocument(resolver,uri)}}
     private suspend fun cleanProject(context:AgentToolContext):AgentToolResult{val root=root(context.workspaceId);val found=mutableListOf<Uri>();suspend fun visit(uri:Uri,d:Int){if(d>10||found.size>=20)return;tree.list(uri,500).forEach{e->if(e.name==".git")return@forEach;if(e.isDirectory&&e.name=="build")found+=e.uri else if(e.isDirectory)visit(e.uri,d+1)}};visit(root,0);found.forEach{deleteRecursive(it)};return AgentToolResult.Success("Removed "+found.size+" build directory(s).")}
-    private suspend fun createCheckpoint(context:AgentToolContext):AgentToolResult{checkpoints.mkdirs();val dir=File(checkpointRoot,context.workspaceId).apply{mkdirs()};val id="checkpoint-"+System.currentTimeMillis();File(dir,id+".json").writeText(projectTree(context,false).toString(),Charsets.UTF_8);return AgentToolResult.Success("Created checkpoint "+id+".")}
+    private suspend fun createCheckpoint(context:AgentToolContext):AgentToolResult{checkpointRoot.mkdirs();val dir=File(checkpointRoot,context.workspaceId).apply{mkdirs()};val id="checkpoint-"+System.currentTimeMillis();File(dir,id+".json").writeText(projectTree(context,false).toString(),Charsets.UTF_8);return AgentToolResult.Success("Created checkpoint "+id+".")}
     private suspend fun compareCheckpoint(context:AgentToolContext,args:JSONObject):AgentToolResult=AgentToolResult.Success("Checkpoint comparison is available through recovery state; checkpointId="+args.optString("checkpointId"))
     private suspend fun restoreCheckpoint(context:AgentToolContext,args:JSONObject):AgentToolResult=AgentToolResult.Failure("Checkpoint restore is intentionally bounded to the recovery service and is not available without a matching checkpoint snapshot.")
 }
