@@ -337,6 +337,7 @@ private val guideCategories = listOf(
                     "Folder creation uses .gitkeep because Git tracks files, not empty directories; folder deletion removes all tracked files under that folder.",
                     "The tool loop reuses the configured AI gateway, so existing provider attachment handling remains available.",
                     "Workspace mutations remain bounded by DevForge policy, path scopes, leases, preconditions and approval rules.",
+                    "DevForge also exposes an expanded operational AI tool pack for copying, structured text edits, symbol/reference search, project analysis, builds/tests/lint, background terminal processes, Git/GitHub operations, Android diagnostics, and checkpoint recovery.",
                     "AI can use move_file for files and move_folders for folders, using a workspace-relative source path and destination folder.",
                     "AI can use rename_file to rename a file, including changing its extension, and rename_folder to rename a folder.",
                 ),
