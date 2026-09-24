@@ -95,8 +95,16 @@ class ChatToolOrchestrator(
         var step = 0
         var firstTurn = true
         var planEmitted = false
+        var workspaceMutationOccurred = false
         val pendingCalls = ArrayDeque<ParsedToolCall>()
         val completedCallResults = mutableMapOf<String, AgentToolResult.Success>()
+
+        suspend fun completeRun(result: ChatToolRunResult): ChatToolRunResult {
+            if (workspaceMutationOccurred && workspaceId != null) {
+                runtime.workspaceTools.syncWorkspaceAfterTask(workspaceId)
+            }
+            return result
+        }
 
         while (step < MAX_TOOL_STEPS && calls < MAX_TOOL_CALLS) {
             currentCoroutineContext().ensureActive()
@@ -142,12 +150,14 @@ class ChatToolOrchestrator(
                             usedTools = false,
                         )
                     }
-                    return ChatToolRunResult(
-                        response = stripProtocolMarkup(response).ifBlank {
-                            response.trim().ifBlank { "The model returned an empty response." }
-                        },
-                        activities = activities.toList(),
-                        usedTools = calls > 0,
+                    return completeRun(
+                        ChatToolRunResult(
+                            response = stripProtocolMarkup(response).ifBlank {
+                                response.trim().ifBlank { "The model returned an empty response." }
+                            },
+                            activities = activities.toList(),
+                            usedTools = calls > 0,
+                        )
                     )
                 }
                 pendingCalls.addAll(parsedCalls.drop(1))
@@ -240,6 +250,11 @@ class ChatToolOrchestrator(
 
             if (result is AgentToolResult.Success) {
                 completedCallResults[callSignature] = result
+                if (result.affectedPaths.isNotEmpty() &&
+                    runtime.registry.get(call.toolId)?.definition?.sideEffecting == true
+                ) {
+                    workspaceMutationOccurred = true
+                }
             }
 
             transcript.append("\nTool request ")
@@ -286,6 +301,11 @@ class ChatToolOrchestrator(
                 }
                 if (approvedResult is AgentToolResult.Success) {
                     completedCallResults[callSignature] = approvedResult
+                    if (approvedResult.affectedPaths.isNotEmpty() &&
+                        runtime.registry.get(call.toolId)?.definition?.sideEffecting == true
+                    ) {
+                        workspaceMutationOccurred = true
+                    }
                 }
                 currentCoroutineContext().ensureActive()
                 step++
