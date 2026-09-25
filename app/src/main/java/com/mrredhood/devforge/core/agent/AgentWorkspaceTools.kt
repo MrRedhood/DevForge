@@ -179,14 +179,35 @@ class WorkspaceAgentToolProvider(
             val rawPath = args.optString("path").trim()
             val fallbackName = nameKeys
                 .asSequence()
+                .flatMap { key ->
+                    sequenceOf(
+                        key,
+                        key.replace("_", ""),
+                        key.replace(Regex("([A-Z])"), "_$1").lowercase(),
+                    )
+                }
                 .map { args.optString(it).trim() }
-                .firstOrNull { it.isNotBlank() }
+                .firstOrNull { it.isNotBlank() && it != "." && it != "./" && it != "/" }
                 .orEmpty()
-            val parent = listOf("directory", "parent", "folder")
+            val parent = listOf(
+                "directory",
+                "parent",
+                "folder",
+                "parentDirectory",
+                "parent_directory",
+                "directoryPath",
+                "directory_path",
+                "folderPath",
+                "folder_path",
+                "targetDirectory",
+                "target_directory",
+                "dir",
+            )
                 .asSequence()
                 .map { args.optString(it).trim().trim('/') }
-                .firstOrNull { it.isNotBlank() }
+                .firstOrNull { it.isNotBlank() && it != "." }
                 .orEmpty()
+
             val candidate = when {
                 rawPath.isNotBlank() && rawPath !in setOf(".", "./", "/") -> rawPath
                 fallbackName.isNotBlank() -> listOf(parent, fallbackName.trim('/'))
@@ -194,8 +215,11 @@ class WorkspaceAgentToolProvider(
                     .joinToString("/")
                 else -> rawPath
             }
+
             require(candidate.isNotBlank() && candidate !in setOf(".", "./", "/")) {
-                "$kind path is required. Provide the complete workspace-relative path; for a workspace-root item use its filename or folder name, not '.'."
+                "$kind path is required. Provide a concrete workspace-relative path such as 'index.html' or 'app/src/Main.kt'. " +
+                    "For a workspace-root item, do not use '.', './', or '/'. " +
+                    "If you provide a separate filename/name plus directory/parent, DevForge will combine them."
             }
             val normalized = scopedPath(context, candidate)
             require(normalized.isNotBlank()) {
@@ -611,7 +635,7 @@ class WorkspaceAgentToolProvider(
     private inner class CreateFileTool : WorkspaceTool() {
         override val definition = AgentToolDefinition(
             AgentToolId.CREATE_FILE,
-            "Create a new bounded UTF-8 text file inside the selected workspace.",
+            "Create one new bounded UTF-8 text file. Required: a concrete workspace-relative `path` such as `index.html`, `src/main.kt`, or `app/main.js`. `.`/`./`/`/` are invalid. You may instead provide `fileName`/`filename`/`name` plus `directory`/`parent`/`folder` and DevForge will combine them.",
             Capability.EDIT_FILES,
             RiskLevel.R2,
             sideEffecting = true,
@@ -647,7 +671,7 @@ class WorkspaceAgentToolProvider(
     private inner class CreateFolderTool : WorkspaceTool() {
         override val definition = AgentToolDefinition(
             AgentToolId.CREATE_FOLDER,
-            "Create one new folder inside the selected workspace.",
+            "Create one new folder. Required: a concrete workspace-relative `path`; `.`/`./`/`/` are invalid. You may instead provide `folderName`/`name` plus `directory`/`parent`/`folder` and DevForge will combine them.",
             Capability.EDIT_FILES,
             RiskLevel.R2,
             sideEffecting = true,
