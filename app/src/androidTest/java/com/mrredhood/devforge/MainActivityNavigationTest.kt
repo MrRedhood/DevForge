@@ -3,10 +3,11 @@ package com.mrredhood.devforge
 import android.Manifest
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -103,7 +104,7 @@ class MainActivityNavigationTest {
     fun chatFullscreenDoesNotExposeAgentControls() {
         waitForNode("AI Chat")
         composeRule.onNodeWithContentDescription("AI Chat", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithContentDescription("Agents", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onAllNodes(hasContentDescription("Agents"), useUnmergedTree = true).assertCountEquals(0)
         composeRule.onNodeWithText("Single main AI · plans, searches, edits and executes", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("DevForge AI", useUnmergedTree = true).assertIsDisplayed()
     }
@@ -155,7 +156,7 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithTag("github-repository-creation-list", useUnmergedTree = true)
             .performScrollToNode(hasText("Merge commit message"))
         composeRule.onNodeWithText("PR body", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Merge message", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onAllNodesWithText("Merge message", useUnmergedTree = true).assertCountEquals(0)
         composeRule.onNodeWithTag("github-repository-creation-list", useUnmergedTree = true)
             .performScrollToNode(hasText("Create repository"))
         composeRule.onNodeWithText("Create repository", useUnmergedTree = true).assertIsDisplayed()
@@ -167,9 +168,9 @@ class MainActivityNavigationTest {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Settings", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).assertDoesNotExist()
-        composeRule.onNodeWithText("AI providers", useUnmergedTree = true).assertDoesNotExist()
-        composeRule.onNodeWithText("AI Providers", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onAllNodesWithText("AI & GitHub", useUnmergedTree = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("AI providers", useUnmergedTree = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("AI Providers", useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test
@@ -179,7 +180,7 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Settings", useUnmergedTree = true).performClick()
         composeRule.onAllNodesWithText("Settings", useUnmergedTree = true).assertCountEquals(2)
-        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onAllNodes(hasContentDescription("More navigation"), useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test
