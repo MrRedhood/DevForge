@@ -99,6 +99,59 @@ object AgentAccessRules {
         AgentToolId.GET_RUNTIME_INFO,
         AgentToolId.GET_STORAGE_INFO -> emptySet()
 
+                AgentToolId.SCRAP_VIDEO,
+        AgentToolId.SCRAP_AUDIO,
+        AgentToolId.MEDIA_INFO,
+        AgentToolId.MEDIA_DURATION,
+        AgentToolId.MEDIA_MIME,
+        AgentToolId.MEDIA_COVER_ART,
+        AgentToolId.EXTRACT_VIDEO_FRAME,
+        AgentToolId.EXTRACT_AUDIO_METADATA,
+        AgentToolId.MEDIA_CHECKSUM,
+        AgentToolId.LIST_MEDIA_STREAMS,
+        AgentToolId.READ_BYTES,
+        AgentToolId.GET_FILE_METADATA,
+        AgentToolId.LIST_DIRECTORY_DETAILED,
+        AgentToolId.SORT_DIRECTORY,
+        AgentToolId.FIND_LARGEST_FILES,
+        AgentToolId.FIND_DUPLICATES,
+        AgentToolId.GET_TEXT_STATS,
+        AgentToolId.DETECT_ENCODING,
+        AgentToolId.DETECT_BINARY_FILE,
+        AgentToolId.PREVIEW_FILE,
+        AgentToolId.SEARCH_REGEX,
+        AgentToolId.FIND_TODO,
+        AgentToolId.FIND_FIXME,
+        AgentToolId.FIND_COMMENTS,
+        AgentToolId.COUNT_SYMBOLS,
+        AgentToolId.FIND_TEST_FILES,
+        AgentToolId.FIND_SOURCE_FILES,
+        AgentToolId.GET_LANGUAGE_BREAKDOWN,
+        AgentToolId.DETECT_FORMATTER,
+        AgentToolId.DETECT_LINTER,
+        AgentToolId.BUILD_FILES,
+        AgentToolId.PROJECT_MODULES,
+        AgentToolId.PACKAGE_NAME -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS)
+
+                AgentToolId.WHICH_COMMAND,
+        AgentToolId.SHELL_INFO,
+        AgentToolId.ENVIRONMENT_VARS,
+        AgentToolId.SYSTEM_PROPERTIES,
+        AgentToolId.CPU_INFO,
+        AgentToolId.MEMORY_INFO,
+        AgentToolId.STORAGE_CAPACITY,
+        AgentToolId.NETWORK_INFO,
+        AgentToolId.PROCESS_SNAPSHOT -> emptySet()
+
+                AgentToolId.COMMAND_VERSION,
+        AgentToolId.GRADLE_TASKS,
+        AgentToolId.GRADLE_DEPENDENCIES -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.TERMINAL_ACCESS)
+
+                AgentToolId.GIT_HEAD,
+        AgentToolId.GIT_BRANCHES,
+        AgentToolId.GIT_TAGS,
+        AgentToolId.GIT_REMOTE_INFO -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.GIT_ACCESS)
+
         AgentToolId.RUN_COMMAND -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.TERMINAL_ACCESS)
 
         AgentToolId.COPY_FILE,
