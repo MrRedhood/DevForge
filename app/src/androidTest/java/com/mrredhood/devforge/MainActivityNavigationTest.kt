@@ -134,6 +134,8 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("GitHub", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("AI Models", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("ai-github-hub-list", useUnmergedTree = true)
+            .performScrollToNode(hasText("AI Tools"))
         composeRule.onNodeWithText("AI Tools", useUnmergedTree = true).assertIsDisplayed()
     }
 
@@ -148,9 +150,9 @@ class MainActivityNavigationTest {
         waitForText("Create GitHub repository")
         composeRule.onNodeWithText("Create GitHub repository", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Repository name", useUnmergedTree = true).assertIsDisplayed()
-        val createRepositoryButton = composeRule.onNodeWithText("Create repository", useUnmergedTree = true)
-        createRepositoryButton.performScrollTo()
-        createRepositoryButton.assertIsDisplayed()
+        composeRule.onNodeWithTag("github-repository-creation-list", useUnmergedTree = true)
+            .performScrollToNode(hasText("Create repository"))
+        composeRule.onNodeWithText("Create repository", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
