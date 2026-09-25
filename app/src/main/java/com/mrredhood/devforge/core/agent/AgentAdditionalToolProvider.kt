@@ -108,7 +108,7 @@ class AgentAdditionalToolProvider(context: Context) {
                     AgentToolId.PREVIEW_FILE -> preview(context, args)
                     AgentToolId.SEARCH_REGEX -> search(context, Pattern.compile(args.optString("pattern"), Pattern.MULTILINE))
                     AgentToolId.FIND_TODO -> search(context, Pattern.compile("\\bTODO\\b", Pattern.CASE_INSENSITIVE))
-                    AgentToolId.FIND_FIXME -> search(context, Pattern.compile("\\bFIXME\\b", Pattern.IGNORE_CASE))
+                    AgentToolId.FIND_FIXME -> search(context, Pattern.compile("\\bFIXME\\b", Pattern.CASE_INSENSITIVE))
                     AgentToolId.FIND_COMMENTS -> search(context, Pattern.compile("//|#|/\\*|\\*/"))
                     AgentToolId.COUNT_SYMBOLS -> countSymbols(context)
                     AgentToolId.FIND_TEST_FILES -> sourceFiles(context, true)
