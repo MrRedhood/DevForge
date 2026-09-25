@@ -911,6 +911,8 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                     "Optionally initialize with README and select .gitignore and license templates.",
                     "Enable Issues, Projects, Wiki, Discussions and Downloads.",
                     "Choose merge behavior: squash, merge commit, rebase and auto-merge.",
+                    "For squash merges, use only GitHub-supported title/message combinations: PR_TITLE + PR_BODY, PR_TITLE + BLANK, PR_TITLE + COMMIT_MESSAGES, or COMMIT_OR_PR_TITLE + COMMIT_MESSAGES.",
+                    "For merge commits, the title can be PR_TITLE or MERGE_MESSAGE; the message can be PR_TITLE, PR_BODY, or BLANK.",
                     "Configure delete-branch-on-merge and the default squash/merge commit title/message rules.",
                     "For organizations, optionally enter Team ID and custom properties JSON.",
                     "Set the requested default branch. A custom initial branch requires an initialized repository so DevForge can create and select that branch safely.",
