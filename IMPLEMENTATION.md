@@ -1,3 +1,9 @@
+### 2026-09-25 — Compose UI node collection compatibility repair
+- [x] Removed unsupported `onAllNodes()` usage from Android UI tests after the latest UI workflow exposed the dependency compatibility gap.
+- [x] Kept supported `onAllNodesWithText(...).assertCountEquals(0)` checks for text-based absence assertions.
+- [x] Production UI behavior was not changed by this instrumentation-only repair.
+- [ ] Fresh Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Compose UI absence assertion compatibility repair
 - [x] Replaced unsupported `assertDoesNotExist()` usage in Android UI tests with `assertCountEquals(0)` over matching semantics nodes.
 - [x] Covered both text and content-description absence assertions without changing production UI behavior.
