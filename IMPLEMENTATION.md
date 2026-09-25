@@ -1,3 +1,16 @@
+### 2026-09-25 — Universal Chat attachments and independent Live Preview target
+- [x] Changed the AI Chat + button into a one-tap universal Android file picker using the existing ACTION_OPEN_DOCUMENT wildcard attachment path.
+- [x] Universal Chat selection accepts images, video, audio, text/source files, PDFs, archives, and other document/file types within the existing bounded attachment limits.
+- [x] Persisted bounded attachment metadata (URI, name, MIME type, size) inside the existing Room chat message content so sent user messages visibly retain the files they sent without a Room schema migration.
+- [x] Added clickable attachment cards to Chat. Images and text/source files can be viewed in DevForge; video/audio and unsupported binary formats open through the installed Android viewer/player.
+- [x] Retained persistable URI read permissions for successfully sent attachments so historical chat messages can still open their files.
+- [x] Added attachment metadata round-trip unit coverage.
+- [x] Decoupled Live Preview from the editor's active tab. The Preview button now keeps its own preview target, so switching/opening/closing another editor file does not replace the preview.
+- [x] Added a Live Preview Choose action that browses workspace folders without opening the selected file in the editor, then loads that file directly into the preview target.
+- [x] Preview content automatically follows edits to its own target file while remaining independent from the currently selected editor file.
+- [x] Updated More → Help & guide for the universal attachment picker, sent-file viewer, and independent Live Preview target.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Live Preview Alignment compile fix
 - [x] Corrected the PreviewScreen.kt Alignment import from the invalid foundation package to androidx.compose.ui.Alignment.
 - [x] This resolves the release/debug Kotlin compilation failure that caused both Android CI and Android UI Tests to fail on the Live Preview repair.
