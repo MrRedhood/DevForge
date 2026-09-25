@@ -408,7 +408,10 @@ private fun DevForgeApp(
                     dirty = editor.activeTab?.isDirty == true,
                     onMenu = { showEditorMenu = true },
                     onSave = editor::saveActive,
-                    onPreview = { showLivePreview = true },
+                    onPreview = {
+                        editor.activeTab ?: editor.tabs.lastOrNull()?.let { tab -> editor.select(tab.uri) }
+                        showLivePreview = true
+                    },
                 )
             } else if (destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Connections) && !gitCommitHistoryOpen) {
                 DevForgeTopBar(
