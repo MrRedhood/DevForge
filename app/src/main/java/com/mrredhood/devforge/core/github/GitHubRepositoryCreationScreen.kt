@@ -96,9 +96,8 @@ fun GitHubRepositoryCreationScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
     LazyColumn(
-        Modifier.fillMaxSize().padding(padding).testTag("github-repository-creation-list"),
+        Modifier.fillMaxSize().testTag("github-repository-creation-list"),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -455,9 +454,7 @@ fun GitHubRepositoryCreationScreen(
             }
         }
     }
-    }
 }
-    }
 
 
 @Composable
