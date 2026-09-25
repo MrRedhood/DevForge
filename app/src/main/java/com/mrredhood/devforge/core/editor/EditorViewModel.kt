@@ -212,6 +212,13 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         lastOpenEntry?.let(::open)
     }
 
+    fun loadPreview(entry: WorkspaceEntry, onResult: (Result<String>) -> Unit) {
+        if (entry.isDirectory) return
+        viewModelScope.launch {
+            onResult(readDocument(entry))
+        }
+    }
+
     fun select(uri: Uri) {
         activeUri = uri
         scheduleDiagnostics(uri, immediate = true)
