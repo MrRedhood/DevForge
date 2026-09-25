@@ -51,6 +51,8 @@ fun PreviewScreen(
     fileName: String,
     source: String,
     workspace: WorkspaceViewModel,
+    loading: Boolean = false,
+    loadError: String? = null,
     onChooseFile: (WorkspaceEntry) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -148,13 +150,34 @@ fun PreviewScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(24.dp),
                     ) {
-                        Text("Choose a file to preview", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Live Preview keeps its own target and does not follow the editor tab.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        TextButton(onClick = { chooseOpen = true }) { Text("Choose file") }
+                        when {
+                            loading -> {
+                                Text("Loading preview…", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Reading the selected workspace file.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            loadError != null -> {
+                                Text("Preview could not load", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    loadError,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                                TextButton(onClick = { chooseOpen = true }) { Text("Choose another file") }
+                            }
+                            else -> {
+                                Text("Choose a file to preview", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Live Preview keeps its own target and does not follow the editor tab.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                TextButton(onClick = { chooseOpen = true }) { Text("Choose file") }
+                            }
+                        }
                     }
                 }
             } else {
