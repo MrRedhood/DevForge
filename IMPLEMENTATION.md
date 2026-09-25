@@ -1,3 +1,8 @@
+### 2026-09-25 — Compose UI absence assertion compatibility repair
+- [x] Replaced unsupported `assertDoesNotExist()` usage in Android UI tests with `assertCountEquals(0)` over matching semantics nodes.
+- [x] Covered both text and content-description absence assertions without changing production UI behavior.
+- [ ] Fresh Android UI Tests and Android CI validation is required for this final main commit.
+
 ### 2026-09-25 — Repository creation opt-in import correction
 - [x] Corrected the missing ExperimentalMaterial3Api import in the GitHub repository creation screen.
 - [x] The previous opt-in annotation existed but referenced an unresolved symbol, causing Android CI release compilation to fail and preventing UI tests from compiling.
