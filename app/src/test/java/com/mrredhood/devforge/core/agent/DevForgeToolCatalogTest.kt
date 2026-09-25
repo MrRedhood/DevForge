@@ -9,7 +9,7 @@ class DevForgeToolCatalogTest {
     @Test
     fun exposesAllCatalogTools() {
         assertEquals(DevForgeToolCatalog.entries.size, DevForgeToolCatalog.userToolIds.size)
-        assertTrue(DevForgeToolCatalog.entries.size >= 70)
+        assertEquals(150, DevForgeToolCatalog.entries.size)
     }
 
     @Test
