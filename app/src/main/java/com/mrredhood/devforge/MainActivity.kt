@@ -249,13 +249,13 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3WindowSizeClassApi::class, ExperimentalMaterial3Api::class)
 data class LivePreviewTarget(
     val uri: String,
     val fileName: String,
     val source: String,
 )
 
+@OptIn(ExperimentalMaterial3WindowSizeClassApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun DevForgeApp(
     settings: DevForgeSettingsViewModel,
@@ -293,17 +293,6 @@ private fun DevForgeApp(
     var showLivePreview by rememberSaveable { mutableStateOf(false) }
     var livePreviewTarget by remember { mutableStateOf<LivePreviewTarget?>(null) }
 
-    LaunchedEffect(editor.tabs) {
-        val target = livePreviewTarget ?: return@LaunchedEffect
-        val matching = editor.tabs.firstOrNull { it.uri.toString() == target.uri }
-        if (matching != null && matching.content != target.source) {
-            livePreviewTarget = target.copy(
-                fileName = matching.name,
-                source = matching.content,
-            )
-        }
-    }
-
     LaunchedEffect(openApprovalId) {
         if (!openApprovalId.isNullOrBlank()) {
             destinationHistory = emptyList()
@@ -326,6 +315,17 @@ private fun DevForgeApp(
     val workspace: WorkspaceViewModel = viewModel()
     val editor: EditorViewModel = viewModel()
     val build: BuildViewModel = viewModel()
+
+    LaunchedEffect(editor.tabs) {
+        val target = livePreviewTarget ?: return@LaunchedEffect
+        val matching = editor.tabs.firstOrNull { it.uri.toString() == target.uri }
+        if (matching != null && matching.content != target.source) {
+            livePreviewTarget = target.copy(
+                fileName = matching.name,
+                source = matching.content,
+            )
+        }
+    }
     val approvalCenter: ApprovalCenterViewModel = viewModel()
     val githubRepositories: GitHubRepositoryViewModel = viewModel()
     val aiChat: AIChatViewModel = viewModel()
