@@ -1,3 +1,9 @@
+### 2026-09-25 — GitHub repository creation UI test scroll repair
+- [x] Updated the AI & GitHub navigation regression to locate the AI Tools tile by content instead of a fixed lazy-list index after adding Create GitHub repository.
+- [x] Updated repository creation UI coverage to scroll the Create repository action into view before asserting it is displayed.
+- [x] Kept the product UI unchanged; the fix targets the brittle instrumentation assumptions exposed by the new navigation entry.
+- [ ] Fresh Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Restore GitHub repository creation under AI & GitHub
 - [x] Restored the existing GitHub repository creation UI as a first-class entry under More → AI & GitHub → Create GitHub repository.
 - [x] Preserved the existing repository creation form and its GitHub initialization, visibility, organization, template, merge, and build-output options.
