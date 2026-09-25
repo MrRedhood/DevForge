@@ -572,6 +572,7 @@ private fun formatChatAttachmentSize(bytes: Long): String = when {
     else -> bytes.toString() + " B"
 }
 
+@Composable
 private fun CommandPalette(commands: List<AICommandDefinition>, onSelect: (AICommandDefinition) -> Unit) {
     Card(shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.fillMaxWidth()) {
