@@ -833,6 +833,7 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                     "When there is no current preview target, Live Preview opens its own workspace file chooser automatically.",
                     "The chooser loads the active workspace root independently from the Editor folder and lets you open folders, go back, and filter files in the current folder.",
                     "Selecting a file loads it directly into Live Preview; the file does not need to be opened as an editor tab.",
+                    "While a selected file is being read, Live Preview shows a loading state; read failures are shown as an actionable error instead of a blank surface.",
                     "The preview target is independent from the active editor tab: switching, opening, or closing another editor file does not replace it.",
                     "The selected preview target updates automatically when that same file changes in the Editor.",
                     "HTML/HTM, JavaScript/MJS/CJS, CSS/SCSS/SASS/LESS, and Markdown render in the WebView; other text-based files use a readable source preview.",
