@@ -471,7 +471,6 @@ private fun ToolActivityChip(
 }
 
 @Composable
-@Composable
 private fun MessageBubble(
     message: com.mrredhood.devforge.core.storage.ChatMessageEntity,
     onCopy: () -> Unit,
