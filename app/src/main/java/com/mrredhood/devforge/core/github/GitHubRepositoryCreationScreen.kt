@@ -57,6 +57,7 @@ private val LICENSE_TEMPLATES = listOf(
     "gpl-3.0" to "GPL-3.0", "bsd-3-clause" to "BSD 3-Clause",
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GitHubRepositoryCreationScreen(
     onBack: () -> Unit,
