@@ -6,6 +6,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Alignment
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,14 +42,25 @@ fun PreviewScreen(
     workspace: WorkspaceViewModel,
     onClose: () -> Unit,
 ) {
-    val activeTab = editor.activeTab
+    val activeTab = editor.activeTab ?: editor.tabs.lastOrNull()
     val fileName = activeTab?.name.orEmpty()
     val source = activeTab?.content.orEmpty()
-    val rendered = remember(fileName, source) {
-        PreviewDocumentRenderer.render(fileName, source)
+    val hasPreviewTarget = activeTab != null
+    val rendered = remember(fileName, source, hasPreviewTarget) {
+        if (hasPreviewTarget) {
+            PreviewDocumentRenderer.render(fileName, source)
+        } else {
+            ""
+        }
     }
     var previewHtml by remember(rendered) { mutableStateOf(rendered) }
     var consoleLines by remember { mutableStateOf(emptyList<String>()) }
+
+    LaunchedEffect(activeTab?.uri) {
+        if (editor.activeTab == null && activeTab != null) {
+            editor.select(activeTab.uri)
+        }
+    }
 
     LaunchedEffect(rendered) {
         delay(180)
@@ -87,47 +100,70 @@ fun PreviewScreen(
                 },
             )
 
-            AndroidView(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                factory = { context ->
-                    WebView(context).apply {
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.allowFileAccess = false
-                        settings.allowContentAccess = true
-                        webViewClient = object : WebViewClient() {
-                            override fun shouldOverrideUrlLoading(
-                                view: WebView,
-                                request: WebResourceRequest,
-                            ): Boolean = false
-                        }
-                        webChromeClient = object : WebChromeClient() {
-                            override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-                                consoleLines = (
-                                    consoleLines +
-                                        (consoleMessage.messageLevel().name + ": " +
-                                            consoleMessage.message() +
-                                            " @" + consoleMessage.lineNumber())
-                                    ).takeLast(120)
-                                return true
-                            }
-                        }
-                    }
-                },
-                update = { webView ->
-                    val hash = previewHtml.hashCode()
-                    if (webView.tag != hash) {
-                        webView.tag = hash
-                        webView.loadDataWithBaseURL(
-                            "https://devforge.local/",
-                            previewHtml,
-                            "text/html",
-                            "UTF-8",
-                            null,
+            if (!hasPreviewTarget) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(24.dp),
+                    ) {
+                        Text(
+                            "Open a file to preview",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            "Live Preview renders the currently selected editor file.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                },
-            )
+                }
+            } else {
+                AndroidView(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    factory = { context ->
+                        WebView(context).apply {
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.allowFileAccess = false
+                            settings.allowContentAccess = true
+                            webViewClient = object : WebViewClient() {
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView,
+                                    request: WebResourceRequest,
+                                ): Boolean = false
+                            }
+                            webChromeClient = object : WebChromeClient() {
+                                override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                                    consoleLines = (
+                                        consoleLines +
+                                            (consoleMessage.messageLevel().name + ": " +
+                                                consoleMessage.message() +
+                                                " @" + consoleMessage.lineNumber())
+                                        ).takeLast(120)
+                                    return true
+                                }
+                            }
+                        }
+                    },
+                    update = { webView ->
+                        val hash = previewHtml.hashCode()
+                        if (webView.tag != hash) {
+                            webView.tag = hash
+                            webView.loadDataWithBaseURL(
+                                "https://devforge.local/",
+                                previewHtml,
+                                "text/html",
+                                "UTF-8",
+                                null,
+                            )
+                        }
+                    },
+                )
+            }
 
             if (consoleLines.isNotEmpty()) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
