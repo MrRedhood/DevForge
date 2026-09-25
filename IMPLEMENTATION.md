@@ -1,3 +1,8 @@
+### 2026-09-25 — Repository creation opt-in import correction
+- [x] Corrected the missing ExperimentalMaterial3Api import in the GitHub repository creation screen.
+- [x] The previous opt-in annotation existed but referenced an unresolved symbol, causing Android CI release compilation to fail and preventing UI tests from compiling.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Repository creation Material 3 opt-in repair
 - [x] Restored the required ExperimentalMaterial3Api opt-in for the GitHub repository creation screen after its nested TopAppBar cleanup.
 - [x] This fixes the release/debug Kotlin compilation failure affecting both Android CI and Android UI Tests.
