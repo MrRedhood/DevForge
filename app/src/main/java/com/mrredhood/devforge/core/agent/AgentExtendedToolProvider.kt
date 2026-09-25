@@ -205,13 +205,49 @@ class AgentExtendedToolProvider(context: Context) {
     private fun sideEffecting(id: AgentToolId): Boolean = risk(id) >= RiskLevel.R2 || id.name.startsWith("COPY") || id.name in setOf("REPLACE_TEXT","INSERT_TEXT","DELETE_TEXT","REPLACE_RANGE","FORMAT_FILE","ORGANIZE_IMPORTS")
 
 
-    private suspend fun fileExists(context: AgentToolContext,args: JSONObject): AgentToolResult {
-        val path=args.optString("path").trim(); require(path.isNotBlank())
-        val uri=runCatching{resolveRoot(context.workspaceId,path)}.getOrNull(); val meta=uri?.let(::documentMetadata)
-        val out=JSONObject().put("path",path).put("exists",uri!=null)
-        meta?.name?.let{out.put("name",it)}; meta?.mimeType?.let{out.put("mimeType",it)}; meta?.sizeBytes?.let{out.put("sizeBytes",it)}
-        return AgentToolResult.Success(if(uri==null)"Path does not exist: $path" else "Path exists: $path",output=out.toString())
+    private suspend fun fileExists(context: AgentToolContext, args: JSONObject): AgentToolResult {
+        val path = args.optString("path").trim()
+        require(path.isNotBlank())
+
+        val remote = githubStore.get(context.workspaceId)
+        if (remote != null) {
+            val normalized = path.trim('/')
+            val parent = normalized.substringBeforeLast('/', "")
+            val name = normalized.substringAfterLast('/')
+            val entry = when (val result = github.listContents(remote.owner, remote.repository, parent, remote.branch)) {
+                is com.mrredhood.devforge.core.github.GitHubContentsResult.Success ->
+                    result.entries.firstOrNull { it.name == name }
+                is com.mrredhood.devforge.core.github.GitHubContentsResult.Failure ->
+                    throw IllegalStateException(result.message)
+            }
+            val out = JSONObject().put("path", path).put("exists", entry != null)
+            entry?.let {
+                out.put("name", it.name)
+                    .put(
+                        "mimeType",
+                        if (it.type == "dir") DocumentsContract.Document.MIME_TYPE_DIR else "application/octet-stream",
+                    )
+                it.sizeBytes?.let { size -> out.put("sizeBytes", size) }
+                out.put("type", it.type)
+            }
+            return AgentToolResult.Success(
+                if (entry == null) "Path does not exist: $path" else "Path exists: $path",
+                output = out.toString(),
+            )
+        }
+
+        val uri = runCatching { resolveRoot(context.workspaceId, path) }.getOrNull()
+        val meta = uri?.let(::documentMetadata)
+        val out = JSONObject().put("path", path).put("exists", uri != null)
+        meta?.name?.let { out.put("name", it) }
+        meta?.mimeType?.let { out.put("mimeType", it) }
+        meta?.sizeBytes?.let { out.put("sizeBytes", it) }
+        return AgentToolResult.Success(
+            if (uri == null) "Path does not exist: $path" else "Path exists: $path",
+            output = out.toString(),
+        )
     }
+
     private suspend fun directoryInfo(context: AgentToolContext,args: JSONObject): AgentToolResult {
         val path=args.optString("path").trim().trim('/'); val uri=resolveRoot(context.workspaceId,path); val meta=documentMetadata(uri)
         require(meta.mimeType==DocumentsContract.Document.MIME_TYPE_DIR){"Path is not a directory: $path"}
