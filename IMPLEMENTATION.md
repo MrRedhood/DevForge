@@ -1,3 +1,10 @@
+### 2026-09-25 — Expanded AI catalog and media diagnostics
+- [x] Expanded AgentToolId to exactly 150 tools.
+- [x] Added bounded media diagnostics and workspace/code/environment/build/Git inspection tools.
+- [x] Registered the expanded provider through the existing gateway and access rules.
+- [x] Added a provider-neutral textual tool protocol path so models without native tool calling can still use enabled tools.
+- [ ] Fresh Android CI and Android UI Tests validation is pending for this change.
+
 ### 2026-09-25 — Expanded terminal commands, AI diagnostics and pause cancellation hardening
 - [x] Expanded the structured Terminal command catalog with additional Android/toybox utilities for text processing, checksums, archives, process inspection/control, timing and Android diagnostics, while preserving the real /system/bin/sh -c shell for arbitrary commands available in the device PATH.
 - [x] Added the in-terminal commands discoverability command and updated Terminal help to explain the expanded catalog and optional environment-dependent tools such as curl, wget, ping, nslookup, git, java, kotlinc and gradle.
