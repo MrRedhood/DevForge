@@ -33,11 +33,13 @@ import androidx.compose.ui.unit.dp
 import com.mrredhood.devforge.core.ai.AISettingsScreen
 import com.mrredhood.devforge.core.agent.ToolSettingsScreen
 import com.mrredhood.devforge.core.build.BuildViewModel
+import com.mrredhood.devforge.core.github.GitHubRepositoryCreationScreen
 import com.mrredhood.devforge.core.github.GitHubRepositoryScreen
 
 private enum class AiGitHubSection {
     HOME,
     GITHUB,
+    CREATE_REPOSITORY,
     MODELS,
     TOOLS,
 }
@@ -91,6 +93,13 @@ fun AiGitHubHubScreen(
                 }
                 item {
                     HubTile(
+                        icon = Icons.Default.Source,
+                        title = "Create GitHub repository",
+                        subtitle = "Create a new repository directly in GitHub from DevForge.",
+                    ) { sectionName = AiGitHubSection.CREATE_REPOSITORY.name }
+                }
+                item {
+                    HubTile(
                         icon = Icons.Default.AutoAwesome,
                         title = "AI Models",
                         subtitle = "Save an AI provider API key and test the connection.",
@@ -110,6 +119,13 @@ fun AiGitHubHubScreen(
             GitHubRepositoryScreen(
                 buildViewModel = buildViewModel,
                 onBack = ::closeChild,
+            )
+        }
+
+        AiGitHubSection.CREATE_REPOSITORY -> ChildSurface("Create GitHub repository", ::closeChild) {
+            GitHubRepositoryCreationScreen(
+                onBack = ::closeChild,
+                onCreated = { closeChild() },
             )
         }
 
