@@ -216,10 +216,6 @@ class GitHubRepositoryGateway(
 
         return runCatching {
             val refPath = "/repos/" + o + "/" + r + "/git/ref/heads/" + encodePathSegment(b)
-            val parentCommit = getJson(refPath) { it.getJSONObject("object").getString("sha") }.getOrThrow()
-            val baseTree = getJson("/repos/" + o + "/" + r + "/git/commits/" + parentCommit) {
-                it.getJSONObject("tree").getString("sha")
-            }.getOrThrow()
 
             val tree = JSONArray()
             changes.forEach { change ->
@@ -233,16 +229,34 @@ class GitHubRepositoryGateway(
                 tree.put(row)
             }
 
-            val treeSha = postJson(
-                "/repos/" + o + "/" + r + "/git/trees",
-                JSONObject().put("base_tree", baseTree).put("tree", tree),
-            ).getString("sha")
+            var parentCommit = ""
+            var treeSha: String? = null
+            var lastTreeError: Throwable? = null
+            repeat(3) { attempt ->
+                parentCommit = getJson(refPath) { it.getJSONObject("object").getString("sha") }.getOrThrow()
+                val baseTree = getJson("/repos/" + o + "/" + r + "/git/commits/" + parentCommit) {
+                    it.getJSONObject("tree").getString("sha")
+                }.getOrThrow()
+                try {
+                    treeSha = postJson(
+                        "/repos/" + o + "/" + r + "/git/trees",
+                        JSONObject().put("base_tree", baseTree).put("tree", tree),
+                    ).getString("sha")
+                    lastTreeError = null
+                } catch (error: Throwable) {
+                    if (!error.message.orEmpty().contains("HTTP 404") || attempt == 2) throw error
+                    lastTreeError = error
+                    Thread.sleep(250L * (attempt + 1))
+                }
+                if (treeSha != null) return@repeat
+            }
+            val createdTreeSha = treeSha ?: throw (lastTreeError ?: IllegalStateException("Unable to create the GitHub tree."))
 
             val commitSha = postJson(
                 "/repos/" + o + "/" + r + "/git/commits",
                 JSONObject()
                     .put("message", normalizedMessage)
-                    .put("tree", treeSha)
+                    .put("tree", createdTreeSha)
                     .put("parents", JSONArray().put(parentCommit)),
             ).getString("sha")
 
