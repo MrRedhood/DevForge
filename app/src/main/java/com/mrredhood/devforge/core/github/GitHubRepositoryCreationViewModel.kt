@@ -108,6 +108,29 @@ class GitHubRepositoryCreationViewModel(application: Application) : AndroidViewM
                 return
             }
         }
+
+        val squashTitle = current.squashMergeTitle.trim().uppercase()
+        val squashMessage = current.squashMergeMessage.trim().uppercase()
+        val validSquashCombination = when (squashTitle to squashMessage) {
+            "PR_TITLE" to "PR_BODY",
+            "PR_TITLE" to "BLANK",
+            "PR_TITLE" to "COMMIT_MESSAGES",
+            "COMMIT_OR_PR_TITLE" to "COMMIT_MESSAGES" -> true
+            else -> false
+        }
+        if (!validSquashCombination) {
+            state = state.copy(error = "Select a valid GitHub squash merge title/message combination.")
+            return
+        }
+
+        val mergeTitle = current.mergeCommitTitle.trim().uppercase()
+        val mergeMessage = current.mergeCommitMessage.trim().uppercase()
+        if (mergeTitle !in setOf("PR_TITLE", "MERGE_MESSAGE") ||
+            mergeMessage !in setOf("PR_BODY", "PR_TITLE", "BLANK")) {
+            state = state.copy(error = "Select a valid GitHub merge commit title/message combination.")
+            return
+        }
+
         state = state.copy(isCreating = true, error = null, created = null)
         viewModelScope.launch(Dispatchers.IO) {
             val result = gateway.createRepository(
@@ -130,12 +153,12 @@ class GitHubRepositoryCreationViewModel(application: Application) : AndroidViewM
                     allowMergeCommit = current.allowMergeCommit,
                     allowRebaseMerge = current.allowRebaseMerge,
                     allowAutoMerge = current.allowAutoMerge,
-                    mergeCommitMessage = current.mergeCommitMessage,
+                    mergeCommitMessage = mergeMessage,
                     visibility = current.visibility,
                     deleteBranchOnMerge = current.deleteBranchOnMerge,
-                    squashMergeTitle = current.squashMergeTitle,
-                    squashMergeMessage = current.squashMergeMessage,
-                    mergeCommitTitle = current.mergeCommitTitle,
+                    squashMergeTitle = squashTitle,
+                    squashMergeMessage = squashMessage,
+                    mergeCommitTitle = mergeTitle,
                     organization = current.organization,
                     teamId = normalizedTeamId,
                     customPropertiesJson = properties,
