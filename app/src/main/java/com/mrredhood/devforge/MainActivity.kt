@@ -292,6 +292,8 @@ private fun DevForgeApp(
     var showPublishLocalProject by rememberSaveable { mutableStateOf(false) }
     var showLivePreview by rememberSaveable { mutableStateOf(false) }
     var livePreviewTarget by remember { mutableStateOf<LivePreviewTarget?>(null) }
+    var livePreviewLoading by remember { mutableStateOf(false) }
+    var livePreviewError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(openApprovalId) {
         if (!openApprovalId.isNullOrBlank()) {
@@ -427,6 +429,8 @@ private fun DevForgeApp(
                     onMenu = { showEditorMenu = true },
                     onSave = editor::saveActive,
                     onPreview = {
+                        livePreviewError = null
+                        livePreviewLoading = false
                         val candidate = livePreviewTarget
                             ?: editor.activeTab?.let { tab ->
                                 LivePreviewTarget(tab.uri.toString(), tab.name, tab.content)
@@ -662,14 +666,21 @@ private fun DevForgeApp(
                 fileName = livePreviewTarget?.fileName.orEmpty(),
                 source = livePreviewTarget?.source.orEmpty(),
                 workspace = workspace,
+                loading = livePreviewLoading,
+                loadError = livePreviewError,
                 onChooseFile = { entry ->
+                    livePreviewLoading = true
+                    livePreviewError = null
                     editor.loadPreview(entry) { result ->
+                        livePreviewLoading = false
                         result.onSuccess { source ->
                             livePreviewTarget = LivePreviewTarget(
                                 uri = entry.uri.toString(),
                                 fileName = entry.name,
                                 source = source,
                             )
+                        }.onFailure { throwable ->
+                            livePreviewError = throwable.message ?: "Unable to load the selected file."
                         }
                     }
                 },
