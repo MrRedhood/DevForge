@@ -12,6 +12,16 @@ data class DevForgeToolCatalogEntry(
 
 object DevForgeToolCatalog {
     val entries: List<DevForgeToolCatalogEntry> = listOf(
+        DevForgeToolCatalogEntry(AgentToolId.READ_SHARED_MEMORY, "Read shared memory", "Read shared AI coordination memory.", "Agent coordination"),
+        DevForgeToolCatalogEntry(AgentToolId.WRITE_SHARED_MEMORY, "Write shared memory", "Write bounded AI coordination memory.", "Agent coordination"),
+        DevForgeToolCatalogEntry(AgentToolId.LIST_HANDOFFS, "List handoffs", "List pending agent handoffs.", "Agent coordination"),
+        DevForgeToolCatalogEntry(AgentToolId.CREATE_HANDOFF, "Create handoff", "Create a bounded agent handoff.", "Agent coordination"),
+        DevForgeToolCatalogEntry(AgentToolId.CLAIM_HANDOFF, "Claim handoff", "Claim a pending agent handoff.", "Agent coordination"),
+        DevForgeToolCatalogEntry(AgentToolId.COMPLETE_HANDOFF, "Complete handoff", "Complete an agent handoff.", "Agent coordination"),
+        DevForgeToolCatalogEntry(AgentToolId.GET_WORKSPACE_CONTEXT, "Workspace context", "Read authoritative active-workspace identity and state.", "Workspace"),
+        DevForgeToolCatalogEntry(AgentToolId.RETRIEVE_RELEVANT_CONTEXT, "Relevant context", "Retrieve bounded source context relevant to the current task.", "Workspace"),
+        DevForgeToolCatalogEntry(AgentToolId.RUN_COMMAND, "Run terminal command", "Run a bounded Android/Linux shell command in the active workspace.", "Terminal"),
+        DevForgeToolCatalogEntry(AgentToolId.GET_GIT_LOG, "Read Git log", "Read bounded recent Git commit history.", "Git"),
         DevForgeToolCatalogEntry(AgentToolId.READ_FILE, "Read file", "Read bounded text from the active workspace.", "Workspace"),
         DevForgeToolCatalogEntry(AgentToolId.LIST_FILES, "List files", "List files and folders in the active workspace.", "Workspace"),
         DevForgeToolCatalogEntry(AgentToolId.SEARCH_WORKSPACE, "Search workspace", "Find workspace entries by name or path.", "Workspace"),
