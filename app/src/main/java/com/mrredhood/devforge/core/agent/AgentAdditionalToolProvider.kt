@@ -107,7 +107,7 @@ class AgentAdditionalToolProvider(context: Context) {
                     AgentToolId.DETECT_BINARY_FILE -> binary(context, args)
                     AgentToolId.PREVIEW_FILE -> preview(context, args)
                     AgentToolId.SEARCH_REGEX -> search(context, Pattern.compile(args.optString("pattern"), Pattern.MULTILINE))
-                    AgentToolId.FIND_TODO -> search(context, Pattern.compile("\\bTODO\\b", Pattern.IGNORE_CASE))
+                    AgentToolId.FIND_TODO -> search(context, Pattern.compile("\\bTODO\\b", Pattern.CASE_INSENSITIVE))
                     AgentToolId.FIND_FIXME -> search(context, Pattern.compile("\\bFIXME\\b", Pattern.IGNORE_CASE))
                     AgentToolId.FIND_COMMENTS -> search(context, Pattern.compile("//|#|/\\*|\\*/"))
                     AgentToolId.COUNT_SYMBOLS -> countSymbols(context)
@@ -508,9 +508,10 @@ class AgentAdditionalToolProvider(context: Context) {
         }
     }
 
-    private suspend fun readText(workspaceId: String, path: String, maxBytes: Int): String =
-        runInterruptible(Dispatchers.IO) {
-            resolver.openInputStream(resolve(workspaceId, path))?.use { input ->
+    private suspend fun readText(workspaceId: String, path: String, maxBytes: Int): String {
+        val uri = resolve(workspaceId, path)
+        return runInterruptible(Dispatchers.IO) {
+            resolver.openInputStream(uri)?.use { input ->
                 val out = ByteArrayOutputStream()
                 val buffer = ByteArray(16 * 1024)
                 var total = 0
@@ -524,10 +525,12 @@ class AgentAdditionalToolProvider(context: Context) {
                 out.toString(Charsets.UTF_8.name())
             } ?: error("Unable to read file.")
         }
+    }
 
-    private suspend fun readRaw(workspaceId: String, path: String, maxBytes: Int): ByteArray =
-        runInterruptible(Dispatchers.IO) {
-            resolver.openInputStream(resolve(workspaceId, path))?.use { input ->
+    private suspend fun readRaw(workspaceId: String, path: String, maxBytes: Int): ByteArray {
+        val uri = resolve(workspaceId, path)
+        return runInterruptible(Dispatchers.IO) {
+            resolver.openInputStream(uri)?.use { input ->
                 val out = ByteArrayOutputStream()
                 val buffer = ByteArray(minOf(16 * 1024, maxBytes))
                 var total = 0
@@ -540,6 +543,7 @@ class AgentAdditionalToolProvider(context: Context) {
                 out.toByteArray()
             } ?: error("Unable to read file.")
         }
+    }
 
     private fun hashUri(uri: android.net.Uri, maxBytes: Int): String {
         val digest = MessageDigest.getInstance("SHA-256")
