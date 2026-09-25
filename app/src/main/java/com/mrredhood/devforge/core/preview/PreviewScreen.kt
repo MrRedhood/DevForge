@@ -11,15 +11,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,35 +37,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.mrredhood.devforge.core.editor.EditorViewModel
+import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PreviewScreen(
-    editor: EditorViewModel,
+    fileName: String,
+    source: String,
     workspace: WorkspaceViewModel,
+    onChooseFile: (WorkspaceEntry) -> Unit,
     onClose: () -> Unit,
 ) {
-    val activeTab = editor.activeTab ?: editor.tabs.lastOrNull()
-    val fileName = activeTab?.name.orEmpty()
-    val source = activeTab?.content.orEmpty()
-    val hasPreviewTarget = activeTab != null
+    var chooseOpen by remember { mutableStateOf(false) }
+    val hasPreviewTarget = fileName.isNotBlank()
     val rendered = remember(fileName, source, hasPreviewTarget) {
-        if (hasPreviewTarget) {
-            PreviewDocumentRenderer.render(fileName, source)
-        } else {
-            ""
-        }
+        if (hasPreviewTarget) PreviewDocumentRenderer.render(fileName, source) else ""
     }
     var previewHtml by remember(rendered) { mutableStateOf(rendered) }
     var consoleLines by remember { mutableStateOf(emptyList<String>()) }
-
-    LaunchedEffect(activeTab?.uri) {
-        if (editor.activeTab == null && activeTab != null) {
-            editor.select(activeTab.uri)
-        }
-    }
 
     LaunchedEffect(rendered) {
         delay(180)
@@ -91,6 +87,7 @@ fun PreviewScreen(
                     }
                 },
                 actions = {
+                    TextButton(onClick = { chooseOpen = true }) { Text("Choose") }
                     IconButton(onClick = {
                         previewHtml = PreviewDocumentRenderer.render(fileName, source)
                         consoleLines = emptyList()
@@ -110,15 +107,13 @@ fun PreviewScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(24.dp),
                     ) {
+                        Text("Choose a file to preview", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Open a file to preview",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            "Live Preview renders the currently selected editor file.",
+                            "Live Preview keeps its own target and does not follow the editor tab.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        TextButton(onClick = { chooseOpen = true }) { Text("Choose file") }
                     }
                 }
             } else {
@@ -161,6 +156,57 @@ fun PreviewScreen(
                                 null,
                             )
                         }
+                    },
+                )
+            }
+
+            if (chooseOpen) {
+                AlertDialog(
+                    onDismissRequest = { chooseOpen = false },
+                    title = { Text("Choose preview file · " + workspace.currentName) },
+                    text = {
+                        if (workspace.entries.isEmpty()) {
+                            Text("No files are available in this workspace folder.")
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                items(workspace.entries, key = { it.uri.toString() }) { entry ->
+                                    TextButton(
+                                        onClick = {
+                                            if (entry.isDirectory) {
+                                                workspace.openDirectory(entry)
+                                            } else {
+                                                chooseOpen = false
+                                                onChooseFile(entry)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Icon(
+                                                if (entry.isDirectory) Icons.Default.Folder else Icons.Default.Refresh,
+                                                contentDescription = null,
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(entry.name, modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { if (!workspace.goUp()) chooseOpen = false }) {
+                            Text("Up")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { chooseOpen = false }) { Text("Cancel") }
                     },
                 )
             }
