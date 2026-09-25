@@ -250,6 +250,12 @@ class MainActivity : FragmentActivity() {
 }
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class, ExperimentalMaterial3Api::class)
+data class LivePreviewTarget(
+    val uri: String,
+    val fileName: String,
+    val source: String,
+)
+
 @Composable
 private fun DevForgeApp(
     settings: DevForgeSettingsViewModel,
@@ -285,6 +291,18 @@ private fun DevForgeApp(
     var buildWithAiError by rememberSaveable { mutableStateOf<String?>(null) }
     var showPublishLocalProject by rememberSaveable { mutableStateOf(false) }
     var showLivePreview by rememberSaveable { mutableStateOf(false) }
+    var livePreviewTarget by remember { mutableStateOf<LivePreviewTarget?>(null) }
+
+    LaunchedEffect(editor.tabs) {
+        val target = livePreviewTarget ?: return@LaunchedEffect
+        val matching = editor.tabs.firstOrNull { it.uri.toString() == target.uri }
+        if (matching != null && matching.content != target.source) {
+            livePreviewTarget = target.copy(
+                fileName = matching.name,
+                source = matching.content,
+            )
+        }
+    }
 
     LaunchedEffect(openApprovalId) {
         if (!openApprovalId.isNullOrBlank()) {
@@ -409,7 +427,14 @@ private fun DevForgeApp(
                     onMenu = { showEditorMenu = true },
                     onSave = editor::saveActive,
                     onPreview = {
-                        editor.activeTab ?: editor.tabs.lastOrNull()?.let { tab -> editor.select(tab.uri) }
+                        val candidate = livePreviewTarget
+                            ?: editor.activeTab?.let { tab ->
+                                LivePreviewTarget(tab.uri.toString(), tab.name, tab.content)
+                            }
+                            ?: editor.tabs.lastOrNull()?.let { tab ->
+                                LivePreviewTarget(tab.uri.toString(), tab.name, tab.content)
+                            }
+                        if (candidate != null) livePreviewTarget = candidate
                         showLivePreview = true
                     },
                 )
@@ -634,8 +659,20 @@ private fun DevForgeApp(
             color = MaterialTheme.colorScheme.background,
         ) {
             PreviewScreen(
-                editor = editor,
+                fileName = livePreviewTarget?.fileName.orEmpty(),
+                source = livePreviewTarget?.source.orEmpty(),
                 workspace = workspace,
+                onChooseFile = { entry ->
+                    editor.loadPreview(entry) { result ->
+                        result.onSuccess { source ->
+                            livePreviewTarget = LivePreviewTarget(
+                                uri = entry.uri.toString(),
+                                fileName = entry.name,
+                                source = source,
+                            )
+                        }
+                    }
+                },
                 onClose = { showLivePreview = false },
             )
         }
