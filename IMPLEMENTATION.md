@@ -1,3 +1,10 @@
+### 2026-09-25 — 150-command Terminal catalog
+- [x] Added an exact 150-command Terminal discoverability catalog covering navigation, text processing, file operations, archives/checksums, environment/system inspection, processes/Android diagnostics, networking, Git and common development runtimes.
+- [x] Kept the real Android /system/bin/sh execution path unrestricted by the catalog; commands remain available when installed in the device PATH.
+- [x] Added a unit test enforcing exactly 150 unique discoverable terminal commands.
+- [x] Updated More → ⓘ Help & guide for the 150-command Terminal catalog.
+- [ ] Fresh Android CI and Android UI Tests validation is pending for this final main commit.
+
 ### 2026-09-25 — Expanded AI catalog and media diagnostics
 - [x] Expanded AgentToolId to exactly 150 tools.
 - [x] Added bounded media diagnostics and workspace/code/environment/build/Git inspection tools.

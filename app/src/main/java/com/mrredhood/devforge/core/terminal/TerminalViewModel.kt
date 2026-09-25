@@ -188,9 +188,11 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                 appendTerminalLine("Checksums/diff: md5sum, sha1sum, sha256sum, sha512sum, cksum, cmp, diff")
                 appendTerminalLine("Archives: tar, gzip, gunzip")
                 appendTerminalLine("Environment/processes: env, printenv, which, id, whoami, uname, getprop, date, ps, top, pgrep, pidof, kill, killall, nice, renice, uptime, sleep, nohup, time")
-                appendTerminalLine("Android: logcat, toybox")
-                appendTerminalLine("Optional commands such as curl, wget, ping, nslookup, git, java, kotlinc or gradle work when installed in the device environment.")
-                appendTerminalLine("The shell remains open to every command available in the Android PATH; this catalog is not an allowlist.")
+                TerminalCommandCatalog.groups.forEach { (group, commands) ->
+                    appendTerminalLine(group + ": " + commands.joinToString(", "))
+                }
+                appendTerminalLine("This 150-command list is a discoverability catalog, not an allowlist. Availability depends on the Android build/device PATH.")
+                appendTerminalLine("The shell remains open to every command available in the Android PATH; enter any installed command directly.")
             }
             is TerminalParsedCommand.Shell -> {
                 appendTerminalLine(prompt(session) + " " + parsed.commandLine)

@@ -28,6 +28,12 @@ class TerminalCommandParserTest {
     }
 
     @Test
+    fun exposesExactly150DiscoverableCommands() {
+        assertEquals(150, TerminalCommandCatalog.commands.size)
+        assertEquals(150, TerminalCommandCatalog.commands.toSet().size)
+    }
+
+    @Test
     fun leavesLinuxShellOperatorsOnInteractiveShellPath() {
         val parsed = TerminalCommandParser.parse("printf 'a' | tr a b", "", 10_000L, "session")
         assertEquals(true, parsed is TerminalParsedCommand.Shell)
