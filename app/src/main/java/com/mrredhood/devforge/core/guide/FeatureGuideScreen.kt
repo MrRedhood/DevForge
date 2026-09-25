@@ -818,8 +818,11 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 "Workspace tree."),
             t("Editor live preview","Open the live preview directly from the editor.",
                 listOf(
+                    "Open the file you want to preview in the Editor.",
                     "Tap ▶ in the upper-right editor toolbar.",
                     "The current file is rendered immediately without installing an APK.",
+                    "If no file is selected, Live Preview shows an explicit Open a file to preview message instead of a blank surface.",
+                    "If an editor tab exists but the active selection was lost, Live Preview restores the most recent open tab before rendering.",
                     "HTML, JavaScript, CSS, and Markdown render in an interactive preview; Kotlin, Java, XML, JSON, Python, and other text-based files use a readable source preview.",
                     "JavaScript console messages and runtime errors are shown in the preview console.",
                     "The preview refreshes automatically after editor changes.",
