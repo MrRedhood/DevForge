@@ -7,7 +7,9 @@
 - [x] Added unit coverage for the Terminal commands builtin and diagnostic-tool access boundaries.
 - [x] Updated More → ⓘ Help & guide for the expanded terminal catalog and corrected Pause AI behavior.
 - [x] Corrected the compare_files newline character literal and kept the bounded reader validation path.
-- [ ] Fresh Android CI and Android UI Tests validation is pending for this new main commit.
+- [x] Android CI run 36076542174 passed for commit 6b5c31eb5d84e81b666168069f6bbfdfca952894.
+- [x] Android UI Tests run 36076542125 passed for commit 6b5c31eb5d84e81b666168069f6bbfdfca952894.
+- [ ] This documentation-only commit still requires fresh Android CI and Android UI Tests validation.
 
 ### 2026-09-23 — Delete Path UI policy alignment
 - [x] Updated More → AI & GitHub → AI Tools copy to match the new opt-in Delete Path default while retaining approval protection.
