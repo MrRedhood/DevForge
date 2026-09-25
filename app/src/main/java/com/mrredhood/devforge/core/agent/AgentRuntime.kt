@@ -38,6 +38,7 @@ object AgentRuntime {
         AgentGitToolProvider(appContext).registerAll(registry)
         AgentTerminalToolProvider(appContext).registerAll(registry)
         AgentExtendedToolProvider(appContext).registerAll(registry)
+        AgentAdditionalToolProvider(appContext).registerAll(registry)
         AgentCoordinationToolProvider(coordination).registerAll(registry)
         val approvals = ApprovalRepository(database.approvalDao())
         val gateway = AgentToolGateway(
