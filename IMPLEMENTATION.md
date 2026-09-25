@@ -2445,7 +2445,7 @@ Restored the three project GitHub Actions workflows through the repository Git i
 
 ### 2026-09-25 — Live Preview UI test stabilization
 - [x] Removed the UI test's brittle assumption that the instrumentation run always starts without an active workspace.
-- [x] The test now explicitly opens the Live Preview chooser from the Preview screen before asserting chooser content, so it remains valid whether an editor tab or an existing preview target is already available when the test starts.
+- [x] The test now explicitly opens the Live Preview chooser from the Preview screen before asserting chooser content, and matches the dialog title as substring because it includes the current workspace name.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this latest main head.
 ### 2026-09-25 — Live Preview chooser reliability repair
 - [x] Fixed the Live Preview empty-target path so it opens its own workspace chooser automatically instead of leaving an apparently inert blank surface.
