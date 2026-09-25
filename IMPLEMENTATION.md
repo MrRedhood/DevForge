@@ -1,3 +1,8 @@
+### 2026-09-25 — Live Preview Alignment compile fix
+- [x] Corrected the PreviewScreen.kt Alignment import from the invalid foundation package to androidx.compose.ui.Alignment.
+- [x] This resolves the release/debug Kotlin compilation failure that caused both Android CI and Android UI Tests to fail on the Live Preview repair.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Live Preview active-tab recovery and blank-state fix
 - [x] Restored the most recent editor tab before opening Live Preview when the toolbar is invoked while the active tab is temporarily unset.
 - [x] Live Preview now falls back to an existing open editor tab when available.
