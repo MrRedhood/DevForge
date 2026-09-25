@@ -1,3 +1,11 @@
+### 2026-09-25 — Restore GitHub repository creation under AI & GitHub
+- [x] Restored the existing GitHub repository creation UI as a first-class entry under More → AI & GitHub → Create GitHub repository.
+- [x] Preserved the existing repository creation form and its GitHub initialization, visibility, organization, template, merge, and build-output options.
+- [x] Preserved the existing Open as workspace flow by routing the created repository through WorkspaceViewModel.openOrActivateGitHubRepository.
+- [x] Added Android UI regression coverage for the AI & GitHub → Create GitHub repository navigation path.
+- [x] Updated More → ⓘ Help & guide to document the corrected location.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the new final main commit.
+
 ### 2026-09-25 — 150-command Terminal catalog
 - [x] Added an exact 150-command Terminal discoverability catalog covering navigation, text processing, file operations, archives/checksums, environment/system inspection, processes/Android diagnostics, networking, Git and common development runtimes.
 - [x] Kept the real Android /system/bin/sh execution path unrestricted by the catalog; commands remain available when installed in the device PATH.
