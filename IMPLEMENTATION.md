@@ -1,3 +1,8 @@
+### 2026-09-25 — Chat attachment test moved to Android instrumentation
+- [x] Moved ChatAttachmentMessageTest from the JVM unit-test source set to androidTest because it exercises android.net.Uri, which the plain JVM Android SDK stubs do not implement.
+- [x] This keeps the attachment metadata regression coverage while avoiding false JVM RuntimeException failures.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Chat command palette compile annotation repair
 - [x] Marked the Chat CommandPalette composable helper with @Composable so its Material 3 composable children compile in release and debug builds.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
