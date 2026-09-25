@@ -2442,6 +2442,11 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Fresh Android CI run 478 and Android UI Tests run 482 (retry attempt 2 after a transient Android emulator SDK-image download failure) completed successfully for this corrected head.
 
 
+
+### 2026-09-25 — Live Preview UI test stabilization
+- [x] Removed the UI test's brittle assumption that the instrumentation run always starts without an active workspace.
+- [x] The test now verifies the chooser itself (title, file filter, and workspace-browsing content) regardless of whether the test process already has a persisted workspace.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this latest main head.
 ### 2026-09-25 — Live Preview chooser reliability repair
 - [x] Fixed the Live Preview empty-target path so it opens its own workspace chooser automatically instead of leaving an apparently inert blank surface.
 - [x] The chooser now reads the active workspace root directly through `WorkspaceViewModel.rootUri/listDirectory`, so it no longer depends on the Editor's current folder or stale `workspace.entries` state.
