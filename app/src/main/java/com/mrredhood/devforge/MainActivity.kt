@@ -140,7 +140,6 @@ import com.mrredhood.devforge.core.git.CapabilityAvailability
 import com.mrredhood.devforge.core.editor.DiffEngine
 import com.mrredhood.devforge.core.editor.DiffKind
 import com.mrredhood.devforge.core.github.GitHubPendingChanges
-import com.mrredhood.devforge.core.github.GitHubRepositoryCreationScreen
 import com.mrredhood.devforge.core.github.LiveActionsScreen
 import com.mrredhood.devforge.core.github.GitHubPendingChangeBatch
 import com.mrredhood.devforge.core.ide.IdeTool
@@ -1823,7 +1822,7 @@ private fun DestinationScreen(
             onRepositoryPickerChange = onBuildRepositoryPickerChange,
         )
         DevForgeDestination.LiveActions -> LiveActionsScreen(onBack = onBack)
-        DevForgeDestination.Connections -> AiGitHubHubScreen(buildViewModel = build, onBack = onBack)
+        DevForgeDestination.Connections -> AiGitHubHubScreen(buildViewModel = build, workspaceViewModel = workspace, onBack = onBack)
         DevForgeDestination.Terminal -> TerminalScreen(onBack = onBack)
         DevForgeDestination.Approvals -> ApprovalCenterScreen()
         DevForgeDestination.Settings -> SettingsScreen(
