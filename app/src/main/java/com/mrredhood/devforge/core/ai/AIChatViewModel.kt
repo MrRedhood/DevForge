@@ -335,7 +335,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     fun beginEditMessage(message: ChatMessageEntity) {
         if (isSending || message.role != "user") return
         editingMessageId = message.messageId
-        input = message.content.substringBefore("Device attachments:")
+        input = stripChatMessageAttachmentMetadata(message.content)
+            .substringBefore("Device attachments:")
             .trimEnd()
             .ifBlank { message.content.substringBefore("Device attachment:").trimEnd() }
         suggestions = emptyList()
@@ -359,7 +360,8 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     fun copyMessageText(message: ChatMessageEntity) {
         val clean = if (message.role == "user") {
-            message.content.substringBefore("Device attachments:")
+            stripChatMessageAttachmentMetadata(message.content)
+                .substringBefore("Device attachments:")
                 .trimEnd()
                 .ifBlank { message.content.substringBefore("Device attachment:").trimEnd() }
         } else message.content
@@ -554,8 +556,15 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     append("\n\n")
                     append(truthService.groundingInstruction(raw))
                 }
-                val visibleUserMessage = raw.ifBlank {
-                    submittedAttachments.joinToString(", ") { it.name }.ifBlank { "Attachment" }
+                val visibleUserMessage = buildString {
+                    append(
+                        raw.ifBlank {
+                            submittedAttachments.joinToString(", ") { it.name }.ifBlank { "Attachment" }
+                        },
+                    )
+                    if (submittedAttachments.isNotEmpty()) {
+                        append(encodeChatMessageAttachments(submittedAttachments))
+                    }
                 }
                 if (editingId != null) {
                     check(submittedAttachments.isEmpty()) { "Attachments are not supported while editing a sent message." }
@@ -819,8 +828,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 if (retainAttachmentsForRetry) {
                     val retainedUris = withContext(Dispatchers.Main.immediate) { attachments.map { it.uri }.toSet() }
                     submittedAttachments.filterNot { it.uri in retainedUris }.forEach { releaseAttachmentPermission(it.uri) }
-                } else {
-                    submittedAttachments.forEach { releaseAttachmentPermission(it.uri) }
                 }
                 withContext(NonCancellable + Dispatchers.Main.immediate) {
                     if (requestGeneration == generationId) {
@@ -881,7 +888,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             -> "${type.label} attachments are not supported by ${provider.displayName}. Choose Gemini, or choose OpenRouter for images."
             ChatAttachmentType.DOCUMENT,
             ChatAttachmentType.ANY_FILE,
-            -> "The selected provider may reject binary files it cannot transport; text-like files remain supported."
+            -> "The file is retained in Chat. The configured AI provider may still reject unsupported binary transport when you send it."
         }
 
     fun addAttachments(uris: List<Uri>, type: ChatAttachmentType) {
@@ -908,8 +915,10 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     require(metadata.sizeBytes in 1..type.maxBytes) {
                         "The attachment exceeds the ${formatSize(type.maxBytes)} limit."
                     }
-                    require(supportsProviderAttachment(requestProvider, metadata.name, metadata.mimeType)) {
-                        "Binary attachments are not supported by ${requestProvider.displayName} for this file type."
+                    if (type != ChatAttachmentType.ANY_FILE) {
+                        require(supportsProviderAttachment(requestProvider, metadata.name, metadata.mimeType)) {
+                            "Binary attachments are not supported by " + requestProvider.displayName + " for this file type."
+                        }
                     }
                     ChatAttachment(uri, metadata.name, metadata.mimeType, metadata.sizeBytes, type)
                 }.onFailure { error ->
