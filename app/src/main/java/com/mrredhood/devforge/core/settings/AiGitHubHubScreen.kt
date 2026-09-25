@@ -26,6 +26,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +37,7 @@ import com.mrredhood.devforge.core.agent.ToolSettingsScreen
 import com.mrredhood.devforge.core.build.BuildViewModel
 import com.mrredhood.devforge.core.github.GitHubRepositoryCreationScreen
 import com.mrredhood.devforge.core.github.GitHubRepositoryScreen
+import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 
 private enum class AiGitHubSection {
     HOME,
@@ -48,10 +51,12 @@ private enum class AiGitHubSection {
 @Composable
 fun AiGitHubHubScreen(
     buildViewModel: BuildViewModel,
+    workspaceViewModel: WorkspaceViewModel,
     onBack: () -> Unit,
 ) {
     var sectionName by rememberSaveable { mutableStateOf(AiGitHubSection.HOME.name) }
     val section = runCatching { AiGitHubSection.valueOf(sectionName) }.getOrDefault(AiGitHubSection.HOME)
+    val scope = rememberCoroutineScope()
 
     fun closeChild() {
         sectionName = AiGitHubSection.HOME.name
@@ -125,7 +130,16 @@ fun AiGitHubHubScreen(
         AiGitHubSection.CREATE_REPOSITORY -> ChildSurface("Create GitHub repository", ::closeChild) {
             GitHubRepositoryCreationScreen(
                 onBack = ::closeChild,
-                onCreated = { closeChild() },
+                onCreated = { repository ->
+                    scope.launch {
+                        workspaceViewModel.openOrActivateGitHubRepository(
+                            owner = repository.owner,
+                            repositoryName = repository.name,
+                            branch = repository.defaultBranch,
+                        )
+                        closeChild()
+                    }
+                },
             )
         }
 
