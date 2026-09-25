@@ -364,15 +364,22 @@ fun GitHubRepositoryCreationScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Merge commit message", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Button(
                         onClick = { viewModel.update(form.copy(mergeCommitMessage = "PR_TITLE")) },
                         enabled = form.mergeCommitMessage != "PR_TITLE",
                     ) { Text("PR title") }
                     OutlinedButton(
-                        onClick = { viewModel.update(form.copy(mergeCommitMessage = "MERGE_MESSAGE")) },
-                        enabled = form.mergeCommitMessage != "MERGE_MESSAGE",
-                    ) { Text("Merge message") }
+                        onClick = { viewModel.update(form.copy(mergeCommitMessage = "PR_BODY")) },
+                        enabled = form.mergeCommitMessage != "PR_BODY",
+                    ) { Text("PR body") }
+                    OutlinedButton(
+                        onClick = { viewModel.update(form.copy(mergeCommitMessage = "BLANK")) },
+                        enabled = form.mergeCommitMessage != "BLANK",
+                    ) { Text("Blank") }
                 }
             }
         }
