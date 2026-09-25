@@ -86,6 +86,8 @@ class MainActivityNavigationTest {
         waitForNode("Preview")
         composeRule.onNodeWithContentDescription("Preview", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Live preview", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Choose preview file", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Open a workspace first.", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Close live preview", useUnmergedTree = true).assertIsDisplayed()
     }
 
