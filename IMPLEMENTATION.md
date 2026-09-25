@@ -1,3 +1,7 @@
+### 2026-09-25 — Chat command palette compile annotation repair
+- [x] Marked the Chat CommandPalette composable helper with @Composable so its Material 3 composable children compile in release and debug builds.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Attachment and Live Preview compile integration repair
 - [x] Fixed the Live Preview state effect so it runs after EditorViewModel initialization and restored the Material window-size-class opt-in to DevForgeApp.
 - [x] Fixed the Chat attachment MessageBubble duplicate @Composable annotation.
