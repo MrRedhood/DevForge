@@ -1,3 +1,13 @@
+### 2026-09-25 — GitHub repository creation 422 and duplicate header repair
+- [x] Corrected repository-creation merge settings to match GitHub's supported squash and merge commit combinations.
+- [x] Changed the merge commit message control so it uses PR_TITLE, PR_BODY, or BLANK; MERGE_MESSAGE remains available only for the merge commit title.
+- [x] Switched the repository creation model's squash default to GitHub's standard COMMIT_OR_PR_TITLE + COMMIT_MESSAGES combination.
+- [x] Added ViewModel validation that blocks unsupported merge-setting combinations before a GitHub request is sent.
+- [x] Removed the nested creation-screen TopAppBar so AI & GitHub shows a single Create GitHub repository header.
+- [x] Added Android UI coverage for the single header and valid merge-message controls.
+- [x] Updated More → ⓘ Help & guide with the supported GitHub merge combinations.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — AI & GitHub UI regression test parent scrolling
 - [x] Fixed the AI & GitHub hub regression test to scroll its LazyColumn to the AI Tools tile before asserting visibility.
 - [x] Added a stable test tag to the GitHub repository creation form list and scroll that parent list to the Create repository action before asserting visibility.
