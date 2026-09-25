@@ -138,6 +138,20 @@ class MainActivityNavigationTest {
     }
 
     @Test
+    fun githubRepositoryCreationIsUnderAiAndGitHub() {
+        resetToEditorHome()
+        waitForNode("More navigation")
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag("more-screen-list", useUnmergedTree = true).performScrollToIndex(5)
+        waitForText("AI & GitHub")
+        composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).performClick()
+        waitForText("Create GitHub repository")
+        composeRule.onNodeWithText("Create GitHub repository", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Repository name", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Create repository", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
     fun settingsDoesNotExposeLegacyAiProviderEntry() {
         resetToEditorHome()
         waitForNode("More navigation")
