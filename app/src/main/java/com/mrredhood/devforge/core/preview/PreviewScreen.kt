@@ -1,5 +1,6 @@
 package com.mrredhood.devforge.core.preview
 
+import android.net.Uri
 import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -53,7 +54,44 @@ fun PreviewScreen(
     onChooseFile: (WorkspaceEntry) -> Unit,
     onClose: () -> Unit,
 ) {
-    var chooseOpen by remember { mutableStateOf(false) }
+    val rootUri = workspace.rootUri
+    var chooseOpen by remember { mutableStateOf(fileName.isBlank()) }
+    var chooserStack by remember(rootUri) {
+        mutableStateOf(
+            rootUri?.let {
+                listOf(PreviewChooserLocation(it, workspace.workspace?.name ?: "Workspace"))
+            }.orEmpty(),
+        )
+    }
+    var chooserEntries by remember(rootUri) { mutableStateOf(emptyList<WorkspaceEntry>()) }
+    var chooserQuery by remember(rootUri) { mutableStateOf("") }
+    var chooserLoading by remember(rootUri) { mutableStateOf(false) }
+    var chooserError by remember(rootUri) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(rootUri, chooseOpen, chooserStack) {
+        if (!chooseOpen) return@LaunchedEffect
+        val location = chooserStack.lastOrNull()
+        if (location == null) {
+            chooserEntries = emptyList()
+            chooserError = "Open a workspace first."
+            chooserLoading = false
+            return@LaunchedEffect
+        }
+        chooserLoading = true
+        chooserError = null
+        runCatching { workspace.listDirectory(location.uri) }
+            .onSuccess { entries -> chooserEntries = entries }
+            .onFailure { throwable ->
+                chooserEntries = emptyList()
+                chooserError = throwable.message ?: "Unable to load this folder."
+            }
+        chooserLoading = false
+    }
+
+    LaunchedEffect(chooseOpen, chooserStack) {
+        if (chooseOpen) chooserQuery = ""
+    }
+
     val hasPreviewTarget = fileName.isNotBlank()
     val rendered = remember(fileName, source, hasPreviewTarget) {
         if (hasPreviewTarget) PreviewDocumentRenderer.render(fileName, source) else ""
@@ -166,37 +204,95 @@ fun PreviewScreen(
             if (chooseOpen) {
                 AlertDialog(
                     onDismissRequest = { chooseOpen = false },
-                    title = { Text("Choose preview file · " + workspace.currentName) },
+                    title = {
+                        Text(
+                            "Choose preview file · " +
+                                (chooserStack.lastOrNull()?.name ?: workspace.workspace?.name ?: "Workspace"),
+                        )
+                    },
                     text = {
-                        if (workspace.entries.isEmpty()) {
-                            Text("No files are available in this workspace folder.")
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                items(workspace.entries, key = { it.uri.toString() }) { entry ->
-                                    TextButton(
-                                        onClick = {
-                                            if (entry.isDirectory) {
-                                                workspace.openDirectory(entry)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                "Browse the active workspace. Selecting a file loads it directly into Live Preview without opening an editor tab.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            androidx.compose.material3.OutlinedTextField(
+                                value = chooserQuery,
+                                onValueChange = { chooserQuery = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Filter files") },
+                                singleLine = true,
+                            )
+                            when {
+                                chooserLoading -> {
+                                    Text("Loading workspace files…")
+                                }
+                                chooserError != null -> {
+                                    Text(
+                                        chooserError.orEmpty(),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                                else -> {
+                                    val visibleEntries = chooserEntries.filter {
+                                        chooserQuery.isBlank() ||
+                                            it.name.contains(chooserQuery, ignoreCase = true)
+                                    }
+                                    if (visibleEntries.isEmpty()) {
+                                        Text(
+                                            if (chooserQuery.isBlank()) {
+                                                "No files are available in this folder."
                                             } else {
-                                                chooseOpen = false
-                                                onChooseFile(entry)
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Row(
-                                            Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
+                                                "No matching files in this folder."
+                                            },
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    } else {
+                                        LazyColumn(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(max = 420.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
-                                            Icon(
-                                                if (entry.isDirectory) Icons.Default.Folder else Icons.Default.Refresh,
-                                                contentDescription = null,
-                                            )
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(entry.name, modifier = Modifier.weight(1f))
+                                            items(
+                                                visibleEntries,
+                                                key = { it.uri.toString() },
+                                            ) { entry ->
+                                                TextButton(
+                                                    onClick = {
+                                                        if (entry.isDirectory) {
+                                                            chooserStack = chooserStack + PreviewChooserLocation(
+                                                                entry.uri,
+                                                                entry.name,
+                                                            )
+                                                        } else {
+                                                            chooseOpen = false
+                                                            onChooseFile(entry)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                ) {
+                                                    Row(
+                                                        Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                    ) {
+                                                        Icon(
+                                                            if (entry.isDirectory) {
+                                                                Icons.Default.Folder
+                                                            } else {
+                                                                Icons.Default.Refresh
+                                                            },
+                                                            contentDescription = null,
+                                                        )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text(entry.name, modifier = Modifier.weight(1f))
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -204,8 +300,16 @@ fun PreviewScreen(
                         }
                     },
                     confirmButton = {
-                        TextButton(onClick = { if (!workspace.goUp()) chooseOpen = false }) {
-                            Text("Up")
+                        TextButton(
+                            onClick = {
+                                if (chooserStack.size > 1) {
+                                    chooserStack = chooserStack.dropLast(1)
+                                } else {
+                                    chooseOpen = false
+                                }
+                            },
+                        ) {
+                            Text(if (chooserStack.size > 1) "Up" else "Close")
                         }
                     },
                     dismissButton = {
@@ -230,6 +334,11 @@ fun PreviewScreen(
         }
     }
 }
+
+data class PreviewChooserLocation(
+    val uri: Uri,
+    val name: String,
+)
 
 private object PreviewDocumentRenderer {
     fun render(name: String, source: String): String =
