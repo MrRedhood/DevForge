@@ -938,7 +938,9 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
             t("Shell execution","Terminal commands run through the existing workspace sandbox. Local workspaces are mirrored into an isolated terminal root before execution.",
                 listOf("Use normal shell syntax: quoting, variables, pipes, redirects, &&, ||, ; and command substitution.","cd updates the DevForge session working directory.","GitHub-backed workspaces continue to use their remote terminal path where supported."),
                 "More → Terminal."),
-            t("Expanded AI tools","The main AI catalog now exposes the expanded tool surface. The same DevForge text protocol works for configured models even when native function calling is unavailable.","More -> AI Tools."),
+            t("Expanded AI tools","The main AI catalog now exposes the expanded tool surface.",
+                listOf("Browse the added AI tools in More -> AI Tools."),
+                "More -> AI Tools."),
             t("Core command set","The Terminal exposes a discoverable Linux-style command catalog while still allowing any command available in the Android PATH.",
                 listOf(
                     "Read/search: pwd, ls, cat, head, tail, grep, find, sort, uniq, cut, tr, wc, awk, xargs, tee, paste, join, comm, nl, fold, expand, unexpand and strings.",
