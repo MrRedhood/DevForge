@@ -3,6 +3,7 @@
 - [x] Added bounded media diagnostics and workspace/code/environment/build/Git inspection tools.
 - [x] Registered the expanded provider through the existing gateway and access rules.
 - [x] Added a provider-neutral textual tool protocol path so models without native tool calling can still use enabled tools.
+- [x] Removed duplicate terminal/Git catalog entries found by the 150-tool uniqueness regression test.
 - [ ] Fresh Android CI and Android UI Tests validation is pending for this change.
 
 ### 2026-09-25 — Expanded terminal commands, AI diagnostics and pause cancellation hardening

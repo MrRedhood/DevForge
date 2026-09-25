@@ -53,18 +53,6 @@ object DevForgeToolCatalog {
         DevForgeToolCatalogEntry(AgentToolId.EXTRACT_LINKS, "Extract links", "Extract and normalize links from a web page.", "Web"),
         DevForgeToolCatalogEntry(AgentToolId.CALCULATE, "Calculate", "Evaluate a bounded arithmetic expression.", "Utilities"),
         DevForgeToolCatalogEntry(AgentToolId.CURRENT_TIME, "Current time", "Return device time, epoch timestamp, and requested timezone.", "Utilities"),
-        DevForgeToolCatalogEntry(
-            AgentToolId.RUN_COMMAND,
-            "Run terminal command",
-            "Run a bounded Linux shell command in the active workspace and return its output. Normal shell operators are supported for local workspaces. AI execution is approval-gated.",
-            "Terminal",
-        ),
-        DevForgeToolCatalogEntry(
-            AgentToolId.GET_GIT_LOG,
-            "Read Git log",
-            "Read bounded recent commit history from the active local Git repository or GitHub-backed workspace.",
-            "Git",
-        ),
         DevForgeToolCatalogEntry(AgentToolId.GET_GIT_BRANCH, "Git branch", "Inspect the active Git branch, detached-head state and revision.", "Git"),
         DevForgeToolCatalogEntry(AgentToolId.GET_GIT_REMOTES, "Git remotes", "Inspect whether a repository has a configured remote without exposing credentials.", "Git"),
         DevForgeToolCatalogEntry(AgentToolId.COPY_FILE, "Copy file", "Copy a workspace file to another folder.", "Workspace"),
