@@ -1,3 +1,12 @@
+### 2026-09-25 — AI creation-tool recovery and durable chat history
+- [x] Hardened create_file/create_folder argument handling with concrete workspace-relative path validation and additional filename/parent aliases.
+- [x] Added explicit recovery guidance so provider models correct invalid creation payloads instead of repeating the same failed path.
+- [x] Changed AI chat history hydration to read the durable Room session before every new model turn and immediately after session selection, rather than relying on a potentially stale Compose snapshot.
+- [x] Prevented repeated active-workspace emissions from clearing an otherwise unchanged chat session.
+- [x] Preserved partial streamed AI output as a durable assistant message when generation is explicitly paused.
+- [x] Updated More → ⓘ Help & guide with the creation-path and chat-history behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Compose UI node collection compatibility repair
 - [x] Removed unsupported `onAllNodes()` usage from Android UI tests after the latest UI workflow exposed the dependency compatibility gap.
 - [x] Kept supported `onAllNodesWithText(...).assertCountEquals(0)` checks for text-based absence assertions.
