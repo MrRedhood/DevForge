@@ -901,8 +901,8 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
         "Create a repository directly from DevForge using the connected GitHub account.",
         listOf(
             t("Create repository","Create a real GitHub repository with repository-creation options.",
-                listOf("Open More → Create GitHub repository, or AI & GitHub → GitHub Hub → Create repository.","Enter the repository name.","Choose description, homepage, visibility, initialization, GitHub features, templates and default branch.","Tap Create repository."),
-                "More → Create GitHub repository.",
+                listOf("Open More → AI & GitHub → Create GitHub repository.","Enter the repository name.","Choose description, homepage, visibility, initialization, GitHub features, templates and default branch.","Tap Create repository."),
+                "More → AI & GitHub → Create GitHub repository.",
                 listOf("private = repository visibility","README = initialize the repository","issues/projects/wiki/discussions = GitHub feature switches")),
             t("GitHub creation options","Configure the repository creation fields supported by the connected GitHub account.",
                 listOf(
@@ -918,7 +918,7 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 "Create GitHub repository screen."),
             t("Open created repository","Immediately use the new repository as the current DevForge workspace.",
                 listOf("After creation, tap Open as workspace.","DevForge activates the GitHub-backed worktree and makes it the current AI/editor context."),
-                "Create GitHub repository → Open as workspace."),
+                "More → AI & GitHub → Create GitHub repository → Open as workspace."),
         ),
     ),
     GuideCategory(
