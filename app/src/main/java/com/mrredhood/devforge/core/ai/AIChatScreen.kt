@@ -471,6 +471,7 @@ private fun ToolActivityChip(
 }
 
 @Composable
+@Composable
 private fun MessageBubble(
     message: com.mrredhood.devforge.core.storage.ChatMessageEntity,
     onCopy: () -> Unit,
@@ -478,6 +479,8 @@ private fun MessageBubble(
     isEditing: Boolean,
 ) {
     val user = message.role == "user"
+    var selectedAttachment by remember(message.messageId) { mutableStateOf<ChatMessageAttachment?>(null) }
+    val messageAttachments = remember(message.content) { parseChatMessageAttachments(message.content) }
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = if (user) Arrangement.End else Arrangement.Start,
@@ -487,20 +490,64 @@ private fun MessageBubble(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = if (user) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer),
         ) {
-            Column(Modifier.padding(14.dp)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (!message.commandName.isNullOrBlank()) {
                     Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                         Text("/" + message.commandName, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall)
                     }
-                    Spacer(Modifier.height(6.dp))
                 }
-                val visibleContent = if (message.role == "user") {
-                    message.content.substringBefore("Device attachments:")
-                        .trimEnd()
-                        .ifBlank { message.content.substringBefore("Device attachment:").trimEnd() }
-                } else message.content
-                if (message.role == "assistant") MarkdownText(visibleContent) else Text(visibleContent)
-                Spacer(Modifier.height(6.dp))
+                val visibleContent = stripChatMessageAttachmentMetadata(message.content)
+                    .let { content ->
+                        if (message.role == "user") {
+                            content.substringBefore("Device attachments:")
+                                .trimEnd()
+                                .ifBlank { content.substringBefore("Device attachment:").trimEnd() }
+                        } else {
+                            content
+                        }
+                    }
+                if (visibleContent.isNotBlank()) {
+                    if (message.role == "assistant") MarkdownText(visibleContent) else Text(visibleContent)
+                }
+                if (messageAttachments.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        messageAttachments.forEach { attachment ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedAttachment = attachment },
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text("FILE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            attachment.name,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            attachment.mimeType + " · " + formatChatAttachmentSize(attachment.sizeBytes),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Text(
+                                        "Open",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onCopy) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy message") }
                     if (user && onEdit != null) {
@@ -512,9 +559,20 @@ private fun MessageBubble(
             }
         }
     }
+    selectedAttachment?.let { attachment ->
+        ChatAttachmentViewerDialog(
+            attachment = attachment,
+            onDismiss = { selectedAttachment = null },
+        )
+    }
 }
 
-@Composable
+private fun formatChatAttachmentSize(bytes: Long): String = when {
+    bytes >= 1024L * 1024L -> (bytes / (1024L * 1024L)).toString() + " MB"
+    bytes >= 1024L -> (bytes / 1024L).toString() + " KB"
+    else -> bytes.toString() + " B"
+}
+
 private fun CommandPalette(commands: List<AICommandDefinition>, onSelect: (AICommandDefinition) -> Unit) {
     Card(shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.fillMaxWidth()) {
@@ -536,7 +594,6 @@ private fun CommandPalette(commands: List<AICommandDefinition>, onSelect: (AICom
 
 @Composable
 private fun ChatComposer(viewModel: AIChatViewModel) {
-    var attachmentMenuOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -554,30 +611,16 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
         }
     }
 
-    fun launchPicker(type: ChatAttachmentType) {
-        attachmentMenuOpen = false
-        if (!viewModel.isAttachmentTypeAvailable(type)) {
-            viewModel.reportAttachmentPickerError(
-                IllegalStateException(viewModel.attachmentTypeUnavailableMessage(type))
-            )
-            return
-        }
+    fun launchUniversalPicker() {
         val activity = context.findFragmentActivity()
         if (activity == null) {
             viewModel.reportAttachmentPickerError(IllegalStateException("Unable to access the current Activity."))
             return
         }
-        val kind = when (type) {
-            ChatAttachmentType.PHOTO -> SystemPickerActivity.KIND_PHOTO
-            ChatAttachmentType.VIDEO -> SystemPickerActivity.KIND_VIDEO
-            ChatAttachmentType.AUDIO -> SystemPickerActivity.KIND_AUDIO
-            ChatAttachmentType.DOCUMENT -> SystemPickerActivity.KIND_DOCUMENT
-            ChatAttachmentType.ANY_FILE -> SystemPickerActivity.KIND_ATTACHMENTS
-        }
         runCatching {
             activity.startActivityForResult(
                 Intent(context, SystemPickerActivity::class.java)
-                    .putExtra(SystemPickerActivity.EXTRA_KIND, kind),
+                    .putExtra(SystemPickerActivity.EXTRA_KIND, SystemPickerActivity.KIND_ATTACHMENTS),
                 SystemPickerActivity.PICKER_REQUEST_CODE,
             )
         }.onFailure { viewModel.reportAttachmentPickerError(it) }
@@ -634,28 +677,8 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                 },
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box {
-                    IconButton(onClick = { attachmentMenuOpen = true }) {
-                        Text("+", fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                    }
-                    DropdownMenu(
-                        expanded = attachmentMenuOpen,
-                        onDismissRequest = { attachmentMenuOpen = false },
-                    ) {
-                        ChatAttachmentType.entries.forEach { type ->
-                            val available = viewModel.isAttachmentTypeAvailable(type)
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        type.label + " · " + maxUploadLabel(type.maxBytes) +
-                                            if (available) "" else " · unavailable for ${viewModel.provider.displayName}"
-                                    )
-                                },
-                                onClick = { launchPicker(type) },
-                                enabled = available,
-                            )
-                        }
-                    }
+                IconButton(onClick = ::launchUniversalPicker) {
+                    Text("+", fontWeight = FontWeight.Bold, fontSize = 24.sp)
                 }
                 Spacer(Modifier.weight(1f))
                 IconButton(
