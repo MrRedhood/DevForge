@@ -3,6 +3,7 @@ package com.mrredhood.devforge
 import android.Manifest
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -149,7 +150,12 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithText("AI & GitHub", useUnmergedTree = true).performClick()
         waitForText("Create GitHub repository")
         composeRule.onNodeWithText("Create GitHub repository", useUnmergedTree = true).performClick()
+        composeRule.onAllNodesWithText("Create GitHub repository", useUnmergedTree = true).assertCountEquals(1)
         composeRule.onNodeWithText("Repository name", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("github-repository-creation-list", useUnmergedTree = true)
+            .performScrollToNode(hasText("Merge commit message"))
+        composeRule.onNodeWithText("PR body", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Merge message", useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithTag("github-repository-creation-list", useUnmergedTree = true)
             .performScrollToNode(hasText("Create repository"))
         composeRule.onNodeWithText("Create repository", useUnmergedTree = true).assertIsDisplayed()
