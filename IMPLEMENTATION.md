@@ -1,3 +1,9 @@
+### 2026-09-25 — AI & GitHub UI regression test parent scrolling
+- [x] Fixed the AI & GitHub hub regression test to scroll its LazyColumn to the AI Tools tile before asserting visibility.
+- [x] Added a stable test tag to the GitHub repository creation form list and scroll that parent list to the Create repository action before asserting visibility.
+- [x] Kept the production navigation and repository creation behavior unchanged apart from the instrumentation test anchor.
+- [ ] Fresh Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — GitHub repository creation UI test scroll repair
 - [x] Updated the AI & GitHub navigation regression to locate the AI Tools tile by content instead of a fixed lazy-list index after adding Create GitHub repository.
 - [x] Updated repository creation UI coverage to scroll the Create repository action into view before asserting it is displayed.
