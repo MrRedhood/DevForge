@@ -2440,3 +2440,13 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] The fix is limited to the live preview renderer and preserves the single ▶-launched Live preview design.
 - [x] Recorded the Android CI and Android UI Tests failure cause before applying the fix.
 - [x] Fresh Android CI run 478 and Android UI Tests run 482 (retry attempt 2 after a transient Android emulator SDK-image download failure) completed successfully for this corrected head.
+
+
+### 2026-09-25 — Live Preview chooser reliability repair
+- [x] Fixed the Live Preview empty-target path so it opens its own workspace chooser automatically instead of leaving an apparently inert blank surface.
+- [x] The chooser now reads the active workspace root directly through `WorkspaceViewModel.rootUri/listDirectory`, so it no longer depends on the Editor's current folder or stale `workspace.entries` state.
+- [x] Added folder navigation, Up/Close behavior, and an in-folder filename filter to the preview chooser.
+- [x] Selecting a file loads it directly into Live Preview without opening or switching an editor tab.
+- [x] Added Android UI coverage for the no-target chooser state and actionable workspace-unavailable message.
+- [x] Updated More → Help & guide with the corrected Live Preview file-selection behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this latest main head.
