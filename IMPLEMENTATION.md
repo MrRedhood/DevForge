@@ -6,7 +6,7 @@
 - [x] Hardened ChatToolOrchestrator cleanup so active task cancellation state is always cleared from finally, including cancellation during model/tool execution.
 - [x] Added unit coverage for the Terminal commands builtin and diagnostic-tool access boundaries.
 - [x] Updated More → ⓘ Help & guide for the expanded terminal catalog and corrected Pause AI behavior.
-- [x] Corrected a Kotlin character-literal escaping error in compare_files before revalidation.
+- [x] Corrected the compare_files newline character literal and kept the bounded reader validation path.
 - [ ] Fresh Android CI and Android UI Tests validation is pending for this new main commit.
 
 ### 2026-09-23 — Delete Path UI policy alignment

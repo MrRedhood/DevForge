@@ -221,7 +221,7 @@ class AgentExtendedToolProvider(context: Context) {
     private suspend fun compareFiles(context: AgentToolContext,args: JSONObject): AgentToolResult {
         val leftPath=args.optString("leftPath").trim(); val rightPath=args.optString("rightPath").trim(); require(leftPath.isNotBlank()&&rightPath.isNotBlank())
         val left=readTextBounded(context.workspaceId,leftPath,512*1024); val right=readTextBounded(context.workspaceId,rightPath,512*1024)
-        val a=left.split('\\n'); val b=right.split('\\n'); val max=maxOf(a.size,b.size); var line=-1; var av=""; var bv=""
+        val a=left.split('\n'); val b=right.split('\n'); val max=maxOf(a.size,b.size); var line=-1; var av=""; var bv=""
         for(i in 0 until max){val x=a.getOrNull(i); val y=b.getOrNull(i); if(x!=y){line=i+1;av=x?:"<missing>";bv=y?:"<missing>";break}}
         val out=JSONObject().put("leftPath",leftPath).put("rightPath",rightPath).put("equal",line<0).put("firstDifferentLine",line).put("left",av.take(240)).put("right",bv.take(240))
         return AgentToolResult.Success(if(line<0)"Files are identical." else "Files differ first at line $line.",output=out.toString())
