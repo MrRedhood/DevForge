@@ -2456,3 +2456,12 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added Android UI coverage for the no-target chooser state and actionable workspace-unavailable message, then stabilized the assertion by dismissing the chooser before checking the preview close control.
 - [x] Updated More → Help & guide with the corrected Live Preview file-selection behavior.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this latest main head.
+
+
+### 2026-09-25 — GitHub-backed AI tool synchronization repair
+- [x] Fixed the expanded AI `file_exists` tool so GitHub-backed workspaces resolve paths through the GitHub repository gateway instead of treating `devforge://github/...` URIs as SAF documents.
+- [x] An absent remote path now returns a normal successful `exists=false` result, allowing the AI to branch on absence without producing a false tool failure.
+- [x] Hardened GitHub tree commits with up to three fresh branch/base-tree reads when the tree creation endpoint returns HTTP 404, covering transient stale-base conditions after a preceding commit.
+- [x] Preserved single-commit GitHub mutations and approval-gated destructive behavior.
+- [x] Updated More → ⓘ Help & guide for GitHub-backed AI path resolution and synchronization recovery.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this latest main head.
