@@ -174,8 +174,23 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             TerminalParsedCommand.Help -> {
                 appendTerminalLine(prompt(session) + " help")
                 appendTerminalLine("Linux-style Android shell: quoting, variables, pipes, redirects, &&/||, ;, command substitution and /system/bin tools.")
-                appendTerminalLine("Shell builtins: cd, clear, history, help, export, unset, env, command/type/which. Core tools include ls, cat, grep, find, sed, awk/toybox-backed tools, sort, uniq, cut, tr, head, tail, wc, mkdir, rm, cp, mv, chmod, stat, diff and sha256sum.")
+                appendTerminalLine("Shell builtins: cd, clear, history, help, commands, export, unset, env, command/type/which.")
+                appendTerminalLine("Core tools: ls, cat, grep, find, sed, awk, xargs, tee, sort, uniq, cut, tr, head, tail, wc, mkdir, rm, cp, mv, chmod, stat, diff.")
+                appendTerminalLine("Diagnostics: date, df, du, stat, readlink, realpath, basename, dirname, uname, id, whoami, env, printenv, which, ps, top, uptime, getprop, logcat.")
+                appendTerminalLine("Archives/checksums: tar, gzip, gunzip, md5sum, sha1sum, sha256sum, sha512sum, cksum, cmp and diff when available.")
                 appendTerminalLine("Workspace paths are sandboxed. Use Stop to cancel the running shell command; longer tasks use the configured terminal timeout.")
+            }
+            TerminalParsedCommand.Commands -> {
+                appendTerminalLine(prompt(session) + " commands")
+                appendTerminalLine("Navigation: cd, pwd, ls, find, readlink, realpath, basename, dirname")
+                appendTerminalLine("Read/text: cat, head, tail, wc, grep, sed, awk, xargs, tee, cut, tr, sort, uniq, paste, join, comm, nl, fold, expand, unexpand, strings, od")
+                appendTerminalLine("Files: mkdir, rmdir, touch, rm, cp, mv, ln, chmod, stat, mktemp, dd")
+                appendTerminalLine("Checksums/diff: md5sum, sha1sum, sha256sum, sha512sum, cksum, cmp, diff")
+                appendTerminalLine("Archives: tar, gzip, gunzip")
+                appendTerminalLine("Environment/processes: env, printenv, which, id, whoami, uname, getprop, date, ps, top, pgrep, pidof, kill, killall, nice, renice, uptime, sleep, nohup, time")
+                appendTerminalLine("Android: logcat, toybox")
+                appendTerminalLine("Optional commands such as curl, wget, ping, nslookup, git, java, kotlinc or gradle work when installed in the device environment.")
+                appendTerminalLine("The shell remains open to every command available in the Android PATH; this catalog is not an allowlist.")
             }
             is TerminalParsedCommand.Shell -> {
                 appendTerminalLine(prompt(session) + " " + parsed.commandLine)

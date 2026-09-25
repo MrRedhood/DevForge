@@ -1,8 +1,10 @@
 package com.mrredhood.devforge.core.agent
 
+import android.app.ActivityManager
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.os.StatFs
 import android.provider.DocumentsContract
 import com.mrredhood.devforge.core.build.BuildConfiguration
 import com.mrredhood.devforge.core.build.BuildTarget
@@ -63,6 +65,9 @@ class AgentExtendedToolProvider(context: Context) {
     private val checkpointRoot = File(app.filesDir, "ai-checkpoints")
 
     private val specs = listOf(
+        AgentToolId.FILE_EXISTS, AgentToolId.DIRECTORY_INFO, AgentToolId.COMPARE_FILES,
+        AgentToolId.DETECT_PROJECT_TYPE, AgentToolId.GET_OS_INFO, AgentToolId.GET_RUNTIME_INFO, AgentToolId.GET_STORAGE_INFO,
+        AgentToolId.GET_GIT_BRANCH, AgentToolId.GET_GIT_REMOTES,
         AgentToolId.COPY_FILE, AgentToolId.COPY_FOLDER, AgentToolId.REPLACE_TEXT, AgentToolId.INSERT_TEXT,
         AgentToolId.DELETE_TEXT, AgentToolId.REPLACE_RANGE, AgentToolId.FORMAT_FILE, AgentToolId.ORGANIZE_IMPORTS,
         AgentToolId.FIND_SYMBOL, AgentToolId.FIND_REFERENCES, AgentToolId.ANALYZE_WORKSPACE, AgentToolId.GET_PROJECT_INFO,
@@ -92,6 +97,15 @@ class AgentExtendedToolProvider(context: Context) {
             val args = JSONObject(request.argumentsJson)
             return try {
                 when (id) {
+                    AgentToolId.FILE_EXISTS -> fileExists(context, args)
+                    AgentToolId.DIRECTORY_INFO -> directoryInfo(context, args)
+                    AgentToolId.COMPARE_FILES -> compareFiles(context, args)
+                    AgentToolId.DETECT_PROJECT_TYPE -> detectProjectType(context)
+                    AgentToolId.GET_OS_INFO -> osInfo()
+                    AgentToolId.GET_RUNTIME_INFO -> runtimeInfo()
+                    AgentToolId.GET_STORAGE_INFO -> storageInfo()
+                    AgentToolId.GET_GIT_BRANCH -> gitBranch(context)
+                    AgentToolId.GET_GIT_REMOTES -> gitRemotes(context)
                     AgentToolId.COPY_FILE -> copyFile(context, args)
                     AgentToolId.COPY_FOLDER -> copyFolder(context, args)
                     AgentToolId.REPLACE_TEXT -> editText(context, args, "replace")
@@ -190,6 +204,63 @@ class AgentExtendedToolProvider(context: Context) {
     }
     private fun sideEffecting(id: AgentToolId): Boolean = risk(id) >= RiskLevel.R2 || id.name.startsWith("COPY") || id.name in setOf("REPLACE_TEXT","INSERT_TEXT","DELETE_TEXT","REPLACE_RANGE","FORMAT_FILE","ORGANIZE_IMPORTS")
 
+
+    private suspend fun fileExists(context: AgentToolContext,args: JSONObject): AgentToolResult {
+        val path=args.optString("path").trim(); require(path.isNotBlank())
+        val uri=runCatching{resolveRoot(context.workspaceId,path)}.getOrNull(); val meta=uri?.let(::documentMetadata)
+        val out=JSONObject().put("path",path).put("exists",uri!=null)
+        meta?.name?.let{out.put("name",it)}; meta?.mimeType?.let{out.put("mimeType",it)}; meta?.sizeBytes?.let{out.put("sizeBytes",it)}
+        return AgentToolResult.Success(if(uri==null)"Path does not exist: $path" else "Path exists: $path",output=out.toString())
+    }
+    private suspend fun directoryInfo(context: AgentToolContext,args: JSONObject): AgentToolResult {
+        val path=args.optString("path").trim().trim('/'); val uri=resolveRoot(context.workspaceId,path); val meta=documentMetadata(uri)
+        require(meta.mimeType==DocumentsContract.Document.MIME_TYPE_DIR){"Path is not a directory: $path"}
+        val e=tree.list(uri,500); val d=e.count{it.isDirectory}; val out=JSONObject().put("path",path).put("name",meta.name ?: path.substringAfterLast('/')).put("itemCount",e.size).put("directories",d).put("files",e.size-d).put("truncated",e.size>=500)
+        return AgentToolResult.Success("Inspected directory "+path.ifBlank{"(workspace root)"}+".",output=out.toString())
+    }
+    private suspend fun compareFiles(context: AgentToolContext,args: JSONObject): AgentToolResult {
+        val leftPath=args.optString("leftPath").trim(); val rightPath=args.optString("rightPath").trim(); require(leftPath.isNotBlank()&&rightPath.isNotBlank())
+        val left=readTextBounded(context.workspaceId,leftPath,512*1024); val right=readTextBounded(context.workspaceId,rightPath,512*1024)
+        val a=left.split('
+'); val b=right.split('
+'); val max=maxOf(a.size,b.size); var line=-1; var av=""; var bv=""
+        for(i in 0 until max){val x=a.getOrNull(i); val y=b.getOrNull(i); if(x!=y){line=i+1;av=x?:"<missing>";bv=y?:"<missing>";break}}
+        val out=JSONObject().put("leftPath",leftPath).put("rightPath",rightPath).put("equal",line<0).put("firstDifferentLine",line).put("left",av.take(240)).put("right",bv.take(240))
+        return AgentToolResult.Success(if(line<0)"Files are identical." else "Files differ first at line $line.",output=out.toString())
+    }
+    private suspend fun detectProjectType(context: AgentToolContext): AgentToolResult {
+        val e=tree.list(root(context.workspaceId),500); val n=e.map{it.name}.toSet(); val t=linkedSetOf<String>()
+        if("AndroidManifest.xml" in n)t+="Android"; if("build.gradle" in n||"build.gradle.kts" in n||"settings.gradle" in n||"settings.gradle.kts" in n)t+="Gradle"
+        if("package.json" in n)t+="Node.js"; if("pyproject.toml" in n||"requirements.txt" in n||"setup.py" in n)t+="Python"; if("Cargo.toml" in n)t+="Rust"; if("go.mod" in n)t+="Go"
+        if(e.any{!it.isDirectory&&it.name.endsWith(".kt",true)})t+="Kotlin"; if(e.any{!it.isDirectory&&it.name.endsWith(".java",true)})t+="Java"; if(t.isEmpty())t+="Unknown"
+        return AgentToolResult.Success("Detected project type(s): "+t.joinToString(", ")+".",output=JSONObject().put("types",JSONArray(t.toList())).put("rootEntries",JSONArray(e.take(120).map{it.name})).toString())
+    }
+    private fun osInfo(): AgentToolResult = AgentToolResult.Success("Read Android/Linux OS information.",output=JSONObject().put("androidSdk",Build.VERSION.SDK_INT).put("androidRelease",Build.VERSION.RELEASE).put("manufacturer",Build.MANUFACTURER).put("model",Build.MODEL).put("device",Build.DEVICE).put("kernel",System.getProperty("os.version")?:"unknown").put("arch",System.getProperty("os.arch")?:"unknown").toString())
+    private fun runtimeInfo(): AgentToolResult {
+        val r=Runtime.getRuntime(); val m=ActivityManager.MemoryInfo(); (app.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.getMemoryInfo(m)
+        return AgentToolResult.Success("Read bounded runtime information.",output=JSONObject().put("jvmMaxMemoryBytes",r.maxMemory()).put("jvmTotalMemoryBytes",r.totalMemory()).put("jvmFreeMemoryBytes",r.freeMemory()).put("deviceAvailableMemoryBytes",m.availMem).put("deviceTotalMemoryBytes",m.totalMem).put("deviceLowMemory",m.lowMemory).put("deviceMemoryThresholdBytes",m.threshold).toString())
+    }
+    private fun storageInfo(): AgentToolResult {
+        val s=StatFs(app.filesDir.path); val b=s.blockSizeLong
+        return AgentToolResult.Success("Read DevForge storage information.",output=JSONObject().put("path","DevForge app storage").put("totalBytes",s.blockCountLong*b).put("availableBytes",s.availableBlocksLong*b).put("freeBytes",s.freeBlocksLong*b).toString())
+    }
+    private suspend fun gitBranch(context: AgentToolContext): AgentToolResult {
+        val d=gitRepo.detect(root(context.workspaceId)); if(d !is GitDetectionState.Detected)return AgentToolResult.Failure("No local Git repository detected."); val r=d.repository
+        return AgentToolResult.Success("Git branch information read.",output=JSONObject().put("branch",r.branchName?:JSONObject.NULL).put("detachedHead",r.detachedHead).put("headRevision",r.headRevision?:JSONObject.NULL).put("branchCount",r.branches.size).put("branches",JSONArray(r.branches.take(50).map{it.name})).toString())
+    }
+    private suspend fun gitRemotes(context: AgentToolContext): AgentToolResult {
+        val gh=githubStore.get(context.workspaceId); val d=gitRepo.detect(root(context.workspaceId)); val local=d is GitDetectionState.Detected && !d.repository.remoteUrl.isNullOrBlank()
+        val out=JSONObject().put("localRemoteConfigured",local).put("githubLinked",gh!=null); gh?.let{out.put("githubRepository",it.owner+"/"+it.repository).put("githubBranch",it.branch)}
+        return AgentToolResult.Success("Read Git remote configuration without exposing credentials.",output=out.toString())
+    }
+    private data class DocumentMetadata(val name:String?,val mimeType:String?,val sizeBytes:Long?,val modifiedAtEpochMs:Long?)
+    private fun documentMetadata(uri:Uri):DocumentMetadata {
+        var n:String?=null; var m:String?=null; var s:Long?=null; var lm:Long?=null
+        resolver.query(uri,arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME,DocumentsContract.Document.COLUMN_MIME_TYPE,DocumentsContract.Document.COLUMN_SIZE,DocumentsContract.Document.COLUMN_LAST_MODIFIED),null,null,null)?.use{c->
+            if(c.moveToFirst()){val ni=c.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);val mi=c.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);val si=c.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE);val li=c.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+                if(ni>=0)n=c.getString(ni);if(mi>=0)m=c.getString(mi);if(si>=0&&!c.isNull(si))s=c.getLong(si);if(li>=0&&!c.isNull(li))lm=c.getLong(li)}
+        }; return DocumentMetadata(n,m,s,lm)
+    }
     private suspend fun root(id: String): Uri = Uri.parse(db.workspaceDao().findById(id)?.treeUri ?: error("Workspace not found."))
     private suspend fun resolveRoot(workspaceId: String, path: String): Uri {
         var current = root(workspaceId)
@@ -204,6 +275,14 @@ class AgentExtendedToolProvider(context: Context) {
             resolver.openInputStream(uri)?.use { it.readBytes() }?.toString(Charsets.UTF_8)
                 ?: error("Unable to read " + path)
         }
+    }
+    private suspend fun readTextBounded(workspaceId: String,path:String,maxBytes:Int):String{
+        val uri=resolveRoot(workspaceId,path)
+        return runInterruptible(Dispatchers.IO){resolver.openInputStream(uri)?.use{input->
+            val out=java.io.ByteArrayOutputStream(); val buffer=ByteArray(16*1024); var total=0
+            while(true){val read=input.read(buffer);if(read<0)break;total+=read;require(total<=maxBytes){"File exceeds the bounded read limit: $path"};out.write(buffer,0,read)}
+            out.toByteArray().toString(Charsets.UTF_8)
+        }?:error("Unable to read "+path)}
     }
     private suspend fun writeText(workspaceId: String, path: String, value: String) {
         require(value.toByteArray(Charsets.UTF_8).size <= 512 * 1024)

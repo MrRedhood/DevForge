@@ -69,6 +69,19 @@ class AgentAccessTest {
     }
 
     @Test
+    fun diagnosticToolsUseNarrowAccess() {
+        assertEquals(
+            setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.FILE_ACCESS),
+            AgentAccessRules.requiredFor(AgentToolId.FILE_EXISTS),
+        )
+        assertEquals(emptySet<AgentAccess>(), AgentAccessRules.requiredFor(AgentToolId.GET_RUNTIME_INFO))
+        assertEquals(
+            setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.GIT_ACCESS),
+            AgentAccessRules.requiredFor(AgentToolId.GET_GIT_BRANCH),
+        )
+    }
+
+    @Test
     fun gitLogToolRequiresGitAccess() {
         val required = AgentAccessRules.requiredFor(AgentToolId.GET_GIT_LOG)
         assertEquals(

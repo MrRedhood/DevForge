@@ -1,3 +1,13 @@
+### 2026-09-25 — Expanded terminal commands, AI diagnostics and pause cancellation hardening
+- [x] Expanded the structured Terminal command catalog with additional Android/toybox utilities for text processing, checksums, archives, process inspection/control, timing and Android diagnostics, while preserving the real /system/bin/sh -c shell for arbitrary commands available in the device PATH.
+- [x] Added the in-terminal commands discoverability command and updated Terminal help to explain the expanded catalog and optional environment-dependent tools such as curl, wget, ping, nslookup, git, java, kotlinc and gradle.
+- [x] Added new read-only AI tools for file existence, directory metadata, bounded file comparison, project-type detection, Android/Linux OS info, runtime memory info, DevForge storage info, Git branch inspection and credential-safe Git remote detection; they are exposed in More → AI Tools.
+- [x] Hardened AI pause handling with request-generation-scoped cancellation and immediate composer release, preventing a paused request from locking or overwriting a newer turn.
+- [x] Hardened ChatToolOrchestrator cleanup so active task cancellation state is always cleared from finally, including cancellation during model/tool execution.
+- [x] Added unit coverage for the Terminal commands builtin and diagnostic-tool access boundaries.
+- [x] Updated More → ⓘ Help & guide for the expanded terminal catalog and corrected Pause AI behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is pending for this new main commit.
+
 ### 2026-09-23 — Delete Path UI policy alignment
 - [x] Updated More → AI & GitHub → AI Tools copy to match the new opt-in Delete Path default while retaining approval protection.
 - [x] Updated the Android UI regression assertion for the opt-in delete policy.

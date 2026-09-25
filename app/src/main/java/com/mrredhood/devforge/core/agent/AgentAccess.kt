@@ -57,8 +57,12 @@ object AgentAccessRules {
         AgentToolId.FILE_INFO,
         AgentToolId.COUNT_LINES,
         AgentToolId.HASH_FILE,
+        AgentToolId.FILE_EXISTS,
+        AgentToolId.DIRECTORY_INFO,
+        AgentToolId.COMPARE_FILES,
         AgentToolId.SEARCH_CONTENT,
         AgentToolId.DIRECTORY_TREE,
+        AgentToolId.DETECT_PROJECT_TYPE,
         AgentToolId.PATCH_FILE,
         AgentToolId.WRITE_FILE,
         AgentToolId.CREATE_FILE,
@@ -87,7 +91,13 @@ object AgentAccessRules {
         AgentToolId.GET_WORKSPACE_CONTEXT,
         AgentToolId.RETRIEVE_RELEVANT_CONTEXT -> setOf(AgentAccess.WORKSPACE_ACCESS)
 
-        AgentToolId.GET_GIT_LOG -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.GIT_ACCESS)
+        AgentToolId.GET_GIT_LOG,
+        AgentToolId.GET_GIT_BRANCH,
+        AgentToolId.GET_GIT_REMOTES -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.GIT_ACCESS)
+
+        AgentToolId.GET_OS_INFO,
+        AgentToolId.GET_RUNTIME_INFO,
+        AgentToolId.GET_STORAGE_INFO -> emptySet()
 
         AgentToolId.RUN_COMMAND -> setOf(AgentAccess.WORKSPACE_ACCESS, AgentAccess.TERMINAL_ACCESS)
 

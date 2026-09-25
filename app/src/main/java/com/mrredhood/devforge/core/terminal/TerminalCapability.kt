@@ -79,6 +79,18 @@ enum class TerminalExecutable(val binaryPath: String, val risk: RiskLevel) {
     CP("/system/bin/cp", RiskLevel.R2),
     MV("/system/bin/mv", RiskLevel.R2),
     CHMOD("/system/bin/chmod", RiskLevel.R2),
+    AWK("/system/bin/awk", RiskLevel.R1), XARGS("/system/bin/xargs", RiskLevel.R1), TEE("/system/bin/tee", RiskLevel.R2),
+    SEQ("/system/bin/seq", RiskLevel.R1), PASTE("/system/bin/paste", RiskLevel.R1), JOIN("/system/bin/join", RiskLevel.R1),
+    COMM("/system/bin/comm", RiskLevel.R1), NL("/system/bin/nl", RiskLevel.R1), FOLD("/system/bin/fold", RiskLevel.R1),
+    EXPAND("/system/bin/expand", RiskLevel.R1), UNEXPAND("/system/bin/unexpand", RiskLevel.R1), OD("/system/bin/od", RiskLevel.R1),
+    STRINGS("/system/bin/strings", RiskLevel.R1), CKSUM("/system/bin/cksum", RiskLevel.R1), MD5SUM("/system/bin/md5sum", RiskLevel.R1),
+    SHA1SUM("/system/bin/sha1sum", RiskLevel.R1), SHA512SUM("/system/bin/sha512sum", RiskLevel.R1), DD("/system/bin/dd", RiskLevel.R2),
+    LN("/system/bin/ln", RiskLevel.R2), MKTEMP("/system/bin/mktemp", RiskLevel.R2), TAR("/system/bin/tar", RiskLevel.R2),
+    GZIP("/system/bin/gzip", RiskLevel.R2), GUNZIP("/system/bin/gunzip", RiskLevel.R2), KILL("/system/bin/kill", RiskLevel.R2),
+    KILLALL("/system/bin/killall", RiskLevel.R2), PGREP("/system/bin/pgrep", RiskLevel.R1), PIDOF("/system/bin/pidof", RiskLevel.R1),
+    TOP("/system/bin/top", RiskLevel.R1), UPTIME("/system/bin/uptime", RiskLevel.R1), LOGCAT("/system/bin/logcat", RiskLevel.R1),
+    TOYBOX("/system/bin/toybox", RiskLevel.R1), NOHUP("/system/bin/nohup", RiskLevel.R3), NICE("/system/bin/nice", RiskLevel.R2),
+    RENICE("/system/bin/renice", RiskLevel.R2), TIME("/system/bin/time", RiskLevel.R1),
 }
 
 data class TerminalCommand(

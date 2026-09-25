@@ -22,6 +22,12 @@ class TerminalCommandParserTest {
     }
 
     @Test
+    fun parsesCommandsBuiltin() {
+        val parsed = TerminalCommandParser.parse("commands", "", 10_000L, "session")
+        assertEquals(true, parsed is TerminalParsedCommand.Commands)
+    }
+
+    @Test
     fun leavesLinuxShellOperatorsOnInteractiveShellPath() {
         val parsed = TerminalCommandParser.parse("printf 'a' | tr a b", "", 10_000L, "session")
         assertEquals(true, parsed is TerminalParsedCommand.Shell)

@@ -117,7 +117,8 @@ class ChatToolOrchestrator(
             return result
         }
 
-        while (step < MAX_TOOL_STEPS && calls < MAX_TOOL_CALLS) {
+        try {
+            while (step < MAX_TOOL_STEPS && calls < MAX_TOOL_CALLS) {
             currentCoroutineContext().ensureActive()
             val call = if (pendingCalls.isNotEmpty()) {
                 pendingCalls.removeFirst()
@@ -326,13 +327,15 @@ class ChatToolOrchestrator(
             step++
         }
 
-        runtime.gateway.clearTaskCancellation(taskId)
-        activeTaskId = null
-        return ChatToolRunResult(
-            response = "The tool-use loop reached its safety limit. I completed the available tool calls and stopped.",
-            activities = activities.toList(),
-            usedTools = calls > 0,
-        )
+            return ChatToolRunResult(
+                response = "The tool-use loop reached its safety limit. I completed the available tool calls and stopped.",
+                activities = activities.toList(),
+                usedTools = calls > 0,
+            )
+        } finally {
+            runtime.gateway.clearTaskCancellation(taskId)
+            if (activeTaskId == taskId) activeTaskId = null
+        }
     }
 
     private suspend fun awaitChatApproval(

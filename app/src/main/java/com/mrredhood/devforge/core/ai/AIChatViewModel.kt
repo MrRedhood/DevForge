@@ -67,7 +67,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     private var messageJob: Job? = null
     private var sendJob: Job? = null
     private var activePrompt: String? = null
-    private var userRequestedPause = false
+    private var pauseRequestGeneration: Long? = null
     private var workspaceJob: Job? = null
     private var selectionJob: Job? = null
     private var selectionGeneration = 0L
@@ -478,7 +478,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         streamingText = ""
         sendError = null
         activePrompt = raw
-        userRequestedPause = false
         val requestGeneration = ++generationId
         sendJob = viewModelScope.launch(Dispatchers.IO) {
             var partialResponse = ""
@@ -731,8 +730,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     withContext(Dispatchers.Main.immediate) { aiWorkflow = workflowSnapshot }
                 }
             } catch (cancelled: CancellationException) {
+                val requestWasPaused = pauseRequestGeneration == requestGeneration
                 retainAttachmentsForRetry = true
-                if (userRequestedPause) {
+                if (requestWasPaused) {
                     withContext(NonCancellable + Dispatchers.Main.immediate) {
                         val merged = attachments.toMutableList()
                         submittedAttachments.forEach { attachment ->
@@ -744,7 +744,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                             }
                         }
                         attachments = merged
-                        sendError = "AI paused. Press Send to continue from the current workspace state."
+                        if (requestGeneration == generationId) {
+                            sendError = "AI paused. Press Send to continue from the current workspace state."
+                        }
                     }
                 } else {
                     workflowSnapshot = aiWorkflowEngine.fail(workflowSnapshot, "AI execution cancelled.")
@@ -802,13 +804,12 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         streamingText = ""
                         isSending = false
                         isPausing = false
-                        if (userRequestedPause) {
+                        if (pauseRequestGeneration == requestGeneration) {
                             input = activePrompt.orEmpty()
                             sendError = "AI paused. Press Send to continue from the current workspace state."
                         }
                         aiWorkflow = null
-                        activePrompt = null
-                        userRequestedPause = false
+                        if (pauseRequestGeneration == requestGeneration) pauseRequestGeneration = null
                         if (sendJob === currentCoroutineContext()[Job]) sendJob = null
                     }
                 }
@@ -818,20 +819,21 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun stopGenerationLocally() {
         if (!isSending || isPausing) return
-        userRequestedPause = true
-        isPausing = true
-
-        // Stop visible streaming and tool activity immediately. The underlying HTTP
-        // connection and active tool are cancelled in the same operation.
+        val pausedGeneration = generationId
+        pauseRequestGeneration = pausedGeneration
+        generationId += 1
         input = activePrompt.orEmpty()
         streamingText = ""
         toolActivities = emptyList()
         aiWorkflow = null
-        sendError = "Pausing AI…"
+        sendError = "AI paused. Press Send to continue from the current workspace state."
         isSending = false
-
+        isPausing = false
+        activePrompt = null
+        val job = sendJob
+        sendJob = null
         toolOrchestrator.cancelActiveExecution()
-        sendJob?.cancel(CancellationException("AI paused by user"))
+        job?.cancel(CancellationException("AI paused by user"))
     }
 
     fun stopGeneration() {

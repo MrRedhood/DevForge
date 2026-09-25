@@ -6,6 +6,7 @@ sealed interface TerminalParsedCommand {
     data object Clear : TerminalParsedCommand
     data object History : TerminalParsedCommand
     data object Help : TerminalParsedCommand
+    data object Commands : TerminalParsedCommand
     data class Shell(val commandLine: String) : TerminalParsedCommand
 }
 
@@ -25,6 +26,7 @@ object TerminalCommandParser {
             "clear", "cls" -> TerminalParsedCommand.Clear
             "history" -> TerminalParsedCommand.History
             "help" -> TerminalParsedCommand.Help
+            "commands" -> TerminalParsedCommand.Commands
             else -> TerminalParsedCommand.Shell(normalized)
         }
     }
