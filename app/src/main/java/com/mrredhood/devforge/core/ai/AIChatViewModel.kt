@@ -151,15 +151,21 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     init {
         workspaceJob = viewModelScope.launch {
             workspaceRepository.activeWorkspace.collectLatest { workspace ->
+                val sameWorkspace = workspace?.id == workspaceId && workspace?.treeUri == workspaceRoot
+                workspaceId = workspace?.id
+                workspaceName = workspace?.name
+                workspaceRoot = workspace?.treeUri
+
+                if (sameWorkspace) {
+                    return@collectLatest
+                }
+
                 sendJob?.cancel()
                 sendJob = null
                 isSending = false
                 streamingText = ""
                 toolActivities = emptyList()
-                workspaceId = workspace?.id
-                workspaceName = workspace?.name
                 editingMessageId = null
-                workspaceRoot = workspace?.treeUri
                 activeSessionId = null
                 messages = emptyList()
                 selectedModel?.let { model -> selectModelInternal(model) }
@@ -301,9 +307,18 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             }
             val session = chatRepository.getOrCreateSession(scope, enriched)
             if (generation != selectionGeneration) return@launch
+            val persistedMessages = database.chatMessageDao()
+                .recentDescending(session.sessionId, ChatRepository.MAX_MESSAGES)
+                .asReversed()
+            withContext(Dispatchers.Main.immediate) {
+                if (generation == selectionGeneration) {
+                    activeSessionId = session.sessionId
+                    messages = persistedMessages
+                }
+            }
             messageJob?.cancel()
             messageJob = launch {
-                chatRepository.observeMessages(session.sessionId).collectLatest { values ->
+                chatRepository.observeMessages(session.sessionId).collect { values ->
                     if (generation == selectionGeneration) {
                         launch(Dispatchers.Main.immediate) {
                             if (generation == selectionGeneration) messages = values
@@ -553,12 +568,11 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 } else {
                     chatRepository.addMessage(sessionId, "user", visibleUserMessage, parsed?.command?.name)
                 }
-                val historySource = if (editingId != null) {
-                    database.chatMessageDao()
-                        .recentDescending(sessionId, ChatRepository.MAX_MESSAGES)
-                        .asReversed()
-                } else {
-                    messages
+                val historySource = database.chatMessageDao()
+                    .recentDescending(sessionId, ChatRepository.MAX_MESSAGES)
+                    .asReversed()
+                withContext(Dispatchers.Main.immediate) {
+                    if (requestGeneration == generationId) messages = historySource
                 }
                 val history = buildBoundedHistory(model, historySource, effectiveInstruction.length)
                 val authoritativeAnswer = if (editingId == null && submittedAttachments.isEmpty()) {
@@ -733,6 +747,15 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 val requestWasPaused = pauseRequestGeneration == requestGeneration
                 retainAttachmentsForRetry = true
                 if (requestWasPaused) {
+                    withContext(NonCancellable) {
+                        if (partialResponse.isNotBlank()) {
+                            chatRepository.addMessage(
+                                sessionId,
+                                "assistant",
+                                partialResponse + "\n\n[Generation paused]",
+                            )
+                        }
+                    }
                     withContext(NonCancellable + Dispatchers.Main.immediate) {
                         val merged = attachments.toMutableList()
                         submittedAttachments.forEach { attachment ->
