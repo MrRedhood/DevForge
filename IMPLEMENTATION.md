@@ -1,3 +1,10 @@
+### 2026-09-25 — Live Preview active-tab recovery and blank-state fix
+- [x] Restored the most recent editor tab before opening Live Preview when the toolbar is invoked while the active tab is temporarily unset.
+- [x] Live Preview now falls back to an existing open editor tab when available.
+- [x] Added an explicit Open a file to preview state when no editor file exists, preventing the misleading blank generic source preview.
+- [x] Preserved automatic preview refresh for source changes and existing WebView JavaScript console/error reporting.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — AI creation-tool recovery and durable chat history
 - [x] Hardened create_file/create_folder argument handling with concrete workspace-relative path validation and additional filename/parent aliases.
 - [x] Added explicit recovery guidance so provider models correct invalid creation payloads instead of repeating the same failed path.
