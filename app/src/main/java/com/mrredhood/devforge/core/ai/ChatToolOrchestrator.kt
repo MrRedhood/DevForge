@@ -277,6 +277,17 @@ class ChatToolOrchestrator(
                 .append(toolOutput)
                 .append("\n")
 
+            if (result is AgentToolResult.Failure &&
+                call.toolId in setOf(AgentToolId.CREATE_FILE, AgentToolId.CREATE_FOLDER)
+            ) {
+                transcript.append("Recovery guidance: do not repeat the same arguments. ")
+                    .append("Provide a concrete workspace-relative path. ")
+                    .append("For create_file use path='index.html' or another real filename; ")
+                    .append("for create_folder use path='src/components' or another real folder path. ")
+                    .append("If using a separate name, combine it with directory/parent/folder. ")
+                    .append("Never use '.', './', or '/' as the creation path.\n")
+            }
+
             if (result is AgentToolResult.ApprovalRequired) {
                 currentCoroutineContext().ensureActive()
                 val approvedResult = awaitChatApproval(context, request, result.approvalId)
@@ -378,6 +389,8 @@ class ChatToolOrchestrator(
         append("\nPreferred envelope: <devforge_tool>{\"tool\":\"tool_name\",\"arguments\":{\"key\":\"value\"}}</devforge_tool>")
         append("\nYou may emit multiple tool envelopes in one response; DevForge executes them sequentially. Native tool APIs are optional; this textual protocol is the compatibility path.")
         append("\nFor multi-file or multi-folder requests, emit all deterministic independent create/write/folder operations you can determine in the same response instead of waiting for a separate model turn for each operation.")
+        append("\nCreation tools are strict about paths: never call create_file or create_folder with path='.', './', '/', an empty path, or a workspace label. Use the actual workspace-relative target such as 'index.html', 'src/main.kt', or 'components/Login'. If you have a filename and parent separately, send fileName/folderName plus directory/parent/folder or combine them into path.")
+        append("\nWhen a creation tool returns a path-validation failure, correct the arguments on the next tool call; do not repeat the failed payload.")
         append("\nDo not print tool envelopes as an explanation or code sample. When tools are required, output the envelope(s) directly.")
         append("\nLegacy envelopes are also accepted: <tool_call>...</tool_call>, <toolcall>...</toolcall>, and compact listfiles/createfile/createfolder-style names.")
         append("\nFor legacy <toolcall> blocks, arguments may be represented with repeated <argkey>key</argkey><argvalue>value</argvalue> pairs.")
