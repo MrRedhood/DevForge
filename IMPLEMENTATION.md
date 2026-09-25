@@ -1,3 +1,10 @@
+### 2026-09-25 — Attachment and Live Preview compile integration repair
+- [x] Fixed the Live Preview state effect so it runs after EditorViewModel initialization and restored the Material window-size-class opt-in to DevForgeApp.
+- [x] Fixed the Chat attachment MessageBubble duplicate @Composable annotation.
+- [x] Added the missing Compose dp import required by the attachment viewer.
+- [x] Added the missing Compose Row import required by the Live Preview file chooser.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Universal Chat attachments and independent Live Preview target
 - [x] Changed the AI Chat + button into a one-tap universal Android file picker using the existing ACTION_OPEN_DOCUMENT wildcard attachment path.
 - [x] Universal Chat selection accepts images, video, audio, text/source files, PDFs, archives, and other document/file types within the existing bounded attachment limits.
