@@ -37,6 +37,8 @@ class AgentAdditionalToolProvider(context: Context) {
     private val resolver = app.contentResolver
     private val db = DevForgeDatabase.get(app)
     private val tree = WorkspaceFileTree(resolver)
+    private val githubStore = GitHubWorkspaceStore(app)
+    private val githubGateway = GitHubRepositoryGateway(CredentialSecurityStore(app))
     private val terminal = TerminalCapability(
         app,
         ApprovalRepository(db.approvalDao()),
@@ -509,6 +511,16 @@ class AgentAdditionalToolProvider(context: Context) {
     }
 
     private suspend fun readText(workspaceId: String, path: String, maxBytes: Int): String {
+        val remote = githubStore.get(workspaceId)
+        if (remote != null) {
+            return when (val result = githubGateway.readFile(remote.owner, remote.repository, path.trim('/'), remote.branch)) {
+                is GitHubFileResult.Success -> {
+                    require(result.content.toByteArray(Charsets.UTF_8).size <= maxBytes) { "File exceeds bounded read limit." }
+                    result.content
+                }
+                is GitHubFileResult.Failure -> error(result.message)
+            }
+        }
         val uri = resolve(workspaceId, path)
         return runInterruptible(Dispatchers.IO) {
             resolver.openInputStream(uri)?.use { input ->
@@ -528,6 +540,13 @@ class AgentAdditionalToolProvider(context: Context) {
     }
 
     private suspend fun readRaw(workspaceId: String, path: String, maxBytes: Int): ByteArray {
+        val remote = githubStore.get(workspaceId)
+        if (remote != null) {
+            val bytes = githubGateway.readFileBytes(remote.owner, remote.repository, path.trim('/'), remote.branch)
+                .getOrElse { error(it.message ?: "Unable to read file.") }
+            require(bytes.size <= maxBytes) { "File exceeds bounded read limit." }
+            return bytes
+        }
         val uri = resolve(workspaceId, path)
         return runInterruptible(Dispatchers.IO) {
             resolver.openInputStream(uri)?.use { input ->
@@ -561,22 +580,40 @@ class AgentAdditionalToolProvider(context: Context) {
     }
 
     private suspend fun walk(workspaceId: String, maxFiles: Int): List<Node> {
-        val root = resolve(workspaceId, "")
+        val remote = githubStore.get(workspaceId)
         val output = mutableListOf<Node>()
-        suspend fun visit(uri: android.net.Uri, prefix: String, depth: Int) {
-            if (depth > 12 || output.size >= maxFiles) return
-            for (entry in tree.list(uri, 500)) {
-                currentCoroutineContext().ensureActive()
-                val path = if (prefix.isBlank()) entry.name else prefix + "/" + entry.name
-                if (entry.isDirectory) visit(entry.uri, path, depth + 1) else output += Node(path, entry.uri)
-                if (output.size >= maxFiles) return
+        if (remote != null) {
+            suspend fun visit(path: String, depth: Int) {
+                if (depth > 12 || output.size >= maxFiles) return
+                val entries = when (val result = githubGateway.listContents(remote.owner, remote.repository, path, remote.branch)) {
+                    is GitHubContentsResult.Success -> result.entries
+                    is GitHubContentsResult.Failure -> error(result.message)
+                }
+                for (entry in entries) {
+                    currentCoroutineContext().ensureActive()
+                    val childPath = if (path.isBlank()) entry.name else path + "/" + entry.name
+                    if (entry.type == "dir") visit(childPath, depth + 1) else output += Node(childPath, null)
+                    if (output.size >= maxFiles) return
+                }
             }
+            visit("", 0)
+        } else {
+            val root = resolve(workspaceId, "")
+            suspend fun visit(uri: android.net.Uri, prefix: String, depth: Int) {
+                if (depth > 12 || output.size >= maxFiles) return
+                for (entry in tree.list(uri, 500)) {
+                    currentCoroutineContext().ensureActive()
+                    val path = if (prefix.isBlank()) entry.name else prefix + "/" + entry.name
+                    if (entry.isDirectory) visit(entry.uri, path, depth + 1) else output += Node(path, entry.uri)
+                    if (output.size >= maxFiles) return
+                }
+            }
+            visit(root, "", 0)
         }
-        visit(root, "", 0)
         return output
     }
 
-    private data class Node(val path: String, val uri: android.net.Uri)
+    private data class Node(val path: String, val uri: android.net.Uri?)
     private data class Meta(val name: String?, val mime: String?, val size: Long?, val modified: Long?)
 
     private fun metadata(uri: android.net.Uri): Meta {
