@@ -49,6 +49,50 @@ class GitHubRepositoryGatewayTest {
     }
 
     @Test
+    fun singleFileDeletionUsesContentsApiInsteadOfGitTree() {
+        val requests = mutableListOf<String>()
+        val gateway = GitHubRepositoryGateway(
+            secretStore = FakeSecretStore("token"),
+            connection = HttpConnectionFactory { rawUrl ->
+                object : HttpURLConnection(URL(rawUrl)) {
+                    private var responseBody = """{"path":"styles.css","name":"styles.css","type":"file","sha":"1234567890123456789012345678901234567890","content":"Lw=="}"""
+                    override fun connect() = Unit
+                    override fun disconnect() = Unit
+                    override fun usingProxy(): Boolean = false
+                    override fun getResponseCode(): Int {
+                        requests += requestMethod + " " + url.path + if (url.query.isNullOrBlank()) "" else "?" + url.query
+                        responseBody = if (requestMethod == "GET") {
+                            """{"path":"styles.css","name":"styles.css","type":"file","sha":"1234567890123456789012345678901234567890","content":"Lw=="}"""
+                        } else {
+                            """{"commit":{"sha":"abcdef1234567890abcdef1234567890abcdef12"}}"""
+                        }
+                        return 200
+                    }
+                    override fun getInputStream() = ByteArrayInputStream(responseBody.toByteArray(Charsets.UTF_8))
+                    override fun getErrorStream() = ByteArrayInputStream(ByteArray(0))
+                }
+            },
+        )
+
+        val result = gateway.commitChanges(
+            owner = "MrRedhood",
+            repository = "DevForge",
+            branch = "main",
+            message = "delete styles.css",
+            changes = listOf(GitHubTreeChange("styles.css", delete = true)),
+        )
+
+        assertTrue(result is GitHubCommitResult.Success)
+        assertEquals(
+            listOf(
+                "GET /repos/MrRedhood/DevForge/contents/styles.css?ref=main",
+                "DELETE /repos/MrRedhood/DevForge/contents/styles.css",
+            ),
+            requests,
+        )
+    }
+
+    @Test
     fun rejectsUnsafeRepositoryIdentifiersBeforeNetworkAccess() {
         var opened = false
         val gateway = GitHubRepositoryGateway(
