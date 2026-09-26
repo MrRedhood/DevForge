@@ -46,7 +46,7 @@ object DevForgeToolCatalog {
         DevForgeToolCatalogEntry(AgentToolId.MOVE_FOLDER, "Move folder", "Move a workspace folder and its contents to another folder.", "Workspace"),
         DevForgeToolCatalogEntry(AgentToolId.RENAME_FILE, "Rename file", "Rename a workspace file, including changing its extension when requested.", "Workspace"),
         DevForgeToolCatalogEntry(AgentToolId.RENAME_FOLDER, "Rename folder", "Rename a workspace folder.", "Workspace"),
-        DevForgeToolCatalogEntry(AgentToolId.DELETE_PATH, "Delete path", "Delete a workspace file or folder. High impact; destructive actions still require approval.", "Workspace", defaultEnabled = false),
+        DevForgeToolCatalogEntry(AgentToolId.DELETE_PATH, "Delete path", "Delete a workspace file or folder. High impact; destructive actions still require approval.", "Workspace", defaultEnabled = true),
         DevForgeToolCatalogEntry(AgentToolId.WEB_SEARCH, "Web search", "Search the public web for current information.", "Web"),
         DevForgeToolCatalogEntry(AgentToolId.SCRAPE_URL, "Scrape URL", "Fetch a web page and extract readable text.", "Web"),
         DevForgeToolCatalogEntry(AgentToolId.FETCH_URL, "Fetch URL", "Fetch bounded raw content from an HTTP(S) URL.", "Web"),
@@ -219,7 +219,10 @@ class ToolSettingsStore(context: Context) {
                     .forEach { putBoolean("enabled_" + it.id.wireName, true) }
             }
             if (current < 2) {
-                putBoolean("enabled_" + AgentToolId.DELETE_PATH.wireName, false)
+                putBoolean("enabled_" + AgentToolId.DELETE_PATH.wireName, true)
+            }
+            if (current < 3) {
+                putBoolean("enabled_" + AgentToolId.DELETE_PATH.wireName, true)
             }
             putInt(TOOL_DEFAULTS_VERSION_KEY, TOOL_DEFAULTS_VERSION)
         }.apply()
@@ -228,6 +231,6 @@ class ToolSettingsStore(context: Context) {
     companion object {
         private const val PREFS_NAME = "devforge_tool_settings"
         private const val TOOL_DEFAULTS_VERSION_KEY = "tool_defaults_version"
-        private const val TOOL_DEFAULTS_VERSION = 2
+        private const val TOOL_DEFAULTS_VERSION = 3
     }
 }
