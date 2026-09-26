@@ -1,3 +1,10 @@
+### 2026-09-26 — Android UI back-navigation readiness repair
+- [x] Inspected Android UI Tests #583 for commit `b34a3653a5a485465438568b246ba829dd26fda4`; only `moreBackReturnsToMainMenuBeforeExitConfirmation` failed.
+- [x] The failure occurred because the test invoked the activity Back dispatcher immediately after tapping More, before the More surface and its Compose BackHandler were ready; the activity then fell through to its system back behavior.
+- [x] Added an explicit wait for the rendered `More` surface before invoking app Back navigation.
+- [x] Kept the production navigation implementation unchanged and preserved the existing UI test's intent to exercise the BackHandler path.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the new main commit.
+
 ### 2026-09-26 — Android UI back-navigation focus repair
 - [x] Inspected Android UI Tests #582 for commit `7858254ef6a8de40903570aca3e13996cf19da7f`.
 - [x] Found two failures in `MainActivityNavigationTest`: `moreBackReturnsToMainMenuBeforeExitConfirmation` and `backNavigatesOneDestinationAtATimeAndConfirmsExitAtRoot`.

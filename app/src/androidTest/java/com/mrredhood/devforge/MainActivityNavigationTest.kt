@@ -210,6 +210,7 @@ class MainActivityNavigationTest {
     fun moreBackReturnsToMainMenuBeforeExitConfirmation() {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        waitForText("More")
 
         pressAppBack()
 
