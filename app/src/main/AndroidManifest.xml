@@ -16,6 +16,15 @@
             android:name=".core.picker.SystemPickerActivity"
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.mrredhood.devforge.chatattachments"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/chat_attachment_paths" />
+        </provider>
         <receiver
             android:name=".core.notification.ApprovalNotificationReceiver"
             android:exported="false" />
