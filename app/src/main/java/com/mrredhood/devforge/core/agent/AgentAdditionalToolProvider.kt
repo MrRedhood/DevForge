@@ -299,7 +299,11 @@ class AgentAdditionalToolProvider(context: Context) {
     private suspend fun largestFiles(context: AgentToolContext, args: JSONObject): AgentToolResult {
         val nodes = walk(context.workspaceId, args.optInt("maxFiles", 120).coerceIn(1, 200))
         val out = nodes.mapNotNull {
-            val size = metadata(it.uri).size ?: return@mapNotNull null
+            val size = if (it.uri != null) {
+                metadata(it.uri).size
+            } else {
+                remoteMetadata(context.workspaceId, it.path).size
+            } ?: return@mapNotNull null
             JSONObject().put("path", it.path).put("sizeBytes", size)
         }.sortedByDescending { it.optLong("sizeBytes") }.take(args.optInt("limit", 15).coerceIn(1, 50))
         return AgentToolResult.Success("Found largest files.", JSONArray(out).toString())
@@ -307,11 +311,17 @@ class AgentAdditionalToolProvider(context: Context) {
 
     private suspend fun duplicates(context: AgentToolContext, args: JSONObject): AgentToolResult {
         val nodes = walk(context.workspaceId, args.optInt("maxFiles", 80).coerceIn(1, 100))
-        val sized = nodes.groupBy { metadata(it.uri).size ?: -1L }.filterKeys { it >= 0 }
+        val sized = nodes.groupBy {
+            if (it.uri != null) metadata(it.uri).size ?: -1L
+            else remoteMetadata(context.workspaceId, it.path).size ?: -1L
+        }.filterKeys { it >= 0 }
         val groups = mutableListOf<JSONObject>()
         for ((size, sameSize) in sized) {
             if (sameSize.size < 2 || size > 1024 * 1024) continue
-            val byHash = sameSize.groupBy { hashUri(it.uri, 1024 * 1024) }
+            val byHash = sameSize.groupBy {
+                if (it.uri != null) hashUri(it.uri, 1024 * 1024)
+                else hashRemote(context.workspaceId, it.path, 1024 * 1024)
+            }
             byHash.filterValues { it.size > 1 }.forEach { (hash, matches) ->
                 groups += JSONObject().put("sizeBytes", size).put("sha256", hash).put("paths", JSONArray(matches.map { it.path }))
             }
@@ -615,6 +625,29 @@ class AgentAdditionalToolProvider(context: Context) {
 
     private data class Node(val path: String, val uri: android.net.Uri?)
     private data class Meta(val name: String?, val mime: String?, val size: Long?, val modified: Long?)
+
+    private suspend fun remoteMetadata(workspaceId: String, path: String): Meta {
+        val remote = githubStore.get(workspaceId) ?: return Meta(path.substringAfterLast('/'), null, null, null)
+        val parent = path.substringBeforeLast('/', "")
+        val name = path.substringAfterLast('/')
+        val entry = when (val result = githubGateway.listContents(remote.owner, remote.repository, parent, remote.branch)) {
+            is GitHubContentsResult.Success -> result.entries.firstOrNull { it.name.equals(name, true) }
+            is GitHubContentsResult.Failure -> null
+        } ?: return Meta(name, null, null, null)
+        val mime = when (name.substringAfterLast('.', "").lowercase(Locale.US)) {
+            "kt", "java", "js", "ts", "py", "rs", "go", "c", "cpp", "h", "hpp", "html", "css", "md", "json", "xml", "yaml", "yml", "toml", "txt" -> "text/plain"
+            else -> null
+        }
+        return Meta(entry.name, mime, entry.sizeBytes, null)
+    }
+
+    private suspend fun hashRemote(workspaceId: String, path: String, maxBytes: Int): String {
+        val remote = githubStore.get(workspaceId) ?: return ""
+        val bytes = githubGateway.readFileBytes(remote.owner, remote.repository, path.trim('/'), remote.branch)
+            .getOrElse { return "" }
+        return MessageDigest.getInstance("SHA-256").digest(bytes.take(maxBytes).toByteArray())
+            .joinToString("") { "%02x".format(it) }
+    }
 
     private fun metadata(uri: android.net.Uri): Meta {
         var name: String? = null
