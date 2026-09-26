@@ -7,6 +7,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
 
 /** GitHub REST boundary for account, repository, workflow and controlled repository operations. */
 class GitHubRepositoryGateway(
@@ -218,8 +220,10 @@ class GitHubRepositoryGateway(
         message: String,
         changes: List<GitHubTreeChange>,
     ): GitHubCommitResult {
-        val o = validateName(owner) ?: return GitHubCommitResult.Failure("The GitHub owner is invalid.")
-        val r = validateName(repository) ?: return GitHubCommitResult.Failure("The GitHub repository is invalid.")
+        val o = validateName(owner)
+            ?: return GitHubCommitResult.Failure("The GitHub owner is invalid.")
+        val r = validateName(repository)
+            ?: return GitHubCommitResult.Failure("The GitHub repository is invalid.")
         val b = branch.trim().ifBlank { "main" }
         requireSafeBranch(b).getOrElse {
             return GitHubCommitResult.Failure(it.message ?: "The Git branch is invalid.")
@@ -230,59 +234,137 @@ class GitHubRepositoryGateway(
         if (changes.isEmpty()) return GitHubCommitResult.Failure("There are no changes to commit.")
         if (changes.size > 120) return GitHubCommitResult.Failure("Too many remote changes in one commit.")
 
-        return runCatching {
-            val refPath = "/repos/" + o + "/" + r + "/git/ref/heads/" + encodePathSegment(b)
+        val lockKey = "$o/$r/$b"
+        val lock = commitLocks.computeIfAbsent(lockKey) { ReentrantLock() }
+        lock.lock()
+        try {
+            return runCatching {
+                val refPath = "/repos/" + o + "/" + r + "/git/ref/heads/" + encodePathSegment(b)
 
-            val tree = JSONArray()
-            changes.forEach { change ->
-                val row = JSONObject()
-                    .put("path", normalizeRepoPath(change.path))
-                    .put("mode", "100644")
-                    .put("type", "blob")
-                if (change.delete) row.put("sha", JSONObject.NULL)
-                else if (!change.blobSha.isNullOrBlank()) row.put("sha", change.blobSha)
-                else row.put("content", change.content.orEmpty())
-                tree.put(row)
-            }
-
-            var parentCommit = ""
-            var treeSha: String? = null
-            var lastTreeError: Throwable? = null
-            repeat(3) { attempt ->
-                parentCommit = getJson(refPath) { it.getJSONObject("object").getString("sha") }.getOrThrow()
-                val baseTree = getJson("/repos/" + o + "/" + r + "/git/commits/" + parentCommit) {
-                    it.getJSONObject("tree").getString("sha")
-                }.getOrThrow()
-                try {
-                    treeSha = postJson(
-                        "/repos/" + o + "/" + r + "/git/trees",
-                        JSONObject().put("base_tree", baseTree).put("tree", tree),
-                    ).getString("sha")
-                    lastTreeError = null
-                } catch (error: Throwable) {
-                    if (!error.message.orEmpty().contains("HTTP 404") || attempt == 2) throw error
-                    lastTreeError = error
-                    Thread.sleep(250L * (attempt + 1))
+                val tree = JSONArray()
+                changes.forEach { change ->
+                    val row = JSONObject()
+                        .put("path", normalizeRepoPath(change.path))
+                        .put("mode", "100644")
+                        .put("type", "blob")
+                    if (change.delete) row.put("sha", JSONObject.NULL)
+                    else if (!change.blobSha.isNullOrBlank()) row.put("sha", change.blobSha)
+                    else row.put("content", change.content.orEmpty())
+                    tree.put(row)
                 }
-                if (treeSha != null) return@repeat
-            }
-            val createdTreeSha = treeSha ?: throw (lastTreeError ?: IllegalStateException("Unable to create the GitHub tree."))
 
-            val commitSha = postJson(
-                "/repos/" + o + "/" + r + "/git/commits",
-                JSONObject()
-                    .put("message", normalizedMessage)
-                    .put("tree", createdTreeSha)
-                    .put("parents", JSONArray().put(parentCommit)),
-            ).getString("sha")
+                var parentCommit = ""
+                var treeSha: String? = null
+                var lastTreeError: Throwable? = null
 
-            patchJson(
-                "/repos/" + o + "/" + r + "/git/refs/heads/" + encodePathSegment(b),
-                JSONObject().put("sha", commitSha).put("force", false),
-            )
+                repeat(5) { attempt ->
+                    parentCommit = getJson(refPath) {
+                        it.getJSONObject("object").getString("sha")
+                    }.getOrThrow()
 
-            GitHubCommitResult.Success(commitSha, normalizedMessage, changes.map { normalizeRepoPath(it.path) })
-        }.getOrElse { GitHubCommitResult.Failure(safeMessage(it)) }
+                    val baseTree = getJson(
+                        "/repos/" + o + "/" + r + "/git/commits/" + parentCommit,
+                    ) {
+                        it.getJSONObject("tree").getString("sha")
+                    }.getOrThrow()
+
+                    try {
+                        treeSha = postJson(
+                            "/repos/" + o + "/" + r + "/git/trees",
+                            JSONObject()
+                                .put("base_tree", baseTree)
+                                .put("tree", tree),
+                        ).getString("sha")
+                        lastTreeError = null
+                    } catch (error: Throwable) {
+                        val messageText = error.message.orEmpty()
+                        val retryable =
+                            messageText.contains("HTTP 404") ||
+                                messageText.contains("HTTP 409")
+                        if (!retryable || attempt == 4) throw error
+                        lastTreeError = error
+                        Thread.sleep(150L * (attempt + 1))
+                    }
+
+                    if (treeSha != null) return@repeat
+                }
+
+                val createdTreeSha = treeSha ?: throw (
+                    lastTreeError
+                        ?: IllegalStateException("Unable to create the GitHub tree.")
+                    )
+
+                val commitSha = postJson(
+                    "/repos/" + o + "/" + r + "/git/commits",
+                    JSONObject()
+                        .put("message", normalizedMessage)
+                        .put("tree", createdTreeSha)
+                        .put("parents", JSONArray().put(parentCommit)),
+                ).getString("sha")
+
+                try {
+                    patchJson(
+                        "/repos/" + o + "/" + r + "/git/refs/heads/" + encodePathSegment(b),
+                        JSONObject().put("sha", commitSha).put("force", false),
+                    )
+                } catch (error: Throwable) {
+                    // A remote branch can advance outside this process after the tree
+                    // was built. Re-read the branch and retry the whole mutation on
+                    // another pass rather than surfacing a transient synchronization error.
+                    val messageText = error.message.orEmpty()
+                    if (!messageText.contains("HTTP 409")) throw error
+
+                    var updated = false
+                    var lastRefError: Throwable? = error
+                    repeat(4) { attempt ->
+                        try {
+                            val freshParent = getJson(refPath) {
+                                it.getJSONObject("object").getString("sha")
+                            }.getOrThrow()
+                            val freshBaseTree = getJson(
+                                "/repos/" + o + "/" + r + "/git/commits/" + freshParent,
+                            ) {
+                                it.getJSONObject("tree").getString("sha")
+                            }.getOrThrow()
+                            val freshTreeSha = postJson(
+                                "/repos/" + o + "/" + r + "/git/trees",
+                                JSONObject()
+                                    .put("base_tree", freshBaseTree)
+                                    .put("tree", tree),
+                            ).getString("sha")
+                            val freshCommitSha = postJson(
+                                "/repos/" + o + "/" + r + "/git/commits",
+                                JSONObject()
+                                    .put("message", normalizedMessage)
+                                    .put("tree", freshTreeSha)
+                                    .put("parents", JSONArray().put(freshParent)),
+                            ).getString("sha")
+                            patchJson(
+                                "/repos/" + o + "/" + r + "/git/refs/heads/" + encodePathSegment(b),
+                                JSONObject().put("sha", freshCommitSha).put("force", false),
+                            )
+                            parentCommit = freshParent
+                            treeSha = freshTreeSha
+                            updated = true
+                            return@repeat
+                        } catch (retryError: Throwable) {
+                            lastRefError = retryError
+                            Thread.sleep(150L * (attempt + 1))
+                        }
+                    }
+                    if (!updated) throw (lastRefError ?: error)
+                }
+
+                GitHubCommitResult.Success(
+                    commitSha,
+                    normalizedMessage,
+                    changes.map { normalizeRepoPath(it.path) },
+                )
+            }.getOrElse { GitHubCommitResult.Failure(safeMessage(it)) }
+        } finally {
+            lock.unlock()
+            commitLocks.remove(lockKey, lock)
+        }
     }
 
     private fun parseContentEntry(json: JSONObject): GitHubContentEntry = GitHubContentEntry(
@@ -927,6 +1009,8 @@ class GitHubRepositoryGateway(
         value.trim().replaceFirst(Regex("(?i)^Bearer\\s+"), "").trim().removeSurrounding("\"").trim()
 
     companion object {
+        private val commitLocks = ConcurrentHashMap<String, ReentrantLock>()
+
         private const val PAGE_SIZE = 100
         private const val MAX_REPOSITORY_PAGES = 100
         private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
