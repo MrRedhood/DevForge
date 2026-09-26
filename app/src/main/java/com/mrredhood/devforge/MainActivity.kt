@@ -149,7 +149,7 @@ import com.mrredhood.devforge.core.github.GitHubRepositoryViewModel
 import com.mrredhood.devforge.core.github.GitHubRepository
 import com.mrredhood.devforge.core.model.DevForgeDestination
 import com.mrredhood.devforge.core.policy.ApprovalCenterScreen
-import com.mrredhood.devforge.core.preview.PreviewScreen
+import com.mrredhood.devforge.core.preview.WebLivePreviewScreen
 import com.mrredhood.devforge.core.policy.ApprovalCenterViewModel
 import com.mrredhood.devforge.core.storage.ApprovalEntity
 import com.mrredhood.devforge.core.picker.PickerBridge
@@ -662,9 +662,10 @@ private fun DevForgeApp(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,
         ) {
-            PreviewScreen(
+            WebLivePreviewScreen(
                 fileName = livePreviewTarget?.fileName.orEmpty(),
                 source = livePreviewTarget?.source.orEmpty(),
+                targetUri = livePreviewTarget?.uri?.let(Uri::parse),
                 workspace = workspace,
                 loading = livePreviewLoading,
                 loadError = livePreviewError,
