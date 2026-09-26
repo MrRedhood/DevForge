@@ -948,7 +948,8 @@ class WorkspaceAgentToolProvider(
                 val name = path.substringAfterLast('/')
                 val parent = path.substringBeforeLast('/', "")
                 val entry = remoteList(context, parent, 100).firstOrNull { it.name == name }
-                    ?: return@try AgentToolResult.Success(
+                if (entry == null) {
+                    return AgentToolResult.Success(
                         summary = "Already deleted $path.",
                         output = JSONObject()
                             .put("path", path)
@@ -956,6 +957,7 @@ class WorkspaceAgentToolProvider(
                             .toString(),
                         affectedPaths = listOf(path),
                     )
+                }
                 val changes = if (entry.isDirectory) {
                     remoteRecursiveFiles(remote, path).map { GitHubTreeChange(it, delete = true) }
                 } else {
