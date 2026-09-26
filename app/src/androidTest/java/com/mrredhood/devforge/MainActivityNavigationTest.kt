@@ -102,7 +102,7 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithContentDescription("Preview", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Web Live Preview", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Choose", useUnmergedTree = true).performClick()
-        composeRule.onNodeWithText("Choose preview file", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Choose web preview file", substring = true, useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Filter files", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Browse the active workspace.", substring = true, useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Close", useUnmergedTree = true).performClick()
