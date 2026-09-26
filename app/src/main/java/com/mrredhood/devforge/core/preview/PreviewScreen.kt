@@ -367,8 +367,8 @@ private object WebPreviewRenderer {
         "<!doctype html><html><body style='font-family:sans-serif;padding:16px'>" +
             source.lineSequence().joinToString("<br>") { line ->
                 when {
-                    line.startsWith("# ") -> "<h2>\${escapeHtml(line.removePrefix("# "))}</h2>"
-                    line.startsWith("## ") -> "<h3>\${escapeHtml(line.removePrefix("## "))}</h3>"
+                    line.startsWith("# ") -> "<h2>" + escapeHtml(line.removePrefix("# ")) + "</h2>"
+                    line.startsWith("## ") -> "<h3>" + escapeHtml(line.removePrefix("## ")) + "</h3>"
                     else -> escapeHtml(line)
                 }
             } +
@@ -376,19 +376,19 @@ private object WebPreviewRenderer {
 
     private fun sourcePreview(name: String, source: String): String =
         "<!doctype html><html><body style='font-family:monospace;padding:16px;white-space:pre-wrap;word-break:break-word'>" +
-            "<h3 style='font-family:sans-serif'>\${escapeHtml(name)}</h3><pre>\${escapeHtml(source)}</pre></body></html>"
+            "<h3 style='font-family:sans-serif'>" + escapeHtml(name) + "</h3><pre>" + escapeHtml(source) + "</pre></body></html>"
 
     private fun escapeHtml(value: String): String =
-        value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace(""","&quot;").replace("'","&#39;")
+        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;")
 
     private fun escapeScript(value: String): String =
-        value.replace("</script>", "<\\/script>", ignoreCase = true)
+        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;")
 }
 
 private fun baseUrlFor(path: String): String {
     val directory = path.trim('/').substringBeforeLast('/', "")
-    if (directory.isBlank()) return "https://\$WEB_PREVIEW_HOST/"
-    return "https://__K_HOST__/" +
+    if (directory.isBlank()) return "https://" + WEB_PREVIEW_HOST + "/"
+    return "https://" + WEB_PREVIEW_HOST + "/" +
         directory.split('/').filter { it.isNotBlank() }.joinToString("/") { Uri.encode(it) } + "/"
 }
 
