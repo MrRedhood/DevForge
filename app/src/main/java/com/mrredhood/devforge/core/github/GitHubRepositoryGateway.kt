@@ -289,10 +289,34 @@ class GitHubRepositoryGateway(
                     if (treeSha != null) return@repeat
                 }
 
-                val createdTreeSha = treeSha ?: throw (
-                    lastTreeError
-                        ?: IllegalStateException("Unable to create the GitHub tree.")
+                val createdTreeSha = treeSha ?: run {
+                    if (changes.all { it.delete }) {
+                        // GitHub's Git Data API can briefly return 404 while a newly
+                        // created commit/tree is propagating. For delete-only batches,
+                        // fall back to the Contents API, deleting each current file
+                        // sequentially from the newest branch state.
+                        deleteChangesViaContentsApi(
+                            owner = o,
+                            repository = r,
+                            branch = b,
+                            changes = changes,
+                            message = normalizedMessage,
+                        )
+                        return@run null
+                    }
+                    throw (
+                        lastTreeError
+                            ?: IllegalStateException("Unable to create the GitHub tree.")
+                        )
+                }
+
+                if (createdTreeSha == null) {
+                    return@runCatching GitHubCommitResult.Success(
+                        "contents-fallback",
+                        normalizedMessage,
+                        changes.map { normalizeRepoPath(it.path) },
                     )
+                }
 
                 val commitSha = postJson(
                     "/repos/" + o + "/" + r + "/git/commits",
@@ -364,6 +388,39 @@ class GitHubRepositoryGateway(
         } finally {
             lock.unlock()
             commitLocks.remove(lockKey, lock)
+        }
+    }
+
+    private fun deleteChangesViaContentsApi(
+        owner: String,
+        repository: String,
+        branch: String,
+        changes: List<GitHubTreeChange>,
+        message: String,
+    ) {
+        changes.distinctBy { normalizeRepoPath(it.path) }.forEach { change ->
+            val normalizedPath = normalizeRepoPath(change.path)
+            val current = when (val result = readFile(owner, repository, normalizedPath, branch)) {
+                is GitHubFileResult.Success -> result
+                is GitHubFileResult.Failure -> {
+                    if (result.message.contains("404") || result.message.contains("Not Found", true)) {
+                        return@forEach
+                    }
+                    throw IllegalStateException(result.message)
+                }
+            }
+            val sha = current.sha ?: throw IllegalStateException(
+                "GitHub did not return a revision for $normalizedPath.",
+            )
+            val payload = JSONObject()
+                .put("message", message)
+                .put("sha", sha)
+                .put("branch", branch)
+            requestJson(
+                "DELETE",
+                "/repos/" + owner + "/" + repository + "/contents/" + encodePathSegment(normalizedPath),
+                payload,
+            )
         }
     }
 
