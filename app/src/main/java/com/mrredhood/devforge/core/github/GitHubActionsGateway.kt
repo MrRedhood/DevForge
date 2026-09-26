@@ -436,9 +436,13 @@ class GitHubActionsGateway(
                 break
             }
             val limit = safeMaxBytes - usedBytes
-            val logSource = job.logsUrl
-                ?: "https://api.github.com/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/jobs/" + job.id + "/logs"
-            val text = getTextUrl(logSource, limit).getOrElse { error ->
+            val apiLogSource = "https://api.github.com/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/jobs/" + job.id + "/logs"
+            var textResult = getTextUrl(apiLogSource, limit)
+            if (textResult.isFailure) {
+                Thread.sleep(120L)
+                textResult = getTextUrl(apiLogSource, limit)
+            }
+            val text = textResult.getOrElse { error ->
                 return GitHubLogsResult.Failure(
                     "Unable to read logs for " + job.name + ": " + safeMessage(error),
                 )
