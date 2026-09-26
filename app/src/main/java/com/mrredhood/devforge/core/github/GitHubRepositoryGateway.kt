@@ -314,6 +314,11 @@ class GitHubRepositoryGateway(
                         )
                 }
 
+                val createdTreeSha = treeSha ?: throw (
+                    lastTreeError
+                        ?: IllegalStateException("Unable to create the GitHub tree.")
+                )
+
                 val commitSha = postJson(
                     "/repos/" + o + "/" + r + "/git/commits",
                     JSONObject()
