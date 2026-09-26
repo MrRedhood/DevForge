@@ -55,6 +55,15 @@ data class AIModelInfo(
     val isImageCapable: Boolean get() = inputModalities.contains("image") || outputModalities.contains("image")
     val isVideoCapable: Boolean get() = inputModalities.contains("video") || outputModalities.contains("video")
     val isEmbedding: Boolean get() = id.contains("embedding", ignoreCase = true) || outputModalities.contains("embedding")
+
+    /** True when the provider/model advertises its own reasoning/thinking channel. */
+    val supportsNativeThinking: Boolean
+        get() = supportedParameters.any {
+            it.equals("reasoning", true) ||
+                it.equals("reasoning_effort", true) ||
+                it.equals("include_reasoning", true) ||
+                it.equals("thinking", true)
+        } || id.contains("thinking", true) || id.contains("reasoning", true)
 }
 
 data class ModelFilters(
