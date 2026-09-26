@@ -268,13 +268,9 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
                 remoteWorkspace!!.repository,
                 normalized,
                 remoteWorkspace!!.branch,
-            )
-            when (result) {
-                is GitHubFileResult.Success -> result.bytes.also {
-                    require(it.size <= maxBytes) { "Preview resource exceeds the safe size limit." }
-                }
-                is GitHubFileResult.Failure -> error(result.message)
-            }
+            ).getOrElse { error(it.message ?: "Unable to read GitHub preview resource.") }
+            require(result.size <= maxBytes) { "Preview resource exceeds the safe size limit." }
+            result
         } else {
             var uri = active.treeUri
             normalized.split('/').filter { it.isNotBlank() }.forEach { part ->
