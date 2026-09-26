@@ -1,3 +1,10 @@
+### 2026-09-27 — GitHub mutation race repair for AI deletion and file operations
+- [x] Fixed concurrent GitHub-backed AI mutations by serializing commits per repository/branch inside `GitHubRepositoryGateway`.
+- [x] Extended transient Git tree recovery to retry both HTTP 404 and HTTP 409 conditions with a fresh branch ref/base tree on each attempt.
+- [x] Added recovery for a branch fast-forward conflict after a tree/commit has been created by rebuilding the mutation from the newest remote parent instead of surfacing a synchronization failure.
+- [x] This protects approval-gated `delete_path`, file writes, moves, renames, and other GitHub-backed AI mutations when the AI performs multiple operations close together.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this repair commit.
+
 ### 2026-09-26 — Final Web Live Preview compile/test repair
 - [x] Updated the catalog regression test so the approval-protected delete_path tool is expected to be enabled by default.
 - [x] Fixed missing GitHub workspace/provider imports introduced while making remote AI code-analysis tools repository-aware.
