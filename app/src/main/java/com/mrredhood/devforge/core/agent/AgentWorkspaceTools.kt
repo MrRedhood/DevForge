@@ -250,14 +250,71 @@ class WorkspaceAgentToolProvider(
 
         protected suspend fun remoteRead(context: AgentToolContext, path: String): String {
             val remote = remoteWorkspace(context) ?: error("No GitHub-backed workspace is active.")
-            val content = when (val result = githubGateway.readFile(remote.owner, remote.repository, path, remote.branch)) {
-                is com.mrredhood.devforge.core.github.GitHubFileResult.Success -> result.content
-                is com.mrredhood.devforge.core.github.GitHubFileResult.Failure -> error(result.message)
+            val workspace = workspaceDao.findById(context.workspaceId)
+            val raw = path.trim('/')
+            val candidates = linkedSetOf<String>()
+            fun addCandidate(value: String) {
+                val clean = value.trim('/')
+                if (clean.isNotBlank()) candidates += clean
             }
-            require(content.toByteArray(Charsets.UTF_8).size <= MAX_READ_BYTES) {
-                "File exceeds the agent read limit of 128 KiB."
+            addCandidate(raw)
+            val first = raw.substringBefore('/')
+            if (workspace != null && first.equals(workspace.name.trim('/'), true)) {
+                addCandidate(raw.substringAfter('/', ""))
             }
-            return content
+            if (first.equals(remote.repository, true)) {
+                addCandidate(raw.substringAfter('/', ""))
+            }
+            var lastError: String? = null
+            for (candidate in candidates) {
+                when (val result = githubGateway.readFile(remote.owner, remote.repository, candidate, remote.branch)) {
+                    is com.mrredhood.devforge.core.github.GitHubFileResult.Success -> {
+                        val content = result.content
+                        require(content.toByteArray(Charsets.UTF_8).size <= MAX_READ_BYTES) {
+                            "File exceeds the agent read limit of 128 KiB."
+                        }
+                        return content
+                    }
+                    is com.mrredhood.devforge.core.github.GitHubFileResult.Failure -> lastError = result.message
+                }
+            }
+
+            // Recover common path-prefix mistakes by resolving a unique basename from
+            // the repository tree. This keeps GitHub-backed reads usable when a model
+            // accidentally prepends the repository/workspace display name.
+            val basename = raw.substringAfterLast('/').trim()
+            if (basename.isNotBlank() && basename != raw) {
+                val matches = mutableListOf<String>()
+                suspend fun visit(prefix: String, depth: Int) {
+                    if (matches.size > 2 || depth > 10) return
+                    val entries = when (val result = githubGateway.listContents(remote.owner, remote.repository, prefix, remote.branch)) {
+                        is com.mrredhood.devforge.core.github.GitHubContentsResult.Success -> result.entries
+                        is com.mrredhood.devforge.core.github.GitHubContentsResult.Failure -> {
+                            lastError = result.message
+                            return
+                        }
+                    }
+                    for (entry in entries) {
+                        if (entry.type == "file" && entry.name.equals(basename, true)) matches += entry.path
+                        if (entry.type == "dir") visit(entry.path, depth + 1)
+                        if (matches.size > 2) return
+                    }
+                }
+                visit("", 0)
+                if (matches.size == 1) {
+                    when (val result = githubGateway.readFile(remote.owner, remote.repository, matches.single(), remote.branch)) {
+                        is com.mrredhood.devforge.core.github.GitHubFileResult.Success -> {
+                            val content = result.content
+                            require(content.toByteArray(Charsets.UTF_8).size <= MAX_READ_BYTES) {
+                                "File exceeds the agent read limit of 128 KiB."
+                            }
+                            return content
+                        }
+                        is com.mrredhood.devforge.core.github.GitHubFileResult.Failure -> lastError = result.message
+                    }
+                }
+            }
+            error(lastError ?: "Unable to read GitHub file: $raw")
         }
 
         protected suspend fun remoteList(context: AgentToolContext, path: String, limit: Int): List<AgentWorkspaceEntry> {
