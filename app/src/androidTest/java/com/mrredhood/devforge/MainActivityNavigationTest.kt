@@ -57,6 +57,16 @@ class MainActivityNavigationTest {
         }
     }
 
+    private fun waitForTag(tag: String, timeoutMillis: Long = 10_000L) {
+        composeRule.waitUntil(timeoutMillis = timeoutMillis) {
+            runCatching {
+                composeRule
+                    .onNodeWithTag(tag, useUnmergedTree = true)
+                    .assertExists()
+            }.isSuccess
+        }
+    }
+
     private fun pressAppBack() {
         composeRule.activity.runOnUiThread {
             composeRule.activity.onBackPressedDispatcher.onBackPressed()
@@ -210,7 +220,7 @@ class MainActivityNavigationTest {
     fun moreBackReturnsToMainMenuBeforeExitConfirmation() {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
-        waitForText("More")
+        waitForTag("more-screen-list")
 
         pressAppBack()
 

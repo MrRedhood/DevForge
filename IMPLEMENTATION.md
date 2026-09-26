@@ -1,3 +1,10 @@
+### 2026-09-26 — Android UI More-surface semantic readiness repair
+- [x] Inspected Android UI Tests #584 for commit `5bda0609f1a144f76a73ca5f6101901d4947fe6f`; only `moreBackReturnsToMainMenuBeforeExitConfirmation` failed.
+- [x] The failure was the test's text-node readiness check for the More heading timing out even though the More destination is represented by a stable `more-screen-list` semantic tag used by the rest of the suite.
+- [x] Replaced that brittle heading-text wait with a wait for the More screen's existing stable test tag before invoking the Back dispatcher.
+- [x] Production navigation behavior remains unchanged.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the new main commit.
+
 ### 2026-09-26 — Android UI back-navigation readiness repair
 - [x] Inspected Android UI Tests #583 for commit `b34a3653a5a485465438568b246ba829dd26fda4`; only `moreBackReturnsToMainMenuBeforeExitConfirmation` failed.
 - [x] The failure occurred because the test invoked the activity Back dispatcher immediately after tapping More, before the More surface and its Compose BackHandler were ready; the activity then fell through to its system back behavior.
