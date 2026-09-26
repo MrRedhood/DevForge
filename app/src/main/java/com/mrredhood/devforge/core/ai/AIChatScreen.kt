@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
@@ -129,6 +130,8 @@ fun AIChatScreen(viewModel: AIChatViewModel = viewModel()) {
                                 toolActivities = viewModel.toolActivities,
                                 workflow = viewModel.aiWorkflow,
                                 isSending = viewModel.isSending,
+                                thinkingSummary = viewModel.thinkingSummary,
+                                thinkingActive = viewModel.thinkingActive,
                             )
                         }
                     }
@@ -336,6 +339,8 @@ private fun StreamingBubble(
     toolActivities: List<ChatToolActivity>,
     workflow: AiWorkflowSnapshot?,
     isSending: Boolean,
+    thinkingSummary: String?,
+    thinkingActive: Boolean,
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         Card(
@@ -374,6 +379,12 @@ private fun StreamingBubble(
                     }
                 }
 
+                if (thinkingActive) {
+                    ThinkingIndicator()
+                } else if (thinkingSummary != null) {
+                    ThinkingSummaryCard(thinkingSummary)
+                }
+
                 if (toolActivities.isNotEmpty()) {
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         toolActivities.forEach { activity -> ToolActivityChip(activity) }
@@ -398,6 +409,42 @@ private fun StreamingBubble(
                 }
 
                 if (content.isNotBlank()) MarkdownText(content)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThinkingIndicator() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        StreamingAnimation(StreamingAnimationKind.THINKING_MAN)
+        Spacer(Modifier.width(8.dp))
+        Text("Thinking…", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+@Composable
+private fun ThinkingSummaryCard(summary: String) {
+    var expanded by remember(summary) { mutableStateOf(false) }
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Psychology, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(7.dp))
+                Text("Thinking", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Icon(
+                    Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Collapse thinking" else "Expand thinking",
+                    modifier = Modifier.graphicsLayer { rotationZ = if (expanded) 180f else 0f },
+                )
+            }
+            if (expanded) {
+                Spacer(Modifier.height(5.dp))
+                Text(summary.take(2_000), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -495,7 +542,7 @@ private fun MessageBubble(
                         Text("/" + message.commandName, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                val visibleContent = stripChatMessageAttachmentMetadata(message.content)
+                val visibleContent = stripChatThinkingMetadata(stripChatMessageAttachmentMetadata(message.content))
                     .let { content ->
                         if (message.role == "user") {
                             content.substringBefore("Device attachments:")
@@ -507,6 +554,9 @@ private fun MessageBubble(
                     }
                 if (visibleContent.isNotBlank()) {
                     if (message.role == "assistant") MarkdownText(visibleContent) else Text(visibleContent)
+                }
+                if (message.role == "assistant") {
+                    parseChatThinkingSummary(message.content)?.let { summary -> ThinkingSummaryCard(summary) }
                 }
                 if (messageAttachments.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -677,6 +727,16 @@ private fun ChatComposer(viewModel: AIChatViewModel) {
                 },
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = viewModel::toggleThinkingMode,
+                    enabled = viewModel.customThinkingAvailable,
+                ) {
+                    Icon(
+                        Icons.Default.Psychology,
+                        contentDescription = if (viewModel.customThinkingAvailable) "Thinking mode" else "Native thinking model",
+                        tint = if (viewModel.thinkingModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 IconButton(onClick = ::launchUniversalPicker) {
                     Text("+", fontWeight = FontWeight.Bold, fontSize = 24.sp)
                 }
