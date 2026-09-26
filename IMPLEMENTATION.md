@@ -1,3 +1,15 @@
+### 2026-09-26 — Live Preview target switching, durable chat attachments, and Thinking mode
+- [x] Fixed Live Preview so tapping ▶ Preview from the Editor adopts the current active editor file instead of always reopening a stale previously selected target.
+- [x] Kept Live Preview chooser selections independent while the preview surface remains open.
+- [x] Fixed Chat attachment durability by copying accepted files into DevForge-managed private storage and exposing them through a FileProvider URI, removing dependence on fragile external document-provider permissions for sent-message history.
+- [x] Improved expired legacy attachment errors so users get an actionable DevForge-specific message instead of a raw provider security exception.
+- [x] Added optional Thinking mode to AI Chat with a dedicated thinking icon, animated Thinking state, concise user-visible action summaries, and saved expandable/collapsible thinking summaries on completed assistant messages.
+- [x] Models advertising native reasoning/thinking parameters or thinking/reasoning identifiers skip the extra DevForge thinking layer.
+- [x] Thinking mode explicitly avoids exposing private chain-of-thought; only concise action-oriented summaries are displayed.
+- [x] Added Android UI coverage for the Thinking mode control.
+- [x] Updated More → ⓘ Help & guide for Live Preview target selection, durable attachments, and Thinking mode.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-26 — Android UI More-surface semantic readiness repair
 - [x] Inspected Android UI Tests #584 for commit `5bda0609f1a144f76a73ca5f6101901d4947fe6f`; only `moreBackReturnsToMainMenuBeforeExitConfirmation` failed.
 - [x] The failure was the test's text-node readiness check for the More heading timing out even though the More destination is represented by a stable `more-screen-list` semantic tag used by the rest of the suite.
