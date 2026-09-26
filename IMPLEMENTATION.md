@@ -1,3 +1,10 @@
+### 2026-09-27 — Delete-only GitHub synchronization fallback
+- [x] Added a delete-only fallback to the GitHub Contents API when the Git Data API continues returning transient tree creation errors.
+- [x] Each fallback deletion re-reads the current file SHA immediately before deletion and commits sequentially, preventing stale-tree races when AI requests multiple deletions close together.
+- [x] Missing files are treated as already deleted during fallback, while unexpected GitHub failures still surface to the AI.
+- [x] Existing repository/branch serialization and approval-gated `delete_path` behavior remain intact.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this commit.
+
 ### 2026-09-27 — GitHub mutation race repair for AI deletion and file operations
 - [x] Fixed concurrent GitHub-backed AI mutations by serializing commits per repository/branch inside `GitHubRepositoryGateway`.
 - [x] Extended transient Git tree recovery to retry both HTTP 404 and HTTP 409 conditions with a fresh branch ref/base tree on each attempt.
