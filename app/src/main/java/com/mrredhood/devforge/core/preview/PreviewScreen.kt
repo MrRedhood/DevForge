@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.unit.dp
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import java.io.ByteArrayInputStream
@@ -172,7 +173,6 @@ fun WebLivePreviewScreen(
                 }
             } else {
                 AndroidView(
-                    Modifier.weight(1f).fillMaxWidth(),
                     factory = { context ->
                         WebView(context).apply {
                             settings.javaScriptEnabled = true
@@ -216,6 +216,7 @@ fun WebLivePreviewScreen(
                             }
                         }
                     },
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
                     update = { webView ->
                         val tag = fileName + "|" + workspacePath.orEmpty() + "|" + previewHtml.hashCode()
                         if (webView.tag != tag && previewHtml.isNotBlank()) {
