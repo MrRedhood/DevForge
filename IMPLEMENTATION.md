@@ -1,3 +1,11 @@
+### 2026-09-27 — Reliable AI GitHub deletion repair
+- [x] Single-file GitHub-backed `delete_path` mutations now use the GitHub Contents API directly instead of the Git Data tree API, eliminating the observed transient `git/trees` HTTP 404 race after a preceding deletion commit.
+- [x] Folder deletion retains recursive tracked-file behavior; the existing batched Git tree path remains available for multi-file deletion with its retry/fallback protection.
+- [x] Repeated deletion of an already-absent GitHub path is idempotent and returns a successful `alreadyAbsent=true` result instead of a false tool failure.
+- [x] Added a JVM regression test proving single-file deletion uses GET current file SHA followed by the Contents API DELETE endpoint.
+- [x] Updated More → ⓘ Help & guide with the new GitHub deletion reliability semantics.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this repair commit.
+
 ### 2026-09-27 — Delete fallback compile repair
 - [x] Fixed the nullable tree SHA handling introduced by the delete-only GitHub Contents API fallback.
 - [x] The mutation path now uses a non-null tree SHA after fallback handling before creating the GitHub commit.
