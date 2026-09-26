@@ -83,7 +83,7 @@ class ChatToolOrchestrator(
         onPlanProgress: suspend (ChatPlanProgress) -> Unit = {},
         onThinking: suspend (String) -> Unit = {},
     ): ChatToolRunResult {
-        val enabled = (settings.enabledToolIds() + AgentToolId.GET_WORKSPACE_CONTEXT + AgentToolId.RETRIEVE_RELEVANT_CONTEXT).distinct()
+        val enabled = (AgentToolId.entries + AgentToolId.GET_WORKSPACE_CONTEXT + AgentToolId.RETRIEVE_RELEVANT_CONTEXT).distinct()
         if (enabled.isEmpty()) {
             return ChatToolRunResult(
                 response = gateway.send(
@@ -409,7 +409,7 @@ class ChatToolOrchestrator(
         append("\nFor current-workspace codebase questions, first use retrieve_relevant_context or search_workspace/search_content, then read_file on the exact relevant file/line range. Use get_workspace_context for authoritative workspace identity/current state.")
         append("\nFor factual/current questions, every concrete number, name, status, path, version or completion claim must be traceable to a tool result or explicitly identified as unknown.")
         append("\nNever turn tool availability into a claim of successful execution. Distinguish enabled, attempted, failed, and successfully completed operations.")
-        append("\nNever invent a tool, never call a disabled tool, and never put credentials or secrets in tool arguments.")
+        append("\nAll registered DevForge tools are callable through this compatibility protocol. Safety, capability and approval gates still apply to every tool. Do not invent a tool or put credentials/secrets in arguments.")
         if (transcript.isNotBlank()) {
             append("\n\nTool transcript from earlier turns:")
             append(transcript.takeLast(MAX_TRANSCRIPT_CHARS))
