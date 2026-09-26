@@ -1,8 +1,13 @@
 package com.mrredhood.devforge.core.ai
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.webkit.MimeTypeMap
+import androidx.core.content.FileProvider
+import java.io.File
+import java.util.UUID
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -89,7 +94,7 @@ fun ChatAttachmentViewerDialog(
                 } ?: throw IllegalArgumentException("The selected file is no longer available.")
             }
         }.onFailure {
-            error = it.message ?: "Unable to open this attachment."
+            error = ChatAttachmentStore.describeAccessError(it)
         }
     }
 
@@ -156,7 +161,7 @@ fun ChatAttachmentViewerDialog(
                                     },
                                 )
                             }.onFailure {
-                                error = it.message ?: "No compatible Android viewer is installed."
+                                error = ChatAttachmentStore.describeAccessError(it)
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -187,3 +192,52 @@ private fun formatAttachmentSize(bytes: Long): String =
         bytes >= 1024L -> (bytes / 1024L).toString() + " KB"
         else -> bytes.toString() + " B"
     }
+
+internal object ChatAttachmentStore {
+    const val AUTHORITY = "com.mrredhood.devforge.chatattachments"
+    private const val DIRECTORY = "chat_attachments"
+
+    fun importAttachment(
+        context: Context,
+        sourceUri: Uri,
+        displayName: String,
+        maxBytes: Long,
+    ): Uri {
+        val directory = File(context.filesDir, DIRECTORY).apply { mkdirs() }
+        val safeName = displayName
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .trim('_')
+            .take(96)
+            .ifBlank { "attachment" }
+        val target = File(directory, UUID.randomUUID().toString() + "_" + safeName)
+        try {
+            val input = context.contentResolver.openInputStream(sourceUri)
+                ?: error("The selected file could not be opened.")
+            input.use { stream ->
+                target.outputStream().use { output ->
+                    val buffer = ByteArray(16 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val read = stream.read(buffer)
+                        if (read < 0) break
+                        if (read == 0) continue
+                        total += read
+                        if (total > maxBytes) error("The attachment exceeds the allowed size.")
+                        output.write(buffer, 0, read)
+                    }
+                }
+            }
+            return FileProvider.getUriForFile(context, AUTHORITY, target)
+        } catch (error: Throwable) {
+            target.delete()
+            throw error
+        }
+    }
+
+    fun describeAccessError(error: Throwable): String =
+        if (error is SecurityException) {
+            "This attachment no longer has access to its original document-provider URI. Re-attach the file to create a DevForge-managed copy."
+        } else {
+            error.message ?: "Unable to open this attachment."
+        }
+}
