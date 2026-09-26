@@ -1,3 +1,10 @@
+### 2026-09-26 — Android UI back-navigation focus repair
+- [x] Inspected Android UI Tests #582 for commit `7858254ef6a8de40903570aca3e13996cf19da7f`.
+- [x] Found two failures in `MainActivityNavigationTest`: `moreBackReturnsToMainMenuBeforeExitConfirmation` and `backNavigatesOneDestinationAtATimeAndConfirmsExitAtRoot`.
+- [x] Both failures were `RootViewWithoutFocusException` from Espresso `pressBack()`; the application UI assertions themselves were not the failing condition.
+- [x] Replaced test back navigation with the existing `MainActivity.onBackPressedDispatcher`, avoiding a dependency on emulator window focus while exercising the same app BackHandler/navigation path.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the new main commit.
+
 ### 2026-09-26 — Live Preview GitHub file-loading repair
 - [x] Moved Live Preview file reads through the existing EditorViewModel onto `Dispatchers.IO`, preventing GitHub-backed previews from invoking blocking HTTP work on the UI thread.
 - [x] Live Preview now prefers current open editor content and unsynced GitHub pending content before falling back to the repository read, so newly created or edited remote files can be previewed before commit.

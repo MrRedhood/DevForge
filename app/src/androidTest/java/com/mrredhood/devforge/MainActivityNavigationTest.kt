@@ -14,7 +14,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
-import androidx.test.espresso.Espresso.pressBack
 import androidx.test.rule.GrantPermissionRule
 import org.junit.Rule
 import org.junit.Test
@@ -58,6 +57,12 @@ class MainActivityNavigationTest {
         }
     }
 
+    private fun pressAppBack() {
+        composeRule.activity.runOnUiThread {
+            composeRule.activity.onBackPressedDispatcher.onBackPressed()
+        }
+    }
+
     private fun resetToEditorHome() {
         closeChatIfOpen()
         repeat(4) {
@@ -67,7 +72,7 @@ class MainActivityNavigationTest {
                         .assertExists()
                 }.isSuccess
             ) return
-            pressBack()
+            pressAppBack()
         }
         waitForNode("Editor navigation")
     }
@@ -206,12 +211,12 @@ class MainActivityNavigationTest {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
 
-        pressBack()
+        pressAppBack()
 
         waitForNode("Editor navigation")
         composeRule.onNodeWithContentDescription("Editor navigation", useUnmergedTree = true).assertIsDisplayed()
 
-        pressBack()
+        pressAppBack()
 
         composeRule.onNodeWithText("Exit DevForge?", useUnmergedTree = true).assertIsDisplayed()
     }
@@ -222,7 +227,7 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithContentDescription("Files navigation", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Create a workspace", useUnmergedTree = true).assertIsDisplayed()
 
-        pressBack()
+        pressAppBack()
 
         composeRule.onNodeWithText("Exit DevForge?", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Cancel", useUnmergedTree = true).assertIsDisplayed()
