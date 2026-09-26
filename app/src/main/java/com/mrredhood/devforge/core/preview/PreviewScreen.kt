@@ -382,7 +382,7 @@ private object WebPreviewRenderer {
         value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;")
 
     private fun escapeScript(value: String): String =
-        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;")
+        value.replace("</script>", "<\\/script>", ignoreCase = true)
 }
 
 private fun baseUrlFor(path: String): String {
