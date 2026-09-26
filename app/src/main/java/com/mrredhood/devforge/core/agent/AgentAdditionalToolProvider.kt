@@ -18,6 +18,11 @@ import com.mrredhood.devforge.core.terminal.TerminalCapability
 import com.mrredhood.devforge.core.terminal.TerminalCommandParser
 import com.mrredhood.devforge.core.terminal.TerminalCommandPolicy
 import com.mrredhood.devforge.core.workspace.WorkspaceFileTree
+import com.mrredhood.devforge.core.workspace.GitHubWorkspaceStore
+import com.mrredhood.devforge.core.github.GitHubRepositoryGateway
+import com.mrredhood.devforge.core.github.GitHubContentsResult
+import com.mrredhood.devforge.core.github.GitHubFileResult
+import com.mrredhood.devforge.core.security.CredentialSecurityStore
 import java.io.ByteArrayOutputStream
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
