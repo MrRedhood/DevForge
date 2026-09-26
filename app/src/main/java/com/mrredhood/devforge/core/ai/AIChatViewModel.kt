@@ -96,6 +96,12 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private set
     var isPausing by mutableStateOf(false)
         private set
+    var thinkingModeEnabled by mutableStateOf(false)
+        private set
+    var thinkingActive by mutableStateOf(false)
+        private set
+    var thinkingSummary by mutableStateOf<String?>(null)
+        private set
     var streamingText by mutableStateOf("")
         private set
     var streamingAnimationKind by mutableStateOf(StreamingAnimationKind.HAMMER)
@@ -122,6 +128,19 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         private set
     var aiWorkflow by mutableStateOf<AiWorkflowSnapshot?>(aiWorkflowEngine.active())
         private set
+
+    val customThinkingAvailable: Boolean
+        get() = selectedModel?.supportsNativeThinking != true
+
+    fun toggleThinkingMode() {
+        if (!customThinkingAvailable) {
+            thinkingModeEnabled = false
+            thinkingActive = false
+            return
+        }
+        thinkingModeEnabled = !thinkingModeEnabled
+        if (!thinkingModeEnabled) thinkingActive = false
+    }
 
     val isEditingMessage: Boolean
         get() = editingMessageId != null
@@ -285,6 +304,10 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
         selectedModel = model
+        if (model.supportsNativeThinking) {
+            thinkingModeEnabled = false
+            thinkingActive = false
+        }
         settings.setSelectedModelId(provider, model.id)
         isModelMenuOpen = false
         modelError = null
@@ -302,6 +325,10 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
             withContext(Dispatchers.Main.immediate) {
                 if (generation == selectionGeneration) {
                     selectedModel = enriched
+                    if (enriched.supportsNativeThinking) {
+                        thinkingModeEnabled = false
+                        thinkingActive = false
+                    }
                     models = models.map { if (it.provider == enriched.provider && it.id == enriched.id) enriched else it }
                 }
             }
@@ -364,7 +391,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                 .substringBefore("Device attachments:")
                 .trimEnd()
                 .ifBlank { message.content.substringBefore("Device attachment:").trimEnd() }
-        } else message.content
+        } else stripChatThinkingMetadata(message.content)
         val clipboard = getApplication<Application>().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
             ?: return
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("DevForge message", clean))
@@ -488,6 +515,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         suggestions = emptyList()
         val submittedAttachments = pendingAttachments
         attachments = emptyList()
+        val useCustomThinking = thinkingModeEnabled && !model.supportsNativeThinking
+        thinkingSummary = null
+        thinkingActive = useCustomThinking
         streamingAnimationKind = StreamingAnimationKind.random()
         toolActivities = emptyList()
         isSending = true
@@ -555,6 +585,9 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     append(if (attachmentContext.isBlank()) effectiveBase else effectiveBase + "\n\n" + attachmentContext)
                     append("\n\n")
                     append(truthService.groundingInstruction(raw))
+                    if (useCustomThinking) {
+                        append("\n\nThinking mode is enabled. Before answering or using any tool, write exactly one concise user-visible action summary inside <devforge_thinking>...</devforge_thinking>. Describe what you are about to inspect, change, or verify. Do not reveal private chain-of-thought, hidden reasoning, credentials, or internal deliberation. Keep the summary brief, practical, and understandable.")
+                    }
                 }
                 val visibleUserMessage = buildString {
                     append(
@@ -641,6 +674,13 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                                 aiWorkflow = workflowSnapshot
                             }
                         },
+                        onThinking = { summary ->
+                            withContext(Dispatchers.Main.immediate) {
+                                if (requestGeneration != generationId) return@withContext
+                                thinkingSummary = summary.take(2_000)
+                                thinkingActive = false
+                            }
+                        },
                         onActivity = { activity ->
                             withContext(Dispatchers.Main.immediate) {
                                 if (requestGeneration != generationId) return@withContext
@@ -685,7 +725,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                     chatRepository.addMessage(
                         sessionId,
                         "assistant",
-                        toolResult.response,
+                        appendChatThinkingSummary(toolResult.response, thinkingSummary),
                     )
                     workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
                         aiWorkflowEngine.phase(workflowSnapshot, AiWorkflowPhase.VERIFY, "Verifying workspace state"),
@@ -717,7 +757,19 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         submittedAttachments,
                         settings.customBaseUrl(requestProvider),
                     )
-                    chatRepository.addMessage(sessionId, "assistant", response)
+                    val responseThinking = parseChatThinkingSummary(response)
+                    if (responseThinking != null) {
+                        withContext(Dispatchers.Main.immediate) {
+                            thinkingSummary = responseThinking
+                            thinkingActive = false
+                        }
+                    }
+                    val cleanResponse = stripChatThinkingMetadata(response)
+                    chatRepository.addMessage(
+                        sessionId,
+                        "assistant",
+                        appendChatThinkingSummary(cleanResponse, thinkingSummary),
+                    )
                     workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
                         aiWorkflowEngine.phase(workflowSnapshot, AiWorkflowPhase.VERIFY, "Verifying workspace state"),
                         workspaceRoot = workspaceRoot,
@@ -736,14 +788,37 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                         settings.customBaseUrl(requestProvider),
                     ).collect { chunk ->
                         builder.append(chunk)
-                        partialResponse = builder.toString().take(MAX_STREAM_VISIBLE_CHARS)
+                        val rawVisible = builder.toString()
+                        val responseThinking = parseChatThinkingSummary(rawVisible)
+                        if (responseThinking != null) {
+                            launch(Dispatchers.Main.immediate) {
+                                if (requestGeneration == generationId) {
+                                    thinkingSummary = responseThinking
+                                    thinkingActive = false
+                                }
+                            }
+                        }
+                        partialResponse = stripChatThinkingMetadata(rawVisible).take(MAX_STREAM_VISIBLE_CHARS)
                         val visible = partialResponse
                         launch(Dispatchers.Main.immediate) {
                             if (requestGeneration == generationId && !isPausing) streamingText = visible
                         }
                     }
-                    val finalText = partialResponse.ifBlank { "The model returned an empty response." }
-                    chatRepository.addMessage(sessionId, "assistant", finalText)
+                    val finalText = stripChatThinkingMetadata(builder.toString())
+                        .ifBlank { "The model returned an empty response." }
+                    if (useCustomThinking && thinkingSummary == null) {
+                        withContext(Dispatchers.Main.immediate) {
+                            if (requestGeneration == generationId) {
+                                thinkingSummary = "I reviewed your request and am proceeding with the requested answer or changes."
+                                thinkingActive = false
+                            }
+                        }
+                    }
+                    chatRepository.addMessage(
+                        sessionId,
+                        "assistant",
+                        appendChatThinkingSummary(finalText, thinkingSummary),
+                    )
                     workflowSnapshot = aiWorkflowEngine.verifyAndComplete(
                         aiWorkflowEngine.phase(workflowSnapshot, AiWorkflowPhase.VERIFY, "Verifying workspace state"),
                         workspaceRoot = workspaceRoot,
@@ -761,7 +836,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                             chatRepository.addMessage(
                                 sessionId,
                                 "assistant",
-                                partialResponse + "\n\n[Generation paused]",
+                                appendChatThinkingSummary(partialResponse + "\n\n[Generation paused]", thinkingSummary),
                             )
                         }
                     }
@@ -794,7 +869,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                             chatRepository.addMessage(
                                 sessionId,
                                 "assistant",
-                                partialResponse + "\n\n[Generation stopped]",
+                                appendChatThinkingSummary(partialResponse + "\n\n[Generation stopped]", thinkingSummary),
                             )
                         }
                     }
@@ -839,6 +914,7 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
                             sendError = "AI paused. Press Send to continue from the current workspace state."
                         }
                         aiWorkflow = null
+                        thinkingActive = false
                         if (pauseRequestGeneration == requestGeneration) pauseRequestGeneration = null
                         if (sendJob === currentCoroutineContext()[Job]) sendJob = null
                     }
@@ -896,54 +972,39 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
         val requestProvider = provider
         viewModelScope.launch(Dispatchers.IO) {
             val failureMessages = mutableListOf<String>()
-            val additions = uris.mapNotNull { uri ->
+            val additions = uris.mapNotNull { sourceUri ->
                 runCatching {
-                    val alreadyPersisted = resolver.persistedUriPermissions.any {
-                        it.uri == uri && it.isReadPermission
-                    }
-                    if (!alreadyPersisted) {
-                        runCatching {
-                            resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }.onSuccess {
-                            attachmentPermissionsOwned.add(uri.toString())
-                        }
-                    }
-                    val metadata = readAttachmentMetadata(uri, type.maxBytes)
+                    val metadata = readAttachmentMetadata(sourceUri, type.maxBytes)
                     require(type.accepts(metadata.mimeType, metadata.name)) {
-                        "The selected item is not a supported ${type.label.lowercase()} attachment."
+                        "The selected item is not a supported " + type.label.lowercase() + " attachment."
                     }
                     require(metadata.sizeBytes in 1..type.maxBytes) {
-                        "The attachment exceeds the ${formatSize(type.maxBytes)} limit."
+                        "The attachment exceeds the " + formatSize(type.maxBytes) + " limit."
                     }
                     if (type != ChatAttachmentType.ANY_FILE) {
                         require(supportsProviderAttachment(requestProvider, metadata.name, metadata.mimeType)) {
                             "Binary attachments are not supported by " + requestProvider.displayName + " for this file type."
                         }
                     }
-                    ChatAttachment(uri, metadata.name, metadata.mimeType, metadata.sizeBytes, type)
+                    val managedUri = ChatAttachmentStore.importAttachment(
+                        context = getApplication<Application>(),
+                        sourceUri = sourceUri,
+                        displayName = metadata.name,
+                        maxBytes = type.maxBytes,
+                    )
+                    ChatAttachment(managedUri, metadata.name, metadata.mimeType, metadata.sizeBytes, type)
                 }.onFailure { error ->
                     error.message?.takeIf { it.isNotBlank() }?.let(failureMessages::add)
                 }.getOrNull()
             }
             withContext(Dispatchers.Main.immediate) {
                 val baseline = attachments
-                val baselineUris = baseline.asSequence().map { it.uri }.toSet()
                 var bounded = (baseline + additions).distinctBy { it.uri }
-                while (bounded.size > MAX_ATTACHMENTS && bounded.isNotEmpty()) {
-                    bounded = bounded.dropLast(1)
-                }
-                while (bounded.sumOf { it.sizeBytes } > MAX_TOTAL_ATTACHMENT_BYTES && bounded.isNotEmpty()) {
-                    bounded = bounded.dropLast(1)
-                }
+                while (bounded.size > MAX_ATTACHMENTS && bounded.isNotEmpty()) bounded = bounded.dropLast(1)
+                while (bounded.sumOf { it.sizeBytes } > MAX_TOTAL_ATTACHMENT_BYTES && bounded.isNotEmpty()) bounded = bounded.dropLast(1)
                 attachments = bounded
                 val finalUris = bounded.asSequence().map { it.uri }.toSet()
-                val finalUriStrings = finalUris.map(Uri::toString).toSet()
-                additions.asSequence()
-                    .map { it.uri }
-                    .filter { it !in baselineUris && it.toString() !in finalUriStrings }
-                    .distinct()
-                    .forEach(::releaseAttachmentPermission)
-                val accepted = additions.count { it.uri in finalUris && it.uri !in baselineUris }
+                val accepted = additions.count { it.uri in finalUris }
                 val rejected = uris.size - accepted
                 if (rejected > 0) {
                     sendError = failureMessages.firstOrNull()
@@ -956,7 +1017,6 @@ class AIChatViewModel(application: Application) : AndroidViewModel(application) 
     fun removeAttachment(uri: Uri) {
         if (attachments.any { it.uri == uri }) {
             attachments = attachments.filterNot { it.uri == uri }
-            releaseAttachmentPermission(uri)
         }
     }
 
@@ -1243,3 +1303,25 @@ enum class ChatAttachmentType(val maxBytes: Long) {
         )
     }
 }
+
+private const val CHAT_THINKING_OPEN = "<devforge_thinking>"
+private const val CHAT_THINKING_CLOSE = "</devforge_thinking>"
+
+fun appendChatThinkingSummary(content: String, summary: String?): String {
+    val clean = summary?.trim()?.take(2_000).orEmpty()
+    return if (clean.isBlank()) content else content + "\n\n" + CHAT_THINKING_OPEN + clean + CHAT_THINKING_CLOSE
+}
+
+fun parseChatThinkingSummary(content: String): String? {
+    val start = content.indexOf(CHAT_THINKING_OPEN, ignoreCase = true)
+    if (start < 0) return null
+    val bodyStart = start + CHAT_THINKING_OPEN.length
+    val end = content.indexOf(CHAT_THINKING_CLOSE, bodyStart, ignoreCase = true)
+    return if (end > bodyStart) content.substring(bodyStart, end).trim().takeIf { it.isNotBlank() } else null
+}
+
+fun stripChatThinkingMetadata(content: String): String =
+    content.replace(
+        Regex("<devforge_thinking>.*?</devforge_thinking>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+        "",
+    ).trim()
