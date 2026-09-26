@@ -289,7 +289,7 @@ class GitHubRepositoryGateway(
                     if (treeSha != null) return@repeat
                 }
 
-                val createdTreeSha = treeSha ?: run {
+                if (treeSha == null) {
                     if (changes.all { it.delete }) {
                         // GitHub's Git Data API can briefly return 404 while a newly
                         // created commit/tree is propagating. For delete-only batches,
@@ -302,20 +302,16 @@ class GitHubRepositoryGateway(
                             changes = changes,
                             message = normalizedMessage,
                         )
-                        return@run null
+                        return@runCatching GitHubCommitResult.Success(
+                            "contents-fallback",
+                            normalizedMessage,
+                            changes.map { normalizeRepoPath(it.path) },
+                        )
                     }
                     throw (
                         lastTreeError
                             ?: IllegalStateException("Unable to create the GitHub tree.")
                         )
-                }
-
-                if (createdTreeSha == null) {
-                    return@runCatching GitHubCommitResult.Success(
-                        "contents-fallback",
-                        normalizedMessage,
-                        changes.map { normalizeRepoPath(it.path) },
-                    )
                 }
 
                 val commitSha = postJson(
