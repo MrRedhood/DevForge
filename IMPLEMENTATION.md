@@ -1,3 +1,17 @@
+### 2026-09-26 — Web Live Preview, GitHub workspace AI reliability, and full tool access
+- [x] Replaced the previous Live Preview renderer surface with Web Live Preview using a WebView runtime that serves workspace-relative HTML/CSS/JavaScript assets through an intercepted local web origin.
+- [x] Web Live Preview now resolves local and GitHub-backed workspace resources, including binary assets, so HTML projects can use normal relative script, stylesheet, image, font, and media paths.
+- [x] Added bounded workspace preview resource reads with GitHub pending-change precedence for unsynced remote edits.
+- [x] Fixed GitHub-backed AI code-analysis tools such as find_todo/find_fixme/search_regex by adding remote repository tree traversal and remote file reads instead of treating devforge://github/... as SAF document URIs.
+- [x] Hardened GitHub AI read_file recovery against common repository/workspace-name path prefixes and unique basename mistakes.
+- [x] Enabled the approval-gated delete_path tool by default for the main AI, including recursive tracked-file deletion for GitHub-backed folders.
+- [x] Changed ChatToolOrchestrator so every registered AgentToolId is available to every AI model through the textual compatibility tool protocol; capability, risk, and approval gates remain enforced.
+- [x] Added additional AI slash commands for inspect, create, delete, move, rename, logs, preview, verify, github, and media workflows.
+- [x] Hardened GitHub Actions log retrieval by always using a fresh job-log API endpoint and retrying transient redirected blob failures.
+- [x] Added binary GitHub file reads required by Web Live Preview assets.
+- [x] Added Android UI coverage for Web Live Preview and documented the new execution behavior.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-26 — Live Preview target switching, durable chat attachments, and Thinking mode
 - [x] Fixed Live Preview so tapping ▶ Preview from the Editor adopts the current active editor file instead of always reopening a stale previously selected target.
 - [x] Kept Live Preview chooser selections independent while the preview surface remains open.
