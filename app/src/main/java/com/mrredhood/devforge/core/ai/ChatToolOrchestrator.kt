@@ -81,6 +81,7 @@ class ChatToolOrchestrator(
         onActivity: suspend (ChatToolActivity) -> Unit,
         onPlan: suspend (List<AiPlanStep>) -> Unit = {},
         onPlanProgress: suspend (ChatPlanProgress) -> Unit = {},
+        onThinking: suspend (String) -> Unit = {},
     ): ChatToolRunResult {
         val enabled = (settings.enabledToolIds() + AgentToolId.GET_WORKSPACE_CONTEXT + AgentToolId.RETRIEVE_RELEVANT_CONTEXT).distinct()
         if (enabled.isEmpty()) {
@@ -143,6 +144,8 @@ class ChatToolOrchestrator(
                     throw cancelled
                 }
                 firstTurn = false
+
+                parseChatThinkingSummary(response)?.let { summary -> onThinking(summary) }
 
                 if (!planEmitted) {
                     val generatedPlan = parsePlan(response)
@@ -618,6 +621,7 @@ class ChatToolOrchestrator(
         listOf(
             "devforge_plan", "devforgeplan",
             "devforge_plan_progress", "devforgeplanprogress",
+            "devforge_thinking", "devforgethinking",
             "devforge_tool", "tool_call", "toolcall",
         ).forEach { tag ->
             clean = clean.replace(
