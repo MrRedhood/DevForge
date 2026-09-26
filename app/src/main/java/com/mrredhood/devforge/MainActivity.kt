@@ -431,10 +431,10 @@ private fun DevForgeApp(
                     onPreview = {
                         livePreviewError = null
                         livePreviewLoading = false
-                        val candidate = livePreviewTarget
-                            ?: editor.activeTab?.let { tab ->
-                                LivePreviewTarget(tab.uri.toString(), tab.name, tab.content)
-                            }
+                        val candidate = editor.activeTab?.let { tab ->
+                            LivePreviewTarget(tab.uri.toString(), tab.name, tab.content)
+                        }
+                            ?: livePreviewTarget
                             ?: editor.tabs.lastOrNull()?.let { tab ->
                                 LivePreviewTarget(tab.uri.toString(), tab.name, tab.content)
                             }
