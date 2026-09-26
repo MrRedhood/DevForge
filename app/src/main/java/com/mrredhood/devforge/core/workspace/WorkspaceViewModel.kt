@@ -217,6 +217,85 @@ class WorkspaceViewModel(application: Application) : AndroidViewModel(applicatio
     val rootUri: Uri?
         get() = workspace?.let { if (remoteWorkspace != null) GitHubWorkspaceUris.root(it.id) else it.treeUri }
 
+    suspend fun previewPathFor(uri: Uri): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val active = workspace ?: error("No workspace is active.")
+            if (remoteWorkspace != null && GitHubWorkspaceUris.isRemote(uri)) {
+                GitHubWorkspaceUris.remotePath(uri)
+            } else if (remoteWorkspace == null) {
+                if (uri == active.treeUri) return@runCatching ""
+                var found: String? = null
+                var visited = 0
+                suspend fun visit(parent: Uri, prefix: String, depth: Int) {
+                    if (found != null || depth > 14 || visited > 5000) return
+                    visited++
+                    for (entry in tree.list(parent, 500)) {
+                        val path = if (prefix.isBlank()) entry.name else "${prefix}/${entry.name}"
+                        if (entry.uri == uri) {
+                            found = path
+                            return
+                        }
+                        if (entry.isDirectory) visit(entry.uri, path, depth + 1)
+                        if (found != null) return
+                    }
+                }
+                visit(active.treeUri, "", 0)
+                found ?: error("The preview file is not inside the active workspace.")
+            } else {
+                error("The selected preview URI does not belong to the active workspace.")
+            }
+        }
+    }
+
+    fun readPreviewResource(path: String, maxBytes: Int = 8 * 1024 * 1024): Result<ByteArray> = runCatching {
+        val active = workspace ?: error("No workspace is active.")
+        val normalized = path.trim('/').replace('\\', '/')
+        require(normalized.isNotBlank()) { "Preview resource path is empty." }
+        require(!normalized.split('/').any { it == ".." || it.isBlank() }) {
+            "Invalid preview resource path."
+        }
+        GitHubPendingChanges.batch(active.id)?.changes?.firstOrNull {
+            !it.delete && it.path.trim('/') == normalized && it.content != null
+        }?.content?.let { content ->
+            val bytes = content.toByteArray(Charsets.UTF_8)
+            require(bytes.size <= maxBytes) { "Preview resource exceeds the safe size limit." }
+            return@runCatching bytes
+        }
+
+        if (remoteWorkspace != null) {
+            val result = githubGateway.readFileBytes(
+                remoteWorkspace!!.owner,
+                remoteWorkspace!!.repository,
+                normalized,
+                remoteWorkspace!!.branch,
+            )
+            when (result) {
+                is GitHubFileResult.Success -> result.bytes.also {
+                    require(it.size <= maxBytes) { "Preview resource exceeds the safe size limit." }
+                }
+                is GitHubFileResult.Failure -> error(result.message)
+            }
+        } else {
+            var uri = active.treeUri
+            normalized.split('/').filter { it.isNotBlank() }.forEach { part ->
+                uri = tree.list(uri, 500).firstOrNull { it.name == part }?.uri
+                    ?: error("Preview resource not found: $normalized")
+            }
+            resolver.openInputStream(uri)?.use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(16 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    if (read == 0) continue
+                    output.write(buffer, 0, read)
+                    require(output.size() <= maxBytes) { "Preview resource exceeds the safe size limit." }
+                }
+                output.toByteArray()
+            } ?: error("Unable to read preview resource: $normalized")
+        }
+    }
+
     suspend fun listDirectory(pathUri: Uri): List<WorkspaceEntry> = withContext(Dispatchers.IO) {
         val active = workspace ?: return@withContext emptyList()
         if (remoteWorkspace != null) {
