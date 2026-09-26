@@ -205,9 +205,8 @@ class ToolSettingsStore(context: Context) {
     /**
      * Versioned defaults for existing installs.
      *
-     * Workspace inspection/mutation remains enabled by default, but deletion is
-     * intentionally opt-in because it is destructive even though the execution
-     * path remains approval-protected.
+     * Workspace inspection/mutation remains enabled by default. Destructive deletion
+     * is available to the main AI by default but remains approval-protected.
      */
     private fun migrateMainAiCodingDefaults() {
         val current = prefs.getInt(TOOL_DEFAULTS_VERSION_KEY, 0)
