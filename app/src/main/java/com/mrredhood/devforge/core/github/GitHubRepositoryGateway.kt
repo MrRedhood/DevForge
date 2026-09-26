@@ -233,6 +233,25 @@ class GitHubRepositoryGateway(
         }
         if (changes.isEmpty()) return GitHubCommitResult.Failure("There are no changes to commit.")
         if (changes.size > 120) return GitHubCommitResult.Failure("Too many remote changes in one commit.")
+        if (changes.all { it.delete } && changes.size == 1) {
+            val path = normalizeRepoPath(changes.first().path)
+            return runCatching {
+                deleteChangesViaContentsApi(
+                    owner = o,
+                    repository = r,
+                    branch = b,
+                    changes = changes,
+                    message = normalizedMessage,
+                )
+                GitHubCommitResult.Success(
+                    "contents-delete",
+                    normalizedMessage,
+                    listOf(path),
+                )
+            }.getOrElse { GitHubCommitResult.Failure(safeMessage(it)) }
+        }
+
+
 
         val lockKey = "$o/$r/$b"
         val lock = commitLocks.computeIfAbsent(lockKey) { ReentrantLock() }
