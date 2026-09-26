@@ -1,3 +1,9 @@
+### 2026-09-26 — Final Web Live Preview compile/test repair
+- [x] Fixed missing GitHub workspace/provider imports introduced while making remote AI code-analysis tools repository-aware.
+- [x] Fixed Web Live Preview Compose imports and AndroidView invocation so the WebView compiles correctly.
+- [x] Updated Android UI regression labels and user-facing Help & guide wording from Live Preview to Web Live Preview.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-26 — Web Live Preview, GitHub workspace AI reliability, and full tool access
 - [x] Replaced the previous Live Preview renderer surface with Web Live Preview using a WebView runtime that serves workspace-relative HTML/CSS/JavaScript assets through an intercepted local web origin.
 - [x] Web Live Preview now resolves local and GitHub-backed workspace resources, including binary assets, so HTML projects can use normal relative script, stylesheet, image, font, and media paths.
