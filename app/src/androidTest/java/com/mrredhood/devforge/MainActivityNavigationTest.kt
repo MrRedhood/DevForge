@@ -119,6 +119,13 @@ class MainActivityNavigationTest {
     }
 
     @Test
+    fun chatExposesThinkingModeControl() {
+        waitForNode("AI Chat")
+        composeRule.onNodeWithContentDescription("AI Chat", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithContentDescription("Thinking mode", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
     fun chatFullscreenDoesNotExposeAgentControls() {
         waitForNode("AI Chat")
         composeRule.onNodeWithContentDescription("AI Chat", useUnmergedTree = true).performClick()
