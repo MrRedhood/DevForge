@@ -195,6 +195,22 @@ class GitHubRepositoryGateway(
         }
     }
 
+    fun readFileBytes(
+        owner: String,
+        repository: String,
+        path: String,
+        branch: String = "main",
+    ): Result<ByteArray> = runCatching {
+        val result = listContents(owner, repository, path, branch)
+        val entries = when (result) {
+            is GitHubContentsResult.Failure -> error(result.message)
+            is GitHubContentsResult.Success -> result.entries
+        }
+        val item = entries.singleOrNull() ?: error("GitHub did not return exactly one file for $path.")
+        require(item.type == "file") { "$path is not a file." }
+        Base64.getMimeDecoder().decode(item.contentBase64.orEmpty())
+    }
+
     fun commitChanges(
         owner: String,
         repository: String,
