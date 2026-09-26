@@ -1,3 +1,8 @@
+### 2026-09-27 — Delete fallback compile repair
+- [x] Fixed the nullable tree SHA handling introduced by the delete-only GitHub Contents API fallback.
+- [x] The mutation path now uses a non-null tree SHA after fallback handling before creating the GitHub commit.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final repair commit.
+
 ### 2026-09-27 — Delete-only GitHub synchronization fallback
 - [x] Added a delete-only fallback to the GitHub Contents API when the Git Data API continues returning transient tree creation errors.
 - [x] Each fallback deletion re-reads the current file SHA immediately before deletion and commits sequentially, preventing stale-tree races when AI requests multiple deletions close together.
