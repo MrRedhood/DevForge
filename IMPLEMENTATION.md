@@ -1,3 +1,9 @@
+### 2026-09-26 — Live Preview GitHub file-loading repair
+- [x] Moved Live Preview file reads through the existing EditorViewModel onto `Dispatchers.IO`, preventing GitHub-backed previews from invoking blocking HTTP work on the UI thread.
+- [x] Live Preview now prefers current open editor content and unsynced GitHub pending content before falling back to the repository read, so newly created or edited remote files can be previewed before commit.
+- [x] Kept the existing Live Preview target, chooser, WebView renderer, refresh, and editor-tab independence behavior unchanged.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main commit.
+
 ### 2026-09-25 — Chat attachment test moved to Android instrumentation
 - [x] Moved ChatAttachmentMessageTest from the JVM unit-test source set to androidTest because it exercises android.net.Uri, which the plain JVM Android SDK stubs do not implement.
 - [x] This keeps the attachment metadata regression coverage while avoiding false JVM RuntimeException failures.

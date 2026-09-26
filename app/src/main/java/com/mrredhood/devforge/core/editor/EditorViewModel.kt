@@ -214,9 +214,37 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadPreview(entry: WorkspaceEntry, onResult: (Result<String>) -> Unit) {
         if (entry.isDirectory) return
+        val openContent = tabs.firstOrNull { it.uri == entry.uri }?.content
         viewModelScope.launch {
-            onResult(readDocument(entry))
+            val result = withContext(Dispatchers.IO) {
+                readPreviewDocument(entry, openContent)
+            }
+            onResult(result)
         }
+    }
+
+    private suspend fun readPreviewDocument(
+        entry: WorkspaceEntry,
+        openContent: String?,
+    ): Result<String> {
+        openContent?.let { return Result.success(it) }
+        if (GitHubWorkspaceUris.isRemote(entry.uri)) {
+            val workspaceId = entry.uri.pathSegments.firstOrNull()
+                ?: return Result.failure(IllegalArgumentException("Invalid GitHub workspace file URI."))
+            val path = GitHubWorkspaceUris.remotePath(entry.uri)
+            val pendingChange = GitHubPendingChanges.batch(workspaceId)
+                ?.changes
+                ?.lastOrNull { it.path.trim('/').equals(path, ignoreCase = false) }
+            if (pendingChange != null) {
+                if (pendingChange.delete) {
+                    return Result.failure(
+                        IllegalStateException("This GitHub file is pending deletion and cannot be previewed."),
+                    )
+                }
+                pendingChange.content?.let { content -> return Result.success(content) }
+            }
+        }
+        return readDocument(entry)
     }
 
     fun select(uri: Uri) {
