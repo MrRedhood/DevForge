@@ -57,7 +57,7 @@ fun CodeIntelligenceScreen(
             return
         }
         searching = true
-        symbols = (service.symbols(workspaceId, clean) as LspQueryResult.Ready).value
+        symbols = (service.symbols(workspaceId, clean) as? LspQueryResult.Ready)?.value.orEmpty()
         definition = null
         references = emptyList()
     }
