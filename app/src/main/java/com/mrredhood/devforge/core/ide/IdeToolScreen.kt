@@ -80,6 +80,8 @@ enum class IdeTool(val title: String) {
     RELEASE_READINESS("Release readiness"),
     PROJECT_MEMORY("Project memory"),
     PROJECT_HEALTH("Project health"),
+    AI_RUN_INSPECTOR("AI run inspector"),
+    OPERATIONS_INBOX("Operations inbox"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -145,6 +147,14 @@ fun IdeToolScreen(
         }
         IdeTool.PROJECT_HEALTH -> {
             ProjectHealthScreen(onBack = onBack)
+            return
+        }
+        IdeTool.AI_RUN_INSPECTOR -> {
+            AiRunInspectorScreen(onBack = onBack)
+            return
+        }
+        IdeTool.OPERATIONS_INBOX -> {
+            OperationsInboxScreen(onBack = onBack)
             return
         }
         else -> Unit
