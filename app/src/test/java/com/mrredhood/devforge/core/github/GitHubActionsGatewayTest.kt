@@ -133,7 +133,9 @@ class GitHubActionsGatewayTest {
             },
         )
 
-        val result = gateway.fetchLogs("MrRedhood", "DevForge", 99L)
+        val result = kotlinx.coroutines.runBlocking {
+            gateway.fetchLogs("MrRedhood", "DevForge", 99L)
+        }
 
         assertTrue(result is GitHubLogsResult.Success)
         assertEquals("Gradle task completed", (result as GitHubLogsResult.Success).jobs.single().text)
