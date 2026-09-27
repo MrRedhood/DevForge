@@ -105,7 +105,7 @@ fun IdeToolScreen(
 
 @Composable
 private fun EnvironmentContent(workspace: WorkspaceViewModel, padding: PaddingValues) {
-    val appContext = workspace.getApplication()
+    val appContext = workspace.getApplication<android.app.Application>()
     val versionName = remember(appContext) {
         runCatching {
             appContext.packageManager
