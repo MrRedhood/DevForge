@@ -1095,11 +1095,9 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 listOf("Review = locally marked reviewed","+ / - = changed lines","Refresh = reload current worktree")),
         ),
     ),
-)
-
     GuideCategory(
         "Professional IDE",
-        "Focused engineering surfaces for running, validating, securing, diagnosing and understanding a project.",
+        "Focused engineering surfaces for running, validating, securing, diagnosing, releasing and understanding a project.",
         listOf(
             t("Run & Debug", "Keep the debug build target, build state, branch and Android runtime readiness together.",
                 listOf(
@@ -1166,13 +1164,23 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
             t("Workspace profile", "Keep per-workspace development preferences together instead of mixing them with global application settings.",
                 listOf(
                     "Open More → IDE tools → Workspace profile.",
-                    "Set the workspace display label, preferred build target and default validation behavior.",
+                    "Set the workspace display label, preferred build target, validation workflow, default preview file and project notes.",
                     "Save the profile; DevForge stores it by workspace identity and does not put secrets in the profile.",
                 ),
                 "More → IDE tools → Workspace profile.",
-                listOf("workspace-scoped = applies only to the selected workspace","global settings = application-wide")),
+                listOf("workspace-scoped = selected workspace only","global settings = application-wide")),
+            t("Release readiness", "Evaluate the existing release-quality gate against real build, artifact, log, editor and configuration evidence.",
+                listOf(
+                    "Open More → IDE tools → Release readiness.",
+                    "Review the current gate results for a successful build, artifacts, logs, unsaved changes, diagnostics and configuration.",
+                    "Refresh after a build or editor state change.",
+                    "Treat PASS as evidence from current DevForge state; CHECK means the underlying condition still needs attention.",
+                ),
+                "More → IDE tools → Release readiness.",
+                listOf("PASS = current gate condition satisfied","CHECK = condition needs attention")),
         ),
     ),
+)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeatureGuideScreen(onClose: () -> Unit) {
