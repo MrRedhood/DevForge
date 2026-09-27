@@ -74,6 +74,7 @@ private val ideToolCards = listOf(
     IdeToolCard(IdeTool.DIAGNOSTICS, Icons.Default.Error, "Diagnostics", "Combine editor problems with structured build-failure evidence in one troubleshooting surface."),
     IdeToolCard(IdeTool.CODE_INTELLIGENCE, Icons.Default.Code, "Code Intelligence", "Search indexed symbols and inspect definitions and references through the built-in LSP-compatible facade."),
     IdeToolCard(IdeTool.WORKSPACE_PROFILE, Icons.Default.Info, "Workspace profile", "Store project-specific build, validation, preview and notes preferences without mixing them into global settings."),
+    IdeToolCard(IdeTool.RELEASE_READINESS, Icons.Default.CheckCircle, "Release readiness", "Evaluate the existing release-quality gate against real build, artifact, log, editor and configuration evidence."),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
