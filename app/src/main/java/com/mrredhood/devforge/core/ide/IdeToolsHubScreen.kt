@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -65,6 +68,9 @@ private val ideToolCards = listOf(
     IdeToolCard(IdeTool.AI_CHANGE_REVIEW, Icons.Default.Reviews, "AI change review", "Review current workspace changes with additions, removals and per-file review state before considering AI work complete."),
     IdeToolCard(IdeTool.TEST_CENTER, Icons.Default.Science, "Test center", "Discover test sources and review authoritative DevForge build/test receipts from the current project."),
     IdeToolCard(IdeTool.ENVIRONMENT_DOCTOR, Icons.Default.HealthAndSafety, "Environment doctor", "Check workspace, Gradle, Git, Android, AI and preview readiness before troubleshooting deeper issues."),
+    IdeToolCard(IdeTool.RUN_DEBUG, Icons.Default.PlayArrow, "Run & Debug", "Start the configured debug APK workflow and keep build state, target and device readiness together."),
+    IdeToolCard(IdeTool.CI_CD, Icons.Default.Cloud, "CI/CD", "Review recent pipeline health, live workflows and the repository build contract."),
+    IdeToolCard(IdeTool.SECURITY_CENTER, Icons.Default.Security, "Security Center", "Review credential protection, workspace boundaries and sensitive-action safeguards."),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
