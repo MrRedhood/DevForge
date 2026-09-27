@@ -55,7 +55,7 @@ DevForge uses configured cloud AI providers. The product does not expose an on-d
 
 ## Editor performance boundary
 
-The editor keeps editing state local to the active workspace while moving expensive diagnostics to a debounced background dispatcher. Syntax highlighting, folding and invisible-character rendering are automatically reduced for large files (over 128 KiB or 4,000 lines) to keep scrolling and typing responsive on mobile hardware.
+The editor keeps editing state local to the active workspace while moving expensive diagnostics to a debounced background dispatcher. Syntax highlighting, folding and diagnostic work are automatically reduced for large files (above 64 KiB or 2,000 lines) to keep scrolling and typing responsive on mobile hardware.
 
 A model response is data. It is never an authorization to execute.
 
