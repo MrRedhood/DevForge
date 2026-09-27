@@ -1046,8 +1046,7 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 "Git and pending GitHub changes.",
                 listOf("+ = added","− = removed")),
         ),
-    ),,
-
+    ),
     GuideCategory(
         "AI Engineering",
         "Understand the AI execution observer and the review workflow for AI-created workspace changes.",
