@@ -121,7 +121,7 @@ fun ProjectOverviewScreen(
                                     remote != null -> "GitHub · ${remote.owner}/${remote.repository} · ${remote.branch}"
                                     workspace.localGitHubLink != null ->
                                         "GitHub-linked local project · ${workspace.localGitHubLink!!.owner}/${workspace.localGitHubLink!!.repository}"
-                                    else -> "Local workspace",
+                                    else -> "Local workspace"
                                 },
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
