@@ -1,8 +1,5 @@
 package com.mrredhood.devforge.core.ide
 
-import com.mrredhood.devforge.core.ide.AgentExecutionScreen
-import com.mrredhood.devforge.core.ide.AiChangeReviewScreen
-
 import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -84,6 +81,26 @@ fun IdeToolScreen(
     editor: EditorViewModel,
     onBack: () -> Unit,
 ) {
+    when (tool) {
+        IdeTool.AI_EXECUTION -> {
+            AgentExecutionScreen(onBack = onBack)
+            return
+        }
+        IdeTool.AI_CHANGE_REVIEW -> {
+            AiChangeReviewScreen(onBack = onBack)
+            return
+        }
+        IdeTool.TEST_CENTER -> {
+            TestCenterScreen(onBack = onBack)
+            return
+        }
+        IdeTool.ENVIRONMENT_DOCTOR -> {
+            EnvironmentDoctorScreen(onBack = onBack)
+            return
+        }
+        else -> Unit
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -105,24 +122,10 @@ fun IdeToolScreen(
             IdeTool.LOCAL_HISTORY -> LocalHistoryContent(editor, padding)
             IdeTool.ENVIRONMENT -> EnvironmentContent(workspace, padding)
             IdeTool.LOGS -> LogsContent(padding)
-            IdeTool.AI_EXECUTION -> EmbeddedToolContent(padding) { AgentExecutionScreen() }
-            IdeTool.AI_CHANGE_REVIEW -> EmbeddedToolContent(padding) { AiChangeReviewScreen() }
-            IdeTool.TEST_CENTER -> EmbeddedToolContent(padding) { TestCenterScreen() }
-            IdeTool.ENVIRONMENT_DOCTOR -> EmbeddedToolContent(padding) { EnvironmentDoctorScreen() }
         }
     }
 }
 
-
-@Composable
-private fun EmbeddedToolContent(
-    padding: PaddingValues,
-    content: @Composable () -> Unit,
-) {
-    androidx.compose.foundation.layout.Box(
-        Modifier.fillMaxSize().padding(padding),
-    ) { content() }
-}
 
 @Composable
 private fun EnvironmentContent(workspace: WorkspaceViewModel, padding: PaddingValues) {
