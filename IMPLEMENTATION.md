@@ -5228,3 +5228,11 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added a mobile-friendly action to load the latest build logs when a failed workflow needs deeper evidence.
 - [x] Added Android navigation coverage and Help & guide documentation.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
+
+### 2026-09-27 — Built-in code intelligence surface
+- [x] Added More → IDE tools → Code Intelligence.
+- [x] Reused the existing WorkspaceSymbolIndexStore, semantic retrieval, and EditorLspService rather than introducing a duplicate language-intelligence stack.
+- [x] Added symbol search plus exact definition and indexed-reference results.
+- [x] Kept external language-server registration optional; the current surface works from DevForge's built-in index.
+- [x] Added navigation UI coverage and Help & guide documentation.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
