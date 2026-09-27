@@ -5200,3 +5200,9 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added checks for workspace selection, Android/Gradle markers, Gradle wrapper, Git state, GitHub workspace state, Android runtime/device, Compose, AI execution architecture and Web Live Preview availability.
 - [x] Added Help & guide documentation and Android navigation coverage for both tools.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the final main head.
+
+
+### 2026-09-27 — IDE tool navigation polish
+- [x] Changed AI execution, AI change review, Test Center and Environment Doctor to own their top-level navigation surfaces when opened from the IDE tools hub.
+- [x] Added a single Back affordance to each new screen, removing the previous nested-scaffold/double-toolbar risk.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the final main head.
