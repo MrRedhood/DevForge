@@ -1178,6 +1178,16 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 ),
                 "More → IDE tools → Release readiness.",
                 listOf("PASS = current gate condition satisfied","CHECK = condition needs attention")),
+            t("Project memory", "Inspect durable AI memory and agent handoffs for the current workspace while keeping agent execution controls AI-managed.",
+                listOf(
+                    "Open More → IDE tools → Project memory.",
+                    "Search durable memory entries and agent handoffs using the bounded search field.",
+                    "Review source task IDs, timestamps and handoff status to understand what context agents are carrying between tasks.",
+                    "Delete stale memory notes when they are no longer useful; the coordination layer rejects secret-like content.",
+                    "Agent handoffs remain observational here so users do not directly control AI-managed agent execution.",
+                ),
+                "More → IDE tools → Project memory.",
+                listOf("memory = durable workspace context","handoffs = agent-to-agent continuity")),
         ),
     ),
 )
