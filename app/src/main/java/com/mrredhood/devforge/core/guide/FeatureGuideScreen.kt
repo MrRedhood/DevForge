@@ -1188,6 +1188,15 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 ),
                 "More → IDE tools → Project memory.",
                 listOf("memory = durable workspace context","handoffs = agent-to-agent continuity")),
+            t("Project health", "Run a bounded health pass across workspace integrity, build evidence, editor diagnostics, unsaved changes and pending approvals.",
+                listOf(
+                    "Open More → IDE tools → Project health.",
+                    "Refresh the health pass after changing the workspace, editor, or build state.",
+                    "Use FAIL items to identify conditions that can directly block work; WARN items are attention signals rather than build failures.",
+                    "Use Build Center, Diagnostics and Release readiness for the detailed evidence behind a health signal.",
+                ),
+                "More → IDE tools → Project health.",
+                listOf("FAIL = action needed","WARN = attention signal","PASS = current check satisfied")),
         ),
     ),
 )
