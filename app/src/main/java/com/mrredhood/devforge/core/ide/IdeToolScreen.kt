@@ -76,6 +76,7 @@ enum class IdeTool(val title: String) {
     SECURITY_CENTER("Security Center"),
     DIAGNOSTICS("Diagnostics"),
     CODE_INTELLIGENCE("Code Intelligence"),
+    WORKSPACE_PROFILE("Workspace profile"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,6 +126,10 @@ fun IdeToolScreen(
         }
         IdeTool.CODE_INTELLIGENCE -> {
             CodeIntelligenceScreen(onBack = onBack)
+            return
+        }
+        IdeTool.WORKSPACE_PROFILE -> {
+            WorkspaceProfileScreen(onBack = onBack)
             return
         }
         else -> Unit
