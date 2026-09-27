@@ -1289,4 +1289,13 @@ private fun GuideSection(title: String, lines: List<String>) {
             }
         }
     }
-}
+}            t("Code Intelligence", "Search indexed symbols and inspect definitions and references through the built-in LSP-compatible facade.",
+                listOf(
+                    "Open More → IDE tools → Code Intelligence.",
+                    "Enter a class, function, interface, or other indexed symbol.",
+                    "Review exact definitions, matching symbols, and indexed references.",
+                    "DevForge keeps the language-server protocol boundary optional; this surface uses the built-in index without requiring a bundled external server.",
+                ),
+                "More → IDE tools → Code Intelligence.",
+                listOf("definition = exact indexed symbol","references = indexed semantic/context matches")),
+
