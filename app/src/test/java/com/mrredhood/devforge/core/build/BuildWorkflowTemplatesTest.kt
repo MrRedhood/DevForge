@@ -31,7 +31,8 @@ class BuildWorkflowTemplatesTest {
         val release = BuildWorkflowTemplates.release
         assertTrue(release.contains("check-build-budget.sh release-apk"))
         assertTrue(release.contains("check-build-budget.sh release-aab"))
-        assertTrue(release.contains("apksigner verify"))
+        assertTrue(release.contains("apksigner"))
+        assertTrue(release.contains("verify --verbose"))
         assertTrue(release.contains("jarsigner -verify"))
         assertTrue(release.contains("devforge-release-validation"))
     }

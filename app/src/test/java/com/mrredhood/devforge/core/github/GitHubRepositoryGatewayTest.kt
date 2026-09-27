@@ -69,6 +69,7 @@ class GitHubRepositoryGatewayTest {
                         return 200
                     }
                     override fun getOutputStream() = java.io.ByteArrayOutputStream()
+                    override fun getInputStream() = ByteArrayInputStream(responseBody.toByteArray(Charsets.UTF_8))
                     override fun getErrorStream() = ByteArrayInputStream(ByteArray(0))
                 }
             },

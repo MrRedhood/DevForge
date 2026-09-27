@@ -1,5 +1,6 @@
 package com.mrredhood.devforge.core.ide
 
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -64,6 +65,7 @@ enum class IdeTool(val title: String) {
     DEPENDENCIES("Dependencies"),
     ACTIVITY("Activity"),
     LOCAL_HISTORY("Local history"),
+    ENVIRONMENT("Environment"),
     LOGS("Logs"),
 }
 
@@ -94,7 +96,68 @@ fun IdeToolScreen(
             IdeTool.DEPENDENCIES -> DependenciesContent(workspace, padding)
             IdeTool.ACTIVITY -> ActivityContent(workspace, padding)
             IdeTool.LOCAL_HISTORY -> LocalHistoryContent(editor, padding)
+            IdeTool.ENVIRONMENT -> EnvironmentContent(workspace, padding)
             IdeTool.LOGS -> LogsContent(padding)
+        }
+    }
+}
+
+
+@Composable
+private fun EnvironmentContent(workspace: WorkspaceViewModel, padding: PaddingValues) {
+    val appContext = workspace.getApplication()
+    val versionName = remember(appContext) {
+        runCatching {
+            appContext.packageManager
+                .getPackageInfo(appContext.packageName, 0)
+                .versionName
+        }.getOrNull() ?: "Unknown"
+    }
+    val deviceName = (Build.MANUFACTURER + " " + Build.MODEL).trim().ifBlank { "Unknown device" }
+
+    LazyColumn(
+        Modifier.fillMaxSize().padding(padding),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            Text(
+                "Environment details",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "Useful when diagnosing device, build, or workspace-specific issues.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item { EnvironmentInfoRow("Device", deviceName) }
+        item { EnvironmentInfoRow("Android", (Build.VERSION.RELEASE ?: "Unknown") + " · API " + Build.VERSION.SDK_INT) }
+        item { EnvironmentInfoRow("App version", versionName) }
+        item { EnvironmentInfoRow("Application ID", appContext.packageName) }
+        item { EnvironmentInfoRow("Workspace", workspace.workspace?.name ?: "No workspace selected") }
+        workspace.remoteWorkspace?.let {
+            item { EnvironmentInfoRow("Remote", it.owner + "/" + it.repository + " · " + it.branch) }
+        }
+    }
+}
+
+@Composable
+private fun EnvironmentInfoRow(
+    label: String,
+    value: String,
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

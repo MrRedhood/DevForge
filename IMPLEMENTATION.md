@@ -5143,3 +5143,14 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Preserved single-commit GitHub mutations and approval-gated destructive behavior.
 - [x] Updated More → ⓘ Help & guide for GitHub-backed AI path resolution and synchronization recovery.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this latest main head.
+
+
+### 2026-09-27 — Stabilization and IDE usability upgrade
+- [x] Fixed the release-workflow unit-test contract so signing verification is asserted by command shape (apksigner + verify --verbose) instead of a brittle contiguous string.
+- [x] Fixed the GitHub Contents API deletion test fixture by implementing the fake HTTP connection response input stream; the production single-file deletion path already uses Contents API semantics.
+- [x] Reset Settings navigation to the root when Settings is re-entered, preventing stale nested sections from hiding the searchable Settings home.
+- [x] Added a searchable IDE tools hub with an immediate no-results state so tools in a lazy list remain discoverable on smaller screens.
+- [x] Added the IDE Environment screen with device, Android API, app version, package, workspace, and remote diagnostics.
+- [x] Updated More and Help & guide copy to describe the new Environment tool and IDE-tool search.
+- [x] Updated Android UI coverage to exercise searchable Logs/Environment access instead of relying on off-screen lazy-list content being displayed.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final head.

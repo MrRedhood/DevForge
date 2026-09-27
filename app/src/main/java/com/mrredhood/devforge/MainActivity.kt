@@ -374,6 +374,10 @@ private fun DevForgeApp(
         if (next.name == destinationName && !showEditor) return
         if (!showEditor) destinationHistory = (destinationHistory + destinationName).takeLast(MAX_DESTINATION_HISTORY)
         destinationName = next.name
+        if (next == DevForgeDestination.Settings) {
+            settingsSection = "home"
+            appSettingsSection = "home"
+        }
         showEditor = false
         if (next != DevForgeDestination.Git) {
             gitCommitHistoryOpen = false
@@ -2014,7 +2018,7 @@ private fun MoreScreen(
         item {
             SimpleSettingsTile(
                 title = "IDE tools",
-                subtitle = "Workspace overview, problems, project map, dependencies, activity, history and logs",
+                subtitle = "Workspace overview, problems, project map, dependencies, activity, history, environment and logs",
                 onClick = onOpenIdeTools,
             )
         }

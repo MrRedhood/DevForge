@@ -240,6 +240,8 @@ private val guideCategories = listOf(
                 listOf(
                     "Open More → IDE tools to access a focused toolbox.",
                     "Use Workspace overview for project health signals and recent build/approval state.",
+                    "Search the IDE tools list when you know roughly what you need; matching cards update immediately.",
+                    "Use Environment for device, Android API, app, package and workspace details when diagnosing issues.",
                     "Use Problems for diagnostics, Project map for symbols, Dependencies for manifests, Activity for recent work, Local history for snapshots, and Logs for bounded device logs.",
                     "Use the Back arrow to return to the IDE tools list, then Back again to return to More.",
                 ),
