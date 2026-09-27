@@ -16,6 +16,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mrredhood.devforge.core.workspace.WorkspaceEntry
-import com.mrredhood.devforge.core.workspace.WorkspaceSearchResult
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 
