@@ -77,6 +77,8 @@ private val ideToolCards = listOf(
     IdeToolCard(IdeTool.RELEASE_READINESS, Icons.Default.Info, "Release readiness", "Evaluate the existing release-quality gate against real build, artifact, log, editor and configuration evidence."),
     IdeToolCard(IdeTool.PROJECT_MEMORY, Icons.Default.Info, "Project memory", "Inspect durable AI memory and agent handoffs for the current workspace; remove stale memory without changing agent execution controls."),
     IdeToolCard(IdeTool.PROJECT_HEALTH, Icons.Default.Info, "Project health", "Run a bounded health pass across workspace integrity, build evidence, diagnostics, unsaved changes and approvals."),
+    IdeToolCard(IdeTool.AI_RUN_INSPECTOR, Icons.Default.AutoAwesome, "AI run inspector", "Inspect historical and live AI runs, plan traces, models, approvals, errors and execution events without taking agent control."),
+    IdeToolCard(IdeTool.OPERATIONS_INBOX, Icons.Default.List, "Operations inbox", "Review AI work, approvals, build results, recovery signals and queued offline actions from one durable triage surface."),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
