@@ -101,6 +101,10 @@ fun IdeToolScreen(
             EnvironmentDoctorScreen(onBack = onBack)
             return
         }
+        IdeTool.DEPENDENCIES -> {
+            DependencyCenterScreen(onBack = onBack)
+            return
+        }
         IdeTool.RUN_DEBUG -> {
             RunDebugCenterScreen(onBack = onBack)
             return
@@ -132,7 +136,7 @@ fun IdeToolScreen(
             IdeTool.OVERVIEW -> OverviewContent(workspace, editor, padding)
             IdeTool.PROBLEMS -> ProblemsContent(editor, padding)
             IdeTool.PROJECT_MAP -> ProjectMapContent(workspace, padding)
-            IdeTool.DEPENDENCIES -> DependencyCenterScreen(onBack = onBack)
+            IdeTool.DEPENDENCIES -> DependenciesContent(workspace, padding)
             IdeTool.ACTIVITY -> ActivityContent(workspace, padding)
             IdeTool.LOCAL_HISTORY -> LocalHistoryContent(editor, padding)
             IdeTool.ENVIRONMENT -> EnvironmentContent(workspace, padding)
