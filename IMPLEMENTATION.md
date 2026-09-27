@@ -5190,3 +5190,13 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Kept the new surfaces review/observation-only; they do not expose user-facing agent lifecycle or execution controls.
 - [x] Added both features to the Help & guide and Android navigation coverage.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the final main head.
+
+
+### 2026-09-27 — Test Center and Environment Doctor groundwork
+- [x] Added More → IDE tools → Test center.
+- [x] Added bounded local test-source discovery for common test naming conventions.
+- [x] Added persisted DevForge build/CI receipt visibility so validation evidence is shown separately from model output.
+- [x] Added More → IDE tools → Environment doctor.
+- [x] Added checks for workspace selection, Android/Gradle markers, Gradle wrapper, Git state, GitHub workspace state, Android runtime/device, Compose, AI execution architecture and Web Live Preview availability.
+- [x] Added Help & guide documentation and Android navigation coverage for both tools.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the final main head.
