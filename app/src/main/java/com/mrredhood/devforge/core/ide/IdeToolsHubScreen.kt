@@ -100,11 +100,11 @@ fun IdeToolsHubScreen(
         },
     ) { padding ->
         var query by remember { mutableStateOf("") }
-        val normalizedQuery = query.trim()
+        val normalizedQuery = normalizeIdeToolSearch(query)
         val visibleTools = ideToolCards.filter { item ->
             normalizedQuery.isBlank() ||
-                item.title.contains(normalizedQuery, ignoreCase = true) ||
-                item.subtitle.contains(normalizedQuery, ignoreCase = true)
+                normalizeIdeToolSearch(item.title).contains(normalizedQuery) ||
+                normalizeIdeToolSearch(item.subtitle).contains(normalizedQuery)
         }
 
         LazyColumn(
@@ -183,3 +183,11 @@ fun IdeToolsHubScreen(
         }
     }
 }
+
+private fun normalizeIdeToolSearch(value: String): String =
+    value
+        .lowercase()
+        .replace("&", " and ")
+        .replace(Regex("[^a-z0-9]+"), " ")
+        .trim()
+        .replace(Regex("\\s+"), " ")
