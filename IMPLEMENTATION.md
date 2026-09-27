@@ -5291,3 +5291,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added unit coverage for provider filtering, deduplication and lookup.
 - [x] Updated More → ⓘ Help & guide and Code Intelligence to explain the provider-registration boundary.
 - [ ] Android CI and Android UI Tests must still pass against the final post-fix main head before this cycle is considered complete.
+
+- [x] Fixed the built-in LSP rename regex to use actual word-boundary matching, preventing partial-symbol or backspace-character matching during rename operations.
