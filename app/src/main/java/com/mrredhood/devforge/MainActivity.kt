@@ -145,6 +145,7 @@ import com.mrredhood.devforge.core.github.LiveActionsScreen
 import com.mrredhood.devforge.core.github.GitHubPendingChangeBatch
 import com.mrredhood.devforge.core.ide.IdeTool
 import com.mrredhood.devforge.core.ide.IdeToolScreen
+import com.mrredhood.devforge.core.ide.IdeToolsHubScreen
 import com.mrredhood.devforge.core.guide.FeatureGuideScreen
 import com.mrredhood.devforge.core.github.GitHubRepositoryViewModel
 import com.mrredhood.devforge.core.github.GitHubRepository
@@ -273,6 +274,8 @@ private fun DevForgeApp(
     var showEditorMenu by rememberSaveable { mutableStateOf(false) }
     var showChat by rememberSaveable { mutableStateOf(false) }
     var ideTool by rememberSaveable { mutableStateOf<IdeTool?>(null) }
+    var ideToolFromHub by rememberSaveable { mutableStateOf(false) }
+    var showIdeToolsHub by rememberSaveable { mutableStateOf(false) }
     var showFeatureGuide by rememberSaveable { mutableStateOf(false) }
     var destinationHistory by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
@@ -304,6 +307,8 @@ private fun DevForgeApp(
             showEditorMenu = false
             showChat = false
             ideTool = null
+            ideToolFromHub = false
+            showIdeToolsHub = false
             showFeatureGuide = false
             showProjectActivity = false
             commitDialogOpen = false
@@ -356,11 +361,16 @@ private fun DevForgeApp(
         showEditor = true
         showEditorMenu = false
         ideTool = null
+        ideToolFromHub = false
+        showIdeToolsHub = false
         showProjectActivity = false
     }
 
     fun navigateTo(next: DevForgeDestination) {
         showChat = false
+        ideTool = null
+        ideToolFromHub = false
+        showIdeToolsHub = false
         if (next.name == destinationName && !showEditor) return
         if (!showEditor) destinationHistory = (destinationHistory + destinationName).takeLast(MAX_DESTINATION_HISTORY)
         destinationName = next.name
@@ -377,6 +387,18 @@ private fun DevForgeApp(
     fun handleBackNavigation() {
         val activeEditorTab = editor.activeTab
         when {
+            showIdeToolsHub -> {
+                showIdeToolsHub = false
+            }
+            ideTool != null -> {
+                ideTool = null
+                if (ideToolFromHub) {
+                    ideToolFromHub = false
+                    showIdeToolsHub = true
+                } else {
+                    ideToolFromHub = false
+                }
+            }
             destination == DevForgeDestination.More && destinationHistory.isEmpty() -> {
                 // More is a secondary surface. From the app root, return to the
                 // Editor main menu before the next Back press offers app exit.
@@ -422,7 +444,7 @@ private fun DevForgeApp(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            if (showEditor) {
+            if (ideTool == null && !showIdeToolsHub && showEditor) {
                 EditorWorkspaceTopBar(
                     workspace = workspace,
                     fileName = editor.activeTab?.name,
@@ -457,7 +479,9 @@ private fun DevForgeApp(
             if (
                 destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More, DevForgeDestination.Connections) &&
                 !expanded &&
-                !gitCommitHistoryOpen
+                !gitCommitHistoryOpen &&
+                ideTool == null &&
+                !showIdeToolsHub
             ) {
                 NavigationBottom(
                     showEditor = showEditor,
@@ -473,7 +497,9 @@ private fun DevForgeApp(
                 if (
                     expanded &&
                     destination !in setOf(DevForgeDestination.Terminal, DevForgeDestination.Settings, DevForgeDestination.More) &&
-                    !gitCommitHistoryOpen
+                    !gitCommitHistoryOpen &&
+                    ideTool == null &&
+                    !showIdeToolsHub
                 ) {
                     NavigationSide(
                         showEditor = showEditor,
@@ -482,7 +508,32 @@ private fun DevForgeApp(
                         onSelect = ::navigateTo,
                     )
                 }
-                if (showEditor && ideTool == null) {
+                val selectedIdeTool = ideTool
+                if (showIdeToolsHub) {
+                    IdeToolsHubScreen(
+                        onBack = { showIdeToolsHub = false },
+                        onOpenTool = {
+                            ideTool = it
+                            ideToolFromHub = true
+                            showIdeToolsHub = false
+                        },
+                    )
+                } else if (selectedIdeTool != null) {
+                    IdeToolScreen(
+                        tool = selectedIdeTool,
+                        workspace = workspace,
+                        editor = editor,
+                        onBack = {
+                            ideTool = null
+                            if (ideToolFromHub) {
+                                ideToolFromHub = false
+                                showIdeToolsHub = true
+                            } else {
+                                ideToolFromHub = false
+                            }
+                        },
+                    )
+                } else if (showEditor) {
                     if (editing) {
                         Column(Modifier.fillMaxSize()) {
                             ProjectPulseStrip(
@@ -499,7 +550,10 @@ private fun DevForgeApp(
                                     settings,
                                     workspace,
                                     ::navigateTo,
-                                    { ideTool = it },
+                                    {
+                                        ideTool = it
+                                        ideToolFromHub = false
+                                    },
                                 )
                                 ActivityRail(
                                     onActivity = { showProjectActivity = true },
@@ -516,7 +570,7 @@ private fun DevForgeApp(
                             showBuildWithAi = true
                         },
                     )
-                } else if (ideTool == null && destination == DevForgeDestination.Git && gitCommitHistoryOpen) {
+                } else if (destination == DevForgeDestination.Git && gitCommitHistoryOpen) {
                     GitCommitHistoryScreen(
                         initialCommitSha = selectedGitCommitSha,
                         onBack = {
@@ -546,6 +600,11 @@ private fun DevForgeApp(
                         onBack = ::handleBackNavigation,
                         onMoreDestination = ::navigateTo,
                         onOpenFeatureGuide = { showFeatureGuide = true },
+                        onOpenIdeTools = {
+                            ideTool = null
+                            ideToolFromHub = false
+                            showIdeToolsHub = true
+                        },
                     )
                 }
             }
@@ -554,7 +613,9 @@ private fun DevForgeApp(
                 !showChat &&
                 !showEditorMenu &&
                 !showFeatureGuide &&
-                !showProjectActivity
+                !showProjectActivity &&
+                ideTool == null &&
+                !showIdeToolsHub
             ) {
                 FloatingActionButton(
                     onClick = { showChat = true },
@@ -1861,6 +1922,7 @@ private fun DestinationScreen(
     onBack: () -> Unit,
     onMoreDestination: (DevForgeDestination) -> Unit,
     onOpenFeatureGuide: () -> Unit,
+    onOpenIdeTools: () -> Unit,
 ) {
     when (destination) {
         DevForgeDestination.Files -> FilesScreen(workspace, editor, onCommitPending)
@@ -1888,6 +1950,7 @@ private fun DestinationScreen(
         DevForgeDestination.More -> MoreScreen(
             onSelect = { target -> onMoreDestination(target) },
             onOpenFeatureGuide = onOpenFeatureGuide,
+            onOpenIdeTools = onOpenIdeTools,
         )
     }
 }
@@ -1896,6 +1959,7 @@ private fun DestinationScreen(
 private fun MoreScreen(
     onSelect: (DevForgeDestination) -> Unit,
     onOpenFeatureGuide: () -> Unit,
+    onOpenIdeTools: () -> Unit,
 ) {
     val context = LocalContext.current
     LazyColumn(
@@ -1946,6 +2010,13 @@ private fun MoreScreen(
                     Icon(Icons.Default.ChevronRight, contentDescription = null)
                 }
             }
+        }
+        item {
+            SimpleSettingsTile(
+                title = "IDE tools",
+                subtitle = "Workspace overview, problems, project map, dependencies, activity, history and logs",
+                onClick = onOpenIdeTools,
+            )
         }
         item {
             SimpleSettingsTile(
