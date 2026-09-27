@@ -5282,3 +5282,12 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Reused DevForgeReleaseQualityGate so readiness is evaluated from real build receipts, artifact/log state, editor dirtiness, diagnostics and build configuration.
 - [x] Added searchable IDE-tool navigation coverage and Help & guide documentation.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
+
+
+### 2026-09-27 — Final IDE stabilization and language-service framework
+- [x] Fixed the Test Center compilation failure by importing the supported Material icon used for successful CI evidence.
+- [x] Added the required Material 3 TopAppBar opt-in to Release readiness so the screen compiles cleanly with the project's current Compose dependency set.
+- [x] Added a lightweight `LanguageServerRegistry` in the editor layer as the remaining Stage 6 provider boundary; it validates, deduplicates, lists and language-filters registered descriptors without starting external processes.
+- [x] Added unit coverage for provider filtering, deduplication and lookup.
+- [x] Updated More → ⓘ Help & guide and Code Intelligence to explain the provider-registration boundary.
+- [ ] Android CI and Android UI Tests must still pass against the final post-fix main head before this cycle is considered complete.
