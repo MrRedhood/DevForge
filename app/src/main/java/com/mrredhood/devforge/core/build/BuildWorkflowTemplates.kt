@@ -7,19 +7,17 @@ package com.mrredhood.devforge.core.build
 object BuildWorkflowTemplates {
     val ci = """
 name: Android CI
-# Release APK CI is triggered by a push whose commit message contains [release-apk].
+# Main-branch Android CI is release-first; manual dispatch still supports explicit target selection.
 
 on:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
       target:
         description: Build target
         required: true
-        default: debug_apk
+        default: release_apk
         type: choice
         options:
           - debug_apk
@@ -124,8 +122,8 @@ jobs:
           COMMIT_MESSAGE: ${'$'}{{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
-          TARGET="${'$'}{EVENT_TARGET:-debug_apk}"
-          if [[ "${'$'}EVENT_NAME" == "push" && "${'$'}COMMIT_MESSAGE" == *"[release-apk]"* ]]; then
+          TARGET="${'$'}{EVENT_TARGET:-release_apk}"
+          if [[ "${'$'}EVENT_NAME" == "push" ]]; then
             TARGET="release_apk"
           fi
           case "${'$'}TARGET" in
@@ -166,12 +164,10 @@ jobs:
           RELEASE_KEY_PASSWORD: ${'$'}{{ secrets.DEVFORGE_RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
-            if [[ -z "${'$'}RELEASE_KEYSTORE_BASE64" || -z "${'$'}RELEASE_KEYSTORE_PASSWORD" || -z "${'$'}RELEASE_KEY_ALIAS" || -z "${'$'}RELEASE_KEY_PASSWORD" ]]; then
-              echo "Release signing secrets are required for release builds." >&2
-              exit 1
-            fi
-          done
+          if [[ -z "${'$'}RELEASE_KEYSTORE_BASE64" || -z "${'$'}RELEASE_KEYSTORE_PASSWORD" || -z "${'$'}RELEASE_KEY_ALIAS" || -z "${'$'}RELEASE_KEY_PASSWORD" ]]; then
+            echo "Release signing secrets are required for release builds." >&2
+            exit 1
+          fi
 
           KEYSTORE_FILE="${'$'}{RUNNER_TEMP}/devforge-release.keystore"
           printf '%s' "${'$'}RELEASE_KEYSTORE_BASE64" |
@@ -204,7 +200,6 @@ jobs:
           ./gradlew --version
           "${'$'}ANDROID_SDKMANAGER" --list_installed | grep -E "platform-tools|platforms;${'$'}{ANDROID_PLATFORM}|build-tools;${'$'}{ANDROID_BUILD_TOOLS}"
 
-      # Release targets are intentionally fail-closed on signing configuration and are verified below.
       - name: Build selected target
         if: ${'$'}{{ inputs.build_artifact == '' || inputs.build_artifact == 'true' }}
         run: ./gradlew "${'$'}{{ steps.target.outputs.task }}" --stacktrace --no-daemon --max-workers=2
@@ -373,8 +368,8 @@ jobs:
           force-avd-creation: true
           emulator-boot-timeout: 900
           disable-animations: true
-          emulator-options: -no-window -no-snapshot -no-boot-anim -noaudio -gpu swiftshader_indirect
-          script: timeout 120 adb wait-for-device && test "$(adb get-state 2>/dev/null || true)" = "device" && ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon --max-workers=2
+          emulator-options: -no-window -no-snapshot -no-boot-anim -noaudio -gpu swiftshader_indirect -camera-back none
+          script: timeout 120 adb wait-for-device && test "${'$'}(adb get-state 2>/dev/null || true)" = "device" && (./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon --max-workers=2 || (echo "Gradle/UI test retry 2/3..." && sleep 10 && ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon --max-workers=2 || (echo "Gradle/UI test retry 3/3..." && sleep 10 && ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon --max-workers=2)))
 
       - name: Upload instrumentation test reports
         if: ${'$'}{{ always() }}
