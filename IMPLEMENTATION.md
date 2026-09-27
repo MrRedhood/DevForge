@@ -3,8 +3,9 @@
 - [x] Folder deletion retains recursive tracked-file behavior; the existing batched Git tree path remains available for multi-file deletion with its retry/fallback protection.
 - [x] Repeated deletion of an already-absent GitHub path is idempotent and returns a successful `alreadyAbsent=true` result instead of a false tool failure.
 - [x] Added a JVM regression test proving single-file deletion uses GET current file SHA followed by the Contents API DELETE endpoint.
+- [x] Fixed the regression-test HTTP stub so DELETE requests can provide a writable output stream, matching the real GitHub request path.
 - [x] Updated More → ⓘ Help & guide with the new GitHub deletion reliability semantics.
-- [ ] Fresh Android CI and Android UI Tests validation is required for this repair commit.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the latest repair commit.
 
 ### 2026-09-27 — Delete fallback compile repair
 - [x] Fixed the nullable tree SHA handling introduced by the delete-only GitHub Contents API fallback.
