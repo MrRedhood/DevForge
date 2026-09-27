@@ -71,6 +71,9 @@ enum class IdeTool(val title: String) {
     AI_CHANGE_REVIEW("AI change review"),
     TEST_CENTER("Test center"),
     ENVIRONMENT_DOCTOR("Environment doctor"),
+    RUN_DEBUG("Run & Debug"),
+    CI_CD("CI/CD"),
+    SECURITY_CENTER("Security Center"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,6 +101,18 @@ fun IdeToolScreen(
             EnvironmentDoctorScreen(onBack = onBack)
             return
         }
+        IdeTool.RUN_DEBUG -> {
+            RunDebugCenterScreen(onBack = onBack)
+            return
+        }
+        IdeTool.CI_CD -> {
+            CiCdCenterScreen(onBack = onBack)
+            return
+        }
+        IdeTool.SECURITY_CENTER -> {
+            SecurityCenterScreen(onBack = onBack)
+            return
+        }
         else -> Unit
     }
 
@@ -117,7 +132,7 @@ fun IdeToolScreen(
             IdeTool.OVERVIEW -> OverviewContent(workspace, editor, padding)
             IdeTool.PROBLEMS -> ProblemsContent(editor, padding)
             IdeTool.PROJECT_MAP -> ProjectMapContent(workspace, padding)
-            IdeTool.DEPENDENCIES -> DependenciesContent(workspace, padding)
+            IdeTool.DEPENDENCIES -> DependencyCenterScreen(onBack = onBack)
             IdeTool.ACTIVITY -> ActivityContent(workspace, padding)
             IdeTool.LOCAL_HISTORY -> LocalHistoryContent(editor, padding)
             IdeTool.ENVIRONMENT -> EnvironmentContent(workspace, padding)
