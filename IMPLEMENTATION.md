@@ -5212,3 +5212,12 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Fixed Environment Doctor's Android application type inference by explicitly requesting the ViewModel's Application before accessing contentResolver.
 - [x] Root cause confirmed from failed Android CI run 707 and Android UI Tests run 709 on commit cff26647ac175114bca4adc34eb327886d66a5be.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this repair head.
+
+### 2026-09-27 — Remaining professional IDE surfaces
+- [x] Added More → IDE tools → Run & Debug with a focused debug-APK dispatch surface, build state, repository/branch context, refresh/reset actions, and Android runtime readiness.
+- [x] Added More → IDE tools → CI/CD with recent pipeline health, live queued/in-progress workflows, workflow configuration, and direct refresh.
+- [x] Added More → IDE tools → Security Center with credential-protection controls plus workspace-boundary and sensitive-action guidance, reusing the existing security implementation.
+- [x] Replaced the lightweight dependency manifest list with a dedicated Dependencies center grouping version catalogs, build scripts, settings, Gradle properties, and the wrapper configuration.
+- [x] Added the new surfaces to the searchable IDE tools hub and Android navigation coverage.
+- [x] Documented the new workflows in More → ⓘ Help & guide.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
