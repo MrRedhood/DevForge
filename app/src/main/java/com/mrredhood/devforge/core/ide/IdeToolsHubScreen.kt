@@ -75,6 +75,7 @@ private val ideToolCards = listOf(
     IdeToolCard(IdeTool.CODE_INTELLIGENCE, Icons.Default.Code, "Code Intelligence", "Search indexed symbols and inspect definitions and references through the built-in LSP-compatible facade."),
     IdeToolCard(IdeTool.WORKSPACE_PROFILE, Icons.Default.Info, "Workspace profile", "Store project-specific build, validation, preview and notes preferences without mixing them into global settings."),
     IdeToolCard(IdeTool.RELEASE_READINESS, Icons.Default.CheckCircle, "Release readiness", "Evaluate the existing release-quality gate against real build, artifact, log, editor and configuration evidence."),
+    IdeToolCard(IdeTool.PROJECT_MEMORY, Icons.Default.Info, "Project memory", "Inspect durable AI memory and agent handoffs for the current workspace; remove stale memory without changing agent execution controls."),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
