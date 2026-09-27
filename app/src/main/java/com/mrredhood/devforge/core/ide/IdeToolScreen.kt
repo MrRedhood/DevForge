@@ -75,6 +75,7 @@ enum class IdeTool(val title: String) {
     CI_CD("CI/CD"),
     SECURITY_CENTER("Security Center"),
     DIAGNOSTICS("Diagnostics"),
+    CODE_INTELLIGENCE("Code Intelligence"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,6 +121,10 @@ fun IdeToolScreen(
         }
         IdeTool.DIAGNOSTICS -> {
             DiagnosticsCenterScreen(onBack = onBack)
+            return
+        }
+        IdeTool.CODE_INTELLIGENCE -> {
+            CodeIntelligenceScreen(onBack = onBack)
             return
         }
         else -> Unit
