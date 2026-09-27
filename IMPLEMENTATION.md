@@ -1,3 +1,9 @@
+### 2026-09-27 — GitHub Actions log retry coroutine repair
+- [x] Converted `GitHubActionsGateway.fetchLogs` to a suspending API so transient log retry waiting does not block a worker thread.
+- [x] Replaced the blocking `Thread.sleep(120L)` retry delay with coroutine `delay(120L)`.
+- [x] Updated the GitHub Actions gateway regression test to execute the suspending log-fetch API through `runBlocking`.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this repair.
+
 ### 2026-09-27 — Settings screen Kotlin syntax repair
 - [x] Fixed the outer SettingsScreen `when (section)` fallback branch in MainActivity.kt from invalid Kotlin `else {` syntax to the required `else -> {` form.
 - [x] This removes a compile-time syntax error in the Settings screen implementation without changing its runtime behavior or UI design.
