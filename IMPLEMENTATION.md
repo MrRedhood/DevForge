@@ -1,3 +1,8 @@
+### 2026-09-27 — Settings screen Kotlin syntax repair
+- [x] Fixed the outer SettingsScreen `when (section)` fallback branch in MainActivity.kt from invalid Kotlin `else {` syntax to the required `else -> {` form.
+- [x] This removes a compile-time syntax error in the Settings screen implementation without changing its runtime behavior or UI design.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this repair commit.
+
 ### 2026-09-27 — CI repair, IDE tools hub, and navigation reliability
 - [x] Removed the stray $marker test-source token that caused the Android CI unit-test compilation step to fail with Expecting member declaration at GitHubRepositoryGatewayTest.kt:72.
 - [x] Wired the existing IdeTool/IdeToolScreen state into the main renderer so editor command-palette IDE tools no longer fall through to the current destination.
