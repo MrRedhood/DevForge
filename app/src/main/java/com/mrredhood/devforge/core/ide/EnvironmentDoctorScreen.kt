@@ -79,7 +79,7 @@ fun EnvironmentDoctorScreen(
                 true to (remote.owner + "/" + remote.repository + " · " + remote.branch)
             } else {
                 val root = workspace.rootUri
-                val state = if (root == null) null else GitRepositoryService(workspace.getApplication().contentResolver).detect(root)
+                val state = if (root == null) null else GitRepositoryService(workspace.getApplication<android.app.Application>().contentResolver).detect(root)
                 when (state) {
                     is GitDetectionState.Detected -> true to "Repository detected · " + (state.repository.branchName ?: "detached")
                     GitDetectionState.NotDetected -> false to "No readable Git repository detected."
