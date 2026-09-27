@@ -5206,3 +5206,9 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Changed AI execution, AI change review, Test Center and Environment Doctor to own their top-level navigation surfaces when opened from the IDE tools hub.
 - [x] Added a single Back affordance to each new screen, removing the previous nested-scaffold/double-toolbar risk.
 - [ ] Fresh Android CI and Android UI Tests validation is required for the final main head.
+
+### 2026-09-27 — CI/UI compilation repair for new IDE tools
+- [x] Fixed malformed Help & guide category separators and removed an accidental literal newline escape inserted between categories.
+- [x] Fixed Environment Doctor's Android application type inference by explicitly requesting the ViewModel's Application before accessing contentResolver.
+- [x] Root cause confirmed from failed Android CI run 707 and Android UI Tests run 709 on commit cff26647ac175114bca4adc34eb327886d66a5be.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this repair head.
