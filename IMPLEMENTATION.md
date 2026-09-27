@@ -1,3 +1,12 @@
+### 2026-09-27 — CI repair, IDE tools hub, and navigation reliability
+- [x] Removed the stray $marker test-source token that caused the Android CI unit-test compilation step to fail with Expecting member declaration at GitHubRepositoryGatewayTest.kt:72.
+- [x] Wired the existing IdeTool/IdeToolScreen state into the main renderer so editor command-palette IDE tools no longer fall through to the current destination.
+- [x] Added a dedicated More → IDE tools hub exposing Overview, Problems, Project map, Dependencies, Activity, Local history, and Logs without adding permanent bottom-navigation clutter.
+- [x] Fixed IDE-tool top-bar, navigation, Back handling, AI FAB visibility, and return-to-origin behavior.
+- [x] Added Android UI regression coverage for opening the IDE tools hub, opening Problems, and returning through the hub/back stack.
+- [x] Updated More → ⓘ Help & guide with the new IDE tools flow.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this main commit.
+
 ### 2026-09-27 — Settings discoverability and workflow-template drift repair
 - [x] Audited the current main branch for adjacent usability, reliability, and documentation gaps instead of adding unrelated product surface area.
 - [x] Re-synced `BuildWorkflowTemplates.kt` with the live `.github/workflows/android.yml`, `.github/workflows/ui.yml`, and `.github/workflows/release-validation.yml` contracts, including release-first CI defaults, release-signing checks, UI emulator hardening/retries, artifact verification, and release validation budgets.
