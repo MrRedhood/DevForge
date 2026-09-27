@@ -5295,3 +5295,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Fixed the built-in LSP rename regex to use actual word-boundary matching, preventing partial-symbol or backspace-character matching during rename operations.
 
 - [x] Improved IDE tools search normalization so natural queries such as `run debug` match titles like `Run & Debug`, and punctuation/slash separators no longer prevent discovery.
+
+- [x] Corrected ampersand normalization to treat `&` as a separator rather than inserting a semantic `and`, so `run debug` now matches `Run & Debug`.
