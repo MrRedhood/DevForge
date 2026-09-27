@@ -1,5 +1,8 @@
 package com.mrredhood.devforge.core.ide
 
+import com.mrredhood.devforge.core.ide.AgentExecutionScreen
+import com.mrredhood.devforge.core.ide.AiChangeReviewScreen
+
 import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -67,6 +70,8 @@ enum class IdeTool(val title: String) {
     LOCAL_HISTORY("Local history"),
     ENVIRONMENT("Environment"),
     LOGS("Logs"),
+    AI_EXECUTION("AI execution"),
+    AI_CHANGE_REVIEW("AI change review"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,10 +103,22 @@ fun IdeToolScreen(
             IdeTool.LOCAL_HISTORY -> LocalHistoryContent(editor, padding)
             IdeTool.ENVIRONMENT -> EnvironmentContent(workspace, padding)
             IdeTool.LOGS -> LogsContent(padding)
+            IdeTool.AI_EXECUTION -> EmbeddedToolContent(padding) { AgentExecutionScreen() }
+            IdeTool.AI_CHANGE_REVIEW -> EmbeddedToolContent(padding) { AiChangeReviewScreen() }
         }
     }
 }
 
+
+@Composable
+private fun EmbeddedToolContent(
+    padding: PaddingValues,
+    content: @Composable () -> Unit,
+) {
+    androidx.compose.foundation.layout.Box(
+        Modifier.fillMaxSize().padding(padding),
+    ) { content() }
+}
 
 @Composable
 private fun EnvironmentContent(workspace: WorkspaceViewModel, padding: PaddingValues) {
