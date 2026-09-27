@@ -20,6 +20,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 
 @Composable
 fun DevForgeSettingsScreen(
@@ -149,29 +152,74 @@ fun DevForgeSettingsScreen(
             }
         }
 
-        else -> LazyColumn(
-            Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            item {
-                Text(
-                    "App settings",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    "Open only the section you need.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 6.dp),
-                )
+        else -> {
+            val search = rememberSaveable { mutableStateOf("") }
+            val query = search.value.trim()
+            val settingsItems = listOf(
+                Triple("AI routing", "How DevForge chooses a model", "routing"),
+                Triple("Build", "Polling for remote build status", "build"),
+                Triple("Terminal", "Default execution timeout", "terminal"),
+                Triple("Privacy & retention", "Local history limits", "privacy"),
+                Triple("Appearance", "Theme and information density", "appearance"),
+                Triple("Editor", "Font size and editing behavior", "editor"),
+            )
+            val visibleItems = settingsItems.filter { item ->
+                query.isBlank() ||
+                    item.first.contains(query, ignoreCase = true) ||
+                    item.second.contains(query, ignoreCase = true)
             }
-            item { SimpleSettingsTile("AI routing", "How DevForge chooses a model", { onSectionChange("routing") }) }
-            item { SimpleSettingsTile("Build", "Polling for remote build status", { onSectionChange("build") }) }
-            item { SimpleSettingsTile("Terminal", "Default execution timeout", { onSectionChange("terminal") }) }
-            item { SimpleSettingsTile("Privacy & retention", "Local history limits", { onSectionChange("privacy") }) }
-            item { SimpleSettingsTile("Appearance", "Theme and information density", { onSectionChange("appearance") }) }
-            item { SimpleSettingsTile("Editor", "Font size and editing behavior", { onSectionChange("editor") }) }
+
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item {
+                    Text(
+                        "App settings",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "Search settings or open a section directly.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 6.dp),
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = search.value,
+                        onValueChange = { search.value = it.take(80) },
+                        modifier = Modifier.fillMaxWidth().testTag("settings-search"),
+                        label = { Text("Search settings") },
+                        singleLine = true,
+                    )
+                }
+                if (visibleItems.isEmpty()) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            ),
+                        ) {
+                            Column(
+                                Modifier.fillMaxWidth().padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text("No settings found", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Try a different keyword such as build, editor, privacy, terminal, or theme.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(visibleItems, key = { it.third }) { item ->
+                        SimpleSettingsTile(item.first, item.second) { onSectionChange(item.third) }
+                    }
+                }
+            }
         }
     }
 }
@@ -263,10 +311,11 @@ private fun NumberField(
     onChange: (String) -> Unit,
 ) {
     OutlinedTextField(
-        value,
-        onChange,
-        Modifier.fillMaxWidth(),
+        value = value,
+        onValueChange = { onChange(it.filter(Char::isDigit)) },
+        modifier = Modifier.fillMaxWidth(),
         label = { Text(label) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
     )
 }
