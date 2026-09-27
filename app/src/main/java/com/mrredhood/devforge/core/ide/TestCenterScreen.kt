@@ -23,7 +23,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -41,6 +40,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mrredhood.devforge.core.build.BuildState
+import com.mrredhood.devforge.core.build.BuildTarget
+import com.mrredhood.devforge.core.build.BuildViewModel
 import com.mrredhood.devforge.core.storage.DevForgeDatabase
 import com.mrredhood.devforge.core.workspace.WorkspaceSearch
 import com.mrredhood.devforge.core.workspace.WorkspaceSearchResult
@@ -53,6 +55,7 @@ import kotlinx.coroutines.withContext
 fun TestCenterScreen(
     onBack: () -> Unit,
     workspace: WorkspaceViewModel = viewModel(),
+    build: BuildViewModel = viewModel(),
 ) {
     val root = workspace.rootUri
     val builds = remember {
@@ -134,6 +137,46 @@ fun TestCenterScreen(
             }
 
             item {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Run validation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (workspace.remoteWorkspace != null) {
+                                "Dispatch the configured DevForge Android workflow. Its unit-test stage and build receipt provide authoritative CI evidence."
+                            } else {
+                                "Local SAF workspaces expose test sources here; validation execution is available through the configured GitHub workflow after the workspace is connected."
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        val activeState = build.state
+                        Button(
+                            onClick = { build.startBuild(BuildTarget.DebugApk) },
+                            enabled = workspace.remoteWorkspace != null &&
+                                activeState !is BuildState.Dispatching &&
+                                activeState !is BuildState.Running &&
+                                activeState !is BuildState.Cancelling &&
+                                activeState !is BuildState.AwaitingApproval,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                when (activeState) {
+                                    is BuildState.Running,
+                                    is BuildState.Dispatching,
+                                    is BuildState.AwaitingApproval -> "Validation running…"
+                                    else -> "Run validation"
+                                },
+                            )
+                        }
+                        Text(
+                            buildStateSummary(activeState),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            item {
                 Text("CI evidence", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
@@ -209,4 +252,17 @@ fun TestCenterScreen(
             }
         }
     }
+}
+
+
+private fun buildStateSummary(state: BuildState): String = when (state) {
+    BuildState.Idle -> "No validation has been started in this screen."
+    is BuildState.Ready -> "Ready to dispatch " + state.configuration.target.label + "."
+    is BuildState.AwaitingApproval -> "Waiting for approval before the workflow can start."
+    is BuildState.Dispatching -> "Dispatching the validation workflow."
+    is BuildState.Cancelling -> "Cancelling validation run #" + state.runId + "."
+    is BuildState.Running -> "Validation workflow #" + state.runId + " is running."
+    is BuildState.Succeeded -> "Validation completed; artifact " + state.artifactName + "."
+    is BuildState.Failed -> "Validation failed: " + state.message
+    is BuildState.Cancelled -> "Validation run #" + state.runId + " was cancelled."
 }
