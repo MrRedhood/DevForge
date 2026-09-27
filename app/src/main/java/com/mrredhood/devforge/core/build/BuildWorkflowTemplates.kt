@@ -127,7 +127,7 @@ jobs:
           TARGET="${'$'}{EVENT_TARGET:-release_apk}"
           if [[ "${'$'}EVENT_NAME" == "push" ]]; then
             TARGET="release_apk"
-          elif [[ "${'" == "pull_request" ]]; then
+          elif [[ "${'$'}EVENT_NAME" == "pull_request" ]]; then
             TARGET="debug_apk"
           fi
           case "${'$'}TARGET" in
