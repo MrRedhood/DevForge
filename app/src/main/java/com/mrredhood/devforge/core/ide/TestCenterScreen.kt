@@ -202,7 +202,7 @@ fun TestCenterScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
-                                if (success) Icons.Default.Check else Icons.Default.Error,
+                                if (success) Icons.Default.Info else Icons.Default.Error,
                                 contentDescription = null,
                                 tint = if (success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             )
