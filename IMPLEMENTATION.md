@@ -5221,3 +5221,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added the new surfaces to the searchable IDE tools hub and Android navigation coverage.
 - [x] Documented the new workflows in More → ⓘ Help & guide.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
+
+### 2026-09-27 — Unified diagnostics center
+- [x] Added More → IDE tools → Diagnostics.
+- [x] Combined active editor diagnostics with structured findings from the existing bounded BuildFailureDiagnosis analyzer.
+- [x] Added a mobile-friendly action to load the latest build logs when a failed workflow needs deeper evidence.
+- [x] Added Android navigation coverage and Help & guide documentation.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
