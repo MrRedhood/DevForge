@@ -5239,3 +5239,8 @@ Restored the three project GitHub Actions workflows through the repository Git i
 
 - [x] Hardened Code Intelligence result handling to tolerate unsupported LSP-facade responses without unsafe generic casts.
 - [x] Tightened Code Intelligence's sealed-result handling to use explicit Ready/Unsupported branches and avoid unsafe generic casts.
+### 2026-09-27 — CI repair for remaining IDE surfaces
+- [x] Repaired the Professional IDE Help & guide category after the first validation exposed malformed nested topic separators from the earlier documentation insertion.
+- [x] Restored Diagnostics and Code Intelligence as proper guide topics.
+- [x] Added the missing Material 3 TopAppBar import to Dependencies and removed an unused workspace-search import.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this repair head.
