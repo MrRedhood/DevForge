@@ -382,7 +382,7 @@ class GitHubActionsGateway(
         )
     }
 
-    fun fetchLogs(
+    suspend fun fetchLogs(
         owner: String,
         repository: String,
         runId: Long,
@@ -439,7 +439,7 @@ class GitHubActionsGateway(
             val apiLogSource = "https://api.github.com/repos/" + normalizedOwner + "/" + normalizedRepository + "/actions/jobs/" + job.id + "/logs"
             var textResult = getTextUrl(apiLogSource, limit)
             if (textResult.isFailure) {
-                Thread.sleep(120L)
+                delay(120L)
                 textResult = getTextUrl(apiLogSource, limit)
             }
             val text = textResult.getOrElse { error ->
