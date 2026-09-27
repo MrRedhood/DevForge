@@ -5244,3 +5244,10 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Restored Diagnostics and Code Intelligence as proper guide topics.
 - [x] Added the missing Material 3 TopAppBar import to Dependencies and removed an unused workspace-search import.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this repair head.
+### 2026-09-27 — Test Center execution and workspace profiles
+- [x] Test Center now exposes Run validation for GitHub-backed workspaces, dispatching the existing authoritative DevForge Android workflow and reflecting the real BuildState lifecycle.
+- [x] Test Center keeps local workspace behavior lightweight: it inventories test sources while directing execution evidence to the configured remote validation workflow.
+- [x] Added workspace-scoped profile persistence for display label, preferred build target, validation workflow, default Web Live Preview file and project notes.
+- [x] Added More → IDE tools → Workspace profile and Android navigation coverage.
+- [x] Updated Help & guide with Test Center execution and Workspace profile usage.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
