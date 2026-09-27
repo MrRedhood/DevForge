@@ -1,3 +1,14 @@
+### 2026-09-27 — Settings discoverability and workflow-template drift repair
+- [x] Audited the current main branch for adjacent usability, reliability, and documentation gaps instead of adding unrelated product surface area.
+- [x] Re-synced `BuildWorkflowTemplates.kt` with the live `.github/workflows/android.yml`, `.github/workflows/ui.yml`, and `.github/workflows/release-validation.yml` contracts, including release-first CI defaults, release-signing checks, UI emulator hardening/retries, artifact verification, and release validation budgets.
+- [x] Added searchable Settings home with case-insensitive section filtering and a clear no-results state.
+- [x] Hardened Settings numeric inputs to accept digits only and use the numeric Android keyboard.
+- [x] Added Android UI regression coverage for Settings search filtering and the no-results state.
+- [x] Added JVM regression coverage for the provisioned CI/UI/release workflow template contracts so future workflow drift fails unit tests.
+- [x] Updated More → ⓘ Help & guide with the searchable Settings workflow.
+- [x] Corrected architecture documentation to the actual large-file editor safeguard threshold: above 64 KiB or 2,000 lines.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this final main-branch commit; no unverified green status is claimed.
+
 ### 2026-09-27 — Reliable AI GitHub deletion repair
 - [x] Single-file GitHub-backed `delete_path` mutations now use the GitHub Contents API directly instead of the Git Data tree API, eliminating the observed transient `git/trees` HTTP 404 race after a preceding deletion commit.
 - [x] Folder deletion retains recursive tracked-file behavior; the existing batched Git tree path remains available for multi-file deletion with its retry/fallback protection.
