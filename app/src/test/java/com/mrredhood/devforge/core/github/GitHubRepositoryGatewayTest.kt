@@ -69,7 +69,6 @@ class GitHubRepositoryGatewayTest {
                         return 200
                     }
                     override fun getOutputStream() = java.io.ByteArrayOutputStream()
-$marker
                     override fun getErrorStream() = ByteArrayInputStream(ByteArray(0))
                 }
             },
