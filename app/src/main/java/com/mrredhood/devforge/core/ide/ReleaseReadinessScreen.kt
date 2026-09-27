@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,6 +27,7 @@ import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.quality.DevForgeReleaseQualityGate
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReleaseReadinessScreen(
     onBack: () -> Unit,
