@@ -1046,6 +1046,32 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 "Git and pending GitHub changes.",
                 listOf("+ = added","− = removed")),
         ),
+    ),,
+
+    GuideCategory(
+        "AI Engineering",
+        "Understand the AI execution observer and the review workflow for AI-created workspace changes.",
+        listOf(
+            t("AI execution monitor", "Observe the durable AI task lifecycle without controlling the agent yourself.",
+                listOf(
+                    "Open More → IDE tools → AI execution.",
+                    "Select a task to inspect its current step, model, last tool, approval state, plan and result.",
+                    "Use Recent execution events to understand what the agent actually did.",
+                    "A waiting approval is shown as a boundary; approve or reject it from More → Approvals.",
+                ),
+                "More → IDE tools → AI execution.",
+                listOf("Active = queued/planning/running/waiting","Completed = finished task","Waiting approval = execution boundary")),
+            t("AI change review", "Review the current Git working tree after AI execution before treating the result as complete.",
+                listOf(
+                    "Open More → IDE tools → AI change review.",
+                    "Review the current changed-file list and addition/removal totals.",
+                    "Inspect bounded diff excerpts for each file.",
+                    "Mark files as reviewed as you inspect them; this review marker is local to the current screen session.",
+                    "Use More → Diffs when you need the full existing diff surface.",
+                ),
+                "More → IDE tools → AI change review.",
+                listOf("Review = locally marked reviewed","+ / - = changed lines","Refresh = reload current worktree")),
+        ),
     ),
 )
 
