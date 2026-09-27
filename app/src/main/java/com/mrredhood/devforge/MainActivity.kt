@@ -3623,7 +3623,7 @@ private fun SettingsScreen(
             section = appSettingsSection,
             onSectionChange = onAppSettingsSectionChange,
         )
-        else {
+        else -> {
             var searchQuery by rememberSaveable { mutableStateOf("") }
             val normalizedQuery = searchQuery.trim()
             val searchEntries = listOf(
