@@ -1,3 +1,12 @@
+### 2026-09-27 — AI run inspector and operations inbox
+- [x] Added `AiRunInspectorScreen` for durable and live AI task inspection, including filters, task metadata, provider/model, timestamps, plan trace, approvals, errors, results and audit timeline.
+- [x] Added `OperationsInboxScreen` to unify AI task state, pending approvals, recent build receipts, paused/recovery signals and offline queue entries in a time-ordered triage view.
+- [x] Kept agent execution observational; no launch, pause, resume, stop or model-selection controls were introduced for users.
+- [x] Added safe dismissal of stale offline queue entries with immediate inbox refresh.
+- [x] Added both surfaces to IDE routing, IDE Tools search/cards and Android navigation coverage.
+- [x] Documented both user-facing features in More → ⓘ Help & guide.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this head.
+
 ### 2026-09-27 — Project health IDE surface
 - [x] Added `ProjectHealthScreen` with bounded workspace-integrity checks from `WorkspaceIntegrityService`.
 - [x] Combined persisted workspace state with recent Build Center evidence, editor errors/warnings, unsaved tabs and pending approvals.
