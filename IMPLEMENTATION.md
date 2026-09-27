@@ -5173,3 +5173,9 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - Preserved the existing transient 404/409 retry and delete-only fallback behavior.
 - This is an internal reliability repair; no user-facing Help & Guide change was required.
 - Validation: Android CI and Android UI Tests must pass against the final main commit before this cycle is considered complete.
+
+## 2026-09-27 — GitHub retry-loop Kotlin compilation repair
+- Replaced Kotlin `repeat` lambdas with actual `for` loops in GitHub commit retry paths so the existing `break` statements compile and still terminate successful retries immediately.
+- Preserved the retry limits and transient error handling.
+- Internal repair only; no user-facing Help & Guide change was required.
+- Fresh Android CI and Android UI validation required against the final main commit.
