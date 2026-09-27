@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +39,7 @@ import com.mrredhood.devforge.core.editor.EditorViewModel
 import com.mrredhood.devforge.core.github.GitHubPendingChangeBatch
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectOverviewScreen(
     workspace: WorkspaceViewModel,
