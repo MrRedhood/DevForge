@@ -72,6 +72,8 @@ enum class IdeTool(val title: String) {
     LOGS("Logs"),
     AI_EXECUTION("AI execution"),
     AI_CHANGE_REVIEW("AI change review"),
+    TEST_CENTER("Test center"),
+    ENVIRONMENT_DOCTOR("Environment doctor"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,6 +107,8 @@ fun IdeToolScreen(
             IdeTool.LOGS -> LogsContent(padding)
             IdeTool.AI_EXECUTION -> EmbeddedToolContent(padding) { AgentExecutionScreen() }
             IdeTool.AI_CHANGE_REVIEW -> EmbeddedToolContent(padding) { AiChangeReviewScreen() }
+            IdeTool.TEST_CENTER -> EmbeddedToolContent(padding) { TestCenterScreen() }
+            IdeTool.ENVIRONMENT_DOCTOR -> EmbeddedToolContent(padding) { EnvironmentDoctorScreen() }
         }
     }
 }
