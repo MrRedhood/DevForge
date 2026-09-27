@@ -216,7 +216,11 @@ fun DevForgeSettingsScreen(
                         }
                     }
                 } else {
-                    items(visibleItems, key = { it.third }) { item ->
+                    items(
+                        count = visibleItems.size,
+                        key = { index -> visibleItems[index].third },
+                    ) { index ->
+                        val item = visibleItems[index]
                         SimpleSettingsTile(item.first, item.second) { onSectionChange(item.third) }
                     }
                 }
