@@ -1094,7 +1094,48 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 "More → IDE tools → AI change review.",
                 listOf("Review = locally marked reviewed","+ / - = changed lines","Refresh = reload current worktree")),
         ),
-    ),
+    ),,
+    GuideCategory(
+        "Professional IDE",
+        "Focused engineering surfaces for running, validating, securing, and understanding a project.",
+        listOf(
+            t("Run & Debug", "Keep the debug build target, build state, branch, and Android runtime readiness together.",
+                listOf(
+                    "Open More → IDE tools → Run & Debug.",
+                    "Review the active workspace/repository and debug target.",
+                    "Tap Build debug APK to dispatch the configured DevForge Android workflow.",
+                    "Use Refresh to reload the latest build state after the workflow advances.",
+                ),
+                "More → IDE tools → Run & Debug.",
+                listOf("Ready = can dispatch","Running = workflow active","Completed = artifact available")),
+            t("CI/CD", "Review pipeline health and live GitHub Actions workflows without opening the full Build Center.",
+                listOf(
+                    "Open More → IDE tools → CI/CD.",
+                    "Review recent pass/fail/running totals.",
+                    "Refresh the live workflow list when a run is expected to change state.",
+                    "Use Build Center for dispatch, logs, artifacts, cancellation, and workflow configuration.",
+                ),
+                "More → IDE tools → CI/CD.",
+                listOf("passed = successful recent runs","failed = failed recent runs","running = queued/in-progress")),
+            t("Dependencies", "Inspect the source files that define Gradle dependency and build configuration.",
+                listOf(
+                    "Open More → IDE tools → Dependencies.",
+                    "Review version catalogs, build scripts, settings, wrapper, and Gradle properties.",
+                    "Use Build Center → dependency report when you need the resolved dependency graph rather than the source configuration.",
+                ),
+                "More → IDE tools → Dependencies.",
+                listOf("Source = configuration input","dependency report = resolved build evidence")),
+            t("Security Center", "Review credential protection and the workspace security boundaries used by AI and automation.",
+                listOf(
+                    "Open More → IDE tools → Security Center.",
+                    "Review the workspace path boundary and sensitive-action policy.",
+                    "Enable biometric protection for stored AI and GitHub credentials when the device supports strong biometric authentication.",
+                    "Use Approvals to handle high-impact actions that require explicit authorization.",
+                ),
+                "More → IDE tools → Security Center.",
+                listOf("protected = credential storage is guarded","locked = protected credentials unavailable to ordinary reads")),
+        ),
+    )
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
