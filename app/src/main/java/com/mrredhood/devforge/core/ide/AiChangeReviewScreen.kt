@@ -31,6 +31,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
@@ -50,6 +52,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiChangeReviewScreen(
+    onBack: () -> Unit,
     diffViewModel: GitDiffViewModel = viewModel(),
     agentViewModel: AgentActivityViewModel = viewModel(),
 ) {
@@ -63,6 +66,7 @@ fun AiChangeReviewScreen(
         topBar = {
             TopAppBar(
                 title = { Text("AI change review", maxLines = 1) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") } },
                 actions = {
                     IconButton(onClick = diffViewModel::refresh) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh changes")
