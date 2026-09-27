@@ -57,7 +57,10 @@ fun CodeIntelligenceScreen(
             return
         }
         searching = true
-        symbols = (service.symbols(workspaceId, clean) as? LspQueryResult.Ready)?.value.orEmpty()
+        symbols = when (val result = service.symbols(workspaceId, clean)) {
+            is LspQueryResult.Ready -> result.value
+            is LspQueryResult.Unsupported -> emptyList()
+        }
         definition = null
         references = emptyList()
     }
@@ -73,10 +76,14 @@ fun CodeIntelligenceScreen(
         }
         searching = true
         symbols = (service.symbols(workspaceId, clean) as LspQueryResult.Ready).value
-        definition = service.definition(workspaceId, clean).let { result ->
-            (result as? LspQueryResult.Ready)?.value
+        definition = when (val result = service.definition(workspaceId, clean)) {
+            is LspQueryResult.Ready -> result.value
+            is LspQueryResult.Unsupported -> null
         }
-        references = (service.references(workspaceId, clean) as? LspQueryResult.Ready)?.value.orEmpty()
+        references = when (val result = service.references(workspaceId, clean)) {
+            is LspQueryResult.Ready -> result.value
+            is LspQueryResult.Unsupported -> emptyList()
+        }
         searching = false
     }
 
