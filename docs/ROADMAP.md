@@ -71,8 +71,10 @@ Stage 5 recovery/intelligence implementation is now exposed through the IDE tool
 - Automation engine
 - Bounded specialist agents
 - Semantic retrieval
-- Optional LSP integration
+- Optional LSP provider registration boundary
 - Selective KMP extraction
+
+The current LSP work establishes a safe registration boundary; external server process execution remains an optional follow-on rather than a bundled runtime.
 
 ### Non-goals for early releases
 
