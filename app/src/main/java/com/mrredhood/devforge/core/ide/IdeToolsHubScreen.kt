@@ -15,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Reviews
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
@@ -61,6 +63,8 @@ private val ideToolCards = listOf(
     IdeToolCard(IdeTool.LOGS, Icons.Default.Terminal, "Logs", "Inspect a bounded device logcat snapshot for troubleshooting."),
     IdeToolCard(IdeTool.AI_EXECUTION, Icons.Default.AutoAwesome, "AI execution", "Observe plans, step progress, tools, approvals, model details and verification evidence from AI-managed work."),
     IdeToolCard(IdeTool.AI_CHANGE_REVIEW, Icons.Default.Reviews, "AI change review", "Review current workspace changes with additions, removals and per-file review state before considering AI work complete."),
+    IdeToolCard(IdeTool.TEST_CENTER, Icons.Default.Science, "Test center", "Discover test sources and review authoritative DevForge build/test receipts from the current project."),
+    IdeToolCard(IdeTool.ENVIRONMENT_DOCTOR, Icons.Default.HealthAndSafety, "Environment doctor", "Check workspace, Gradle, Git, Android, AI and preview readiness before troubleshooting deeper issues."),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
