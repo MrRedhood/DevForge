@@ -62,6 +62,8 @@
 - AI run inspector
 - Project memory
 
+Stage 5 recovery/intelligence implementation is now exposed through the IDE toolbox with durable inspection surfaces for these systems.
+
 ## Stage 6 — Expansion
 
 - Multiple AI providers
