@@ -82,7 +82,7 @@ class GitHubRepositoryGatewayTest {
             changes = listOf(GitHubTreeChange("styles.css", delete = true)),
         )
 
-        assertTrue(result is GitHubCommitResult.Success)
+        assertTrue(result.toString(), result is GitHubCommitResult.Success)
         assertEquals(
             listOf(
                 "GET /repos/MrRedhood/DevForge/contents/styles.css?ref=main",
