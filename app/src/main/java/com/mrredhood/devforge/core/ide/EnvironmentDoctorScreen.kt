@@ -56,21 +56,7 @@ fun EnvironmentDoctorScreen(
     var checks by remember { mutableStateOf<List<DoctorCheck>>(emptyList()) }
     var scanning by remember { mutableStateOf(false) }
 
-    fun describeGit(): Pair<Boolean, String> {
-        val remote = workspace.remoteWorkspace
-        if (remote != null) {
-            return true to (remote.owner + "/" + remote.repository + " · " + remote.branch)
-        }
-        val root = workspace.rootUri ?: return false to "No workspace root."
-        return when (val state = GitRepositoryService(workspace.getApplication().contentResolver).let { service ->
-            kotlinx.coroutines.runBlocking { service.detect(root) }
-        }) {
-            is GitDetectionState.Detected -> true to "Repository detected · " + (state.repository.branchName ?: "detached")
-            GitDetectionState.NotDetected -> false to "No readable Git repository detected."
-            GitDetectionState.Detecting -> false to "Git detection is still running."
-            is GitDetectionState.Unsupported -> false to state.reason
-        }
-    }
+
 
     LaunchedEffect(workspace.rootUri, workspace.entries.size, workspace.remoteWorkspace?.repository) {
         val active = workspace.workspace
