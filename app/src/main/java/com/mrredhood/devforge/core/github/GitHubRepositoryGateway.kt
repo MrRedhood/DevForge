@@ -305,7 +305,7 @@ class GitHubRepositoryGateway(
                         Thread.sleep(150L * (attempt + 1))
                     }
 
-                    if (treeSha != null) return@repeat
+                    if (treeSha != null) break
                 }
 
                 if (treeSha == null) {
@@ -390,7 +390,7 @@ class GitHubRepositoryGateway(
                             parentCommit = freshParent
                             treeSha = freshTreeSha
                             updated = true
-                            return@repeat
+                            break
                         } catch (retryError: Throwable) {
                             lastRefError = retryError
                             Thread.sleep(150L * (attempt + 1))
