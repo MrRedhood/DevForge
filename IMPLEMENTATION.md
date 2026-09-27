@@ -5179,3 +5179,14 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - Preserved the retry limits and transient error handling.
 - Internal repair only; no user-facing Help & Guide change was required.
 - Fresh Android CI and Android UI validation required against the final main commit.
+
+
+### 2026-09-27 — AI execution monitor and change review surfaces
+- [x] Added More → IDE tools → AI execution as a read-only live observer over persisted AgentTask records.
+- [x] Added execution summary, task progress, model/tool metadata, plan-step state, approval state, recent agent audit events, errors, and final task results.
+- [x] Reused AgentExecutionGraphBuilder and AgentExecutionTimeline so the UI reflects the durable execution model instead of maintaining a duplicate runtime state.
+- [x] Added More → IDE tools → AI change review for current workspace Git changes.
+- [x] Added per-file added/removed counts, bounded diff excerpts, latest AI-task context, refresh, and local review-state tracking.
+- [x] Kept the new surfaces review/observation-only; they do not expose user-facing agent lifecycle or execution controls.
+- [x] Added both features to the Help & guide and Android navigation coverage.
+- [ ] Fresh Android CI and Android UI Tests validation is required for the final main head.
