@@ -58,7 +58,6 @@ fun CodeIntelligenceScreen(
         }
         searching = true
         symbols = (service.symbols(workspaceId, clean) as LspQueryResult.Ready).value
-        kotlinx.coroutines.GlobalScope // bounded facade calls are in-memory/index based
         definition = null
         references = emptyList()
     }
