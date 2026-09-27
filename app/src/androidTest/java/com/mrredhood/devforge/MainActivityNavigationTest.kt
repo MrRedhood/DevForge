@@ -231,6 +231,7 @@ class MainActivityNavigationTest {
         waitForNode("More navigation")
         composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
         composeRule.onNodeWithText("Settings", useUnmergedTree = true).performClick()
+        waitForTag("settings-search")
 
         composeRule.onNodeWithTag("settings-search", useUnmergedTree = true).performTextInput("terminal")
         composeRule.onNodeWithText("Terminal", useUnmergedTree = true).assertIsDisplayed()
