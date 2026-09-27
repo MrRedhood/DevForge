@@ -11,6 +11,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
@@ -195,6 +197,22 @@ class MainActivityNavigationTest {
         composeRule.onNodeWithTag("github-repository-creation-list", useUnmergedTree = true)
             .performScrollToNode(hasText("Create repository"))
         composeRule.onNodeWithText("Create repository", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsSearchFiltersSectionsAndShowsNoResultsState() {
+        resetToEditorHome()
+        waitForNode("More navigation")
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Settings", useUnmergedTree = true).performClick()
+
+        composeRule.onNodeWithTag("settings-search", useUnmergedTree = true).performTextInput("terminal")
+        composeRule.onNodeWithText("Terminal", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onAllNodesWithText("AI routing", useUnmergedTree = true).assertCountEquals(0)
+
+        composeRule.onNodeWithTag("settings-search", useUnmergedTree = true).performTextClearance()
+        composeRule.onNodeWithTag("settings-search", useUnmergedTree = true).performTextInput("not-a-real-setting")
+        composeRule.onNodeWithText("No settings found", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
