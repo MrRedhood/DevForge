@@ -79,6 +79,7 @@ enum class IdeTool(val title: String) {
     WORKSPACE_PROFILE("Workspace profile"),
     RELEASE_READINESS("Release readiness"),
     PROJECT_MEMORY("Project memory"),
+    PROJECT_HEALTH("Project health"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -140,6 +141,10 @@ fun IdeToolScreen(
         }
         IdeTool.PROJECT_MEMORY -> {
             ProjectMemoryScreen(onBack = onBack)
+            return
+        }
+        IdeTool.PROJECT_HEALTH -> {
+            ProjectHealthScreen(onBack = onBack)
             return
         }
         else -> Unit
