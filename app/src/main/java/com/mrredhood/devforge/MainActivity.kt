@@ -371,13 +371,13 @@ private fun DevForgeApp(
         ideTool = null
         ideToolFromHub = false
         showIdeToolsHub = false
-        if (next.name == destinationName && !showEditor) return
-        if (!showEditor) destinationHistory = (destinationHistory + destinationName).takeLast(MAX_DESTINATION_HISTORY)
-        destinationName = next.name
         if (next == DevForgeDestination.Settings) {
             settingsSection = "home"
             appSettingsSection = "home"
         }
+        if (next.name == destinationName && !showEditor) return
+        if (!showEditor) destinationHistory = (destinationHistory + destinationName).takeLast(MAX_DESTINATION_HISTORY)
+        destinationName = next.name
         showEditor = false
         if (next != DevForgeDestination.Git) {
             gitCommitHistoryOpen = false
