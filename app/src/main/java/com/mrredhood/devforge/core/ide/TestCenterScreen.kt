@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Science
@@ -203,7 +202,7 @@ fun TestCenterScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
-                                if (success) Icons.Default.CheckCircle else Icons.Default.Error,
+                                if (success) Icons.Default.Check else Icons.Default.Error,
                                 contentDescription = null,
                                 tint = if (success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             )
