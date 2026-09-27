@@ -71,6 +71,7 @@ private val ideToolCards = listOf(
     IdeToolCard(IdeTool.RUN_DEBUG, Icons.Default.PlayArrow, "Run & Debug", "Start the configured debug APK workflow and keep build state, target and device readiness together."),
     IdeToolCard(IdeTool.CI_CD, Icons.Default.Cloud, "CI/CD", "Review recent pipeline health, live workflows and the repository build contract."),
     IdeToolCard(IdeTool.SECURITY_CENTER, Icons.Default.Security, "Security Center", "Review credential protection, workspace boundaries and sensitive-action safeguards."),
+    IdeToolCard(IdeTool.DIAGNOSTICS, Icons.Default.Error, "Diagnostics", "Combine editor problems with structured build-failure evidence in one troubleshooting surface."),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
