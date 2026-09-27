@@ -1149,6 +1149,7 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                     "Enter a class, function, interface or other indexed symbol.",
                     "Review exact definitions, matching symbols and indexed references.",
                     "The language-server boundary remains optional; the built-in index works without bundling an external server.",
+                    "DevForge now exposes a lightweight language-server provider registry so future external adapters can be registered without coupling the editor to a specific server process.",
                 ),
                 "More → IDE tools → Code Intelligence.",
                 listOf("definition = exact indexed symbol","references = indexed context matches")),
