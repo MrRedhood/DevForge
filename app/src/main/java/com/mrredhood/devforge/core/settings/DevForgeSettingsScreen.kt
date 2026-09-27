@@ -62,10 +62,22 @@ fun DevForgeSettingsScreen(
         "build" -> {
             val settings = viewModel.settings
             var buildPoll by remember(settings.buildPollSeconds) { mutableStateOf(settings.buildPollSeconds.toString()) }
-            SettingsDetail("Build") {
-                SettingsHint("Build polling controls how often DevForge checks remote build status.")
+            var automationInterval by remember(settings.automationEventIntervalMinutes) {
+                mutableStateOf(settings.automationEventIntervalMinutes.toString())
+            }
+            SettingsDetail("Build & automation") {
+                SettingsHint("Build polling controls remote build checks. Automation monitoring controls how often repository events are checked.")
                 NumberField("Build polling seconds", buildPoll) { buildPoll = it.take(3) }
-                SettingsAction("Apply") { viewModel.setBuildPoll(buildPoll) }
+                NumberField("Automation monitor interval (minutes)", automationInterval) { automationInterval = it.take(4) }
+                SettingsAction("Apply") {
+                    viewModel.setBuildPoll(buildPoll)
+                    viewModel.setAutomationInterval(automationInterval)
+                }
+                Text(
+                    "Allowed: build 2–60 seconds; automation 15 minutes to 7 days.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
