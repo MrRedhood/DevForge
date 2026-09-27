@@ -5167,3 +5167,9 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Stabilized the Settings search UI test by waiting for the real Settings search surface before entering text after navigation.
 - [x] Added global search to the outer Settings screen so direct More → Settings entry is useful on a clean state and searchable results open their exact subsection.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this final head.
+
+## 2026-09-27 — GitHub commit retry-loop reliability repair
+- Fixed GitHubRepositoryGateway.commitChanges() retry loops so successful Git tree creation and successful branch-update recovery terminate immediately instead of continuing unnecessary retry iterations.
+- Preserved the existing transient 404/409 retry and delete-only fallback behavior.
+- This is an internal reliability repair; no user-facing Help & Guide change was required.
+- Validation: Android CI and Android UI Tests must pass against the final main commit before this cycle is considered complete.
