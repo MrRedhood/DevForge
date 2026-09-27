@@ -59,6 +59,7 @@ class GitHubRepositoryGatewayTest {
                     override fun connect() = Unit
                     override fun disconnect() = Unit
                     override fun usingProxy(): Boolean = false
+                    override fun getInputStream() = ByteArrayInputStream(responseBody.toByteArray(Charsets.UTF_8))
                     override fun getResponseCode(): Int {
                         requests += requestMethod + " " + url.path + if (url.query.isNullOrBlank()) "" else "?" + url.query
                         responseBody = if (requestMethod == "GET") {

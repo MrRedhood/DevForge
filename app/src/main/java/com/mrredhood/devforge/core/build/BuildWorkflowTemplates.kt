@@ -12,6 +12,8 @@ name: Android CI
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       target:
@@ -125,6 +127,8 @@ jobs:
           TARGET="${'$'}{EVENT_TARGET:-release_apk}"
           if [[ "${'$'}EVENT_NAME" == "push" ]]; then
             TARGET="release_apk"
+          elif [[ "${'$'}EVENT_NAME" == "pull_request" ]]; then
+            TARGET="debug_apk"
           fi
           case "${'$'}TARGET" in
             debug_apk)

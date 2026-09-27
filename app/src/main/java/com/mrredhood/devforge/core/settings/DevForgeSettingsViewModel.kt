@@ -31,6 +31,11 @@ class DevForgeSettingsViewModel(application: Application) : AndroidViewModel(app
         settings = repository.snapshot()
     }
 
+    fun setAutomationInterval(value: String) {
+        value.toLongOrNull()?.let { repository.setAutomationEventIntervalMinutes(it) }
+        settings = repository.snapshot()
+    }
+
     fun setTerminalTimeout(value: String) {
         value.toLongOrNull()?.let { repository.setTerminalTimeoutMs(it) }
         settings = repository.snapshot()

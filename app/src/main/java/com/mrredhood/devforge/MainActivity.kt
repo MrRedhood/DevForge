@@ -153,6 +153,7 @@ import com.mrredhood.devforge.core.model.DevForgeDestination
 import com.mrredhood.devforge.core.policy.ApprovalCenterScreen
 import com.mrredhood.devforge.core.preview.WebLivePreviewScreen
 import com.mrredhood.devforge.core.policy.ApprovalCenterViewModel
+import com.mrredhood.devforge.core.overview.ProjectOverviewScreen
 import com.mrredhood.devforge.core.storage.ApprovalEntity
 import com.mrredhood.devforge.core.picker.PickerBridge
 import com.mrredhood.devforge.core.picker.PickerResult
@@ -277,6 +278,7 @@ private fun DevForgeApp(
     var ideToolFromHub by rememberSaveable { mutableStateOf(false) }
     var showIdeToolsHub by rememberSaveable { mutableStateOf(false) }
     var showFeatureGuide by rememberSaveable { mutableStateOf(false) }
+    var showProjectOverview by rememberSaveable { mutableStateOf(false) }
     var destinationHistory by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
     var showGlobalSearch by rememberSaveable { mutableStateOf(false) }
@@ -310,6 +312,7 @@ private fun DevForgeApp(
             ideToolFromHub = false
             showIdeToolsHub = false
             showFeatureGuide = false
+            showProjectOverview = false
             showProjectActivity = false
             commitDialogOpen = false
             gitCommitHistoryOpen = false
@@ -387,6 +390,9 @@ private fun DevForgeApp(
     fun handleBackNavigation() {
         val activeEditorTab = editor.activeTab
         when {
+            showProjectOverview -> {
+                showProjectOverview = false
+            }
             showIdeToolsHub -> {
                 showIdeToolsHub = false
             }
@@ -605,6 +611,7 @@ private fun DevForgeApp(
                             ideToolFromHub = false
                             showIdeToolsHub = true
                         },
+                        onOpenProjectOverview = { showProjectOverview = true },
                     )
                 }
             }
@@ -613,6 +620,7 @@ private fun DevForgeApp(
                 !showChat &&
                 !showEditorMenu &&
                 !showFeatureGuide &&
+                !showProjectOverview &&
                 !showProjectActivity &&
                 ideTool == null &&
                 !showIdeToolsHub
@@ -677,6 +685,37 @@ private fun DevForgeApp(
             github = githubRepositories,
             onDismiss = { showPublishLocalProject = false },
         )
+    }
+
+    if (showProjectOverview) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            ProjectOverviewScreen(
+                workspace = workspace,
+                editor = editor,
+                build = build,
+                pendingBatch = pendingBatch,
+                onBack = { showProjectOverview = false },
+                onOpenEditor = {
+                    showProjectOverview = false
+                    openEditor()
+                },
+                onOpenFiles = {
+                    showProjectOverview = false
+                    navigateTo(DevForgeDestination.Files)
+                },
+                onOpenBuild = {
+                    showProjectOverview = false
+                    navigateTo(DevForgeDestination.Build)
+                },
+                onOpenGit = {
+                    showProjectOverview = false
+                    navigateTo(DevForgeDestination.Git)
+                },
+            )
+        }
     }
 
     if (showFeatureGuide) {
@@ -1923,6 +1962,7 @@ private fun DestinationScreen(
     onMoreDestination: (DevForgeDestination) -> Unit,
     onOpenFeatureGuide: () -> Unit,
     onOpenIdeTools: () -> Unit,
+    onOpenProjectOverview: () -> Unit,
 ) {
     when (destination) {
         DevForgeDestination.Files -> FilesScreen(workspace, editor, onCommitPending)
@@ -1951,6 +1991,7 @@ private fun DestinationScreen(
             onSelect = { target -> onMoreDestination(target) },
             onOpenFeatureGuide = onOpenFeatureGuide,
             onOpenIdeTools = onOpenIdeTools,
+            onOpenProjectOverview = onOpenProjectOverview,
         )
     }
 }
@@ -1960,6 +2001,7 @@ private fun MoreScreen(
     onSelect: (DevForgeDestination) -> Unit,
     onOpenFeatureGuide: () -> Unit,
     onOpenIdeTools: () -> Unit,
+    onOpenProjectOverview: () -> Unit,
 ) {
     val context = LocalContext.current
     LazyColumn(
@@ -2010,6 +2052,13 @@ private fun MoreScreen(
                     Icon(Icons.Default.ChevronRight, contentDescription = null)
                 }
             }
+        }
+        item {
+            SimpleSettingsTile(
+                title = "Project overview",
+                subtitle = "See workspace, unsaved files, remote changes, and build status in one place",
+                onClick = onOpenProjectOverview,
+            )
         }
         item {
             SimpleSettingsTile(

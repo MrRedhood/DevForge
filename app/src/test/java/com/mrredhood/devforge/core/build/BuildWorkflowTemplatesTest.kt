@@ -10,6 +10,8 @@ class BuildWorkflowTemplatesTest {
         val ci = BuildWorkflowTemplates.ci
         assertTrue(ci.contains("# Main-branch Android CI is release-first"))
         assertTrue(ci.contains("default: release_apk"))
+        assertTrue(ci.contains("pull_request:"))
+        assertTrue(ci.contains("TARGET=\"debug_apk\""))
         assertTrue(ci.contains("if [[ \"\$EVENT_NAME\" == \"push\" ]]; then"))
         assertTrue(ci.contains("""TARGET="release_apk""""))
         assertTrue(ci.contains("devforge-release-apk"))
@@ -31,7 +33,8 @@ class BuildWorkflowTemplatesTest {
         val release = BuildWorkflowTemplates.release
         assertTrue(release.contains("check-build-budget.sh release-apk"))
         assertTrue(release.contains("check-build-budget.sh release-aab"))
-        assertTrue(release.contains("apksigner verify"))
+        assertTrue(release.contains("APK_SIGNER="))
+        assertTrue(release.contains("\"$" + "APK_SIGNER\" verify"))
         assertTrue(release.contains("jarsigner -verify"))
         assertTrue(release.contains("devforge-release-validation"))
     }
