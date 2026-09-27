@@ -1094,7 +1094,7 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 "More → IDE tools → AI change review.",
                 listOf("Review = locally marked reviewed","+ / - = changed lines","Refresh = reload current worktree")),
         ),
-    ),,
+    ),
     GuideCategory(
         "Professional IDE",
         "Focused engineering surfaces for running, validating, securing, and understanding a project.",
@@ -1131,7 +1131,10 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                     "Review the workspace path boundary and sensitive-action policy.",
                     "Enable biometric protection for stored AI and GitHub credentials when the device supports strong biometric authentication.",
                     "Use Approvals to handle high-impact actions that require explicit authorization.",
-                    t("Diagnostics", "Combine active editor diagnostics with structured evidence from loaded build logs.",
+                ),
+                "More → IDE tools → Security Center.",
+                listOf("protected = credential storage is guarded","locked = protected credentials unavailable to ordinary reads")),
+            t("Diagnostics", "Combine active editor diagnostics with structured evidence from loaded build logs.",
                 listOf(
                     "Open More → IDE tools → Diagnostics.",
                     "Review active editor errors and warnings first.",
@@ -1140,13 +1143,18 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 ),
                 "More → IDE tools → Diagnostics.",
                 listOf("editor diagnostics = live workspace/editor issues","build evidence = structured CI log findings")),
+            t("Code Intelligence", "Search indexed symbols and inspect definitions and references through the built-in LSP-compatible facade.",
+                listOf(
+                    "Open More → IDE tools → Code Intelligence.",
+                    "Enter a class, function, interface, or other indexed symbol.",
+                    "Review exact definitions, matching symbols, and indexed references.",
+                    "DevForge keeps the language-server protocol boundary optional; this surface uses the built-in index without requiring a bundled external server.",
+                ),
+                "More → IDE tools → Code Intelligence.",
+                listOf("definition = exact indexed symbol","references = indexed semantic/context matches")),
         ),
-                "More → IDE tools → Security Center.",
-                listOf("protected = credential storage is guarded","locked = protected credentials unavailable to ordinary reads")),
-        ),
-    )
+    ),
 )
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeatureGuideScreen(onClose: () -> Unit) {
