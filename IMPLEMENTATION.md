@@ -1,3 +1,12 @@
+### 2026-09-27 — Project memory IDE surface and Test Center icon repair
+- [x] Fixed the Test Center build regression by replacing the unavailable `Icons.Filled.CheckCircle` reference with the supported `Icons.Filled.Check` icon.
+- [x] Added `ProjectMemoryScreen` as a user-facing IDE tool for durable AI project memory and read-only agent handoffs.
+- [x] Added bounded memory search, timestamps, source-task visibility, stale-memory deletion, handoff status visibility, and workspace refresh handling.
+- [x] Kept agent execution controls AI-managed; the screen is observational except for deleting durable memory notes.
+- [x] Added the Project memory IDE tool to the IDE enum, hub, navigation and Android UI coverage.
+- [x] Documented the feature in More → ⓘ Help & guide.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this head.
+
 ### 2026-09-27 — GitHub Actions log retry coroutine repair
 - [x] Converted `GitHubActionsGateway.fetchLogs` to a suspending API so transient log retry waiting does not block a worker thread.
 - [x] Replaced the blocking `Thread.sleep(120L)` retry delay with coroutine `delay(120L)`.
