@@ -96,7 +96,7 @@ class EditorLspService(context: Context) {
     ): LspQueryResult<String> {
         require(oldName.isNotBlank()) { "Old symbol name cannot be empty." }
         require(newName.isNotBlank()) { "New symbol name cannot be empty." }
-        val replaced = Regex("\b" + Regex.escape(oldName) + "\b").replace(content, newName)
+        val replaced = Regex("\\b" + Regex.escape(oldName) + "\\b").replace(content, newName)
         return LspQueryResult.Ready(replaced)
     }
 }
