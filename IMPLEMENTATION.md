@@ -5251,3 +5251,8 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Added More → IDE tools → Workspace profile and Android navigation coverage.
 - [x] Updated Help & guide with Test Center execution and Workspace profile usage.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
+### 2026-09-27 — Release readiness surface
+- [x] Added More → IDE tools → Release readiness.
+- [x] Reused DevForgeReleaseQualityGate so readiness is evaluated from real build receipts, artifact/log state, editor dirtiness, diagnostics and build configuration.
+- [x] Added searchable IDE-tool navigation coverage and Help & guide documentation.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
