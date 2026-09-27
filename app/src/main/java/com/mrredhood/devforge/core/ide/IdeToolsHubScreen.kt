@@ -187,7 +187,7 @@ fun IdeToolsHubScreen(
 private fun normalizeIdeToolSearch(value: String): String =
     value
         .lowercase()
-        .replace("&", " and ")
+        .replace("&", " ")
         .replace(Regex("[^a-z0-9]+"), " ")
         .trim()
         .replace(Regex("\\s+"), " ")
