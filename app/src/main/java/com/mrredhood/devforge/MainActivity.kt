@@ -1991,6 +1991,7 @@ private fun DestinationScreen(
             onSelect = { target -> onMoreDestination(target) },
             onOpenFeatureGuide = onOpenFeatureGuide,
             onOpenIdeTools = onOpenIdeTools,
+            onOpenProjectOverview = onOpenProjectOverview,
         )
     }
 }
