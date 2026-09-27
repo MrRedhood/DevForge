@@ -147,6 +147,27 @@ class MainActivityNavigationTest {
     }
 
     @Test
+    fun ideToolsHubExposesFocusedEngineeringTools() {
+        resetToEditorHome()
+        waitForNode("More navigation")
+        composeRule.onNodeWithContentDescription("More navigation", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag("more-screen-list", useUnmergedTree = true)
+            .performScrollToNode(hasText("IDE tools"))
+        composeRule.onNodeWithText("IDE tools", useUnmergedTree = true).performClick()
+        waitForTag("ide-tools-hub")
+        composeRule.onNodeWithText("Workspace overview", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Problems", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Project map", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Logs", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Problems", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Problems", useUnmergedTree = true).assertIsDisplayed()
+        pressAppBack()
+        waitForTag("ide-tools-hub")
+        pressAppBack()
+        waitForTag("more-screen-list")
+    }
+
+    @Test
     fun aiToolsIsAStandaloneManagementScreen() {
         resetToEditorHome()
         waitForNode("More navigation")
