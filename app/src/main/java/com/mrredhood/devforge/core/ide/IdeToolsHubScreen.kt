@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Reviews
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
@@ -57,6 +59,8 @@ private val ideToolCards = listOf(
     IdeToolCard(IdeTool.LOCAL_HISTORY, Icons.Default.History, "Local history", "Restore bounded local snapshots for the currently open file."),
     IdeToolCard(IdeTool.ENVIRONMENT, Icons.Default.Info, "Environment", "Inspect device, Android, app and workspace details when troubleshooting."),
     IdeToolCard(IdeTool.LOGS, Icons.Default.Terminal, "Logs", "Inspect a bounded device logcat snapshot for troubleshooting."),
+    IdeToolCard(IdeTool.AI_EXECUTION, Icons.Default.AutoAwesome, "AI execution", "Observe plans, step progress, tools, approvals, model details and verification evidence from AI-managed work."),
+    IdeToolCard(IdeTool.AI_CHANGE_REVIEW, Icons.Default.Reviews, "AI change review", "Review current workspace changes with additions, removals and per-file review state before considering AI work complete."),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
