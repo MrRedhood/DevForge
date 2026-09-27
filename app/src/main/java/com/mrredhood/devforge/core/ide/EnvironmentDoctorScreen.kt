@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +53,7 @@ private data class DoctorCheck(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnvironmentDoctorScreen(
+    onBack: () -> Unit,
     workspace: WorkspaceViewModel = viewModel(),
 ) {
     var checks by remember { mutableStateOf<List<DoctorCheck>>(emptyList()) }
@@ -121,6 +124,7 @@ fun EnvironmentDoctorScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Environment doctor", fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") } },
                 actions = {
                     IconButton(onClick = workspace::refresh) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh environment")
