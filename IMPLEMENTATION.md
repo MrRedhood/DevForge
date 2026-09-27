@@ -5236,3 +5236,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Kept external language-server registration optional; the current surface works from DevForge's built-in index.
 - [x] Added navigation UI coverage and Help & guide documentation.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
+
+- [x] Hardened Code Intelligence result handling to tolerate unsupported LSP-facade responses without unsafe generic casts.
