@@ -5,7 +5,8 @@
 - [x] Fixed IDE-tool top-bar, navigation, Back handling, AI FAB visibility, and return-to-origin behavior.
 - [x] Added Android UI regression coverage for opening the IDE tools hub, opening Problems, and returning through the hub/back stack.
 - [x] Updated More → ⓘ Help & guide with the new IDE tools flow.
-- [ ] Fresh Android CI and Android UI Tests validation is required for this main commit.
+- [x] Repaired the new Settings search list to use an explicit indexed `items(count = ...)` form, fixing the latest `DevForgeSettingsScreen.kt:218` Kotlin overload/type-resolution failure.
+- [ ] Fresh Android CI and Android UI Tests validation is required after the settings compile repair.
 
 ### 2026-09-27 — Settings discoverability and workflow-template drift repair
 - [x] Audited the current main branch for adjacent usability, reliability, and documentation gaps instead of adding unrelated product surface area.
