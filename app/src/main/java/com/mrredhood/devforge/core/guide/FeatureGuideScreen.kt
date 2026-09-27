@@ -1047,7 +1047,6 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 listOf("+ = added","− = removed")),
         ),
     ),
-,
     GuideCategory(
         "Project health",
         "Use the Test Center and Environment Doctor to understand project readiness and authoritative validation evidence.",
@@ -1070,7 +1069,8 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 "More → IDE tools → Environment doctor.",
                 listOf("✓ = healthy signal","error = needs attention")),
         ),
-    ),\n    GuideCategory(
+    ),
+    GuideCategory(
         "AI Engineering",
         "Understand the AI execution observer and the review workflow for AI-created workspace changes.",
         listOf(
