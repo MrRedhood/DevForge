@@ -1047,7 +1047,30 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 listOf("+ = added","− = removed")),
         ),
     ),
+,
     GuideCategory(
+        "Project health",
+        "Use the Test Center and Environment Doctor to understand project readiness and authoritative validation evidence.",
+        listOf(
+            t("Test center", "Discover local test-related sources and review persisted CI/build evidence without confusing model output with authoritative results.",
+                listOf(
+                    "Open More → IDE tools → Test center.",
+                    "For a local workspace, DevForge performs a bounded filename scan for common test conventions.",
+                    "For GitHub-backed workspaces, use the recorded CI/build receipts as the authoritative remote evidence.",
+                    "Use Build Center when a new remote validation run is required.",
+                ),
+                "More → IDE tools → Test center.",
+                listOf("CI evidence = authoritative","discovery = bounded workspace scan")),
+            t("Environment doctor", "Run a compact readiness check before debugging a project or device problem.",
+                listOf(
+                    "Open More → IDE tools → Environment doctor.",
+                    "Check the workspace, Android/Gradle markers, Gradle wrapper, Git state, GitHub link, Android runtime, device, Compose, AI and Web Live Preview signals.",
+                    "Refresh the workspace and rerun the checks after correcting a problem.",
+                ),
+                "More → IDE tools → Environment doctor.",
+                listOf("✓ = healthy signal","error = needs attention")),
+        ),
+    ),\n    GuideCategory(
         "AI Engineering",
         "Understand the AI execution observer and the review workflow for AI-created workspace changes.",
         listOf(
