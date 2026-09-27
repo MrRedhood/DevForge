@@ -194,7 +194,7 @@ fun OperationsInboxScreen(
                 }
             } else {
                 items(rows, key = { it.id }) { row ->
-                    InboxRowCard(row, offline, app)
+                    InboxRowCard(row, offline, app) { refreshToken++ }
                 }
             }
         }
@@ -217,6 +217,7 @@ private fun InboxRowCard(
     row: InboxRow,
     offline: List<OfflineQueueItem>,
     app: android.content.Context,
+    onChanged: () -> Unit,
 ) {
     OfflineActionQueueHolder.bind(app)
     val icon = when (row.kind) {
@@ -252,7 +253,7 @@ private fun InboxRowCard(
             if (row.id.startsWith("offline:")) {
                 val item = offline.firstOrNull { row.id == "offline:" + it.id }
                 item?.let {
-                    TextButton(onClick = { OfflineActionQueueHolder.remove(it.id) }) {
+                    TextButton(onClick = { OfflineActionQueueHolder.remove(it.id); onChanged() }) {
                         Icon(Icons.Default.Delete, contentDescription = null)
                         Spacer(Modifier.size(4.dp))
                         Text("Dismiss queued item")
