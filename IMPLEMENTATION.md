@@ -5238,3 +5238,4 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [ ] Fresh Android CI and Android UI Tests validation is required for this implementation head.
 
 - [x] Hardened Code Intelligence result handling to tolerate unsupported LSP-facade responses without unsafe generic casts.
+- [x] Tightened Code Intelligence's sealed-result handling to use explicit Ready/Unsupported branches and avoid unsafe generic casts.
