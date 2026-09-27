@@ -1095,11 +1095,13 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                 listOf("Review = locally marked reviewed","+ / - = changed lines","Refresh = reload current worktree")),
         ),
     ),
+)
+
     GuideCategory(
         "Professional IDE",
-        "Focused engineering surfaces for running, validating, securing, and understanding a project.",
+        "Focused engineering surfaces for running, validating, securing, diagnosing and understanding a project.",
         listOf(
-            t("Run & Debug", "Keep the debug build target, build state, branch, and Android runtime readiness together.",
+            t("Run & Debug", "Keep the debug build target, build state, branch and Android runtime readiness together.",
                 listOf(
                     "Open More → IDE tools → Run & Debug.",
                     "Review the active workspace/repository and debug target.",
@@ -1113,15 +1115,15 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                     "Open More → IDE tools → CI/CD.",
                     "Review recent pass/fail/running totals.",
                     "Refresh the live workflow list when a run is expected to change state.",
-                    "Use Build Center for dispatch, logs, artifacts, cancellation, and workflow configuration.",
+                    "Use Build Center for dispatch, logs, artifacts, cancellation and workflow configuration.",
                 ),
                 "More → IDE tools → CI/CD.",
                 listOf("passed = successful recent runs","failed = failed recent runs","running = queued/in-progress")),
             t("Dependencies", "Inspect the source files that define Gradle dependency and build configuration.",
                 listOf(
                     "Open More → IDE tools → Dependencies.",
-                    "Review version catalogs, build scripts, settings, wrapper, and Gradle properties.",
-                    "Use Build Center → dependency report when you need the resolved dependency graph rather than the source configuration.",
+                    "Review version catalogs, build scripts, settings, wrapper and Gradle properties.",
+                    "Use Build Center → dependency report when you need the resolved dependency graph rather than source configuration.",
                 ),
                 "More → IDE tools → Dependencies.",
                 listOf("Source = configuration input","dependency report = resolved build evidence")),
@@ -1130,10 +1132,10 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                     "Open More → IDE tools → Security Center.",
                     "Review the workspace path boundary and sensitive-action policy.",
                     "Enable biometric protection for stored AI and GitHub credentials when the device supports strong biometric authentication.",
-                    "Use Approvals to handle high-impact actions that require explicit authorization.",
+                    "Use Approvals for high-impact actions that require explicit authorization.",
                 ),
                 "More → IDE tools → Security Center.",
-                listOf("protected = credential storage is guarded","locked = protected credentials unavailable to ordinary reads")),
+                listOf("protected = credential storage guarded","locked = protected credentials unavailable")),
             t("Diagnostics", "Combine active editor diagnostics with structured evidence from loaded build logs.",
                 listOf(
                     "Open More → IDE tools → Diagnostics.",
@@ -1142,19 +1144,35 @@ t("Plans & execution","The plan is created by the model when useful, not by a fi
                     "Use the finding category and bounded evidence to decide what to inspect next.",
                 ),
                 "More → IDE tools → Diagnostics.",
-                listOf("editor diagnostics = live workspace/editor issues","build evidence = structured CI log findings")),
+                listOf("editor diagnostics = live issues","build evidence = structured CI findings")),
             t("Code Intelligence", "Search indexed symbols and inspect definitions and references through the built-in LSP-compatible facade.",
                 listOf(
                     "Open More → IDE tools → Code Intelligence.",
-                    "Enter a class, function, interface, or other indexed symbol.",
-                    "Review exact definitions, matching symbols, and indexed references.",
-                    "DevForge keeps the language-server protocol boundary optional; this surface uses the built-in index without requiring a bundled external server.",
+                    "Enter a class, function, interface or other indexed symbol.",
+                    "Review exact definitions, matching symbols and indexed references.",
+                    "The language-server boundary remains optional; the built-in index works without bundling an external server.",
                 ),
                 "More → IDE tools → Code Intelligence.",
-                listOf("definition = exact indexed symbol","references = indexed semantic/context matches")),
+                listOf("definition = exact indexed symbol","references = indexed context matches")),
+            t("Test Center execution", "Run the configured DevForge validation workflow and inspect persisted evidence instead of treating model output as test results.",
+                listOf(
+                    "Open More → IDE tools → Test center.",
+                    "Review discovered test sources for a local workspace or recorded CI receipts for a GitHub workspace.",
+                    "Use Run validation to dispatch the configured Android workflow when the workspace is GitHub-backed.",
+                    "Review the resulting build receipt and workflow state after execution.",
+                ),
+                "More → IDE tools → Test center.",
+                listOf("discovery = source inventory","receipt = authoritative execution evidence")),
+            t("Workspace profile", "Keep per-workspace development preferences together instead of mixing them with global application settings.",
+                listOf(
+                    "Open More → IDE tools → Workspace profile.",
+                    "Set the workspace display label, preferred build target and default validation behavior.",
+                    "Save the profile; DevForge stores it by workspace identity and does not put secrets in the profile.",
+                ),
+                "More → IDE tools → Workspace profile.",
+                listOf("workspace-scoped = applies only to the selected workspace","global settings = application-wide")),
         ),
     ),
-)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeatureGuideScreen(onClose: () -> Unit) {
@@ -1297,13 +1315,4 @@ private fun GuideSection(title: String, lines: List<String>) {
             }
         }
     }
-}            t("Code Intelligence", "Search indexed symbols and inspect definitions and references through the built-in LSP-compatible facade.",
-                listOf(
-                    "Open More → IDE tools → Code Intelligence.",
-                    "Enter a class, function, interface, or other indexed symbol.",
-                    "Review exact definitions, matching symbols, and indexed references.",
-                    "DevForge keeps the language-server protocol boundary optional; this surface uses the built-in index without requiring a bundled external server.",
-                ),
-                "More → IDE tools → Code Intelligence.",
-                listOf("definition = exact indexed symbol","references = indexed semantic/context matches")),
-
+}
