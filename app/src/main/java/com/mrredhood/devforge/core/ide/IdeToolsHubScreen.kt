@@ -72,6 +72,7 @@ private val ideToolCards = listOf(
     IdeToolCard(IdeTool.CI_CD, Icons.Default.Cloud, "CI/CD", "Review recent pipeline health, live workflows and the repository build contract."),
     IdeToolCard(IdeTool.SECURITY_CENTER, Icons.Default.Security, "Security Center", "Review credential protection, workspace boundaries and sensitive-action safeguards."),
     IdeToolCard(IdeTool.DIAGNOSTICS, Icons.Default.Error, "Diagnostics", "Combine editor problems with structured build-failure evidence in one troubleshooting surface."),
+    IdeToolCard(IdeTool.CODE_INTELLIGENCE, Icons.Default.Code, "Code Intelligence", "Search indexed symbols and inspect definitions and references through the built-in LSP-compatible facade."),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
