@@ -1,3 +1,11 @@
+### 2026-09-27 — Project health IDE surface
+- [x] Added `ProjectHealthScreen` with bounded workspace-integrity checks from `WorkspaceIntegrityService`.
+- [x] Combined persisted workspace state with recent Build Center evidence, editor errors/warnings, unsaved tabs and pending approvals.
+- [x] Added refreshable PASS/WARN/FAIL triage state and clear guidance to the deeper Build Center, Diagnostics and Release readiness surfaces.
+- [x] Added Project health to the IDE tool enum, hub, navigation and Android UI coverage.
+- [x] Documented the feature in More → ⓘ Help & guide.
+- [ ] Fresh Android CI and Android UI Tests validation is required for this head.
+
 ### 2026-09-27 — Project memory IDE surface and Test Center icon repair
 - [x] Fixed the Test Center build regression by replacing the unavailable `Icons.Filled.CheckCircle` reference with the supported `Icons.Filled.Check` icon.
 - [x] Added `ProjectMemoryScreen` as a user-facing IDE tool for durable AI project memory and read-only agent handoffs.
