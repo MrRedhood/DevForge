@@ -276,7 +276,7 @@ class GitHubRepositoryGateway(
                 var treeSha: String? = null
                 var lastTreeError: Throwable? = null
 
-                repeat(5) { attempt ->
+                for (attempt in 0 until 5) {
                     parentCommit = getJson(refPath) {
                         it.getJSONObject("object").getString("sha")
                     }.getOrThrow()
@@ -360,7 +360,7 @@ class GitHubRepositoryGateway(
 
                     var updated = false
                     var lastRefError: Throwable? = error
-                    repeat(4) { attempt ->
+                    for (attempt in 0 until 4) {
                         try {
                             val freshParent = getJson(refPath) {
                                 it.getJSONObject("object").getString("sha")
