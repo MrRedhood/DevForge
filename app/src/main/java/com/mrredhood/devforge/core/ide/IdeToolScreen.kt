@@ -74,6 +74,7 @@ enum class IdeTool(val title: String) {
     RUN_DEBUG("Run & Debug"),
     CI_CD("CI/CD"),
     SECURITY_CENTER("Security Center"),
+    DIAGNOSTICS("Diagnostics"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,6 +116,10 @@ fun IdeToolScreen(
         }
         IdeTool.SECURITY_CENTER -> {
             SecurityCenterScreen(onBack = onBack)
+            return
+        }
+        IdeTool.DIAGNOSTICS -> {
+            DiagnosticsCenterScreen(onBack = onBack)
             return
         }
         else -> Unit
