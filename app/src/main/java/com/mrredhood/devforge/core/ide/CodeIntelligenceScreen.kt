@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mrredhood.devforge.core.editor.EditorLspService
+import com.mrredhood.devforge.core.editor.LanguageServerRegistry
 import com.mrredhood.devforge.core.editor.LspQueryResult
 import com.mrredhood.devforge.core.editor.LspSymbol
 import com.mrredhood.devforge.core.workspace.WorkspaceViewModel
@@ -41,6 +42,7 @@ fun CodeIntelligenceScreen(
     val context = workspace.getApplication<android.app.Application>()
     val service = remember(context) { EditorLspService(context) }
     val descriptor = remember(service) { service.descriptor() }
+    val providerRegistry = remember(descriptor) { LanguageServerRegistry(listOf(descriptor)) }
     val workspaceId = workspace.workspace?.id
     var query by remember { mutableStateOf("") }
     var symbols by remember(workspaceId) { mutableStateOf<List<LspSymbol>>(emptyList()) }
@@ -105,6 +107,11 @@ fun CodeIntelligenceScreen(
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("Built-in code intelligence", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(descriptor.displayName)
+                        Text(
+                            "Registered providers: " + providerRegistry.all().size + " · external adapters remain optional.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Text(
                             "Capabilities: " + descriptor.capabilities.joinToString(", ").lowercase().replace('_', ' '),
                             style = MaterialTheme.typography.bodySmall,
