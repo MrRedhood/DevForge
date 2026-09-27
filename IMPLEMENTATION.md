@@ -5154,4 +5154,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Updated More and Help & guide copy to describe the new Environment tool and IDE-tool search.
 - [x] Updated Android UI coverage to exercise searchable Logs/Environment access instead of relying on off-screen lazy-list content being displayed.
 - [x] Stabilized the Settings search UI test by waiting for the real Settings search surface before entering text after navigation.
+- [x] Added global search to the outer Settings screen so direct More → Settings entry is useful on a clean state and searchable results open their exact subsection.
 - [ ] Fresh Android CI and Android UI Tests validation is required for this final head.

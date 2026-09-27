@@ -3623,36 +3623,114 @@ private fun SettingsScreen(
             section = appSettingsSection,
             onSectionChange = onAppSettingsSectionChange,
         )
-        else -> LazyColumn(
-            Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item {
-                Text(
-                    "Settings",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    "Keep setup and maintenance in a few clear sections.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+        else {
+            var searchQuery by rememberSaveable { mutableStateOf("") }
+            val normalizedQuery = searchQuery.trim()
+            val searchEntries = listOf(
+                Triple("Security", "Keystore and biometric protection") { onSectionChange("security") },
+                Triple("App settings", "Build, terminal, privacy, appearance and editor preferences") {
+                    onSectionChange("app")
+                    onAppSettingsSectionChange("home")
+                },
+                Triple("AI routing", "Choose how DevForge routes cloud AI requests") {
+                    onSectionChange("app")
+                    onAppSettingsSectionChange("routing")
+                },
+                Triple("Build & automation", "Build polling and automated event timing") {
+                    onSectionChange("app")
+                    onAppSettingsSectionChange("build")
+                },
+                Triple("Terminal", "Command timeout and terminal execution behavior") {
+                    onSectionChange("app")
+                    onAppSettingsSectionChange("terminal")
+                },
+                Triple("Privacy & retention", "Audit and chat retention controls") {
+                    onSectionChange("app")
+                    onAppSettingsSectionChange("privacy")
+                },
+                Triple("Appearance", "Theme and density preferences") {
+                    onSectionChange("app")
+                    onAppSettingsSectionChange("appearance")
+                },
+                Triple("Editor", "Font size, wrapping, invisibles and autosave") {
+                    onSectionChange("app")
+                    onAppSettingsSectionChange("editor")
+                },
+            ).filter { (title, subtitle, _) ->
+                normalizedQuery.isBlank() ||
+                    title.contains(normalizedQuery, ignoreCase = true) ||
+                    subtitle.contains(normalizedQuery, ignoreCase = true)
             }
-            item {
-                SimpleSettingsTile(
-                    title = "Security",
-                    subtitle = "Keystore and biometric protection",
-                    onClick = { onSectionChange("security") },
-                )
-            }
-            item {
-                SimpleSettingsTile(
-                    title = "App settings",
-                    subtitle = "Build, terminal, privacy, appearance and editor preferences",
-                    onClick = { onSectionChange("app") },
-                )
+
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    Text(
+                        "Settings",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "Search across settings or open a section directly.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it.take(80) },
+                        modifier = Modifier.fillMaxWidth().testTag("settings-search"),
+                        label = { Text("Search settings") },
+                        placeholder = { Text("Try terminal, editor, security…") },
+                        singleLine = true,
+                    )
+                }
+                if (normalizedQuery.isBlank()) {
+                    item {
+                        SimpleSettingsTile(
+                            title = "Security",
+                            subtitle = "Keystore and biometric protection",
+                            onClick = { onSectionChange("security") },
+                        )
+                    }
+                    item {
+                        SimpleSettingsTile(
+                            title = "App settings",
+                            subtitle = "Build, terminal, privacy, appearance and editor preferences",
+                            onClick = {
+                                onSectionChange("app")
+                                onAppSettingsSectionChange("home")
+                            },
+                        )
+                    }
+                } else if (searchEntries.isEmpty()) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("No settings found", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Try a broader term such as terminal, editor, security, or build.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(searchEntries, key = { it.first }) { entry ->
+                        SimpleSettingsTile(
+                            title = entry.first,
+                            subtitle = entry.second,
+                            onClick = entry.third,
+                        )
+                    }
+                }
             }
         }
     }
