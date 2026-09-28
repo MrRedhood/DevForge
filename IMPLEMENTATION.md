@@ -5297,3 +5297,5 @@ Restored the three project GitHub Actions workflows through the repository Git i
 - [x] Improved IDE tools search normalization so natural queries such as `run debug` match titles like `Run & Debug`, and punctuation/slash separators no longer prevent discovery.
 
 - [x] Corrected ampersand normalization to treat `&` as a separator rather than inserting a semantic `and`, so `run debug` now matches `Run & Debug`.
+
+- [x] Triggered a fresh main-branch release/validation cycle for Android CI, Android UI Tests, and release APK artifact generation on 2026-09-28.
